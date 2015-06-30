@@ -71,13 +71,11 @@ if [ $? != 0 ]; then
   exit 1
 fi
 
-adb shell "echo performance > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"
+echo adb shell "/data/local/tmp/$EXE $TESTARGS"
 
-adb shell "/data/local/tmp/$EXE" | tee "log-$EXE"
+adb shell "/data/local/tmp/$EXE $TESTARGS" | tee "log-$EXE"
 
 if [ $? != 0 ]; then
   echo "$0: adb shell failed to run binary on device"
   exit 1
 fi
-
-adb shell "echo ondemand > /sys/devices/system/cpu/cpu0/cpufreq/scaling_governor"

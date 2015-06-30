@@ -57,7 +57,7 @@ class Matrix : public MatrixMap<tScalar, tOrder> {
 
   Matrix(int rows, int cols) : Map(nullptr, 0, 0, 0) { Resize(rows, cols); }
 
-  Matrix(const Matrix& other) { *this = other; }
+  Matrix(const Matrix& other) : Map(nullptr, 0, 0, 0) { *this = other; }
 
   Matrix& operator=(const Matrix& other) {
     Resize(other.rows_, other.cols_);
