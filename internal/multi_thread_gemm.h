@@ -398,7 +398,7 @@ inline int HowManyWorkers(MultiThreadGemmContext* context, int rows, int cols,
   // workers_ busy.
   if (workers_count > 1) {
     // Empirically determined value.
-    static const int min_cubic_size_per_thread = 32 * 1024;
+    static const int min_cubic_size_per_thread = 256 * 1024;
 
     // We can only multiply two out of three sizes without risking overflow
     int cols_times_depth = cols * depth;
