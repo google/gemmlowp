@@ -38,20 +38,20 @@
 // =====
 //
 // 0. Enable profiling by defining GEMMLOWP_PROFILING. When profiling is
-//    not enabled, profiling instrumentation from common.h
+//    not enabled, profiling instrumentation from instrumentation.h
 //    (ScopedProfilingLabel, RegisterCurrentThreadForProfiling)
 //    is still defined but does nothing. On the other hand,
 //    when profiling is not enabled, it is an error to #include the
 //    present file.
 //
 // 1. Each thread can opt in to profiling by calling
-//    RegisterCurrentThreadForProfiling() defined in common.h.
+//    RegisterCurrentThreadForProfiling() defined in instrumentation.h.
 //    This can be done at any time, before or during profiling.
 //    No sample will be collected from a thread until
 //    it has called RegisterCurrentThreadForProfiling().
 //
 // 2. Instrument your code to be profiled with ScopedProfilingLabel,
-//    which is a RAII helper defined in common.h. The identifier
+//    which is a RAII helper defined in instrumentation.h. The identifier
 //    names (some_label, etc) do not matter; what will show up
 //    in the profile is the string passed to the constructor, which
 //    must be a literal string. See the full example below.
