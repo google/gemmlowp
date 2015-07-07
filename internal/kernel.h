@@ -97,8 +97,8 @@ namespace gemmlowp {
 // column-major order, so the LHS layout is:
 //
 // 0  3  6  9
-// 1  4  8  10
-// 2  5  9  11
+// 1  4  7  10
+// 2  5  8  11
 // 12 15 18 21
 // 13 16 19 22
 // 14 17 20 23
