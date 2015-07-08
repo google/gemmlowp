@@ -79,6 +79,7 @@ Then run:
 
 $ ./scripts/test-android.sh test/test.cc eight_bit_int_gemm/eight_bit_int_gemm.cc
 
+
 Troubleshooting Compilation
 ===========================
 
@@ -110,6 +111,7 @@ $ ../scripts/test-android.sh benchmark.cc
 This will compile and run a small benchmark binary, which runs through GEMMs
 with varying input matrix sizes and outputs the performance. The final test
 simulates the sort of GEMM sizes you'd expect for a GoogLeNet-style CNN.
+
 
 Profiling
 =========
