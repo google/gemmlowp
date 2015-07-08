@@ -27,6 +27,10 @@
 #include "test/test.h"
 #include "public/gemmlowp.h"
 
+#if defined(__arm__) && !defined(GEMMLOWP_NEON)
+#warning "Building without NEON support on ARM, check your compiler setup!"
+#endif
+
 namespace gemmlowp {
 
 double time() {
@@ -46,7 +50,7 @@ const std::size_t min_working_set_size = 16 * 1024 * 1024;
 
 template <typename Kernel, typename LhsType, typename RhsType,
           typename ResultType>
-double gflops_for_gemm_size(GemmContext* context, int rows, int depth,
+double time_for_gemm_size(GemmContext* context, int rows, int depth,
                             int cols) {
   typedef std::uint8_t Scalar;
 
@@ -108,6 +112,16 @@ double gflops_for_gemm_size(GemmContext* context, int rows, int depth,
     iters_at_a_time *= 2;
   }
 
+  return time_per_iter;
+}
+
+template <typename Kernel, typename LhsType, typename RhsType,
+          typename ResultType>
+double gflops_for_gemm_size(GemmContext* context, int rows, int depth,
+                            int cols) {
+  const double time_per_iter =
+      time_for_gemm_size<Kernel, LhsType, RhsType, ResultType>(
+          context, rows, depth, cols);
   return 2e-9 * rows * depth * cols / time_per_iter;
 }
 
@@ -191,6 +205,133 @@ void benchmark(GemmContext* context) {
   std::cout << std::endl;
 }
 
+void benchmark_googlenet(GemmContext* context) {
+
+#ifdef GEMMLOWP_TEST_KERNEL
+  typedef gemmlowp::GEMMLOWP_TEST_KERNEL KernelForGEMM;
+  typedef gemmlowp::GEMMLOWP_TEST_KERNEL KernelForGEMV;
+#else
+  typedef gemmlowp::DefaultKernelForGEMM KernelForGEMM;
+  typedef gemmlowp::DefaultKernelForGEMV KernelForGEMV;
+#endif
+
+  // These are the m, n, k sizes for a typical GoogLeNet.
+  const int googlenet_gemm_sizes[] = {
+    12544, 64, 147,
+    3136, 64, 64,
+    3136, 192, 576,
+    784, 64, 192,
+    784, 96, 192,
+    784, 128, 864,
+    784, 16, 192,
+    784, 32, 400,
+    784, 32, 192,
+    784, 128, 256,
+    784, 128, 256,
+    784, 192, 1152,
+    784, 32, 256,
+    784, 96, 800,
+    784, 64, 256,
+    196, 192, 480,
+    196, 96, 480,
+    196, 204, 864,
+    196, 16, 480,
+    196, 48, 400,
+    196, 64, 480,
+    196, 160, 508,
+    196, 112, 508,
+    196, 224, 1008,
+    196, 24, 508,
+    196, 64, 600,
+    196, 64, 508,
+    196, 128, 512,
+    196, 128, 512,
+    196, 256, 1152,
+    196, 24, 512,
+    196, 64, 600,
+    196, 64, 512,
+    196, 112, 512,
+    196, 144, 512,
+    196, 288, 1296,
+    196, 32, 512,
+    196, 64, 800,
+    196, 64, 512,
+    196, 256, 528,
+    196, 160, 528,
+    196, 320, 1440,
+    196, 32, 528,
+    196, 128, 800,
+    196, 128, 528,
+    49, 256, 832,
+    49, 160, 832,
+    49, 320, 1440,
+    49, 48, 832,
+    49, 128, 1200,
+    49, 128, 832,
+    49, 384, 832,
+    49, 192, 832,
+    49, 384, 1728,
+    49, 48, 832,
+    49, 128, 1200,
+    49, 128, 832,
+    16, 128, 508,
+    1, 1024, 2048,
+    1, 1008, 1024,
+    16, 128, 528,
+    1, 1024, 2048,
+    1, 1008, 1024,
+    1, 1008, 1024,
+  };
+  const int param_count =
+      sizeof(googlenet_gemm_sizes) / sizeof(googlenet_gemm_sizes[0]);
+  const int gemm_count = param_count / 3;
+
+  const int repeat = 2;
+
+  typedef Matrix<std::uint8_t, MapOrder::RowMajor> LhsType;
+  typedef Matrix<std::uint8_t, MapOrder::ColMajor> RhsType;
+  typedef Matrix<std::uint8_t, MapOrder::ColMajor> ResultType;
+
+#ifdef GEMMLOWP_TEST_PROFILE
+  gemmlowp::RegisterCurrentThreadForProfiling();
+  gemmlowp::StartProfiling();
+#endif
+
+  float total_time = 0;
+
+  // We don't record the first repetition, it's just warm-up.
+  for (int r = 0; r < repeat + 1; r++) {
+    std::cout << "repetition " << r + 1 << "/" << repeat + 1 << "...\r"
+              << std::flush;
+    for (int gemm_index = 0; gemm_index < gemm_count; ++gemm_index) {
+      float gemm_time = 0;
+      const int rows = googlenet_gemm_sizes[(gemm_index * 3) + 1];
+      const int cols = googlenet_gemm_sizes[(gemm_index * 3) + 0];
+      const int depth = googlenet_gemm_sizes[(gemm_index * 3) + 2];
+      if (cols > KernelForGEMM::Format::kCols / 2) {
+        gemm_time =
+            time_for_gemm_size<KernelForGEMM, LhsType, RhsType, ResultType>(
+                context, rows, depth, cols);
+      } else {
+        gemm_time =
+            time_for_gemm_size<KernelForGEMV, LhsType, RhsType, ResultType>(
+                context, rows, depth, cols);
+      }
+      if (r > 0) {
+        total_time += gemm_time;
+      }
+    }
+  }
+
+#ifdef GEMMLOWP_TEST_PROFILE
+  gemmlowp::FinishProfiling();
+#endif
+
+  const float ms_per_network = (total_time / repeat) * 1000.0f;
+  std::cout.precision(4);
+  std::cout << "GoogLeNet GEMMs took " << ms_per_network << "ms" << std::endl;
+}
+
 }  // end namespace gemmlowp
 
 int main() {
@@ -206,5 +347,11 @@ int main() {
     context.set_max_num_threads(1);
     std::cout << "Benchmarking single-threaded mode..." << std::endl;
     gemmlowp::benchmark(&context);
+  }
+
+  {
+    gemmlowp::GemmContext context;
+    std::cout << "Benchmarking typical GoogLeNet GEMMs..." << std::endl;
+    gemmlowp::benchmark_googlenet(&context);
   }
 }

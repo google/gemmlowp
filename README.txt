@@ -16,7 +16,7 @@ Portability, target platforms/architectures
 ===========================================
 
 Should be portable to any platform with some C++11 and POSIX support,
-while we have optional optimized code paths for specifica architectures.
+while we have optional optimized code paths for specific architectures.
 
 Required:
   C++11 (a small conservative subset of it)
@@ -79,6 +79,37 @@ Then run:
 
 $ ./scripts/test-android.sh test/test.cc eight_bit_int_gemm/eight_bit_int_gemm.cc
 
+Troubleshooting Compilation
+===========================
+
+If you're having trouble finding the compiler, follow these instructions to
+build a standalone toolchain:
+https://developer.android.com/ndk/guides/standalone_toolchain.html 
+
+Here's an example of setting up Clang 3.5:
+
+$ export INSTALL_DIR=~/toolchains/clang-21-stl-gnu
+$ $NDK/build/tools/make-standalone-toolchain.sh \
+--toolchain=arm-linux-androideabi-clang3.5 --platform=android-21 \
+--install-dir=$INSTALL_DIR
+$ export CXX="$INSTALL_DIR/bin/arm-linux-androideabi-g++ \
+--sysroot=$INSTALL_DIR/sysroot"
+
+Some compilers (e.g. the default clang++ in the same bin directory) don't
+support NEON assembly. The benchmark build process will issue a warning if
+support isn't detected, and you should make sure you're using a compiler like
+arm-linux-androideabi-g++ that does include NEON.
+
+
+Benchmarking
+============
+
+To see what the performance is like on some typical operations, run
+$ ../scripts/test-android.sh benchmark.cc
+
+This will compile and run a small benchmark binary, which runs through GEMMs
+with varying input matrix sizes and outputs the performance. The final test
+simulates the sort of GEMM sizes you'd expect for a GoogLeNet-style CNN.
 
 Profiling
 =========
