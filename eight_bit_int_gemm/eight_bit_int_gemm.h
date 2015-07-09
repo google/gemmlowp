@@ -17,7 +17,16 @@
 #ifndef GEMMLOWP_EIGHT_BIT_INT_GEMM_EIGHT_BIT_INT_GEMM_H_
 #define GEMMLOWP_EIGHT_BIT_INT_GEMM_EIGHT_BIT_INT_GEMM_H_
 
+#ifndef GEMMLOWP_USE_OLD_ANDROID_SDK
 #include <cstdint>
+#else
+#include <stdint.h>
+namespace std {
+using ::uint8_t;
+using ::int32_t;
+}
+#endif
+
 
 namespace gemmlowp {
 
