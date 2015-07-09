@@ -25,7 +25,23 @@
 #define GEMMLOWP_PROFILING_INSTRUMENTATION_H_
 
 #include <pthread.h>
+
+#ifndef GEMMLOWP_USE_OLD_ANDROID_SDK
 #include <cstdint>
+#else
+#include <stdint.h>
+namespace std {
+using ::uint8_t;
+using ::uint16_t;
+using ::uint32_t;
+using ::int8_t;
+using ::int16_t;
+using ::int32_t;
+using ::size_t;
+using ::uintptr_t;
+}
+#endif
+
 #include <cassert>
 #include <cstdlib>
 #include <algorithm>

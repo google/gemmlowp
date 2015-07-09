@@ -19,7 +19,7 @@
 #define GEMMLOWP_INTERNAL_COMMON_H_
 
 #include <pthread.h>
-#include <cstdint>
+
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
