@@ -7,6 +7,10 @@ general matrix multiplication ("GEMM").
 The meaning of "low precision" is detailed in this document:
   doc/low-precision.txt
 
+Some of the general design is explained in
+  doc/design.txt
+
+
 Disclaimer
 ==========
 
@@ -33,6 +37,11 @@ Optional optimized code paths:
 At the moment, we only have optimized code paths for ARM NEON SIMD.
 Some are written in inline assembly, some are written in C++ using
 intrinsics. Both GCC and Clang are supported.
+
+Details of what it takes to make an efficient port of gemmlowp, namely
+writing a suitable GEMM kernel and accompanying packing code, are
+explained in this file:
+  doc/kernels.txt
 
 
 Public interfaces
