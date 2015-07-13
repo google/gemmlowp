@@ -23,8 +23,10 @@ frustration later on.
 Code reviews
 ============
 
-All submissions, including submissions by project members, require review. We
-use Github pull requests for this purpose.
+All submissions, including submissions by project members, require review.
+For this purpose, we use Github pull requests against this repository:
+
+  https://github.com/google/gemmlowp
 
 The small print
 ===============

@@ -4,6 +4,8 @@ gemmlowp: a small self-contained low-precision GEMM library
 This is not a full linear algebra library, only a GEMM library: it only does
 general matrix multiplication ("GEMM").
 
+The meaning of "low precision" is detailed in this document:
+  doc/low-precision.txt
 
 Disclaimer
 ==========
@@ -124,24 +126,8 @@ See profiling/instrumentation.h.
 A full example of using this profiler is given in profiling/profiler.h.
 
 
-Low-precision?
-==============
-
-"Low-precision" means that the input and output matrix entries are integers
-on at most 8 bits. The scalar type is uint8_t.
-
-This isn't the same as just doing plain matrix arithmetic over uint8_t,
-because that would overflow. To avoid overflow, we internally accumulate
-results on more than 8 bits, and at the end we keep only some significant
-8 bits. This relies on the caller providing suitable offset/multiplier/shift
-parameters, which effectively govern how we extract some significant 8 bit
-from our more-than-8bit temporary accumulators. See the extra function
-parameters taken by Gemm() in public/gemmlowp.h or by EightBitIntGemm() in
-eight_bit_int_gemm/eight_bit_int_gemm.h.
-
-
 Performance goals
-============================
+=================
 
 Our performance goals differ from typical GEMM performance goals in the
 following ways:

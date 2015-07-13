@@ -14,7 +14,9 @@
 
 # Puts device in a special state giving optimal benchmark results.
 # Not very realistic wrt real-world conditions. We are more interested
-# in performance on devices in default state.
+# in performance on devices in default state. This script is left here
+# in case it might be occasionally useful, but hopefully shouldn't
+# distract us from benchmarking in real-world conditions.
 
 #!/bin/bash
 
