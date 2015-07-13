@@ -129,7 +129,7 @@ matrix. The matrix P * Q is filled with the single constant value 'depth'
 Thus the fourth term is simply the rank zero update adding this constant
 to each matrix entry:
 
-  lhs_offset * rhs_offset depth
+  lhs_offset * rhs_offset * depth
 
 
 Implementation of this technique in gemmlowp
