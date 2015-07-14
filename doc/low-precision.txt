@@ -50,7 +50,7 @@ Thus the caller of this interface is expected to have precomputed suitable
 quantization parameters
 
 The rationale for these parameters is as follows:
-  - The three offsets may improved quantization accuracy in cases where the
+  - The three offsets may improve quantization accuracy in cases where the
     range of values is limited, and they also conveniently allow to reduce all
     eight combinations of signednesses to just the unsigned*unsigned->unsigned
     case. One may at first glance worry that these offsets would incur
@@ -79,7 +79,7 @@ Doing that in the GEMM kernel would incur substantial overhead:
 One may then consider adding the lhs_offset and rhs_offset once and for all
 to lhs and rhs blocks, in a GEMM implementation operating on one lhs block
 and one rhs block at a time. However, doing so would require storing lhs and
-rhs blocks in 32 bit (or at least in 16bit in real-world cases) which would
+rhs blocks in 32 bit (or at least in 16 bit in real-world cases), which would
 partially negate the memory bandwidth benefits of low-precision computation.
 
 Fortunately, there is another way to handle these offsets that has none of

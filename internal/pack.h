@@ -315,9 +315,7 @@ class PackSideBlockImpl
 template <typename KernelSideFormat, typename MatrixMapType>
 void PackLhs(PackedSideBlock<KernelSideFormat>* dst, const MatrixMapType& src) {
   ScopedProfilingLabel label("pack LHS");
-  static_assert(MatrixMapType::kOrder == MapOrder::RowMajor,
-                "only row-major LHS is supported at the moment.");
-  static const SideMapOrder kSideMapOrder = SideMapOrder::WidthMajor;
+  static const SideMapOrder kSideMapOrder = MatrixMapType::kOrder == MapOrder::RowMajor ? SideMapOrder::WidthMajor : SideMapOrder::DepthMajor;
   typedef typename MatrixMapType::Scalar Scalar;
   typedef SideMap<Scalar, kSideMapOrder> SideMapType;
   SideMapType src_side_map(src.data(), src.rows(), src.cols(), src.stride());
@@ -330,9 +328,7 @@ void PackLhs(PackedSideBlock<KernelSideFormat>* dst, const MatrixMapType& src) {
 template <typename KernelSideFormat, typename MatrixMapType>
 void PackRhs(PackedSideBlock<KernelSideFormat>* dst, const MatrixMapType& src) {
   ScopedProfilingLabel label("pack RHS");
-  static_assert(MatrixMapType::kOrder == MapOrder::ColMajor,
-                "only col-major RHS is supported at the moment.");
-  static const SideMapOrder kSideMapOrder = SideMapOrder::WidthMajor;
+  static const SideMapOrder kSideMapOrder = MatrixMapType::kOrder == MapOrder::ColMajor ? SideMapOrder::WidthMajor : SideMapOrder::DepthMajor;
   typedef typename MatrixMapType::Scalar Scalar;
   typedef SideMap<Scalar, kSideMapOrder> SideMapType;
   SideMapType src_side_map(src.data(), src.cols(), src.rows(), src.stride());

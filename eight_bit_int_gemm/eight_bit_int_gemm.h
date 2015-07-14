@@ -47,7 +47,8 @@ namespace eight_bit_int_gemm {
 
 // The main entry point to compute a Gemm. This is the standard
 // EightBitIntGemm interface.
-void EightBitIntGemm(int m, int n, int k, const std::uint8_t *a,
+void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
+                     int m, int n, int k, const std::uint8_t *a,
                      std::int32_t a_offset, int lda, const std::uint8_t *b,
                      std::int32_t b_offset, int ldb, std::uint8_t *c,
                      std::int32_t c_offset, std::int32_t c_mult_int,

@@ -26,11 +26,13 @@ namespace gemmlowp {
 // Specialization for 3 Cells of width 4, depth 2.
 // This is the LHS format used by NEONKernel12x4Depth2.
 typedef KernelSideFormat<CellFormat<4, 2>, 3> SideFormat3Cells4x2;
-template <typename SrcMapType>
-class PackSideBlockImpl<SrcMapType, SideFormat3Cells4x2>
-    : public PackSideBlockImplGeneric<SrcMapType, SideFormat3Cells4x2> {
+typedef SideMap<std::uint8_t, SideMapOrder::WidthMajor> WidthMajorUint8SideMap;
+template <>
+class PackSideBlockImpl<WidthMajorUint8SideMap, SideFormat3Cells4x2>
+    : public PackSideBlockImplGeneric<WidthMajorUint8SideMap, SideFormat3Cells4x2> {
  public:
   typedef SideFormat3Cells4x2 SideFormat;
+  typedef WidthMajorUint8SideMap SrcMapType;
   typedef PackSideBlockImplGeneric<SrcMapType, SideFormat> Base;
 
   PackSideBlockImpl(PackedSideBlock<SideFormat>* packed_side_block,
@@ -262,15 +264,17 @@ class PackSideBlockImpl<SrcMapType, SideFormat3Cells4x2>
 // Specialization for 5 Cells of width 4, depth 4.
 // This is the LHS format used by NEONKernel20x1Depth4.
 typedef KernelSideFormat<CellFormat<4, 4>, 5> SideFormat5Cells4x4;
-template <typename LhsMapType>
-class PackSideBlockImpl<LhsMapType, SideFormat5Cells4x4>
-    : public PackSideBlockImplGeneric<LhsMapType, SideFormat5Cells4x4> {
+
+template <>
+class PackSideBlockImpl<WidthMajorUint8SideMap, SideFormat5Cells4x4>
+    : public PackSideBlockImplGeneric<WidthMajorUint8SideMap, SideFormat5Cells4x4> {
  public:
   typedef SideFormat5Cells4x4 SideFormat;
-  typedef PackSideBlockImplGeneric<LhsMapType, SideFormat> Base;
+  typedef WidthMajorUint8SideMap SrcMapType;
+  typedef PackSideBlockImplGeneric<SrcMapType, SideFormat> Base;
 
   PackSideBlockImpl(PackedSideBlock<SideFormat>* packed_side_block,
-                    const LhsMapType& src_map)
+                    const SrcMapType& src_map)
       : Base(packed_side_block, src_map) {}
 
  protected:
@@ -511,16 +515,17 @@ class PackSideBlockImpl<LhsMapType, SideFormat5Cells4x4>
 // Specialization for 1 Cell of width 8, depth 4.
 // This is the LHS format used by NEONKernel8x1Depth4.
 typedef KernelSideFormat<CellFormat<8, 4>, 1> SideFormat1Cell8x4;
-template <typename LhsMapType>
-class PackSideBlockImpl<LhsMapType, SideFormat1Cell8x4>
-    : public PackSideBlockImplGeneric<LhsMapType, SideFormat1Cell8x4> {
+
+template <>
+class PackSideBlockImpl<WidthMajorUint8SideMap, SideFormat1Cell8x4>
+    : public PackSideBlockImplGeneric<WidthMajorUint8SideMap, SideFormat1Cell8x4> {
  public:
   typedef SideFormat1Cell8x4 SideFormat;
-
-  typedef PackSideBlockImplGeneric<LhsMapType, SideFormat> Base;
+  typedef WidthMajorUint8SideMap SrcMapType;
+  typedef PackSideBlockImplGeneric<SrcMapType, SideFormat> Base;
 
   PackSideBlockImpl(PackedSideBlock<SideFormat>* packed_side_block,
-                    const LhsMapType& src_map)
+                    const SrcMapType& src_map)
       : Base(packed_side_block, src_map) {}
 
  protected:
@@ -677,16 +682,16 @@ class PackSideBlockImpl<LhsMapType, SideFormat1Cell8x4>
 // This is the RHS format used by NEONKernel12x4Depth2.
 template <int Depth>
 using SideFormat1Cell4xD = KernelSideFormat<CellFormat<4, Depth>, 1>;
-template <typename RhsMapType, int Depth>
-class PackSideBlockImpl<RhsMapType, SideFormat1Cell4xD<Depth>>
-    : public PackSideBlockImplGeneric<RhsMapType, SideFormat1Cell4xD<Depth>> {
+template <int Depth>
+class PackSideBlockImpl<WidthMajorUint8SideMap, SideFormat1Cell4xD<Depth>>
+    : public PackSideBlockImplGeneric<WidthMajorUint8SideMap, SideFormat1Cell4xD<Depth>> {
  public:
   typedef SideFormat1Cell4xD<Depth> SideFormat;
-
-  typedef PackSideBlockImplGeneric<RhsMapType, SideFormat> Base;
+  typedef WidthMajorUint8SideMap SrcMapType;
+  typedef PackSideBlockImplGeneric<SrcMapType, SideFormat> Base;
 
   PackSideBlockImpl(PackedSideBlock<SideFormat>* packed_side_block,
-                    const RhsMapType& src_map)
+                    const SrcMapType& src_map)
       : Base(packed_side_block, src_map) {}
 
  protected:
