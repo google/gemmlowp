@@ -29,7 +29,8 @@ typedef KernelSideFormat<CellFormat<4, 2>, 3> SideFormat3Cells4x2;
 typedef SideMap<std::uint8_t, SideMapOrder::WidthMajor> WidthMajorUint8SideMap;
 template <>
 class PackSideBlockImpl<WidthMajorUint8SideMap, SideFormat3Cells4x2>
-    : public PackSideBlockImplGeneric<WidthMajorUint8SideMap, SideFormat3Cells4x2> {
+    : public PackSideBlockImplGeneric<WidthMajorUint8SideMap,
+                                      SideFormat3Cells4x2> {
  public:
   typedef SideFormat3Cells4x2 SideFormat;
   typedef WidthMajorUint8SideMap SrcMapType;
@@ -267,7 +268,8 @@ typedef KernelSideFormat<CellFormat<4, 4>, 5> SideFormat5Cells4x4;
 
 template <>
 class PackSideBlockImpl<WidthMajorUint8SideMap, SideFormat5Cells4x4>
-    : public PackSideBlockImplGeneric<WidthMajorUint8SideMap, SideFormat5Cells4x4> {
+    : public PackSideBlockImplGeneric<WidthMajorUint8SideMap,
+                                      SideFormat5Cells4x4> {
  public:
   typedef SideFormat5Cells4x4 SideFormat;
   typedef WidthMajorUint8SideMap SrcMapType;
@@ -518,7 +520,8 @@ typedef KernelSideFormat<CellFormat<8, 4>, 1> SideFormat1Cell8x4;
 
 template <>
 class PackSideBlockImpl<WidthMajorUint8SideMap, SideFormat1Cell8x4>
-    : public PackSideBlockImplGeneric<WidthMajorUint8SideMap, SideFormat1Cell8x4> {
+    : public PackSideBlockImplGeneric<WidthMajorUint8SideMap,
+                                      SideFormat1Cell8x4> {
  public:
   typedef SideFormat1Cell8x4 SideFormat;
   typedef WidthMajorUint8SideMap SrcMapType;
@@ -684,7 +687,8 @@ template <int Depth>
 using SideFormat1Cell4xD = KernelSideFormat<CellFormat<4, Depth>, 1>;
 template <int Depth>
 class PackSideBlockImpl<WidthMajorUint8SideMap, SideFormat1Cell4xD<Depth>>
-    : public PackSideBlockImplGeneric<WidthMajorUint8SideMap, SideFormat1Cell4xD<Depth>> {
+    : public PackSideBlockImplGeneric<WidthMajorUint8SideMap,
+                                      SideFormat1Cell4xD<Depth>> {
  public:
   typedef SideFormat1Cell4xD<Depth> SideFormat;
   typedef WidthMajorUint8SideMap SrcMapType;

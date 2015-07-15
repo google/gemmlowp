@@ -36,11 +36,12 @@ struct ReferenceEightBitIntGemmContext {
 };
 
 void ReferenceEightBitIntGemm(ReferenceEightBitIntGemmContext* context,
-                              bool transpose_a, bool transpose_b, bool transpose_c, int m,
-                              int n, int k, const uint8_t* a, int32_t a_offset,
-                              int lda, const uint8_t* b, int32_t b_offset,
-                              int ldb, uint8_t* c, int32_t c_offset,
-                              int32_t c_mult_int, int32_t c_shift, int ldc) {
+                              bool transpose_a, bool transpose_b,
+                              bool transpose_c, int m, int n, int k,
+                              const uint8_t* a, int32_t a_offset, int lda,
+                              const uint8_t* b, int32_t b_offset, int ldb,
+                              uint8_t* c, int32_t c_offset, int32_t c_mult_int,
+                              int32_t c_shift, int ldc) {
   context->saturated_0_values = 0;
   context->saturated_255_values = 0;
   assert((c_shift > 0) && (c_shift < 32));
@@ -89,8 +90,7 @@ void ReferenceEightBitIntGemm(ReferenceEightBitIntGemmContext* context,
         total += mult_as_int;
       }
       int32_t output =
-        (((total + c_offset) * c_mult_int) + (1 << (c_shift - 1)))
-        >> c_shift;
+          (((total + c_offset) * c_mult_int) + (1 << (c_shift - 1))) >> c_shift;
       if (output > 255) {
         output = 255;
         context->saturated_255_values++;
@@ -115,8 +115,7 @@ struct SingleThreadGemmWrapper {
 
   static const char* Name() {
     static char buf[256];
-    snprintf(buf, sizeof(buf),
-            "SingleThreadGemm, Kernel: %s", Kernel().Name());
+    snprintf(buf, sizeof(buf), "SingleThreadGemm, Kernel: %s", Kernel().Name());
     return buf;
   }
 
@@ -143,8 +142,7 @@ struct MultiThreadGemmWrapper {
 
   static const char* Name() {
     static char buf[256];
-    snprintf(buf, sizeof(buf),
-            "MultiThreadGemm, Kernel: %s", Kernel().Name());
+    snprintf(buf, sizeof(buf), "MultiThreadGemm, Kernel: %s", Kernel().Name());
     return buf;
   }
 
@@ -202,14 +200,16 @@ struct EightBitIntGemmWrapper {
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
     const bool transpose_c = ResultOrder == MapOrder::ColMajor;
-    const bool transpose_a = RhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
-    const bool transpose_b = LhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
-    
+    const bool transpose_a =
+        RhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
+    const bool transpose_b =
+        LhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
+
     eight_bit_int_gemm::EightBitIntGemm(
-        transpose_a, transpose_b, transpose_c,
-        rhs.cols(), lhs.rows(), lhs.cols(), rhs.data(), rhs_offset,
-        rhs.stride(), lhs.data(), lhs_offset, lhs.stride(), result->data(),
-        result_offset, result_mult_int, result_shift, result->stride());
+        transpose_a, transpose_b, transpose_c, rhs.cols(), lhs.rows(),
+        lhs.cols(), rhs.data(), rhs_offset, rhs.stride(), lhs.data(),
+        lhs_offset, lhs.stride(), result->data(), result_offset,
+        result_mult_int, result_shift, result->stride());
   }
 };
 
@@ -223,20 +223,18 @@ struct ReferenceEightBitIntGemmWrapper {
   typedef ReferenceEightBitIntGemmContext Context;
 
   template <MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
-  static void Gemm(Context* context,
-                   bool transpose_a,
-                   bool transpose_b,
+  static void Gemm(Context* context, bool transpose_a, bool transpose_b,
                    bool transpose_c,
                    const MatrixMap<const Scalar, LhsOrder>& lhs,
                    const MatrixMap<const Scalar, RhsOrder>& rhs,
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    ReferenceEightBitIntGemm(
-        context, transpose_a, transpose_b, transpose_c,
-        rhs.cols(), lhs.rows(), lhs.cols(), rhs.data(), rhs_offset,
-        rhs.stride(), lhs.data(), lhs_offset, lhs.stride(), result->data(),
-        result_offset, result_mult_int, result_shift, result->stride());
+    ReferenceEightBitIntGemm(context, transpose_a, transpose_b, transpose_c,
+                             rhs.cols(), lhs.rows(), lhs.cols(), rhs.data(),
+                             rhs_offset, rhs.stride(), lhs.data(), lhs_offset,
+                             lhs.stride(), result->data(), result_offset,
+                             result_mult_int, result_shift, result->stride());
   }
 };
 
@@ -277,29 +275,23 @@ void test_gemm_impl(typename GemmWrapper::Context* context, const LhsType& lhs,
   ResultType ref_result(rows, cols);
   ReferenceEightBitIntGemmContext reference_context;
   const bool transpose_c = kResultOrder == MapOrder::ColMajor;
-  const bool transpose_a = kRhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
-  const bool transpose_b = kLhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
-  printf("ta=%d tb=%d tc=%d\n", int(transpose_a), int(transpose_b), int(transpose_c));
-  ReferenceEightBitIntGemmWrapper<Scalar>::Gemm(&reference_context,
-                                                transpose_a,
-                                                transpose_b,
-                                                transpose_c,
-                                                lhs.const_map(),
-                                                rhs.const_map(),
-                                                &ref_result.map(),
-                                                lhs_offset, rhs_offset,
-                                                result_offset,
-                                                result_mult_int,
-                                                result_shift);
+  const bool transpose_a =
+      kRhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
+  const bool transpose_b =
+      kLhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
+  printf("ta=%d tb=%d tc=%d\n", int(transpose_a), int(transpose_b),
+         int(transpose_c));
+  ReferenceEightBitIntGemmWrapper<Scalar>::Gemm(
+      &reference_context, transpose_a, transpose_b, transpose_c,
+      lhs.const_map(), rhs.const_map(), &ref_result.map(), lhs_offset,
+      rhs_offset, result_offset, result_mult_int, result_shift);
 
   const bool good = *result == ref_result;
-  printf("%s: %dx%dx%d %s x %s -> %s, %s, offsets %d/%d/%d, mult %d, shift %d\n",
-         good ? "PASS" : "FAIL", rows, depth, cols,
-         OrderName(kLhsOrder),
-         OrderName(kRhsOrder),
-         OrderName(kResultOrder),
-         GemmWrapper::Name(),
-         lhs_offset, rhs_offset, result_offset, result_mult_int, result_shift);
+  printf(
+      "%s: %dx%dx%d %s x %s -> %s, %s, offsets %d/%d/%d, mult %d, shift %d\n",
+      good ? "PASS" : "FAIL", rows, depth, cols, OrderName(kLhsOrder),
+      OrderName(kRhsOrder), OrderName(kResultOrder), GemmWrapper::Name(),
+      lhs_offset, rhs_offset, result_offset, result_mult_int, result_shift);
 
   if (!good) {
     int maxdiff = 0;
@@ -369,10 +361,10 @@ enum class WhatParamsToTest {
   OnlyGenericCase,
 };
 
-template <typename GemmWrapper, MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
+template <typename GemmWrapper, MapOrder LhsOrder, MapOrder RhsOrder,
+          MapOrder ResultOrder>
 void test_gemm(typename GemmWrapper::Context* context, int rows, int depth,
-               int cols,
-               WhatParamsToTest params_to_test) {
+               int cols, WhatParamsToTest params_to_test) {
   typedef std::uint8_t Scalar;
   typedef Matrix<Scalar, LhsOrder> LhsType;
   LhsType lhs(rows, depth);
@@ -396,20 +388,17 @@ void test_gemm(typename GemmWrapper::Context* context, int rows, int depth,
   test_gemm<GemmWrapper>(context, lhs, rhs, &result, -75, -91, 74980, 123);
 }
 
-enum class WhatOrdersToTest {
-  All,
-  OnlyRCC
-};
+enum class WhatOrdersToTest { All, OnlyRCC };
 
 template <typename GemmWrapper>
 void test_gemm(typename GemmWrapper::Context* context, int rows, int depth,
-               int cols,
-               WhatParamsToTest params_to_test,
+               int cols, WhatParamsToTest params_to_test,
                WhatOrdersToTest orders_to_test) {
-#define GEMMLOWP_ONE_TEST(LhsOrder, RhsOrder, ResultOrder) \
-  do { \
-    test_gemm<GemmWrapper, MapOrder::LhsOrder, MapOrder::RhsOrder, MapOrder::ResultOrder> \
-      (context, rows, depth, cols, params_to_test); \
+#define GEMMLOWP_ONE_TEST(LhsOrder, RhsOrder, ResultOrder)         \
+  do {                                                             \
+    test_gemm<GemmWrapper, MapOrder::LhsOrder, MapOrder::RhsOrder, \
+              MapOrder::ResultOrder>(context, rows, depth, cols,   \
+                                     params_to_test);              \
   } while (false)
 
   if (orders_to_test == WhatOrdersToTest::All) {
@@ -432,95 +421,154 @@ void test_gemm(typename GemmWrapper::Context* context, int rows, int depth,
 template <typename Kernel>
 void test_gemm_kernel(MultiThreadGemmContext* context) {
   typedef MultiThreadGemmWrapper<Kernel, uint8_t> GemmWrapper;
-  test_gemm<GemmWrapper>(context, 1, 1, 1, WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 2, 2, 2, WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 3, 3, 3, WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 4, 4, 4, WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 5, 5, 5, WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 9, 11, 13, WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 50, 50, 50, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 1, 1, 1, WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 2, 2, 2, WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 3, 3, 3, WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 4, 4, 4, WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 5, 5, 5, WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 9, 11, 13, WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 50, 50, 50, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 500, 500, 500,
-                         WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::All);
+                         WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::All);
   test_gemm<GemmWrapper>(context, 100, 5000, 100,
-                         WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
+                         WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
 }
 
 template <typename GemmWrapper>
 void test_gemm(typename GemmWrapper::Context* context) {
-  test_gemm<GemmWrapper>(context, 1, 1, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 2, 1, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 1, 2, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 1, 1, 2, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 2, 2, 2, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 3, 3, 3, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 4, 4, 4, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 5, 5, 5, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 6, 6, 6, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 3, 5, 7, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 7, 3, 5, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 5, 7, 3, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 8, 8, 8, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 1, 1, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 2, 1, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 1, 2, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 1, 1, 2, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 2, 2, 2, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 3, 3, 3, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 4, 4, 4, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 5, 5, 5, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 6, 6, 6, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 3, 5, 7, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 7, 3, 5, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 5, 7, 3, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 8, 8, 8, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
 
-  test_gemm<GemmWrapper>(context, 16, 16, 16, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 32, 32, 32, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 64, 64, 64, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 128, 128, 128, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 16, 16, 16, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 32, 32, 32, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 64, 64, 64, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 128, 128, 128, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
 
-  test_gemm<GemmWrapper>(context, 17, 24, 31, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 37, 55, 73, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 57, 87, 117, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 93, 83, 73, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 109, 89, 99, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 78, 101, 82, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 17, 24, 31, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 37, 55, 73, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 57, 87, 117, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 93, 83, 73, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 109, 89, 99, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 78, 101, 82, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
 
   test_gemm<GemmWrapper>(context, 512, 512, 512,
-                         WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
+                         WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 1024, 1024, 1024,
-                         WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
+                         WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 567, 2345, 123,
-                         WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
+                         WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 100, 5000, 100,
-                         WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 1, 1, 1000,
-                         WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 1000, 1, 1,
-                         WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 1, 1000, 1,
-                         WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
+                         WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 1, 1, 1000, WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 1000, 1, 1, WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 1, 1000, 1, WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 1, 1000, 1000,
-                         WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
+                         WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 1000, 1, 1000,
-                         WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
+                         WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 1000, 1000, 1,
-                         WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
+                         WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 777, 3456, 1,
-                         WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
+                         WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 4567, 555, 1,
-                         WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::OnlyRCC);
+                         WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::OnlyRCC);
 
   // Test all storage orders
-  test_gemm<GemmWrapper>(context, 70, 90, 110, WhatParamsToTest::All, WhatOrdersToTest::All);
-  test_gemm<GemmWrapper>(context, 300, 400, 500, WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::All);  
+  test_gemm<GemmWrapper>(context, 70, 90, 110, WhatParamsToTest::All,
+                         WhatOrdersToTest::All);
+  test_gemm<GemmWrapper>(context, 300, 400, 500,
+                         WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::All);
 }
 
 template <typename GemmWrapper>
 void test_gemv(typename GemmWrapper::Context* context) {
-  test_gemm<GemmWrapper>(context, 2, 2, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 3, 3, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 4, 4, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 5, 5, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 6, 6, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 3, 5, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 7, 3, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 5, 7, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 8, 8, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 32, 32, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 128, 128, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 321, 123, 1, WhatParamsToTest::All, WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 2, 2, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 3, 3, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 4, 4, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 5, 5, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 6, 6, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 3, 5, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 7, 3, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 5, 7, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 8, 8, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 32, 32, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 128, 128, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
+  test_gemm<GemmWrapper>(context, 321, 123, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::OnlyRCC);
 
   // Test all storage orders
-  test_gemm<GemmWrapper>(context, 70, 90, 1, WhatParamsToTest::All, WhatOrdersToTest::All);
-  test_gemm<GemmWrapper>(context, 300, 400, 1, WhatParamsToTest::OnlyGenericCase, WhatOrdersToTest::All);  
+  test_gemm<GemmWrapper>(context, 70, 90, 1, WhatParamsToTest::All,
+                         WhatOrdersToTest::All);
+  test_gemm<GemmWrapper>(context, 300, 400, 1,
+                         WhatParamsToTest::OnlyGenericCase,
+                         WhatOrdersToTest::All);
 }
 
 void test() {
@@ -532,25 +580,19 @@ void test() {
   GemmContext context;
 
   // Test the internal GEMM interfaces
-  test_gemm<
-      SingleThreadGemmWrapper<DefaultKernelForGEMM, uint8_t>>(&context);
+  test_gemm<SingleThreadGemmWrapper<DefaultKernelForGEMM, uint8_t>>(&context);
 
-  test_gemm<
-      MultiThreadGemmWrapper<DefaultKernelForGEMM, uint8_t>>(&context);
+  test_gemm<MultiThreadGemmWrapper<DefaultKernelForGEMM, uint8_t>>(&context);
 
   // Test the public GEMM interfaces
   test_gemm<PublicGemmWrapper<uint8_t>>(&context);
 
-  test_gemm<EightBitIntGemmWrapper<uint8_t>>(
-      &context);
+  test_gemm<EightBitIntGemmWrapper<uint8_t>>(&context);
 
   // Test GEMV cases (internal interfaces)
-  test_gemv<
-      SingleThreadGemmWrapper<DefaultKernelForGEMV, uint8_t>>(
-      &context);
+  test_gemv<SingleThreadGemmWrapper<DefaultKernelForGEMV, uint8_t>>(&context);
 
-  test_gemv<
-      MultiThreadGemmWrapper<DefaultKernelForGEMV, uint8_t>>(&context);
+  test_gemv<MultiThreadGemmWrapper<DefaultKernelForGEMV, uint8_t>>(&context);
 
   // Test GEMV cases (public interfaces)
   test_gemv<PublicGemmWrapper<uint8_t>>(&context);

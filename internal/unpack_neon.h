@@ -26,14 +26,12 @@ namespace gemmlowp {
 template <>
 struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>> {
   typedef MatrixMap<std::uint8_t, MapOrder::ColMajor> ResultBlockType;
-  static void Unpack(
-      ResultBlockType* dst, const PackedResultInt32& src, int depth,
-      const std::int32_t* lhs_rank_one_update,
-      const std::int32_t* rhs_rank_one_update,
-      std::int32_t lhs_offset,
-      std::int32_t rhs_offset,
-      std::int32_t result_offset,
-      std::int32_t result_mult_int, std::int32_t result_shift) {
+  static void Unpack(ResultBlockType* dst, const PackedResultInt32& src,
+                     int depth, const std::int32_t* lhs_rank_one_update,
+                     const std::int32_t* rhs_rank_one_update,
+                     std::int32_t lhs_offset, std::int32_t rhs_offset,
+                     std::int32_t result_offset, std::int32_t result_mult_int,
+                     std::int32_t result_shift) {
     ScopedProfilingLabel label("optimized kernel");
 
     auto src_map = src.Map();
@@ -134,9 +132,9 @@ struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>> {
             // note: someone on internet says that quad registers are
             // unsupported in the clobber list!
             "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
-            "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
-            "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30",
-            "d31");
+            "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19",
+            "d20", "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28",
+            "d29", "d30", "d31");
       }
 
       // We have finished handling groups of 16 entries at once; now
@@ -161,7 +159,8 @@ struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>> {
       for (int r = dst_rows_aligned4; r < dst->rows(); r++) {
         std::int32_t q = src_map(r, c);
         q += lhs_rank_one_update[r] + rank1update + rank0update;
-        q = ((q + result_offset) * result_mult_int + (1 << (result_shift - 1))) >>
+        q = ((q + result_offset) * result_mult_int +
+             (1 << (result_shift - 1))) >>
             result_shift;
         (*dst)(r, c) = q > 255 ? 255 : q < 0 ? 0 : q;
       }

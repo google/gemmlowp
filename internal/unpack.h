@@ -53,14 +53,12 @@ class PackedResultInt32 {
 
 template <typename ResultBlockType>
 struct UnpackResultImplGeneric {
-  static void Unpack(
-      ResultBlockType* dst, const PackedResultInt32& src, int depth,
-      const std::int32_t* lhs_rank_one_update,
-      const std::int32_t* rhs_rank_one_update,
-      std::int32_t lhs_offset,
-      std::int32_t rhs_offset,
-      std::int32_t result_offset,
-      std::int32_t result_mult_int, std::int32_t result_shift) {
+  static void Unpack(ResultBlockType* dst, const PackedResultInt32& src,
+                     int depth, const std::int32_t* lhs_rank_one_update,
+                     const std::int32_t* rhs_rank_one_update,
+                     std::int32_t lhs_offset, std::int32_t rhs_offset,
+                     std::int32_t result_offset, std::int32_t result_mult_int,
+                     std::int32_t result_shift) {
     std::int32_t rank0update = lhs_offset * rhs_offset * depth;
     auto src_map = src.Map();
     // No top-level blocking in the depth dimension at the moment.
@@ -68,9 +66,9 @@ struct UnpackResultImplGeneric {
     for (int c = 0; c < dst->cols(); c++) {
       for (int r = 0; r < dst->rows(); r++) {
         std::int32_t q = *src_map.data(r, c);
-        q += lhs_rank_one_update[r] + rhs_rank_one_update[c] +
-             rank0update;
-        q = ((q + result_offset) * result_mult_int + (1 << (result_shift - 1))) >>
+        q += lhs_rank_one_update[r] + rhs_rank_one_update[c] + rank0update;
+        q = ((q + result_offset) * result_mult_int +
+             (1 << (result_shift - 1))) >>
             result_shift;
         (*dst)(r, c) = q > 255 ? 255 : q < 0 ? 0 : q;
       }
@@ -79,23 +77,19 @@ struct UnpackResultImplGeneric {
 };
 
 template <typename ResultBlockType>
-struct UnpackResultImpl
-  : UnpackResultImplGeneric<ResultBlockType>
-{};
+struct UnpackResultImpl : UnpackResultImplGeneric<ResultBlockType> {};
 
 template <typename ResultBlockType>
 void UnpackResult(ResultBlockType* dst, const PackedResultInt32& src, int depth,
                   const std::int32_t* lhs_rank_one_update,
                   const std::int32_t* rhs_rank_one_update,
-                  std::int32_t lhs_offset,
-                  std::int32_t rhs_offset,
-                  std::int32_t result_offset,
-                  std::int32_t result_mult_int, std::int32_t result_shift) {
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t result_offset, std::int32_t result_mult_int,
+                  std::int32_t result_shift) {
   ScopedProfilingLabel label("unpack");
   UnpackResultImpl<ResultBlockType>::Unpack(
-    dst, src, depth, lhs_rank_one_update, rhs_rank_one_update,
-    lhs_offset, rhs_offset, result_offset,
-    result_mult_int, result_shift);
+      dst, src, depth, lhs_rank_one_update, rhs_rank_one_update, lhs_offset,
+      rhs_offset, result_offset, result_mult_int, result_shift);
 }
 
 }  // namespace gemmlowp

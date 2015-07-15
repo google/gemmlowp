@@ -27,7 +27,6 @@ using ::int32_t;
 }
 #endif
 
-
 namespace gemmlowp {
 
 namespace eight_bit_int_gemm {

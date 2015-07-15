@@ -48,23 +48,25 @@ void DestroyGlobalContext() {
 }
 
 template <bool transpose_a, bool transpose_b, bool transpose_c>
-void EightBitIntGemmImpl(GemmContext* context,
-                     int m, int n, int k, const std::uint8_t* a,
-                     std::int32_t a_offset, int lda, const std::uint8_t* b,
-                     std::int32_t b_offset, int ldb, std::uint8_t* c,
-                     std::int32_t c_offset, std::int32_t c_mult_int,
-                     std::int32_t c_shift, int ldc) {
-
+void EightBitIntGemmImpl(GemmContext* context, int m, int n, int k,
+                         const std::uint8_t* a, std::int32_t a_offset, int lda,
+                         const std::uint8_t* b, std::int32_t b_offset, int ldb,
+                         std::uint8_t* c, std::int32_t c_offset,
+                         std::int32_t c_mult_int, std::int32_t c_shift,
+                         int ldc) {
   const int lhs_offset = b_offset;
   const int rhs_offset = a_offset;
   const int result_offset = c_offset;
   const int result_mult_int = c_mult_int;
   const int result_shift = c_shift;
 
-  static const MapOrder ResultOrder = transpose_c ? MapOrder::ColMajor : MapOrder::RowMajor;
-  static const MapOrder LhsOrder = transpose_b == transpose_c ? MapOrder::RowMajor : MapOrder::ColMajor;
-  static const MapOrder RhsOrder = transpose_a == transpose_c ? MapOrder::RowMajor : MapOrder::ColMajor;
-  
+  static const MapOrder ResultOrder =
+      transpose_c ? MapOrder::ColMajor : MapOrder::RowMajor;
+  static const MapOrder LhsOrder =
+      transpose_b == transpose_c ? MapOrder::RowMajor : MapOrder::ColMajor;
+  static const MapOrder RhsOrder =
+      transpose_a == transpose_c ? MapOrder::RowMajor : MapOrder::ColMajor;
+
   MatrixMap<const std::uint8_t, LhsOrder> lhs(b, n, k, ldb);
   MatrixMap<const std::uint8_t, RhsOrder> rhs(a, k, m, lda);
   MatrixMap<std::uint8_t, ResultOrder> result(c, n, m, ldc);
@@ -86,12 +88,12 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
   AutoGlobalLock<EightBitIntGemmLockId> lock;
   GemmContext* context = GetOrCreateGlobalContext();
 
-#define GEMMLOWP_HANDLE_CASE(ta, tb, tc) \
-    if (transpose_a == ta && transpose_b == tb && transpose_c == tc) { \
-      EightBitIntGemmImpl<ta, tb, tc>(context, m, n, k, a, a_offset, lda, \
-                                      b, b_offset, ldb, c, c_offset, c_mult_int, \
-                                      c_shift, ldc); \
-    }
+#define GEMMLOWP_HANDLE_CASE(ta, tb, tc)                                    \
+  if (transpose_a == ta && transpose_b == tb && transpose_c == tc) {        \
+    EightBitIntGemmImpl<ta, tb, tc>(context, m, n, k, a, a_offset, lda, b,  \
+                                    b_offset, ldb, c, c_offset, c_mult_int, \
+                                    c_shift, ldc);                          \
+  }
 
   GEMMLOWP_HANDLE_CASE(false, false, false)
   GEMMLOWP_HANDLE_CASE(false, false, true)
