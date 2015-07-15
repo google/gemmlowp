@@ -26,7 +26,7 @@ namespace gemmlowp {
 // Specialization for 3 Cells of width 4, depth 2.
 // This is the LHS format used by NEONKernel12x4Depth2.
 typedef KernelSideFormat<CellFormat<4, 2>, 3> SideFormat3Cells4x2;
-typedef SideMap<std::uint8_t, SideMapOrder::WidthMajor> WidthMajorUint8SideMap;
+typedef SideMap<const std::uint8_t, SideMapOrder::WidthMajor> WidthMajorUint8SideMap;
 template <>
 class PackSideBlockImpl<WidthMajorUint8SideMap, SideFormat3Cells4x2>
     : public PackSideBlockImplGeneric<WidthMajorUint8SideMap,
