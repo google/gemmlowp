@@ -25,6 +25,7 @@
 #include <iostream>
 #include <cstdlib>
 #include <vector>
+#include <cstring>
 
 #include "public/map.h"
 
@@ -62,13 +63,13 @@ class Matrix : public MatrixMap<tScalar, tOrder> {
 
   Matrix& operator=(const Matrix& other) {
     Resize(other.rows_, other.cols_);
-    memcpy(data_, other.data_, size() * sizeof(Scalar));
+    std::memcpy(data_, other.data_, size() * sizeof(Scalar));
     return *this;
   }
 
   friend bool operator==(const Matrix& a, const Matrix& b) {
     return a.rows_ == b.rows_ && a.cols_ == b.cols_ &&
-           !memcmp(a.data_, b.data_, a.size());
+           !std::memcmp(a.data_, b.data_, a.size());
   }
 
   void Resize(int rows, int cols) {

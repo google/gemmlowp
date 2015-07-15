@@ -43,34 +43,64 @@ void ReferenceEightBitIntGemm(ReferenceEightBitIntGemmContext* context,
                               int32_t c_mult_int, int32_t c_shift, int ldc) {
   context->saturated_0_values = 0;
   context->saturated_255_values = 0;
+  assert((c_shift > 0) && (c_shift < 32));
+  assert(a != nullptr);
+  assert(b != nullptr);
+  assert(c != nullptr);
+  int a_i_stride;
+  int a_l_stride;
+  if (transpose_a == transpose_c) {
+    a_i_stride = 1;
+    a_l_stride = lda;
+  } else {
+    a_i_stride = lda;
+    a_l_stride = 1;
+  }
+  int b_j_stride;
+  int b_l_stride;
+  if (transpose_b == transpose_c) {
+    b_j_stride = ldb;
+    b_l_stride = 1;
+  } else {
+    b_j_stride = 1;
+    b_l_stride = ldb;
+  }
+  int c_i_stride;
+  int c_j_stride;
+  if (transpose_c) {
+    c_i_stride = ldc;
+    c_j_stride = 1;
+  } else {
+    c_i_stride = 1;
+    c_j_stride = ldc;
+  }
   int i, j, l;
-
   for (j = 0; j < n; j++) {
     for (i = 0; i < m; i++) {
       int32_t total = 0;
       for (l = 0; l < k; l++) {
-        const int a_index = transpose_a ? ((l * lda) + i) : ((i * lda) + l);
+        const int a_index = i * a_i_stride + l * a_l_stride;
         const uint8_t a_as_byte = a[a_index];
-        const int32_t a_as_int = ((static_cast<std::int32_t>(a_as_byte)) + a_offset);
-        const int b_index = transpose_b ? ((l * ldb) + j) : ((j * ldb) + l);
+        const int32_t a_as_int = static_cast<int32_t>(a_as_byte) + a_offset;
+        const int b_index = j * b_j_stride + l * b_l_stride;
         const uint8_t b_as_byte = b[b_index];
-        const int32_t b_as_int = ((static_cast<std::int32_t>(b_as_byte)) + b_offset);
-        const int32_t mult_as_int = (a_as_int * b_as_int);
+        const int32_t b_as_int = static_cast<int32_t>(b_as_byte) + b_offset;
+        const int32_t mult_as_int = a_as_int * b_as_int;
         total += mult_as_int;
       }
-      const int c_index = transpose_c ? ((ldc * j) + i) : ((ldc * i) + j);
       int32_t output =
-          ((((total + c_offset) * c_mult_int) + (1 << (c_shift - 1))) >>
-           c_shift);
-      if (output >= 255) {
+        (((total + c_offset) * c_mult_int) + (1 << (c_shift - 1)))
+        >> c_shift;
+      if (output > 255) {
         output = 255;
         context->saturated_255_values++;
       }
-      if (output <= 0) {
+      if (output < 0) {
         output = 0;
         context->saturated_0_values++;
       }
-      c[c_index] = static_cast<std::uint8_t>(output);
+      const int c_index = i * c_i_stride + j * c_j_stride;
+      c[c_index] = static_cast<uint8_t>(output);
     }
   }
 }
@@ -171,9 +201,9 @@ struct EightBitIntGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    bool transpose_a = RhsOrder == MapOrder::RowMajor;
-    bool transpose_b = LhsOrder == MapOrder::ColMajor;
-    bool transpose_c = ResultOrder == MapOrder::RowMajor;
+    const bool transpose_c = ResultOrder == MapOrder::ColMajor;
+    const bool transpose_a = RhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
+    const bool transpose_b = LhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
     
     eight_bit_int_gemm::EightBitIntGemm(
         transpose_a, transpose_b, transpose_c,
@@ -246,9 +276,10 @@ void test_gemm_impl(typename GemmWrapper::Context* context, const LhsType& lhs,
   static const MapOrder kResultOrder = ResultType::kOrder;
   ResultType ref_result(rows, cols);
   ReferenceEightBitIntGemmContext reference_context;
-  const bool transpose_a = kRhsOrder == MapOrder::RowMajor;
-  const bool transpose_b = kLhsOrder == MapOrder::ColMajor;
-  const bool transpose_c = kResultOrder == MapOrder::RowMajor;
+  const bool transpose_c = kResultOrder == MapOrder::ColMajor;
+  const bool transpose_a = kRhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
+  const bool transpose_b = kLhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
+  printf("ta=%d tb=%d tc=%d\n", int(transpose_a), int(transpose_b), int(transpose_c));
   ReferenceEightBitIntGemmWrapper<Scalar>::Gemm(&reference_context,
                                                 transpose_a,
                                                 transpose_b,

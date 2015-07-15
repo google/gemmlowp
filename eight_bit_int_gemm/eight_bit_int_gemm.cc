@@ -61,9 +61,9 @@ void EightBitIntGemmImpl(GemmContext* context,
   const int result_mult_int = c_mult_int;
   const int result_shift = c_shift;
 
-  static const MapOrder LhsOrder = transpose_b ? MapOrder::ColMajor : MapOrder::RowMajor;
-  static const MapOrder RhsOrder = transpose_a ? MapOrder::RowMajor : MapOrder::ColMajor;
-  static const MapOrder ResultOrder = transpose_c ? MapOrder::RowMajor : MapOrder::ColMajor;
+  static const MapOrder ResultOrder = transpose_c ? MapOrder::ColMajor : MapOrder::RowMajor;
+  static const MapOrder LhsOrder = transpose_b == transpose_c ? MapOrder::RowMajor : MapOrder::ColMajor;
+  static const MapOrder RhsOrder = transpose_a == transpose_c ? MapOrder::RowMajor : MapOrder::ColMajor;
   
   MatrixMap<const std::uint8_t, LhsOrder> lhs(b, n, k, ldb);
   MatrixMap<const std::uint8_t, RhsOrder> rhs(a, k, m, lda);

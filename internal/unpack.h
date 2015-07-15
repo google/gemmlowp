@@ -22,10 +22,6 @@
 #include "internal/block_params.h"
 #include "internal/pack.h"
 
-#ifdef GEMMLOWP_NEON
-#include "internal/unpack_neon.h"
-#endif
-
 namespace gemmlowp {
 
 class PackedResultInt32 {
@@ -55,46 +51,57 @@ class PackedResultInt32 {
   }
 };
 
-template <typename ResultBlockType, typename PackedResult,
-          typename KernelLhsFormat, typename KernelRhsFormat>
-void UnpackResultImpl(ResultBlockType* dst, const PackedResult& src,
-                      const PackedSideBlock<KernelLhsFormat>& packed_lhs,
-                      const PackedSideBlock<KernelRhsFormat>& packed_rhs,
-                      int depth, std::int32_t result_offset,
-                      std::int32_t result_mult_int, std::int32_t result_shift) {
-  std::int32_t rank0update = packed_lhs.rank_one_update_multiplier() *
-                             packed_rhs.rank_one_update_multiplier() * depth;
-  // No top-level blocking in the depth dimension at the moment.
-  // Too much loss of precision.
-  for (int c = 0; c < dst->cols(); c++) {
-    for (int r = 0; r < dst->rows(); r++) {
-      std::int32_t q = *src.data(r, c);
-      q += packed_lhs.rank_one_update()[r] + packed_rhs.rank_one_update()[c] +
-           rank0update;
-      q = ((q + result_offset) * result_mult_int + (1 << (result_shift - 1))) >>
-          result_shift;
-      (*dst)(r, c) = q > 255 ? 255 : q < 0 ? 0 : q;
+template <typename ResultBlockType>
+struct UnpackResultImplGeneric {
+  static void Unpack(
+      ResultBlockType* dst, const PackedResultInt32& src, int depth,
+      const std::int32_t* lhs_rank_one_update,
+      const std::int32_t* rhs_rank_one_update,
+      std::int32_t lhs_offset,
+      std::int32_t rhs_offset,
+      std::int32_t result_offset,
+      std::int32_t result_mult_int, std::int32_t result_shift) {
+    std::int32_t rank0update = lhs_offset * rhs_offset * depth;
+    auto src_map = src.Map();
+    // No top-level blocking in the depth dimension at the moment.
+    // Too much loss of precision.
+    for (int c = 0; c < dst->cols(); c++) {
+      for (int r = 0; r < dst->rows(); r++) {
+        std::int32_t q = *src_map.data(r, c);
+        q += lhs_rank_one_update[r] + rhs_rank_one_update[c] +
+             rank0update;
+        q = ((q + result_offset) * result_mult_int + (1 << (result_shift - 1))) >>
+            result_shift;
+        (*dst)(r, c) = q > 255 ? 255 : q < 0 ? 0 : q;
+      }
     }
   }
-}
+};
 
-template <typename ResultBlockType, typename PackedResult,
-          typename KernelLhsFormat, typename KernelRhsFormat>
-void UnpackResult(ResultBlockType* dst, const PackedResult& src,
-                  const PackedSideBlock<KernelLhsFormat>& packed_lhs,
-                  const PackedSideBlock<KernelRhsFormat>& packed_rhs, int depth,
-                  std::int32_t result_offset, std::int32_t result_mult_int,
-                  std::int32_t result_shift) {
+template <typename ResultBlockType>
+struct UnpackResultImpl
+  : UnpackResultImplGeneric<ResultBlockType>
+{};
+
+template <typename ResultBlockType>
+void UnpackResult(ResultBlockType* dst, const PackedResultInt32& src, int depth,
+                  const std::int32_t* lhs_rank_one_update,
+                  const std::int32_t* rhs_rank_one_update,
+                  std::int32_t lhs_offset,
+                  std::int32_t rhs_offset,
+                  std::int32_t result_offset,
+                  std::int32_t result_mult_int, std::int32_t result_shift) {
   ScopedProfilingLabel label("unpack");
-#ifdef GEMMLOWP_NEON
-  UnpackResultImplNEON(dst, src.Map(), packed_lhs, packed_rhs, depth,
-                       result_offset, result_mult_int, result_shift);
-#else
-  UnpackResultImpl(dst, src.Map(), packed_lhs, packed_rhs, depth, result_offset,
-                   result_mult_int, result_shift);
-#endif
+  UnpackResultImpl<ResultBlockType>::Unpack(
+    dst, src, depth, lhs_rank_one_update, rhs_rank_one_update,
+    lhs_offset, rhs_offset, result_offset,
+    result_mult_int, result_shift);
 }
 
 }  // namespace gemmlowp
+
+#ifdef GEMMLOWP_NEON
+#include "internal/unpack_neon.h"
+#endif
 
 #endif  // GEMMLOWP_INTERNAL_UNPACK_H_

@@ -326,8 +326,9 @@ struct GemmWithPackedRhsTask : Task {
         Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
 
         auto result_block = result.block(r, c, rs, cs);
-        UnpackResult(&result_block, packed_result, packed_lhs, packed_rhs,
-                     depth, result_offset, result_mult_int, result_shift);
+        UnpackResult(&result_block, packed_result, depth,
+                     packed_lhs.rank_one_update(), packed_rhs.rank_one_update(),
+                     lhs_offset, rhs_offset, result_offset, result_mult_int, result_shift);
       }
     }
 
