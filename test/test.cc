@@ -629,7 +629,7 @@ void test() {
 // Test all our optimized kernels, even if they are not used
 // at the moment, as they might be handy later and so it's
 // useful to keep them functional for now.
-#ifdef GEMMLOWP_NEON
+#if defined(GEMMLOWP_NEON) && defined(__arm__)
   test_gemm_kernel<gemmlowp::NEONKernel12x4Depth2>(&context);
   test_gemm_kernel<gemmlowp::NEONKernel20x1Depth4>(&context);
   test_gemm_kernel<gemmlowp::NEONKernel8x1Depth4>(&context);

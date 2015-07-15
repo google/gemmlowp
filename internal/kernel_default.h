@@ -20,7 +20,7 @@
 
 #include "internal/common.h"
 
-#ifdef GEMMLOWP_NEON
+#if defined(GEMMLOWP_NEON) && defined(__arm__)
 #include "internal/kernel_neon.h"
 namespace gemmlowp {
 typedef NEONKernel12x4Depth2 DefaultKernelForGEMM;

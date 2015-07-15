@@ -23,10 +23,14 @@
 
 namespace gemmlowp {
 
+typedef SideMap<const std::uint8_t, SideMapOrder::WidthMajor> WidthMajorUint8SideMap;
+
+// The paths here are specifically armv7 assembly, not armv8
+#ifdef __arm__
+
 // Specialization for 3 Cells of width 4, depth 2.
 // This is the LHS format used by NEONKernel12x4Depth2.
 typedef KernelSideFormat<CellFormat<4, 2>, 3> SideFormat3Cells4x2;
-typedef SideMap<const std::uint8_t, SideMapOrder::WidthMajor> WidthMajorUint8SideMap;
 template <>
 class PackSideBlockImpl<WidthMajorUint8SideMap, SideFormat3Cells4x2>
     : public PackSideBlockImplGeneric<WidthMajorUint8SideMap,
@@ -680,6 +684,10 @@ class PackSideBlockImpl<WidthMajorUint8SideMap, SideFormat1Cell8x4>
                   depth - AlignedDepth8);
   }
 };
+
+#endif  // __arm__
+// Paths below do not use assembly, so they should work on both
+// 32bit and 64bit instruction sets.
 
 // Partial specialization for 1 Cell of width 4, and any Depth.
 // This is the RHS format used by NEONKernel12x4Depth2.

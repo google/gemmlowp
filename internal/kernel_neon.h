@@ -26,6 +26,9 @@
 
 namespace gemmlowp {
 
+// The kernels here are specifically arm 32bit assembly, not arm 64bit.
+#ifdef __arm__
+
 // Our main GEMM kernel.
 struct NEONKernel12x4Depth2 : KernelBase {
   typedef KernelFormat<KernelSideFormat<CellFormat<4, 2>, 3>,
@@ -564,6 +567,8 @@ struct NEONKernel20x1Depth4 : KernelBase {
         "d31");
   }
 };
+
+#endif  // __arm__
 
 }  // namespace gemmlowp
 
