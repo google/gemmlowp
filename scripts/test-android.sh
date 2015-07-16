@@ -34,10 +34,17 @@ fi
 
 EXE=gemmlowp-android-binary
 
+if [[ $CXX =~ .*aarch64.* ]]
+then
+  NEON_FLAGS=
+else
+  NEON_FLAGS="-mfpu=neon -mfloat-abi=softfp"
+fi
+
 $CXX \
  --std=c++11 \
  -Wall -Wextra -pedantic \
- -fPIE -pie -mfpu=neon -mfloat-abi=softfp \
+ -fPIE -pie $NEON_FLAGS \
  -lstdc++ -latomic \
  -I . -I .. \
  -o $EXE \
