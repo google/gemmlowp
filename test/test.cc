@@ -629,11 +629,16 @@ void test() {
 // Test all our optimized kernels, even if they are not used
 // at the moment, as they might be handy later and so it's
 // useful to keep them functional for now.
-#if defined(GEMMLOWP_NEON) && defined(__arm__)
-  test_gemm_kernel<gemmlowp::NEONKernel12x4Depth2>(&context);
-  test_gemm_kernel<gemmlowp::NEONKernel20x1Depth4>(&context);
-  test_gemm_kernel<gemmlowp::NEONKernel8x1Depth4>(&context);
+#ifdef GEMMLOWP_NEON32
+  test_gemm_kernel<gemmlowp::NEON32Kernel12x4Depth2>(&context);
+  test_gemm_kernel<gemmlowp::NEON32Kernel20x1Depth4>(&context);
+  test_gemm_kernel<gemmlowp::NEON32Kernel8x1Depth4>(&context);
 #endif
+
+#ifdef GEMMLOWP_NEON64
+  test_gemm_kernel<gemmlowp::NEON64Kernel12x4Depth2>(&context);
+#endif
+
 
 #ifdef GEMMLOWP_TEST_PROFILE
   FinishProfiling();

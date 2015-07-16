@@ -27,14 +27,14 @@
 namespace gemmlowp {
 
 // The kernels here are specifically arm 32bit assembly, not arm 64bit.
-#ifdef __arm__
+#ifdef GEMMLOWP_NEON32
 
 // Our main GEMM kernel.
-struct NEONKernel12x4Depth2 : KernelBase {
+struct NEON32Kernel12x4Depth2 : KernelBase {
   typedef KernelFormat<KernelSideFormat<CellFormat<4, 2>, 3>,
                        KernelSideFormat<CellFormat<4, 2>, 1> > Format;
 
-  const char* Name() const override { return "NEON, 12x4, straight, depth 2"; }
+  const char* Name() const override { return "NEON, 12x4, depth 2"; }
 
   // TODO(benoitjacob): reorder function arguments so dst comes last
   void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
@@ -250,11 +250,11 @@ struct NEONKernel12x4Depth2 : KernelBase {
 };
 
 // Our main GEMV kernel.
-struct NEONKernel8x1Depth4 : KernelBase {
+struct NEON32Kernel8x1Depth4 : KernelBase {
   typedef KernelFormat<KernelSideFormat<CellFormat<8, 4>, 1>,
                        KernelSideFormat<CellFormat<1, 4>, 1> > Format;
 
-  const char* Name() const override { return "NEON, 8x1, straight, depth 4"; }
+  const char* Name() const override { return "NEON, 8x1, depth 4"; }
 
   void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
            const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
@@ -385,11 +385,11 @@ struct NEONKernel8x1Depth4 : KernelBase {
 // unfortunately GEMV is dominated by LHS packing and we haven't succeeded
 // so far in making efficient packing code for this very wide (width 20)
 // format.
-struct NEONKernel20x1Depth4 : KernelBase {
+struct NEON32Kernel20x1Depth4 : KernelBase {
   typedef KernelFormat<KernelSideFormat<CellFormat<4, 4>, 5>,
                        KernelSideFormat<CellFormat<1, 4>, 1> > Format;
 
-  const char* Name() const override { return "NEON, 20x1, straight, depth 4"; }
+  const char* Name() const override { return "NEON, 20x1, depth 4"; }
 
   void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
            const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
@@ -568,7 +568,230 @@ struct NEONKernel20x1Depth4 : KernelBase {
   }
 };
 
-#endif  // __arm__
+#endif  // GEMMLOWP_NEON32
+
+// The kernels here are specifically arm 64bit assembly, not arm 32bit.
+#ifdef GEMMLOWP_NEON64
+
+// Our main GEMM kernel.
+struct NEON64Kernel12x4Depth2 : KernelBase {
+  typedef KernelFormat<KernelSideFormat<CellFormat<4, 2>, 3>,
+                       KernelSideFormat<CellFormat<4, 2>, 1> > Format;
+
+  const char* Name() const override { return "NEON, 12x4, depth 2"; }
+
+  // TODO(benoitjacob): reorder function arguments so dst comes last
+  void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
+           const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
+           int start_depth, int run_depth) const override {
+    ScopedProfilingLabel label("optimized kernel");
+
+    assert(dst_row_stride == 1);
+
+    asm volatile(
+        // Clear accumulator registers (see layout below)
+        "dup v4.4s, wzr\n"
+        "dup v5.4s, wzr\n"
+        "dup v6.4s, wzr\n"
+        "dup v7.4s, wzr\n"
+        "dup v8.4s, wzr\n"
+        "dup v9.4s, wzr\n"
+        "dup v10.4s, wzr\n"
+        "dup v11.4s, wzr\n"
+        "dup v12.4s, wzr\n"
+        "dup v13.4s, wzr\n"
+        "dup v14.4s, wzr\n"
+        "dup v15.4s, wzr\n"
+
+        /* Main loop */
+
+        "loop_NEONKernel12x4Depth2_%=:\n"
+
+        // Overview of register layout:
+        //
+        // A 2x4 cell of Rhs is stored in 16bit in d0--d1 (q0).
+        // A 12x2 block of 3 4x2 cells Lhs is stored in 16bit in d2--d7
+        // (q1--q3).
+        // A 12x4 block of accumulators is stored in 32bit in q4--q15.
+        //
+        //                   +-----+-----+-----+-----+
+        //                   |d0[0]|d0[1]|d0[2]|d0[3]|
+        //              Rhs  +-----+-----+-----+-----+
+        //                   |d1[0]|d1[1]|d1[2]|d1[3]|
+        //                   +-----+-----+-----+-----+
+        //
+        //                   |     |     |     |     |
+        //
+        //    Lhs            |     |     |     |     |
+        //
+        //  +--+--+ - - - -  +-----+-----+-----+-----+
+        //  |d2|d3|          | q4  | q5  | q6  | q7  |
+        //  |d2|d3|          | q4  | q5  | q6  | q7  |
+        //  |d2|d3|          | q4  | q5  | q6  | q7  |
+        //  |d2|d3|          | q4  | q5  | q6  | q7  |
+        //  +--+--+ - - - -  +-----+-----+-----+-----+
+        //  |d4|d5|          | q8  | q9  | q10 | q11 |
+        //  |d4|d5|          | q8  | q9  | q10 | q11 |
+        //  |d4|d5|          | q8  | q9  | q10 | q11 |
+        //  |d4|d5|          | q8  | q9  | q10 | q11 |
+        //  +--+--+ - - - -  +-----+-----+-----+-----+
+        //  |d6|d7|          | q12 | q13 | q14 | q15 |
+        //  |d6|d7|          | q12 | q13 | q14 | q15 |
+        //  |d6|d7|          | q12 | q13 | q14 | q15 |
+        //  |d6|d7|          | q12 | q13 | q14 | q15 |
+        //  +--+--+ - - - -  +-----+-----+-----+-----+
+        //
+        //                            Accumulator
+
+        // Load 1 Rhs cell of size 2x4
+        "ld1 {v0.8b}, [%[rhs_ptr]], #8\n"
+
+        // Load 3 Lhs cells of size 4x2 each
+        "ld1 {v1.8b}, [%[lhs_ptr]], #8\n"
+        "ld1 {v2.8b}, [%[lhs_ptr]], #8\n"
+        "ld1 {v3.8b}, [%[lhs_ptr]], #8\n"
+
+        // Expand Lhs/Rhs cells to 16 bit.
+        "uxtl v0.8h, v0.8b\n"
+        "uxtl v1.8h, v1.8b\n"
+        "uxtl v2.8h, v2.8b\n"
+        "uxtl v3.8h, v3.8b\n"
+
+        // Multiply-accumulate, level of depth 0
+        "umlal v4.4s, v1.4h, v0.h[0]\n"
+        "umlal v5.4s, v1.4h, v0.h[1]\n"
+        "umlal v6.4s, v1.4h, v0.h[2]\n"
+        "umlal v7.4s, v1.4h, v0.h[3]\n"
+        "umlal v8.4s, v2.4h, v0.h[0]\n"
+        "umlal v9.4s, v2.4h, v0.h[1]\n"
+        "umlal v10.4s, v2.4h, v0.h[2]\n"
+        "umlal v11.4s, v2.4h, v0.h[3]\n"
+        "umlal v12.4s, v3.4h, v0.h[0]\n"
+        "umlal v13.4s, v3.4h, v0.h[1]\n"
+        "umlal v14.4s, v3.4h, v0.h[2]\n"
+        "umlal v15.4s, v3.4h, v0.h[3]\n"
+
+        // Multiply-accumulate, level of depth 1
+        "umlal2 v4.4s, v1.8h, v0.h[4]\n"
+        "umlal2 v5.4s, v1.8h, v0.h[5]\n"
+        "umlal2 v6.4s, v1.8h, v0.h[6]\n"
+        "umlal2 v7.4s, v1.8h, v0.h[7]\n"
+        "umlal2 v8.4s, v2.8h, v0.h[4]\n"
+        "umlal2 v9.4s, v2.8h, v0.h[5]\n"
+        "umlal2 v10.4s, v2.8h, v0.h[6]\n"
+        "umlal2 v11.4s, v2.8h, v0.h[7]\n"
+        "umlal2 v12.4s, v3.8h, v0.h[4]\n"
+        "umlal2 v13.4s, v3.8h, v0.h[5]\n"
+        "umlal2 v14.4s, v3.8h, v0.h[6]\n"
+        "umlal2 v15.4s, v3.8h, v0.h[7]\n"
+
+        // Loop. Decrement loop index (depth) by 2, since we just handled 2
+        // levels of depth (Kernel::kDepth=2).
+        "subs %[run_depth], %[run_depth], #2\n"
+        "bne loop_NEONKernel12x4Depth2_%=\n"
+
+        /* end of main loop */
+
+        /* Accumulate our local accumulator registers into the destination block
+           */
+
+        // Compute stride between consecutive columns, in bytes
+        "mov x0, #4\n"  // multiply by 4 = sizeof(int32)
+        "mul %[dst_col_stride], %[dst_col_stride], x0\n"
+
+        // If start_depth == 0, then there is no preexisting accumulator
+        // to accumulate, so we can simply store our result.
+        "cmp %[start_depth], #0\n"
+        "beq store_result_NEONKernel12x4Depth2_%=\n"
+
+        "mov x0, %[dst_ptr]\n"
+
+        // Load a column
+        "mov x1, x0\n"
+        "ld1 {v0.4s}, [x1], #16\n"
+        "ld1 {v1.4s}, [x1], #16\n"
+        "ld1 {v2.4s}, [x1], #16\n"
+        // Accumulate a column
+        "add v4.4s, v4.4s, v0.4s\n"
+        "add v8.4s, v8.4s, v1.4s\n"
+        "add v12.4s, v12.4s, v2.4s\n"
+
+        "add x0, x0, %[dst_col_stride]\n"
+        // Load a column
+        "mov x1, x0\n"
+        "ld1 {v0.4s}, [x1], #16\n"
+        "ld1 {v1.4s}, [x1], #16\n"
+        "ld1 {v2.4s}, [x1], #16\n"
+        // Accumulate a column
+        "add v5.4s, v5.4s, v0.4s\n"
+        "add v9.4s, v9.4s, v1.4s\n"
+        "add v13.4s, v13.4s, v2.4s\n"
+
+        "add x0, x0, %[dst_col_stride]\n"
+        // Load a column
+        "mov x1, x0\n"
+        "ld1 {v0.4s}, [x1], #16\n"
+        "ld1 {v1.4s}, [x1], #16\n"
+        "ld1 {v2.4s}, [x1], #16\n"
+        // Accumulate a column
+        "add v6.4s, v6.4s, v0.4s\n"
+        "add v10.4s, v10.4s, v1.4s\n"
+        "add v14.4s, v14.4s, v2.4s\n"
+
+        "add x0, x0, %[dst_col_stride]\n"
+        // Load a column
+        "mov x1, x0\n"
+        "ld1 {v0.4s}, [x1], #16\n"
+        "ld1 {v1.4s}, [x1], #16\n"
+        "ld1 {v2.4s}, [x1], #16\n"
+        // Accumulate a column
+        "add v7.4s, v7.4s, v0.4s\n"
+        "add v11.4s, v11.4s, v1.4s\n"
+        "add v15.4s, v15.4s, v2.4s\n"
+
+        "store_result_NEONKernel12x4Depth2_%=:\n"
+
+        "mov x0, %[dst_ptr]\n"
+        // Store a column
+        "mov x1, x0\n"
+        "st1 {v4.4s}, [x1], #16\n"
+        "st1 {v8.4s}, [x1], #16\n"
+        "st1 {v12.4s}, [x1], #16\n"
+        // Store a column
+        "add x0, x0, %[dst_col_stride]\n"
+        "mov x1, x0\n"
+        "st1 {v5.4s}, [x1], #16\n"
+        "st1 {v9.4s}, [x1], #16\n"
+        "st1 {v13.4s}, [x1], #16\n"
+        // Store a column
+        "add x0, x0, %[dst_col_stride]\n"
+        "mov x1, x0\n"
+        "st1 {v6.4s}, [x1], #16\n"
+        "st1 {v10.4s}, [x1], #16\n"
+        "st1 {v14.4s}, [x1], #16\n"
+        // Store a column
+        "add x0, x0, %[dst_col_stride]\n"
+        "mov x1, x0\n"
+        "st1 {v7.4s}, [x1], #16\n"
+        "st1 {v11.4s}, [x1], #16\n"
+        "st1 {v15.4s}, [x1], #16\n"
+        :  // outputs
+        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+        [dst_ptr] "+r"(dst_ptr),
+        [run_depth] "+r"(run_depth)
+        :  // inputs
+        [start_depth] "r"(start_depth),
+        [dst_col_stride] "r"(dst_col_stride)
+        :  // clobbers
+        "cc", "memory", "x0", "x1",
+        "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10",
+        "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20",
+        "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30",
+        "v31");
+  }
+};
+
+#endif  // GEMMLOWP_NEON64
 
 }  // namespace gemmlowp
 

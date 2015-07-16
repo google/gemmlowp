@@ -36,6 +36,12 @@
 // Detect NEON. It's important to check for both tokens.
 #if (defined __ARM_NEON) || (defined __ARM_NEON__)
 #define GEMMLOWP_NEON
+#ifdef __arm__
+#define GEMMLOWP_NEON32
+#endif
+#ifdef __aarch64__
+#define GEMMLOWP_NEON64
+#endif
 #endif
 
 namespace gemmlowp {

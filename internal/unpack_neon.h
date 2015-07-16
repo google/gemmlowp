@@ -24,7 +24,7 @@
 namespace gemmlowp {
 
 // The paths here are specifically arm 32bit assembly, not arm 64bit.
-#ifdef __arm__
+#ifdef GEMMLOWP_NEON32
 
 template <>
 struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>> {
@@ -171,7 +171,7 @@ struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>> {
   }
 };
 
-#endif  // __arm__
+#endif  // GEMMLOWP_NEON32
 
 }  // namespace gemmlowp
 
