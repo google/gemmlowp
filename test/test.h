@@ -19,7 +19,7 @@
 
 #ifdef GEMMLOWP_TEST_PROFILE
 #define GEMMLOWP_PROFILING
-#include "profiling/profiler.h"
+#include "../profiling/profiler.h"
 #endif
 
 #include <iostream>
@@ -27,7 +27,7 @@
 #include <vector>
 #include <cstring>
 
-#include "public/map.h"
+#include "../public/map.h"
 
 namespace gemmlowp {
 

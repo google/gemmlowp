@@ -24,8 +24,8 @@
 #include <map>
 #include <cstdlib>
 
-#include "test/test.h"
-#include "public/gemmlowp.h"
+#include "test.h"
+#include "../public/gemmlowp.h"
 
 #if defined(__arm__) && !defined(GEMMLOWP_NEON)
 #warning "Building without NEON support on ARM, check your compiler setup!"

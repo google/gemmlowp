@@ -18,16 +18,16 @@
 #ifndef GEMMLOWP_INTERNAL_KERNEL_DEFAULT_H_
 #define GEMMLOWP_INTERNAL_KERNEL_DEFAULT_H_
 
-#include "internal/common.h"
+#include "common.h"
 
 #if defined GEMMLOWP_NEON32
-#include "internal/kernel_neon.h"
+#include "kernel_neon.h"
 namespace gemmlowp {
 typedef NEON32Kernel12x4Depth2 DefaultKernelForGEMM;
 typedef NEON32Kernel8x1Depth4 DefaultKernelForGEMV;
 }
 #elif defined GEMMLOWP_NEON64
-#include "internal/kernel_neon.h"
+#include "kernel_neon.h"
 namespace gemmlowp {
 typedef NEON64Kernel12x4Depth2 DefaultKernelForGEMM;
 // TODO (benoitjacob): For now we only have a GEMM kernel, we don't have
@@ -36,7 +36,7 @@ typedef NEON64Kernel12x4Depth2 DefaultKernelForGEMM;
 typedef NEON64Kernel12x4Depth2 DefaultKernelForGEMV;
 }
 #else
-#include "internal/kernel_reference.h"
+#include "kernel_reference.h"
 namespace gemmlowp {
 typedef ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<4, 4>, 2>,
                                      KernelSideFormat<CellFormat<4, 4>, 2> > >

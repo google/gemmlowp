@@ -17,7 +17,7 @@
 #ifndef GEMMLOWP_INTERNAL_KERNEL_H_
 #define GEMMLOWP_INTERNAL_KERNEL_H_
 
-#include "internal/common.h"
+#include "common.h"
 
 namespace gemmlowp {
 

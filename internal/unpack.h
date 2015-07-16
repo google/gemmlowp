@@ -18,9 +18,9 @@
 #ifndef GEMMLOWP_INTERNAL_UNPACK_H_
 #define GEMMLOWP_INTERNAL_UNPACK_H_
 
-#include "internal/allocator.h"
-#include "internal/block_params.h"
-#include "internal/pack.h"
+#include "allocator.h"
+#include "block_params.h"
+#include "pack.h"
 
 namespace gemmlowp {
 
@@ -95,7 +95,7 @@ void UnpackResult(ResultBlockType* dst, const PackedResultInt32& src, int depth,
 }  // namespace gemmlowp
 
 #ifdef GEMMLOWP_NEON
-#include "internal/unpack_neon.h"
+#include "unpack_neon.h"
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_UNPACK_H_

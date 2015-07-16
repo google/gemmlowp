@@ -149,7 +149,7 @@
 
 #include <vector>
 
-#include "profiling/instrumentation.h"
+#include "instrumentation.h"
 
 namespace gemmlowp {
 

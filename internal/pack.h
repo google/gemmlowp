@@ -29,10 +29,10 @@
 
 #include <cstring>
 
-#include "internal/block_params.h"
-#include "internal/kernel.h"
-#include "internal/common.h"
-#include "internal/allocator.h"
+#include "block_params.h"
+#include "kernel.h"
+#include "common.h"
+#include "allocator.h"
 
 namespace gemmlowp {
 
@@ -344,7 +344,7 @@ void PackRhs(PackedSideBlock<KernelSideFormat>* dst, const MatrixMapType& src) {
 }  // namespace gemmlowp
 
 #ifdef GEMMLOWP_NEON
-#include "internal/pack_neon.h"
+#include "pack_neon.h"
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_PACK_H_

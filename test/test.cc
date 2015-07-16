@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "test/test.h"
+#include "test.h"
 
 #include <unistd.h>
 #include <iostream>
@@ -22,9 +22,9 @@
 #include <cstdlib>
 #include <string>
 
-#include "public/gemmlowp.h"
-#include "internal/kernel_reference.h"
-#include "eight_bit_int_gemm/eight_bit_int_gemm.h"
+#include "../public/gemmlowp.h"
+#include "../internal/kernel_reference.h"
+#include "../eight_bit_int_gemm/eight_bit_int_gemm.h"
 
 namespace gemmlowp {
 

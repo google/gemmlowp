@@ -25,7 +25,7 @@
 #include <cstdlib>
 #include <algorithm>
 
-#include "profiling/instrumentation.h"
+#include "../profiling/instrumentation.h"
 
 #ifdef GEMMLOWP_PROFILING
 #include <set>

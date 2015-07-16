@@ -12,13 +12,13 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "eight_bit_int_gemm/eight_bit_int_gemm.h"
+#include "eight_bit_int_gemm.h"
 
 // gemmlowp symbols should have hidden visibility.
 // currently this is ensured in the build system by
 // passing -finlines-visibility-hidden. TODO: it would be
 // safer to hardcode it here with some #pragma's.
-#include "public/gemmlowp.h"
+#include "../public/gemmlowp.h"
 
 namespace gemmlowp {
 

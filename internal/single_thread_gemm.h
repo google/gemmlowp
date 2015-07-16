@@ -21,12 +21,12 @@
 
 #include <cassert>
 
-#include "public/map.h"
-#include "internal/allocator.h"
-#include "internal/pack.h"
-#include "internal/unpack.h"
-#include "internal/compute.h"
-#include "internal/kernel.h"
+#include "../public/map.h"
+#include "allocator.h"
+#include "pack.h"
+#include "unpack.h"
+#include "compute.h"
+#include "kernel.h"
 
 namespace gemmlowp {
 

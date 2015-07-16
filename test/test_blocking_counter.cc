@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "test/test.h"
+#include "test.h"
 
 #include <pthread.h>
 #include <vector>
 
-#include "internal/multi_thread_gemm.h"
+#include "../internal/multi_thread_gemm.h"
 
 namespace gemmlowp {
 

@@ -17,7 +17,7 @@
 #ifndef GEMMLOWP_INTERNAL_UNPACK_NEON_H_
 #define GEMMLOWP_INTERNAL_UNPACK_NEON_H_
 
-#include "internal/unpack.h"
+#include "unpack.h"
 
 #include <arm_neon.h>
 

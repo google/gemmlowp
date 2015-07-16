@@ -20,7 +20,7 @@
 #ifndef GEMMLOWP_INTERNAL_KERNEL_NEON_H_
 #define GEMMLOWP_INTERNAL_KERNEL_NEON_H_
 
-#include "internal/kernel.h"
+#include "kernel.h"
 
 #include <cassert>
 

@@ -23,7 +23,7 @@
 #include <unistd.h>
 #include <vector>
 
-#include "internal/single_thread_gemm.h"
+#include "single_thread_gemm.h"
 
 namespace gemmlowp {
 

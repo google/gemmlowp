@@ -39,7 +39,7 @@
 #ifndef GEMMLOWP_INTERNAL_ALLOCATOR_H_
 #define GEMMLOWP_INTERNAL_ALLOCATOR_H_
 
-#include "internal/common.h"
+#include "common.h"
 
 #if defined ANDROID || defined __ANDROID__
 #include <android/api-level.h>

@@ -18,7 +18,7 @@
 #ifndef GEMMLOWP_INTERNAL_BLOCK_PARAMS_H_
 #define GEMMLOWP_INTERNAL_BLOCK_PARAMS_H_
 
-#include "internal/common.h"
+#include "common.h"
 
 namespace gemmlowp {
 

@@ -12,11 +12,11 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "test/test.h"
+#include "test.h"
 
 #include <limits>
 
-#include "internal/common.h"
+#include "../internal/common.h"
 
 namespace gemmlowp {
 

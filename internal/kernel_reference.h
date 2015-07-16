@@ -20,7 +20,7 @@
 #ifndef GEMMLOWP_INTERNAL_KERNEL_REFERENCE_H_
 #define GEMMLOWP_INTERNAL_KERNEL_REFERENCE_H_
 
-#include "internal/kernel.h"
+#include "kernel.h"
 
 #include <cstring>
 #include <cstdio>

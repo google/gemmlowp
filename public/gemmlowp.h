@@ -17,9 +17,9 @@
 #ifndef GEMMLOWP_PUBLIC_GEMMLOWP_H_
 #define GEMMLOWP_PUBLIC_GEMMLOWP_H_
 
-#include "public/map.h"
-#include "internal/multi_thread_gemm.h"
-#include "internal/kernel_default.h"
+#include "map.h"
+#include "../internal/multi_thread_gemm.h"
+#include "../internal/kernel_default.h"
 
 namespace gemmlowp {
 
