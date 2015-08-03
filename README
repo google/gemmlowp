@@ -74,6 +74,8 @@ The test/ directory contains unit tests. The primary unit test is
 Since it covers also the EightBitIntGemm interface, it needs to be
 linked against
   eight_bit_int_gemm/eight_bit_int_gemm.cc
+There's also realistic data captured from a neural network run in
+  test/test_data.cc
 
 The scripts/ directory contains a script to build and run a program
 on an Android device:
@@ -88,7 +90,10 @@ $ export CXX=/some/toolchains/arm-linux-androideabi-4.8/bin/arm-linux-androideab
 
 Then run:
 
-$ ./scripts/test-android.sh test/test.cc eight_bit_int_gemm/eight_bit_int_gemm.cc
+$ ./scripts/test-android.sh \
+test/test.cc \
+eight_bit_int_gemm/eight_bit_int_gemm.cc \
+test/test_data.cc
 
 
 Troubleshooting Compilation
