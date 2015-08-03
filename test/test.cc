@@ -20,11 +20,13 @@
 #include <cstdint>
 #include <vector>
 #include <cstdlib>
+#include <memory>
 #include <string>
 
 #include "../public/gemmlowp.h"
 #include "../internal/kernel_reference.h"
 #include "../eight_bit_int_gemm/eight_bit_int_gemm.h"
+#include "test_data.h"
 
 namespace gemmlowp {
 
@@ -571,6 +573,46 @@ void test_gemv(typename GemmWrapper::Context* context) {
                          WhatOrdersToTest::All);
 }
 
+// This is the most realistic test of how we'll be using the low-precision GEMM
+// function in applications. It takes in large input matrices that have been
+// captured from an actual neural network run.
+void TestWithRealData() {
+  std::unique_ptr<uint8_t[]> output_data(
+      new uint8_t[test_data::c_count]);
+  gemmlowp::eight_bit_int_gemm::EightBitIntGemm(
+      test_data::is_a_transposed, test_data::is_b_transposed,
+      test_data::is_c_transposed, test_data::m, test_data::n, test_data::k,
+      test_data::a_data, test_data::a_offset, test_data::k, test_data::b_data,
+      test_data::b_offset, test_data::k, output_data.get(), test_data::c_offset,
+      test_data::c_mult_int, test_data::c_shift, test_data::n);
+  int how_many_different = 0;
+  int how_many_very_different = 0;
+  for (int n = 0; n < test_data::c_count; ++n) {
+    const int expected_value = test_data::expected_c_data[n];
+    const int actual_value = output_data[n];
+    const int delta = (expected_value - actual_value);
+    // First make sure that the difference is no more than one.
+    if ((delta != -1) && (delta != 0) && (delta != 1)) {
+      ++how_many_very_different;
+    }
+    // If there is a difference, increment the counter to track it.
+    if (delta != 0) {
+      ++how_many_different;
+    }
+  }
+  const bool good = (how_many_different == 0);
+  if (good) {
+    printf("TestWithRealData(): PASS\n");
+  } else {
+    printf("TestWithRealData(): FAIL - Found %d (%.1f%%) differences, %d (%.1f%%) were"
+           " large\n", how_many_different,
+           (how_many_different * 100.0f) / test_data::c_count,
+           how_many_very_different,
+           (how_many_very_different * 100.0f) / test_data::c_count);
+  }
+  Check(good);
+}
+
 void test() {
 #ifdef GEMMLOWP_TEST_PROFILE
   RegisterCurrentThreadForProfiling();
@@ -639,6 +681,8 @@ void test() {
   test_gemm_kernel<gemmlowp::NEON64Kernel12x4Depth2>(&context);
 #endif
 
+  // Run against actual data from a network evaluation.
+  TestWithRealData();
 
 #ifdef GEMMLOWP_TEST_PROFILE
   FinishProfiling();
