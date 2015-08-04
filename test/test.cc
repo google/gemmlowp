@@ -281,8 +281,6 @@ void test_gemm_impl(typename GemmWrapper::Context* context, const LhsType& lhs,
       kRhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
   const bool transpose_b =
       kLhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
-  printf("ta=%d tb=%d tc=%d\n", int(transpose_a), int(transpose_b),
-         int(transpose_c));
   ReferenceEightBitIntGemmWrapper<Scalar>::Gemm(
       &reference_context, transpose_a, transpose_b, transpose_c,
       lhs.const_map(), rhs.const_map(), &ref_result.map(), lhs_offset,
