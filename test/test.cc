@@ -678,7 +678,7 @@ void test() {
 #endif
 
 #ifdef GEMMLOWP_NEON64
-  test_gemm_kernel<gemmlowp::NEON64Kernel12x4Depth2>(&context);
+  test_gemm_kernel<gemmlowp::NEON64Kernel12x8Depth2>(&context);
 #endif
 
   // Run against actual data from a network evaluation.

@@ -29,11 +29,11 @@ typedef NEON32Kernel8x1Depth4 DefaultKernelForGEMV;
 #elif defined GEMMLOWP_NEON64
 #include "kernel_neon.h"
 namespace gemmlowp {
-typedef NEON64Kernel12x4Depth2 DefaultKernelForGEMM;
+typedef NEON64Kernel12x8Depth2 DefaultKernelForGEMM;
 // TODO (benoitjacob): For now we only have a GEMM kernel, we don't have
 // a GEMV kernel on Aarch64, so we just use our GEMM kernel there,
 // which is inefficient but not as inefficient as using a reference kernel.
-typedef NEON64Kernel12x4Depth2 DefaultKernelForGEMV;
+typedef NEON64Kernel12x8Depth2 DefaultKernelForGEMV;
 }
 #else
 #include "kernel_reference.h"

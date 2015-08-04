@@ -574,11 +574,11 @@ struct NEON32Kernel20x1Depth4 : KernelBase {
 #ifdef GEMMLOWP_NEON64
 
 // Our main GEMM kernel.
-struct NEON64Kernel12x4Depth2 : KernelBase {
+struct NEON64Kernel12x8Depth2 : KernelBase {
   typedef KernelFormat<KernelSideFormat<CellFormat<4, 2>, 3>,
-                       KernelSideFormat<CellFormat<4, 2>, 1> > Format;
+                       KernelSideFormat<CellFormat<4, 2>, 2> > Format;
 
-  const char* Name() const override { return "NEON, 12x4, depth 2"; }
+  const char* Name() const override { return "NEON, 12x8, depth 2"; }
 
   // TODO(benoitjacob): reorder function arguments so dst comes last
   void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
@@ -590,10 +590,6 @@ struct NEON64Kernel12x4Depth2 : KernelBase {
 
     asm volatile(
         // Clear accumulator registers (see layout below)
-        "dup v4.4s, wzr\n"
-        "dup v5.4s, wzr\n"
-        "dup v6.4s, wzr\n"
-        "dup v7.4s, wzr\n"
         "dup v8.4s, wzr\n"
         "dup v9.4s, wzr\n"
         "dup v10.4s, wzr\n"
@@ -602,10 +598,26 @@ struct NEON64Kernel12x4Depth2 : KernelBase {
         "dup v13.4s, wzr\n"
         "dup v14.4s, wzr\n"
         "dup v15.4s, wzr\n"
+        "dup v16.4s, wzr\n"
+        "dup v17.4s, wzr\n"
+        "dup v18.4s, wzr\n"
+        "dup v19.4s, wzr\n"
+        "dup v20.4s, wzr\n"
+        "dup v21.4s, wzr\n"
+        "dup v22.4s, wzr\n"
+        "dup v23.4s, wzr\n"
+        "dup v24.4s, wzr\n"
+        "dup v25.4s, wzr\n"
+        "dup v26.4s, wzr\n"
+        "dup v27.4s, wzr\n"
+        "dup v28.4s, wzr\n"
+        "dup v29.4s, wzr\n"
+        "dup v30.4s, wzr\n"
+        "dup v31.4s, wzr\n"
 
         /* Main loop */
 
-        "loop_NEONKernel12x4Depth2_%=:\n"
+        "loop_NEON64Kernel12x8Depth2_%=:\n"
 
         // Overview of register layout:
         //
@@ -643,52 +655,78 @@ struct NEON64Kernel12x4Depth2 : KernelBase {
         //
         //                            Accumulator
 
-        // Load 1 Rhs cell of size 2x4
+        // Load 2 Rhs cells of size 2x4 each
         "ld1 {v0.8b}, [%[rhs_ptr]], #8\n"
+        "ld1 {v1.8b}, [%[rhs_ptr]], #8\n"
 
         // Load 3 Lhs cells of size 4x2 each
-        "ld1 {v1.8b}, [%[lhs_ptr]], #8\n"
         "ld1 {v2.8b}, [%[lhs_ptr]], #8\n"
         "ld1 {v3.8b}, [%[lhs_ptr]], #8\n"
+        "ld1 {v4.8b}, [%[lhs_ptr]], #8\n"
 
         // Expand Lhs/Rhs cells to 16 bit.
         "uxtl v0.8h, v0.8b\n"
         "uxtl v1.8h, v1.8b\n"
         "uxtl v2.8h, v2.8b\n"
         "uxtl v3.8h, v3.8b\n"
+        "uxtl v4.8h, v4.8b\n"
 
         // Multiply-accumulate, level of depth 0
-        "umlal v4.4s, v1.4h, v0.h[0]\n"
-        "umlal v5.4s, v1.4h, v0.h[1]\n"
-        "umlal v6.4s, v1.4h, v0.h[2]\n"
-        "umlal v7.4s, v1.4h, v0.h[3]\n"
         "umlal v8.4s, v2.4h, v0.h[0]\n"
         "umlal v9.4s, v2.4h, v0.h[1]\n"
         "umlal v10.4s, v2.4h, v0.h[2]\n"
         "umlal v11.4s, v2.4h, v0.h[3]\n"
-        "umlal v12.4s, v3.4h, v0.h[0]\n"
-        "umlal v13.4s, v3.4h, v0.h[1]\n"
-        "umlal v14.4s, v3.4h, v0.h[2]\n"
-        "umlal v15.4s, v3.4h, v0.h[3]\n"
+        "umlal v12.4s, v2.4h, v1.h[0]\n"
+        "umlal v13.4s, v2.4h, v1.h[1]\n"
+        "umlal v14.4s, v2.4h, v1.h[2]\n"
+        "umlal v15.4s, v2.4h, v1.h[3]\n"
+        "umlal v16.4s, v3.4h, v0.h[0]\n"
+        "umlal v17.4s, v3.4h, v0.h[1]\n"
+        "umlal v18.4s, v3.4h, v0.h[2]\n"
+        "umlal v19.4s, v3.4h, v0.h[3]\n"
+        "umlal v20.4s, v3.4h, v1.h[0]\n"
+        "umlal v21.4s, v3.4h, v1.h[1]\n"
+        "umlal v22.4s, v3.4h, v1.h[2]\n"
+        "umlal v23.4s, v3.4h, v1.h[3]\n"
+        "umlal v24.4s, v4.4h, v0.h[0]\n"
+        "umlal v25.4s, v4.4h, v0.h[1]\n"
+        "umlal v26.4s, v4.4h, v0.h[2]\n"
+        "umlal v27.4s, v4.4h, v0.h[3]\n"
+        "umlal v28.4s, v4.4h, v1.h[0]\n"
+        "umlal v29.4s, v4.4h, v1.h[1]\n"
+        "umlal v30.4s, v4.4h, v1.h[2]\n"
+        "umlal v31.4s, v4.4h, v1.h[3]\n"
 
         // Multiply-accumulate, level of depth 1
-        "umlal2 v4.4s, v1.8h, v0.h[4]\n"
-        "umlal2 v5.4s, v1.8h, v0.h[5]\n"
-        "umlal2 v6.4s, v1.8h, v0.h[6]\n"
-        "umlal2 v7.4s, v1.8h, v0.h[7]\n"
         "umlal2 v8.4s, v2.8h, v0.h[4]\n"
         "umlal2 v9.4s, v2.8h, v0.h[5]\n"
         "umlal2 v10.4s, v2.8h, v0.h[6]\n"
         "umlal2 v11.4s, v2.8h, v0.h[7]\n"
-        "umlal2 v12.4s, v3.8h, v0.h[4]\n"
-        "umlal2 v13.4s, v3.8h, v0.h[5]\n"
-        "umlal2 v14.4s, v3.8h, v0.h[6]\n"
-        "umlal2 v15.4s, v3.8h, v0.h[7]\n"
+        "umlal2 v12.4s, v2.8h, v1.h[4]\n"
+        "umlal2 v13.4s, v2.8h, v1.h[5]\n"
+        "umlal2 v14.4s, v2.8h, v1.h[6]\n"
+        "umlal2 v15.4s, v2.8h, v1.h[7]\n"
+        "umlal2 v16.4s, v3.8h, v0.h[4]\n"
+        "umlal2 v17.4s, v3.8h, v0.h[5]\n"
+        "umlal2 v18.4s, v3.8h, v0.h[6]\n"
+        "umlal2 v19.4s, v3.8h, v0.h[7]\n"
+        "umlal2 v20.4s, v3.8h, v1.h[4]\n"
+        "umlal2 v21.4s, v3.8h, v1.h[5]\n"
+        "umlal2 v22.4s, v3.8h, v1.h[6]\n"
+        "umlal2 v23.4s, v3.8h, v1.h[7]\n"
+        "umlal2 v24.4s, v4.8h, v0.h[4]\n"
+        "umlal2 v25.4s, v4.8h, v0.h[5]\n"
+        "umlal2 v26.4s, v4.8h, v0.h[6]\n"
+        "umlal2 v27.4s, v4.8h, v0.h[7]\n"
+        "umlal2 v28.4s, v4.8h, v1.h[4]\n"
+        "umlal2 v29.4s, v4.8h, v1.h[5]\n"
+        "umlal2 v30.4s, v4.8h, v1.h[6]\n"
+        "umlal2 v31.4s, v4.8h, v1.h[7]\n"
 
         // Loop. Decrement loop index (depth) by 2, since we just handled 2
         // levels of depth (Kernel::kDepth=2).
         "subs %[run_depth], %[run_depth], #2\n"
-        "bne loop_NEONKernel12x4Depth2_%=\n"
+        "bne loop_NEON64Kernel12x8Depth2_%=\n"
 
         /* end of main loop */
 
@@ -702,7 +740,7 @@ struct NEON64Kernel12x4Depth2 : KernelBase {
         // If start_depth == 0, then there is no preexisting accumulator
         // to accumulate, so we can simply store our result.
         "cmp %[start_depth], #0\n"
-        "beq store_result_NEONKernel12x4Depth2_%=\n"
+        "beq store_result_NEON64Kernel12x8Depth2_%=\n"
 
         "mov x0, %[dst_ptr]\n"
 
@@ -712,9 +750,9 @@ struct NEON64Kernel12x4Depth2 : KernelBase {
         "ld1 {v1.4s}, [x1], #16\n"
         "ld1 {v2.4s}, [x1], #16\n"
         // Accumulate a column
-        "add v4.4s, v4.4s, v0.4s\n"
-        "add v8.4s, v8.4s, v1.4s\n"
-        "add v12.4s, v12.4s, v2.4s\n"
+        "add v8.4s, v8.4s, v0.4s\n"
+        "add v16.4s, v16.4s, v1.4s\n"
+        "add v24.4s, v24.4s, v2.4s\n"
 
         "add x0, x0, %[dst_col_stride]\n"
         // Load a column
@@ -723,9 +761,9 @@ struct NEON64Kernel12x4Depth2 : KernelBase {
         "ld1 {v1.4s}, [x1], #16\n"
         "ld1 {v2.4s}, [x1], #16\n"
         // Accumulate a column
-        "add v5.4s, v5.4s, v0.4s\n"
-        "add v9.4s, v9.4s, v1.4s\n"
-        "add v13.4s, v13.4s, v2.4s\n"
+        "add v9.4s, v9.4s, v0.4s\n"
+        "add v17.4s, v17.4s, v1.4s\n"
+        "add v25.4s, v25.4s, v2.4s\n"
 
         "add x0, x0, %[dst_col_stride]\n"
         // Load a column
@@ -734,9 +772,9 @@ struct NEON64Kernel12x4Depth2 : KernelBase {
         "ld1 {v1.4s}, [x1], #16\n"
         "ld1 {v2.4s}, [x1], #16\n"
         // Accumulate a column
-        "add v6.4s, v6.4s, v0.4s\n"
-        "add v10.4s, v10.4s, v1.4s\n"
-        "add v14.4s, v14.4s, v2.4s\n"
+        "add v10.4s, v10.4s, v0.4s\n"
+        "add v18.4s, v18.4s, v1.4s\n"
+        "add v26.4s, v26.4s, v2.4s\n"
 
         "add x0, x0, %[dst_col_stride]\n"
         // Load a column
@@ -745,36 +783,104 @@ struct NEON64Kernel12x4Depth2 : KernelBase {
         "ld1 {v1.4s}, [x1], #16\n"
         "ld1 {v2.4s}, [x1], #16\n"
         // Accumulate a column
-        "add v7.4s, v7.4s, v0.4s\n"
-        "add v11.4s, v11.4s, v1.4s\n"
-        "add v15.4s, v15.4s, v2.4s\n"
+        "add v11.4s, v11.4s, v0.4s\n"
+        "add v19.4s, v19.4s, v1.4s\n"
+        "add v27.4s, v27.4s, v2.4s\n"
 
-        "store_result_NEONKernel12x4Depth2_%=:\n"
+        "add x0, x0, %[dst_col_stride]\n"
+        // Load a column
+        "mov x1, x0\n"
+        "ld1 {v0.4s}, [x1], #16\n"
+        "ld1 {v1.4s}, [x1], #16\n"
+        "ld1 {v2.4s}, [x1], #16\n"
+        // Accumulate a column
+        "add v12.4s, v12.4s, v0.4s\n"
+        "add v20.4s, v20.4s, v1.4s\n"
+        "add v28.4s, v28.4s, v2.4s\n"
+
+        "add x0, x0, %[dst_col_stride]\n"
+        // Load a column
+        "mov x1, x0\n"
+        "ld1 {v0.4s}, [x1], #16\n"
+        "ld1 {v1.4s}, [x1], #16\n"
+        "ld1 {v2.4s}, [x1], #16\n"
+        // Accumulate a column
+        "add v13.4s, v13.4s, v0.4s\n"
+        "add v21.4s, v21.4s, v1.4s\n"
+        "add v29.4s, v29.4s, v2.4s\n"
+
+        "add x0, x0, %[dst_col_stride]\n"
+        // Load a column
+        "mov x1, x0\n"
+        "ld1 {v0.4s}, [x1], #16\n"
+        "ld1 {v1.4s}, [x1], #16\n"
+        "ld1 {v2.4s}, [x1], #16\n"
+        // Accumulate a column
+        "add v14.4s, v14.4s, v0.4s\n"
+        "add v22.4s, v22.4s, v1.4s\n"
+        "add v30.4s, v30.4s, v2.4s\n"
+
+        "add x0, x0, %[dst_col_stride]\n"
+        // Load a column
+        "mov x1, x0\n"
+        "ld1 {v0.4s}, [x1], #16\n"
+        "ld1 {v1.4s}, [x1], #16\n"
+        "ld1 {v2.4s}, [x1], #16\n"
+        // Accumulate a column
+        "add v15.4s, v15.4s, v0.4s\n"
+        "add v23.4s, v23.4s, v1.4s\n"
+        "add v31.4s, v31.4s, v2.4s\n"
+
+        "store_result_NEON64Kernel12x8Depth2_%=:\n"
 
         "mov x0, %[dst_ptr]\n"
         // Store a column
         "mov x1, x0\n"
-        "st1 {v4.4s}, [x1], #16\n"
         "st1 {v8.4s}, [x1], #16\n"
-        "st1 {v12.4s}, [x1], #16\n"
+        "st1 {v16.4s}, [x1], #16\n"
+        "st1 {v24.4s}, [x1], #16\n"
         // Store a column
         "add x0, x0, %[dst_col_stride]\n"
         "mov x1, x0\n"
-        "st1 {v5.4s}, [x1], #16\n"
         "st1 {v9.4s}, [x1], #16\n"
-        "st1 {v13.4s}, [x1], #16\n"
+        "st1 {v17.4s}, [x1], #16\n"
+        "st1 {v25.4s}, [x1], #16\n"
         // Store a column
         "add x0, x0, %[dst_col_stride]\n"
         "mov x1, x0\n"
-        "st1 {v6.4s}, [x1], #16\n"
         "st1 {v10.4s}, [x1], #16\n"
-        "st1 {v14.4s}, [x1], #16\n"
+        "st1 {v18.4s}, [x1], #16\n"
+        "st1 {v26.4s}, [x1], #16\n"
         // Store a column
         "add x0, x0, %[dst_col_stride]\n"
         "mov x1, x0\n"
-        "st1 {v7.4s}, [x1], #16\n"
         "st1 {v11.4s}, [x1], #16\n"
+        "st1 {v19.4s}, [x1], #16\n"
+        "st1 {v27.4s}, [x1], #16\n"
+        // Store a column
+        "add x0, x0, %[dst_col_stride]\n"
+        "mov x1, x0\n"
+        "st1 {v12.4s}, [x1], #16\n"
+        "st1 {v20.4s}, [x1], #16\n"
+        "st1 {v28.4s}, [x1], #16\n"
+        // Store a column
+        "add x0, x0, %[dst_col_stride]\n"
+        "mov x1, x0\n"
+        "st1 {v13.4s}, [x1], #16\n"
+        "st1 {v21.4s}, [x1], #16\n"
+        "st1 {v29.4s}, [x1], #16\n"
+        // Store a column
+        "add x0, x0, %[dst_col_stride]\n"
+        "mov x1, x0\n"
+        "st1 {v14.4s}, [x1], #16\n"
+        "st1 {v22.4s}, [x1], #16\n"
+        "st1 {v30.4s}, [x1], #16\n"
+        // Store a column
+        "add x0, x0, %[dst_col_stride]\n"
+        "mov x1, x0\n"
         "st1 {v15.4s}, [x1], #16\n"
+        "st1 {v23.4s}, [x1], #16\n"
+        "st1 {v31.4s}, [x1], #16\n"
         :  // outputs
         [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
         [dst_ptr] "+r"(dst_ptr),
