@@ -32,8 +32,120 @@
 
 namespace gemmlowp {
 
+#ifdef GEMMLOWP_SSE32
+struct SSE32Kernel4x4Depth2 : KernelBase {
+  typedef KernelFormat<KernelSideFormat<CellFormat<4, 2,CellOrder::WidthMajor>, 1>,
+                       KernelSideFormat<CellFormat<4, 2,CellOrder::WidthMajor>, 1> > Format;					   
 
-struct SSEKernel12x4Depth2 : KernelBase {
+
+  const char* Name() const override { return "SSE, 4x4, depth 2"; }
+
+  void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
+           const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
+           int start_depth, int run_depth) const override {
+		   
+
+	
+	ScopedProfilingLabel label("optimized kernel");
+	assert(dst_row_stride == 1); 
+	const std::int32_t run_depth_cells = run_depth / Format::kDepth;
+	
+	
+	/* Main loop */
+
+
+	// A 2x4 cell of Rhs is stored in 16bit in xmm1 .
+	// A 4x2 block Lhs is stored in 16bit in xmm0.
+	// A 4x4 block of accumulators is stored in 32bit in xmm4--xmm7.
+	//
+	//                   +-------+-------+-------+-------+
+	//                   |xmm1[0]|xmm1[2]|xmm1[4]|xmm1[6]|
+	//              Rhs  +-------+---------------+-------+
+	//                   |xmm1[1]|xmm1[3]|xmm1[5]|xmm1[7]|
+	//                   +-------+-------+-------+-------+
+	//
+	//                   |       |       |       |       |
+	//                                                   
+	//    Lhs            |       |       |       |       |
+	//
+	//  +--+--+ - - - -  +-------+-------+-------+-------+
+	//  |xmm0 |          | xmm4  | xmm5  | xmm6  | xmm7  |
+	//  |xmm0 | (Iter1)  | xmm4  | xmm5  | xmm6  | xmm7  |
+	//  |xmm0 |          | xmm4  | xmm5  | xmm6  | xmm7  |
+	//  |xmm0 |          | xmm4  | xmm5  | xmm6  | xmm7  |
+	//  +--+--+ - - - -  +-------+-------+-------+-------+
+	//
+	//                              Accumulator
+
+	
+	asm volatile(
+		
+		//set accumulators to zero.
+		"pxor %%xmm4  , %%xmm4 \n\t" 
+		"pxor %%xmm5  , %%xmm5 \n\t"
+		"pxor %%xmm6  , %%xmm6 \n\t" 
+		"pxor %%xmm7  , %%xmm7 \n\t"	
+		
+		"outerLoop%=:\n\t"
+		
+		//RHS cell to xmm1
+		"pmovzxbw (%[rhs_ptr]), %%xmm1\n\t"
+		
+		//LHS cell
+		"pmovzxbw 0x00(%[lhs_ptr]), %%xmm0\n\t"	
+		"pshufd $0x00,%%xmm1,%%xmm2     \n\t"
+		"pshufd $0x55,%%xmm1,%%xmm3     \n\t"
+		"pmaddwd %%xmm0, %%xmm2         \n\t"
+		"pmaddwd %%xmm0, %%xmm3         \n\t"
+		"paddd %%xmm2, %%xmm4           \n\t"
+		"paddd %%xmm3, %%xmm5           \n\t"
+		"pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
+		"pshufd $0xff,%%xmm1,%%xmm3     \n\t"
+		"pmaddwd %%xmm0, %%xmm2         \n\t"
+		"pmaddwd %%xmm0, %%xmm3         \n\t"
+		"paddd %%xmm2, %%xmm6           \n\t"
+		"paddd %%xmm3, %%xmm7           \n\t"
+				
+		"addl $0x08, %[lhs_ptr]\n\t"
+		"addl $0x08, %[rhs_ptr]\n\t"
+		"decl %[run_depth_cells]\n\t"
+		"jnz outerLoop%=\n\t"
+		
+		"movl  %[dst_col_stride], %%eax\n\t"
+		"shll $2, %%eax\n\t"
+		"leal (%%eax,%%eax,0x2), %%ebx\n\t"
+		"test %[start_depth], %[start_depth]\n\t"
+		"jz storeDst%=\n\t"
+		
+		"paddd 0x00(%[dst_ptr])           , %%xmm4 \n\t"
+		"paddd 0x00(%[dst_ptr], %%eax, 1) , %%xmm5 \n\t"
+		"paddd 0x00(%[dst_ptr], %%eax, 2) , %%xmm6 \n\t"
+		"paddd 0x00(%[dst_ptr], %%ebx, 1) , %%xmm7 \n\t"
+		
+		"storeDst%=:\n\t"
+		
+		"movdqu %%xmm4  , 0x00(%[dst_ptr])          \n\t"
+		"movdqu %%xmm5  , 0x00(%[dst_ptr], %%eax, 1)\n\t"
+		"movdqu %%xmm6  , 0x00(%[dst_ptr], %%eax, 2)\n\t" 
+		"movdqu %%xmm7  , 0x00(%[dst_ptr], %%ebx, 1)\n\t"
+		
+		:  // outputs
+        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+        [dst_ptr] "+r"(dst_ptr)
+        :  // inputs
+        [start_depth] "r"(start_depth),
+        [dst_col_stride] "g"(dst_col_stride),
+		[run_depth_cells] "g"(run_depth_cells)
+        :  // clobbers
+		"cc", "memory", "%xmm0", "%xmm1","%xmm3", "%xmm2", "%xmm4",
+		"%xmm5","%xmm6","%xmm7", "%eax", "%ebx");
+			
+  }
+  
+};
+#endif
+#ifdef GEMMLOWP_SSE64
+struct SSE64Kernel12x4Depth2 : KernelBase {
   typedef KernelFormat<KernelSideFormat<CellFormat<4, 2,CellOrder::WidthMajor>, 3>,
                        KernelSideFormat<CellFormat<4, 2,CellOrder::WidthMajor>, 1> > Format;					   
 
@@ -202,8 +314,9 @@ struct SSEKernel12x4Depth2 : KernelBase {
 		"%xmm5","%xmm6","%xmm7","%xmm8","%xmm9","%xmm10", "%r12", "%r13",
 		"%xmm11","%xmm12","%xmm13","%xmm14","%xmm15");
   }
+  
 };
-
+#endif
 
 
 
