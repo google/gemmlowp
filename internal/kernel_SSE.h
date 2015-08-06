@@ -86,7 +86,7 @@ struct SSE32Kernel4x4Depth2 : KernelBase {
 		"pxor %%xmm5  , %%xmm5 \n\t"
 		"pxor %%xmm6  , %%xmm6 \n\t" 
 		"pxor %%xmm7  , %%xmm7 \n\t"	
-		
+		"movl  %[run_depth_cells], %%eax\n\t"
 		"outerLoop%=:\n\t"
 		
 		//RHS cell to xmm1
@@ -109,7 +109,7 @@ struct SSE32Kernel4x4Depth2 : KernelBase {
 				
 		"addl $0x08, %[lhs_ptr]\n\t"
 		"addl $0x08, %[rhs_ptr]\n\t"
-		"decl %[run_depth_cells]\n\t"
+		"decl %%eax\n\t"
 		"jnz outerLoop%=\n\t"
 		
 		"movl  %[dst_col_stride], %%eax\n\t"
