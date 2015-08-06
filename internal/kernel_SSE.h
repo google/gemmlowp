@@ -48,7 +48,7 @@ struct SSE32Kernel4x4Depth2 : KernelBase {
 	
 	ScopedProfilingLabel label("optimized kernel");
 	assert(dst_row_stride == 1); 
-	const std::int32_t run_depth_cells = run_depth / Format::kDepth;
+	std::int32_t run_depth_cells = run_depth / Format::kDepth;
 	
 	
 	/* Main loop */
@@ -79,6 +79,7 @@ struct SSE32Kernel4x4Depth2 : KernelBase {
 
 	
 	asm volatile(
+		
 		
 		//set accumulators to zero.
 		"pxor %%xmm4  , %%xmm4 \n\t" 
@@ -113,32 +114,35 @@ struct SSE32Kernel4x4Depth2 : KernelBase {
 		
 		"movl  %[dst_col_stride], %%eax\n\t"
 		"shll $2, %%eax\n\t"
-		"leal (%%eax,%%eax,0x2), %%ebx\n\t"
-		"test %[start_depth], %[start_depth]\n\t"
+		
+		"movl  %[start_depth], %%ecx\n\t"
+		"test %%ecx, %%ecx\n\t"
 		"jz storeDst%=\n\t"
 		
+		"leal (%%eax,%%eax,0x2), %%ecx\n\t"
 		"paddd 0x00(%[dst_ptr])           , %%xmm4 \n\t"
 		"paddd 0x00(%[dst_ptr], %%eax, 1) , %%xmm5 \n\t"
 		"paddd 0x00(%[dst_ptr], %%eax, 2) , %%xmm6 \n\t"
-		"paddd 0x00(%[dst_ptr], %%ebx, 1) , %%xmm7 \n\t"
+		"paddd 0x00(%[dst_ptr], %%ecx, 1) , %%xmm7 \n\t"
 		
 		"storeDst%=:\n\t"
 		
+		"leal (%%eax,%%eax,0x2), %%ecx\n\t"
 		"movdqu %%xmm4  , 0x00(%[dst_ptr])          \n\t"
 		"movdqu %%xmm5  , 0x00(%[dst_ptr], %%eax, 1)\n\t"
 		"movdqu %%xmm6  , 0x00(%[dst_ptr], %%eax, 2)\n\t" 
-		"movdqu %%xmm7  , 0x00(%[dst_ptr], %%ebx, 1)\n\t"
+		"movdqu %%xmm7  , 0x00(%[dst_ptr], %%ecx, 1)\n\t"
 		
 		:  // outputs
         [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
         [dst_ptr] "+r"(dst_ptr)
         :  // inputs
-        [start_depth] "r"(start_depth),
+        [start_depth] "g"(start_depth),
         [dst_col_stride] "g"(dst_col_stride),
 		[run_depth_cells] "g"(run_depth_cells)
         :  // clobbers
 		"cc", "memory", "%xmm0", "%xmm1","%xmm3", "%xmm2", "%xmm4",
-		"%xmm5","%xmm6","%xmm7", "%eax", "%ebx");
+		"%xmm5","%xmm6","%xmm7", "%eax", "%ecx");
 			
   }
   
