@@ -35,6 +35,18 @@ typedef NEON64Kernel12x8Depth2 DefaultKernelForGEMM;
 // which is inefficient but not as inefficient as using a reference kernel.
 typedef NEON64Kernel12x8Depth2 DefaultKernelForGEMV;
 }
+#elif defined GEMMLOWP_SSE32
+#include "kernel_SSE.h"
+namespace gemmlowp {
+typedef SSE32Kernel4x4Depth2 DefaultKernelForGEMM;
+typedef SSE32Kernel4x4Depth2 DefaultKernelForGEMV;
+}
+#elif defined GEMMLOWP_SSE64
+#include "kernel_SSE.h"
+namespace gemmlowp {
+typedef SSE64Kernel12x4Depth2 DefaultKernelForGEMM;
+typedef SSE64Kernel12x4Depth2 DefaultKernelForGEMV;
+}
 #else
 #include "kernel_reference.h"
 namespace gemmlowp {
