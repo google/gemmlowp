@@ -481,7 +481,7 @@ void test_gemm(typename GemmWrapper::Context* context) {
   test_gemm<GemmWrapper>(context, 128, 128, 128, WhatParamsToTest::All,
                          WhatOrdersToTest::OnlyRCC);
 
-  test_gemm<GemmWrapper>(context, 17, 24, 31, WhatParamsToTest::All,
+  test_gemm<GemmWrapper>(context, 16, 17, 16, WhatParamsToTest::All,
                          WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 37, 55, 73, WhatParamsToTest::All,
                          WhatOrdersToTest::OnlyRCC);
@@ -647,24 +647,25 @@ void test() {
       &context);
 
   test_gemm_kernel<
-      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<3, 4>, 2>,
-                                   KernelSideFormat<CellFormat<5, 4>, 3>>>>(
+      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<3, 4, CellOrder::DepthMajor>, 2>,
+                                   KernelSideFormat<CellFormat<5, 4, CellOrder::DepthMajor>, 3>>>>(
       &context);
 
   test_gemm_kernel<
-      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<5, 3>, 3>,
-                                   KernelSideFormat<CellFormat<4, 3>, 2>>>>(
+      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<3, 4, CellOrder::WidthMajor>, 2>,
+                                   KernelSideFormat<CellFormat<5, 4, CellOrder::WidthMajor>, 3>>>>(
       &context);
 
   test_gemm_kernel<
-      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<4, 3>, 3>,
-                                   KernelSideFormat<CellFormat<4, 3>, 1>>>>(
+      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<5, 2, CellOrder::WidthMajor>, 3>,
+                                   KernelSideFormat<CellFormat<4, 2, CellOrder::DepthMajor>, 2>>>>(
       &context);
 
   test_gemm_kernel<
-      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<4, 3>, 3>,
-                                   KernelSideFormat<CellFormat<2, 3>, 2>>>>(
+      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<5, 2, CellOrder::DepthMajor>, 3>,
+                                   KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 2>>>>(
       &context);
+
 
 // Test all our optimized kernels, even if they are not used
 // at the moment, as they might be handy later and so it's

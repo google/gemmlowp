@@ -151,6 +151,12 @@ class SideMap {
   SideMap(Scalar* data, int width, int depth, int stride)
       : data_(data), width_(width), depth_(depth), stride_(stride) {}
 
+  SideMap(Scalar* data, int width, int depth)
+      : data_(data), width_(width), depth_(depth)
+  {
+    stride_ = kOrder == SideMapOrder::WidthMajor ? depth_ : width_;
+  }
+
   SideMap(const SideMap& other)
       : data_(other.data_),
         width_(other.width_),
@@ -189,21 +195,107 @@ class SideMap {
   int width_, depth_, stride_;
 };
 
-// Generic (slow) packing code.
 template <typename SrcMapType, typename KernelSideFormat>
-class PackSideBlockImplGeneric {
+class PackingRegisterBlockBase
+{
  public:
   typedef typename KernelSideFormat::Cell CellFormat;
-  static const int kLhsCells = KernelSideFormat::kCells;
+  static const int kCells = KernelSideFormat::kCells;
   static const int kCellWidth = CellFormat::kWidth;
-  static const int kKernelWidth = CellFormat::kWidth * kLhsCells;
+  static const int kKernelWidth = CellFormat::kWidth * kCells;
+  static const int kCellDepth = CellFormat::kDepth;
+  static const int kCellSize = CellFormat::kSize;
+  
+  static const SideMapOrder kSrcOrder = SrcMapType::kOrder;
+  static const SideMapOrder kDstOrder = CellFormat::kOrder == CellOrder::WidthMajor ? SideMapOrder::WidthMajor : SideMapOrder::DepthMajor;
+
+  PackingRegisterBlockBase()
+    : loaded_src(nullptr, 0, 0, 0)
+  {}
+
+ private:
+  // The source data that's ready for packing. May point to
+  // in-place actual source data if it's a complete block,
+  // or to the local buf_ below into which we copy incomplete blocks.
+  SrcMapType loaded_src;
+
+  // Temporary buffer for loading incomplete blocks to,
+  // in the source storage order
+  std::uint8_t buf_[kKernelWidth * kRegisterSize];
+
+ public:
+  void LoadComplete(const SrcMapType& src) {
+    loaded_src = src;
+  }
+  void LoadIncomplete(const SrcMapType& src) {
+    ScopedProfilingLabel label("PackingRegisterBlockBase::LoadIncomplete (generic)");
+    memset(buf_, 0, kKernelWidth * kRegisterSize);
+    if (kSrcOrder == SideMapOrder::WidthMajor) {
+      for (int w = 0; w < src.width(); w++) {
+        memcpy(buf_ + w * kRegisterSize, src.data(w, 0), src.depth());
+        memset(buf_ + w * kRegisterSize + src.depth(), 0, kRegisterSize - src.depth());
+      }
+    } else {
+      assert(kSrcOrder == SideMapOrder::DepthMajor);
+      for (int d = 0; d < src.depth(); d++) {
+        memcpy(buf_ + d * kKernelWidth, src.data(0, d), src.width());
+        memset(buf_ + d * kKernelWidth + src.width(), 0, kKernelWidth - src.width());
+      }
+    }
+    loaded_src = SrcMapType(buf_, kKernelWidth, kRegisterSize);
+    asm volatile("#foo2");
+  }
+  void Store(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
+    ScopedProfilingLabel label("PackingRegisterBlockBase::Store (generic)");
+    std::uint8_t* dst_ptr = dst->current_data();
+    for (int start_depth = 0; start_depth < kRegisterSize; start_depth += kCellDepth) {
+      for (int c = 0; c < kCells; c++) {
+        const SideMap<const std::uint8_t, kSrcOrder> src_cell_map(
+          loaded_src.block(kCellWidth * c, start_depth, kCellWidth, kCellDepth));
+        SideMap<std::uint8_t, kDstOrder> dst_cell_map(dst_ptr, kCellWidth, kCellDepth);
+        for (int w = 0; w < kCellWidth; w++) {
+          std::int32_t sum = 0;
+          for (int d = 0; d < kCellDepth; d++) {
+            std::uint8_t x = src_cell_map(w, d);
+            dst_cell_map(w, d) = x;
+            sum += x;
+          }
+          dst->rank_one_update()[start_width + w + c * kCellWidth]
+            += sum * dst->rank_one_update_multiplier();
+        }
+        dst_ptr += kCellSize;
+      }
+    }
+    dst->seek_forward_n_cells(kCells * kRegisterSize / kCellDepth);
+  }
+};
+
+template <typename SrcMapType, typename KernelSideFormat>
+class PackingRegisterBlock
+  : public PackingRegisterBlockBase<SrcMapType, KernelSideFormat>
+{};
+
+// Implementation of packing
+template <typename SrcMapType, typename KernelSideFormat>
+class PackSideBlockImpl {
+ public:
+  typedef typename KernelSideFormat::Cell CellFormat;
+  static const int kCells = KernelSideFormat::kCells;
+  static const int kCellWidth = CellFormat::kWidth;
+  static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
 
-  virtual ~PackSideBlockImplGeneric() {}
+  virtual ~PackSideBlockImpl() {}
 
-  PackSideBlockImplGeneric(PackedSideBlock<KernelSideFormat>* packed_side_block,
+  PackSideBlockImpl(PackedSideBlock<KernelSideFormat>* packed_side_block,
                            const SrcMapType& src_map)
       : packed_side_block_(packed_side_block), src_map_(src_map) {}
+
+  PackedSideBlock<KernelSideFormat>* packed_side_block() const {
+    return packed_side_block_;
+  }
+
+  const SrcMapType& src_map() const { return src_map_; }
 
   // The public entry point to pack a block.
   void PackL2() {
@@ -224,33 +316,6 @@ class PackSideBlockImplGeneric {
     }
   }
 
-  PackedSideBlock<KernelSideFormat>* packed_side_block() const {
-    return packed_side_block_;
-  }
-
-  const SrcMapType& src_map() const { return src_map_; }
-
- protected:
-  // PackRun packs only a run i.e. is the inner loop in the depth dimension.
-  // This is what subclasses may override to provide optimized code paths.
-  // Optimized implementations may still fall back to this generic code
-  // to handle unaligned boundaries.
-  virtual void PackRun(int start_width, int width, int start_depth, int depth) {
-    for (int d = 0; d < depth; d += kDefaultCacheLineSize) {
-      for (int w = 0; w < width; w++) {
-        Prefetch(src_map_.data(start_width + w, start_depth + d));
-      }
-    }
-    for (int d = 0; d < depth; d += kCellDepth) {
-      // The next loop's boundary is kKernelWidth, not width,
-      // because we always pack whole kernels so that the
-      // compute stage doesn't need to worry about unaligned kernel sizes.
-      for (int w = 0; w < +kKernelWidth; w += kCellWidth) {
-        PackUnalignedCell(start_width + w, start_depth + d);
-      }
-    }
-  }
-
  private:
   // The intermediate-level loops, between PackL2 and PackRun.
   void PackL1(int start_width, int width, int start_depth, int depth) {
@@ -261,32 +326,39 @@ class PackSideBlockImplGeneric {
     }
   }
 
-  // Reference un-optimized implementation of the packing of a cell;
-  // also serves as a fallback to handle unaligned edges.
-  void PackUnalignedCell(int start_width, int start_depth) {
-    std::uint8_t* dst_ptr = packed_side_block_->current_data();
-    std::int32_t* dst_rank_one_update =
-        packed_side_block_->rank_one_update() + start_width;
-    std::int32_t dst_rank_one_update_multiplier =
-        packed_side_block_->rank_one_update_multiplier();
-
-    memset(dst_ptr, 0, sizeof(std::uint8_t) * CellFormat::kSize);
-
-    if (start_width < src_map_.width() && start_depth < src_map_.depth()) {
-      int width = std::min<int>(+kCellWidth, src_map_.width() - start_width);
-      int depth = std::min<int>(+kCellDepth, src_map_.depth() - start_depth);
-      auto src_block = src_map_.block(start_width, start_depth, width, depth);
-
+  // PackRun packs only a run i.e. is the inner loop in the depth dimension.
+  virtual void PackRun(int start_width, int width, int start_depth, int depth) {
+    for (int d = 0; d < depth; d += kDefaultCacheLineSize) {
       for (int w = 0; w < width; w++) {
-        for (int d = 0; d < depth; d++) {
-          std::uint8_t s = src_block(w, d);
-          dst_ptr[OffsetIntoCell<CellFormat>(w, d)] = s;
-          dst_rank_one_update[w] += s * dst_rank_one_update_multiplier;
-        }
+        Prefetch(src_map_.data(start_width + w, start_depth + d));
       }
     }
-
-    packed_side_block_->seek_next_cell();
+    if (width == kKernelWidth) {
+      const int aligned_depth = RoundDown<kRegisterSize>(depth);
+      for (int d = 0; d < aligned_depth; d += kRegisterSize) {
+        auto src_block = src_map_.block(start_width, start_depth + d, width, kRegisterSize);
+        PackingRegisterBlock<SrcMapType, KernelSideFormat> b;
+        b.LoadComplete(src_block);
+        b.Store(packed_side_block_, start_width);
+      }
+      if (aligned_depth < depth) {
+        auto src_block =
+          src_map_.block(start_width, start_depth + aligned_depth,
+                         width, depth - aligned_depth);
+        PackingRegisterBlock<SrcMapType, KernelSideFormat> b;
+        b.LoadIncomplete(src_block);
+        b.Store(packed_side_block_, start_width);
+      }
+    } else {
+      assert(width < kKernelWidth);
+      for (int d = 0; d < depth; d += kRegisterSize) {
+        const int ds = std::min(+kRegisterSize, depth - d);
+        auto src_block = src_map_.block(start_width, start_depth + d, width, ds);
+        PackingRegisterBlock<SrcMapType, KernelSideFormat> b;
+        b.LoadIncomplete(src_block);
+        b.Store(packed_side_block_, start_width);
+      }
+    }
   }
 
   // The PackedSideBlock being packed, i.e. the 'destination'.
@@ -295,20 +367,6 @@ class PackSideBlockImplGeneric {
   // A map on the block of the original matrix block being packed,
   // i.e. the 'source'.
   const SrcMapType& src_map_;
-};
-
-// The packing code that we actually use. Defaults to using the above
-// generic code; optimized paths can be inserted by specializing this
-// template. See e.g. pack_neon.h.
-template <typename SrcMapType, typename KernelSideFormat>
-class PackSideBlockImpl
-    : public PackSideBlockImplGeneric<SrcMapType, KernelSideFormat> {
- public:
-  typedef PackSideBlockImplGeneric<SrcMapType, KernelSideFormat> Base;
-
-  PackSideBlockImpl(PackedSideBlock<KernelSideFormat>* packed_side_block,
-                    const SrcMapType& src_map)
-      : Base(packed_side_block, src_map) {}
 };
 
 // Packs a block of the input LHS matrix, into a PackedSideBlock
@@ -344,7 +402,7 @@ void PackRhs(PackedSideBlock<KernelSideFormat>* dst, const MatrixMapType& src) {
 }  // namespace gemmlowp
 
 #ifdef GEMMLOWP_NEON
-#include "pack_neon.h"
+//#include "pack_neon.h"
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_PACK_H_

@@ -72,6 +72,8 @@ const int kDefaultL2CacheSize = 256 * 1024;
 // RHS block.
 const float kDefaultL2RhsFactor = 0.90f;
 
+const int kRegisterSize = 16;
+
 // Hints the CPU to prefetch the cache line containing ptr.
 inline void Prefetch(const void* ptr) {
 #ifdef __GNUC__  // Clang and GCC define __GNUC__ and have __builtin_prefetch.

@@ -61,8 +61,8 @@ struct BlockParams {
     // Too much loss of accuracy due to storing intermediate results in
     // low precision.
     // However, we still want to round l2_depth up to the next multiple
-    // of kernel depth, so as to avoid having to special-case unaligned depths.
-    l2_depth = RoundUp<KernelFormat::kDepth>(depth);
+    // of register size, so as to avoid having to special-case unaligned depths.
+    l2_depth = RoundUp<kRegisterSize>(depth);
 
     const int l2_bytes_to_use = kDefaultL2CacheSize;
     const float l2_rhs_factor = kDefaultL2RhsFactor;
@@ -113,7 +113,7 @@ struct BlockParams {
                  (KernelFormat::kRows + KernelFormat::kCols));
       int min_l1_depth_blocks =
           CeilQuotient(depth, max_cache_friendly_l1_depth);
-      l1_depth = RoundUp<KernelFormat::kDepth>(
+      l1_depth = RoundUp<kRegisterSize>(
           CeilQuotient(depth, min_l1_depth_blocks));
     }
 
