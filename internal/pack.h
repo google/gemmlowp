@@ -213,7 +213,7 @@ class PackingRegisterBlockBase
     : loaded_src(nullptr, 0, 0, 0)
   {}
 
- private:
+ protected:
   // The source data that's ready for packing. May point to
   // in-place actual source data if it's a complete block,
   // or to the local buf_ below into which we copy incomplete blocks.
@@ -233,17 +233,14 @@ class PackingRegisterBlockBase
     if (kSrcOrder == SideMapOrder::WidthMajor) {
       for (int w = 0; w < src.width(); w++) {
         memcpy(buf_ + w * kRegisterSize, src.data(w, 0), src.depth());
-        memset(buf_ + w * kRegisterSize + src.depth(), 0, kRegisterSize - src.depth());
       }
     } else {
       assert(kSrcOrder == SideMapOrder::DepthMajor);
       for (int d = 0; d < src.depth(); d++) {
         memcpy(buf_ + d * kKernelWidth, src.data(0, d), src.width());
-        memset(buf_ + d * kKernelWidth + src.width(), 0, kKernelWidth - src.width());
       }
     }
     loaded_src = SrcMapType(buf_, kKernelWidth, kRegisterSize);
-    asm volatile("#foo2");
   }
   void Store(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
     ScopedProfilingLabel label("PackingRegisterBlockBase::Store (generic)");
@@ -328,6 +325,7 @@ class PackSideBlockImpl {
 
   // PackRun packs only a run i.e. is the inner loop in the depth dimension.
   virtual void PackRun(int start_width, int width, int start_depth, int depth) {
+    ScopedProfilingLabel label("PackRun");
     for (int d = 0; d < depth; d += kDefaultCacheLineSize) {
       for (int w = 0; w < width; w++) {
         Prefetch(src_map_.data(start_width + w, start_depth + d));
@@ -402,7 +400,7 @@ void PackRhs(PackedSideBlock<KernelSideFormat>* dst, const MatrixMapType& src) {
 }  // namespace gemmlowp
 
 #ifdef GEMMLOWP_NEON
-//#include "pack_neon.h"
+#include "pack_neon.h"
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_PACK_H_

@@ -647,6 +647,16 @@ void test() {
       &context);
 
   test_gemm_kernel<
+      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<4, 2>, 1>,
+                                   KernelSideFormat<CellFormat<4, 2>, 2>>>>(
+      &context);
+
+  test_gemm_kernel<
+      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<4, 2>, 4>,
+                                   KernelSideFormat<CellFormat<4, 2>, 5>>>>(
+      &context);
+
+  test_gemm_kernel<
       ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<3, 4, CellOrder::DepthMajor>, 2>,
                                    KernelSideFormat<CellFormat<5, 4, CellOrder::DepthMajor>, 3>>>>(
       &context);
