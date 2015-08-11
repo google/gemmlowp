@@ -576,7 +576,7 @@ struct NEON32Kernel20x1Depth4 : KernelBase {
 // Our main GEMM kernel.
 struct NEON64Kernel12x8Depth2 : KernelBase {
   typedef KernelFormat<KernelSideFormat<CellFormat<4, 2>, 3>,
-                       KernelSideFormat<CellFormat<8, 2>, 1> > Format;
+                       KernelSideFormat<CellFormat<4, 2>, 2> > Format;
 
   const char* Name() const override { return "NEON, 12x8, depth 2"; }
 
@@ -621,14 +621,14 @@ struct NEON64Kernel12x8Depth2 : KernelBase {
 
         // Overview of register layout:
         //
-        // A 2x8 cell of Rhs is stored in 16bit in v0--v1.
+        // A 2x8 block of 2 2x4 cells of Rhs is stored in 16bit in v0--v1.
         // A 12x2 block of 3 4x2 cells Lhs is stored in 16bit in v2--v4.
         // A 12x8 block of accumulators is stored in 32bit in v8--v31.
         //
         //                         +--------+--------+-----+--------+--------+
-        //                         |v0.h[0] |v0.h[1] | ... |v0.h[6] |v0.h[7] |
+        //                         |v0.h[0] |v0.h[1] | ... |v1.h[2] |v1.h[3] |
         //                    Rhs  +--------+--------+-----+--------+--------+
-        //                         |v1.h[0] |v1.h[1] | ... |v1.h[6] |v1.h[7] |
+        //                         |v0.h[4] |v0.h[5] | ... |v1.h[6] |v1.h[7] |
         //                         +--------+--------+-----+--------+--------+
         //
         //                         |        |        |     |        |        |
@@ -675,48 +675,48 @@ struct NEON64Kernel12x8Depth2 : KernelBase {
         "umlal v9.4s, v2.4h, v0.h[1]\n"
         "umlal v10.4s, v2.4h, v0.h[2]\n"
         "umlal v11.4s, v2.4h, v0.h[3]\n"
-        "umlal v12.4s, v2.4h, v0.h[4]\n"
-        "umlal v13.4s, v2.4h, v0.h[5]\n"
-        "umlal v14.4s, v2.4h, v0.h[6]\n"
-        "umlal v15.4s, v2.4h, v0.h[7]\n"
+        "umlal v12.4s, v2.4h, v1.h[0]\n"
+        "umlal v13.4s, v2.4h, v1.h[1]\n"
+        "umlal v14.4s, v2.4h, v1.h[2]\n"
+        "umlal v15.4s, v2.4h, v1.h[3]\n"
         "umlal v16.4s, v3.4h, v0.h[0]\n"
         "umlal v17.4s, v3.4h, v0.h[1]\n"
         "umlal v18.4s, v3.4h, v0.h[2]\n"
         "umlal v19.4s, v3.4h, v0.h[3]\n"
-        "umlal v20.4s, v3.4h, v0.h[4]\n"
-        "umlal v21.4s, v3.4h, v0.h[5]\n"
-        "umlal v22.4s, v3.4h, v0.h[6]\n"
-        "umlal v23.4s, v3.4h, v0.h[7]\n"
+        "umlal v20.4s, v3.4h, v1.h[0]\n"
+        "umlal v21.4s, v3.4h, v1.h[1]\n"
+        "umlal v22.4s, v3.4h, v1.h[2]\n"
+        "umlal v23.4s, v3.4h, v1.h[3]\n"
         "umlal v24.4s, v4.4h, v0.h[0]\n"
         "umlal v25.4s, v4.4h, v0.h[1]\n"
         "umlal v26.4s, v4.4h, v0.h[2]\n"
         "umlal v27.4s, v4.4h, v0.h[3]\n"
-        "umlal v28.4s, v4.4h, v0.h[4]\n"
-        "umlal v29.4s, v4.4h, v0.h[5]\n"
-        "umlal v30.4s, v4.4h, v0.h[6]\n"
-        "umlal v31.4s, v4.4h, v0.h[7]\n"
+        "umlal v28.4s, v4.4h, v1.h[0]\n"
+        "umlal v29.4s, v4.4h, v1.h[1]\n"
+        "umlal v30.4s, v4.4h, v1.h[2]\n"
+        "umlal v31.4s, v4.4h, v1.h[3]\n"
 
         // Multiply-accumulate, level of depth 1
-        "umlal2 v8.4s, v2.8h, v1.h[0]\n"
-        "umlal2 v9.4s, v2.8h, v1.h[1]\n"
-        "umlal2 v10.4s, v2.8h, v1.h[2]\n"
-        "umlal2 v11.4s, v2.8h, v1.h[3]\n"
+        "umlal2 v8.4s, v2.8h, v0.h[4]\n"
+        "umlal2 v9.4s, v2.8h, v0.h[5]\n"
+        "umlal2 v10.4s, v2.8h, v0.h[6]\n"
+        "umlal2 v11.4s, v2.8h, v0.h[7]\n"
         "umlal2 v12.4s, v2.8h, v1.h[4]\n"
         "umlal2 v13.4s, v2.8h, v1.h[5]\n"
         "umlal2 v14.4s, v2.8h, v1.h[6]\n"
         "umlal2 v15.4s, v2.8h, v1.h[7]\n"
-        "umlal2 v16.4s, v3.8h, v1.h[0]\n"
-        "umlal2 v17.4s, v3.8h, v1.h[1]\n"
-        "umlal2 v18.4s, v3.8h, v1.h[2]\n"
-        "umlal2 v19.4s, v3.8h, v1.h[3]\n"
+        "umlal2 v16.4s, v3.8h, v0.h[4]\n"
+        "umlal2 v17.4s, v3.8h, v0.h[5]\n"
+        "umlal2 v18.4s, v3.8h, v0.h[6]\n"
+        "umlal2 v19.4s, v3.8h, v0.h[7]\n"
         "umlal2 v20.4s, v3.8h, v1.h[4]\n"
         "umlal2 v21.4s, v3.8h, v1.h[5]\n"
         "umlal2 v22.4s, v3.8h, v1.h[6]\n"
         "umlal2 v23.4s, v3.8h, v1.h[7]\n"
-        "umlal2 v24.4s, v4.8h, v1.h[0]\n"
-        "umlal2 v25.4s, v4.8h, v1.h[1]\n"
-        "umlal2 v26.4s, v4.8h, v1.h[2]\n"
-        "umlal2 v27.4s, v4.8h, v1.h[3]\n"
+        "umlal2 v24.4s, v4.8h, v0.h[4]\n"
+        "umlal2 v25.4s, v4.8h, v0.h[5]\n"
+        "umlal2 v26.4s, v4.8h, v0.h[6]\n"
+        "umlal2 v27.4s, v4.8h, v0.h[7]\n"
         "umlal2 v28.4s, v4.8h, v1.h[4]\n"
         "umlal2 v29.4s, v4.8h, v1.h[5]\n"
         "umlal2 v30.4s, v4.8h, v1.h[6]\n"
