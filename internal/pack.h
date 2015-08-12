@@ -325,12 +325,14 @@ class PackSideBlockImpl {
 
   // PackRun packs only a run i.e. is the inner loop in the depth dimension.
   virtual void PackRun(int start_width, int width, int start_depth, int depth) {
+#if 0 // TODO (benoitjacob) figure if the prefetches are useful and how to optimize them.
     ScopedProfilingLabel label("PackRun");
     for (int d = 0; d < depth; d += kDefaultCacheLineSize) {
       for (int w = 0; w < width; w++) {
         Prefetch(src_map_.data(start_width + w, start_depth + d));
       }
     }
+#endif
     if (width == kKernelWidth) {
       const int aligned_depth = RoundDown<kRegisterSize>(depth);
       for (int d = 0; d < aligned_depth; d += kRegisterSize) {
