@@ -40,7 +40,7 @@ struct NEON32Kernel12x4Depth2 : KernelBase {
   void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
            const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
            int start_depth, int run_depth) const override {
-    ScopedProfilingLabel label("optimized kernel");
+    ScopedProfilingLabel label("optimized kernel (NEON 12x4)");
 
     assert(dst_row_stride == 1);
 
@@ -259,7 +259,7 @@ struct NEON32Kernel8x1Depth4 : KernelBase {
   void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
            const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
            int start_depth, int run_depth) const override {
-    ScopedProfilingLabel label("optimized kernel");
+    ScopedProfilingLabel label("optimized kernel (NEON 8x1)");
 
     assert(dst_row_stride == 1);
 
@@ -394,7 +394,7 @@ struct NEON32Kernel20x1Depth4 : KernelBase {
   void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
            const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
            int start_depth, int run_depth) const override {
-    ScopedProfilingLabel label("optimized kernel");
+    ScopedProfilingLabel label("optimized kernel (NEON 20x1)");
 
     assert(dst_row_stride == 1);
 
@@ -584,7 +584,7 @@ struct NEON64Kernel12x8Depth2 : KernelBase {
   void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
            const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
            int start_depth, int run_depth) const override {
-    ScopedProfilingLabel label("optimized kernel");
+    ScopedProfilingLabel label("optimized kernel (NEON 12x8)");
 
     assert(dst_row_stride == 1);
 
