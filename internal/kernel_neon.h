@@ -23,6 +23,7 @@
 #include "kernel.h"
 
 #include <cassert>
+#include <arm_neon.h>
 
 namespace gemmlowp {
 
@@ -240,325 +241,6 @@ struct NEON32Kernel12x4Depth2 : KernelBase {
         [dst_col_stride] "r"(dst_col_stride)
         :  // clobbers
         "cc", "memory", "r0", "r1",
-        // note: someone on internet says that quad registers are
-        // unsupported in the clobber list!
-        "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
-        "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
-        "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30",
-        "d31");
-  }
-};
-
-// Our main GEMV kernel.
-struct NEON32Kernel8x1Depth4 : KernelBase {
-  typedef KernelFormat<KernelSideFormat<CellFormat<8, 4>, 1>,
-                       KernelSideFormat<CellFormat<1, 4>, 1> > Format;
-
-  const char* Name() const override { return "NEON, 8x1, depth 4"; }
-
-  void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
-           const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
-           int start_depth, int run_depth) const override {
-    ScopedProfilingLabel label("optimized kernel (NEON 8x1)");
-
-    assert(dst_row_stride == 1);
-
-    asm volatile(
-        // Clear accumulator registers (see layout below)
-        "vmov.s32 q11, #0\n"
-        "vmov.s32 q12, q11\n"
-
-        /* Main loop */
-
-        "loop_NEONKernel8x1Depth4_%=:\n"
-
-        // Overview of register layout:
-        //
-        // A 4x1 cell of Rhs is stored in 16bit in d0.
-        // A 8x4 cell Lhs is stored in 16bit in d2--d9 (q1--q4).
-        // A block of accumulators of size 8x1 is stored in 32bit in q11--q12
-        //
-        //                         +-----+
-        //                         |d0[0]|
-        //                         +-----+
-        //                         |d0[1]|
-        //                         +-----+   Rhs
-        //                         |d0[2]|
-        //                         +-----+
-        //                         |d0[3]|
-        //                         +-----+
-        //                         |     |
-        //
-        //       Lhs               |     |
-        //
-        //  +--+--+--+--+ - - - -  +-----+
-        //  |d2|d4|d6|d8|          | q11 |
-        //  |d2|d4|d6|d8|          | q11 |
-        //  |d2|d4|d6|d8|          | q11 |
-        //  |d2|d4|d6|d8|          | q11 |
-        //  +--+--+--+--+ - - - -  +-----+   Accumulator
-        //  |d3|d5|d7|d9|          | q12 |
-        //  |d3|d5|d7|d9|          | q12 |
-        //  |d3|d5|d7|d9|          | q12 |
-        //  |d3|d5|d7|d9|          | q12 |
-        //  +--+--+--+--+ - - - -  +-----+
-
-        // Load 1 Rhs cell of size 4x1.
-        "vldr.32 d0, [%[rhs_ptr]]\n"
-        "add %[rhs_ptr], #4\n"
-
-        // Load 1 Lhs cell of size 8x4. Each vld1 instruction loads 1 col.
-        "vld1.8 {d2}, [%[lhs_ptr]:64]!\n"
-        "vld1.8 {d4}, [%[lhs_ptr]:64]!\n"
-        "vld1.8 {d6}, [%[lhs_ptr]:64]!\n"
-        "vld1.8 {d8}, [%[lhs_ptr]:64]!\n"
-
-        // Expand Lhs/Rhs cells to 16 bit.
-        "vmovl.u8 q0, d0\n"  // d1 is unused.
-        "vmovl.u8 q1, d2\n"
-        "vmovl.u8 q2, d4\n"
-        "vmovl.u8 q3, d6\n"
-        "vmovl.u8 q4, d8\n"
-
-        // Multiply-accumulate, level of depth 0
-        "vmlal.u16 q11, d2, d0[0]\n"
-        "vmlal.u16 q12, d3, d0[0]\n"
-
-        // Multiply-accumulate, level of depth 1
-        "vmlal.u16 q11, d4, d0[1]\n"
-        "vmlal.u16 q12, d5, d0[1]\n"
-
-        // Multiply-accumulate, level of depth 2
-        "vmlal.u16 q11, d6, d0[2]\n"
-        "vmlal.u16 q12, d7, d0[2]\n"
-
-        // Multiply-accumulate, level of depth 3
-        "vmlal.u16 q11, d8, d0[3]\n"
-        "vmlal.u16 q12, d9, d0[3]\n"
-
-        // Loop. Decrement loop index (depth) by 4, since we just handled 4
-        // levels
-        // of depth (Kernel::kDepth=4).
-        "subs %[run_depth], #4\n"
-        "bne loop_NEONKernel8x1Depth4_%=\n"
-
-        /* end of main loop */
-
-        /* Accumulate our local accumulator registers into the destination block
-           */
-
-        "cmp %[start_depth], #0\n"
-        "beq store_result_NEONKernel8x1Depth4_%=\n"
-
-        "mov r0, %[dst_ptr]\n"
-        // Load a column
-        "vld1.32 {d0, d1}, [r0]!\n"
-        "vld1.32 {d2, d3}, [r0]!\n"
-
-        // Accumulate a column
-        "vadd.s32 q11, q11, q0\n"
-        "vadd.s32 q12, q12, q1\n"
-
-        "store_result_NEONKernel8x1Depth4_%=:\n"
-
-        "mov r0, %[dst_ptr]\n"
-        "vst1.32 {d22, d23}, [r0]!\n"
-        "vst1.32 {d24, d25}, [r0]!\n"
-        :  // outputs
-        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
-        [run_depth] "+r"(run_depth)
-        :  // inputs
-        [dst_col_stride] "r"(dst_col_stride), [start_depth] "r"(start_depth),
-        [dst_ptr] "r"(dst_ptr)
-        :  // clobbers
-        "cc", "memory", "r0",
-        // note: someone on internet says that quad registers are
-        // unsupported in the clobber list!
-        "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
-        "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
-        "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30",
-        "d31");
-  }
-};
-
-// Another GEMV kernel, that performs best by itself;
-// unfortunately GEMV is dominated by LHS packing and we haven't succeeded
-// so far in making efficient packing code for this very wide (width 20)
-// format.
-struct NEON32Kernel20x1Depth4 : KernelBase {
-  typedef KernelFormat<KernelSideFormat<CellFormat<4, 4>, 5>,
-                       KernelSideFormat<CellFormat<1, 4>, 1> > Format;
-
-  const char* Name() const override { return "NEON, 20x1, depth 4"; }
-
-  void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
-           const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
-           int start_depth, int run_depth) const override {
-    ScopedProfilingLabel label("optimized kernel (NEON 20x1)");
-
-    assert(dst_row_stride == 1);
-
-    asm volatile(
-        // Clear accumulator registers (see layout below)
-        "vmov.s32 q11, #0\n"
-        "vmov.s32 q12, q11\n"
-        "vmov.s32 q13, q11\n"
-        "vmov.s32 q14, q11\n"
-        "vmov.s32 q15, q11\n"
-
-        /* Main loop */
-
-        "loop_NEONKernel20x1Depth4_%=:\n"
-
-        // Overview of register layout:
-        //
-        // A 4x1 cell of Rhs is stored in 16bit in d0.
-        // 5 cells, of size 4x4 each, are stored in 16bit in d2--d21.
-        // A block of accumulators of size 20x1 is stored in 32bit
-        // in q11--q15.
-        //
-        //                             +-----+
-        //                             |d0[0]|
-        //                             +-----+
-        //                             |d0[1]|
-        //                             +-----+   Rhs
-        //                             |d0[2]|
-        //                             +-----+
-        //                             |d0[3]|
-        //                             +-----+
-        //                             |     |
-        //
-        //       Lhs                   |     |
-        //
-        //  +---+---+---+---+ - - - -  +-----+
-        //  |d2 |d3 |d4 |d5 |          | q11 |
-        //  |d2 |d3 |d4 |d5 |          | q11 |
-        //  |d2 |d3 |d4 |d5 |          | q11 |
-        //  |d2 |d3 |d4 |d5 |          | q11 |
-        //  +---+---+---+---+ - - - -  +-----+
-        //  |d6 |d7 |d8 |d9 |          | q12 |
-        //  |d6 |d7 |d8 |d9 |          | q12 |
-        //  |d6 |d7 |d8 |d9 |          | q12 |
-        //  |d6 |d7 |d8 |d9 |          | q12 |
-        //  +---+---+---+---+ - - - -  +-----+
-        //  |d10|d11|d12|d13|          | q13 |
-        //  |d10|d11|d12|d13|          | q13 |   Accumulator
-        //  |d10|d11|d12|d13|          | q13 |
-        //  |d10|d11|d12|d13|          | q13 |
-        //  +---+---+---+---+ - - - -  +-----+
-        //  |d14|d15|d16|d17|          | q14 |
-        //  |d14|d15|d16|d17|          | q14 |
-        //  |d14|d15|d16|d17|          | q14 |
-        //  |d14|d15|d16|d17|          | q14 |
-        //  +---+---+---+---+ - - - -  +-----+
-        //  |d18|d19|d20|d21|          | q15 |
-        //  |d18|d19|d20|d21|          | q15 |
-        //  |d18|d19|d20|d21|          | q15 |
-        //  |d18|d19|d20|d21|          | q15 |
-        //  +---+---+---+---+ - - - -  +-----+
-
-        // Load 1 Rhs cell
-        "vldr.32 d0, [%[rhs_ptr]]\n"
-        "add %[rhs_ptr], #4\n"
-
-        // Load 10 Lhs cells
-        "vld1.8 {d2}, [%[lhs_ptr]:64]!\n"
-        "vld1.8 {d4}, [%[lhs_ptr]:64]!\n"
-        "vld1.8 {d6}, [%[lhs_ptr]:64]!\n"
-        "vld1.8 {d8}, [%[lhs_ptr]:64]!\n"
-        "vld1.8 {d10}, [%[lhs_ptr]:64]!\n"
-        "vld1.8 {d12}, [%[lhs_ptr]:64]!\n"
-        "vld1.8 {d14}, [%[lhs_ptr]:64]!\n"
-        "vld1.8 {d16}, [%[lhs_ptr]:64]!\n"
-        "vld1.8 {d18}, [%[lhs_ptr]:64]!\n"
-        "vld1.8 {d20}, [%[lhs_ptr]:64]!\n"
-
-        // Expand Lhs/Rhs cells to 16 bit.
-        "vmovl.u8 q0, d0\n"
-        "vmovl.u8 q1, d2\n"
-        "vmovl.u8 q2, d4\n"
-        "vmovl.u8 q3, d6\n"
-        "vmovl.u8 q4, d8\n"
-        "vmovl.u8 q5, d10\n"
-        "vmovl.u8 q6, d12\n"
-        "vmovl.u8 q7, d14\n"
-        "vmovl.u8 q8, d16\n"
-        "vmovl.u8 q9, d18\n"
-        "vmovl.u8 q10, d20\n"
-
-        // Multiply-accumulate, level of depth 0
-        "vmlal.u16 q11, d2, d0[0]\n"
-        "vmlal.u16 q12, d6, d0[0]\n"
-        "vmlal.u16 q13, d10, d0[0]\n"
-        "vmlal.u16 q14, d14, d0[0]\n"
-        "vmlal.u16 q15, d18, d0[0]\n"
-
-        // Multiply-accumulate, level of depth 1
-        "vmlal.u16 q11, d3, d0[1]\n"
-        "vmlal.u16 q12, d7, d0[1]\n"
-        "vmlal.u16 q13, d11, d0[1]\n"
-        "vmlal.u16 q14, d15, d0[1]\n"
-        "vmlal.u16 q15, d19, d0[1]\n"
-
-        // Multiply-accumulate, level of depth 2
-        "vmlal.u16 q11, d4, d0[2]\n"
-        "vmlal.u16 q12, d8, d0[2]\n"
-        "vmlal.u16 q13, d12, d0[2]\n"
-        "vmlal.u16 q14, d16, d0[2]\n"
-        "vmlal.u16 q15, d20, d0[2]\n"
-
-        // Multiply-accumulate, level of depth 3
-        "vmlal.u16 q11, d5, d0[3]\n"
-        "vmlal.u16 q12, d9, d0[3]\n"
-        "vmlal.u16 q13, d13, d0[3]\n"
-        "vmlal.u16 q14, d17, d0[3]\n"
-        "vmlal.u16 q15, d21, d0[3]\n"
-
-        // Loop. Decrement loop index (depth) by 4, since we just handled 4
-        // levels
-        // of depth (Kernel::kDepth=4).
-        "subs %[run_depth], #4\n"
-        "bne loop_NEONKernel20x1Depth4_%=\n"
-
-        /* end of main loop */
-
-        /* Accumulate our local accumulator registers into the destination block
-           */
-
-        "cmp %[start_depth], #0\n"
-        "beq store_result_NEONKernel20x1Depth4_%=\n"
-
-        "mov r0, %[dst_ptr]\n"
-        // Load a column
-        "vld1.32 {d0, d1}, [r0]!\n"
-        "vld1.32 {d2, d3}, [r0]!\n"
-        "vld1.32 {d4, d5}, [r0]!\n"
-        "vld1.32 {d6, d7}, [r0]!\n"
-        "vld1.32 {d8, d9}, [r0]!\n"
-
-        // Accumulate a column
-        "vadd.s32 q11, q11, q0\n"
-        "vadd.s32 q12, q12, q1\n"
-        "vadd.s32 q13, q13, q2\n"
-        "vadd.s32 q14, q14, q3\n"
-        "vadd.s32 q15, q15, q4\n"
-
-        "store_result_NEONKernel20x1Depth4_%=:\n"
-
-        "mov r0, %[dst_ptr]\n"
-        "vst1.32 {d22, d23}, [r0]!\n"
-        "vst1.32 {d24, d25}, [r0]!\n"
-        "vst1.32 {d26, d27}, [r0]!\n"
-        "vst1.32 {d28, d29}, [r0]!\n"
-        "vst1.32 {d30, d31}, [r0]!\n"
-        :  // outputs
-        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
-        [run_depth] "+r"(run_depth)
-        :  // inputs
-        [dst_ptr] "r"(dst_ptr), [dst_col_stride] "r"(dst_col_stride),
-        [start_depth] "r"(start_depth)
-        :  // clobbers
-        "cc", "memory", "r0",
         // note: someone on internet says that quad registers are
         // unsupported in the clobber list!
         "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
@@ -897,6 +579,54 @@ struct NEON64Kernel12x8Depth2 : KernelBase {
 };
 
 #endif  // GEMMLOWP_NEON64
+
+// Our main GEMV kernel.
+template <int Cells>
+struct NEONKernel4Nx1Depth2 : KernelBase {
+  typedef KernelFormat<KernelSideFormat<CellFormat<4, 2>, Cells>,
+                       KernelSideFormat<CellFormat<1, 2>, 1> > Format;
+
+  const char* Name() const override {
+    return "NEON intrinsics, 4Nx1, depth 2";
+  }
+
+  void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
+           const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
+           int start_depth, int run_depth) const override {
+    ScopedProfilingLabel label("optimized kernel (NEON 4Nx1)");
+
+    assert(dst_row_stride == 1);
+
+    uint32x4_t acc[Cells];
+    for (int cell = 0; cell < Cells; cell++) {
+      acc[cell] = vdupq_n_u32(0);
+    }
+    for (int d = 0; d < run_depth; d += 2) {
+      uint16x8_t lhs[Cells];
+      for (int cell = 0; cell < Cells; cell++) {
+        lhs[cell] = vmovl_u8(vld1_u8(lhs_ptr));
+        lhs_ptr += 8;
+      }
+      uint16_t rhs0 = rhs_ptr[0];
+      uint16_t rhs1 = rhs_ptr[1];
+      rhs_ptr += 2;
+      for (int cell = 0; cell < Cells; cell++) {
+        acc[cell] = vmlal_n_u16(acc[cell], vget_low_u16(lhs[cell]), rhs0);
+      }
+      for (int cell = 0; cell < Cells; cell++) {
+        acc[cell] = vmlal_n_u16(acc[cell], vget_high_u16(lhs[cell]), rhs1);
+      }
+    }
+    if (start_depth) {
+      for (int cell = 0; cell < Cells; cell++) {
+        acc[cell] = vaddq_u32(acc[cell], vreinterpretq_u32_s32(vld1q_s32(dst_ptr + 4 * cell)));
+      }
+    }
+    for (int cell = 0; cell < Cells; cell++) {
+      vst1q_s32(dst_ptr + 4 * cell, vreinterpretq_s32_u32(acc[cell]));
+    }
+  }
+};
 
 }  // namespace gemmlowp
 

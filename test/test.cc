@@ -676,20 +676,6 @@ void test() {
                                    KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 2>>>>(
       &context);
 
-
-// Test all our optimized kernels, even if they are not used
-// at the moment, as they might be handy later and so it's
-// useful to keep them functional for now.
-#ifdef GEMMLOWP_NEON32
-  test_gemm_kernel<gemmlowp::NEON32Kernel12x4Depth2>(&context);
-  test_gemm_kernel<gemmlowp::NEON32Kernel20x1Depth4>(&context);
-  test_gemm_kernel<gemmlowp::NEON32Kernel8x1Depth4>(&context);
-#endif
-
-#ifdef GEMMLOWP_NEON64
-  test_gemm_kernel<gemmlowp::NEON64Kernel12x8Depth2>(&context);
-#endif
-
   // Run against actual data from a network evaluation.
   TestWithRealData();
 
