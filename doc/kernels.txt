@@ -153,8 +153,8 @@ This is the reason why all the code in internal/pack.h is templated in
 the corresponding kernel format.
 
 The code in internal/pack.h isn't tightly optimized by itself, but it is
-structured in such a way that the critical inner loop is in a template,
-  PackSideBlockImpl,
+structured in such a way that the critical code is in a template,
+  PackingRegisterBlock,
 that can easily be specialized to override the slow generic code with
 fast specific packing code for specific formats, on specific platforms.
 
