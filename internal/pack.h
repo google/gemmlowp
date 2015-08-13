@@ -228,7 +228,6 @@ class PackingRegisterBlockBase
     loaded_src = src;
   }
   void LoadIncomplete(const SrcMapType& src) {
-    ScopedProfilingLabel label("PackingRegisterBlockBase::LoadIncomplete (generic)");
     memset(buf_, 0, kKernelWidth * kRegisterSize);
     if (kSrcOrder == SideMapOrder::WidthMajor) {
       for (int w = 0; w < src.width(); w++) {
@@ -243,7 +242,6 @@ class PackingRegisterBlockBase
     loaded_src = SrcMapType(buf_, kKernelWidth, kRegisterSize);
   }
   void Store(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
-    ScopedProfilingLabel label("PackingRegisterBlockBase::Store (generic)");
     std::uint8_t* dst_ptr = dst->current_data();
     for (int start_depth = 0; start_depth < kRegisterSize; start_depth += kCellDepth) {
       for (int c = 0; c < kCells; c++) {
@@ -326,7 +324,6 @@ class PackSideBlockImpl {
   // PackRun packs only a run i.e. is the inner loop in the depth dimension.
   virtual void PackRun(int start_width, int width, int start_depth, int depth) {
 #if 0 // TODO (benoitjacob) figure if the prefetches are useful and how to optimize them.
-    ScopedProfilingLabel label("PackRun");
     for (int d = 0; d < depth; d += kDefaultCacheLineSize) {
       for (int w = 0; w < width; w++) {
         Prefetch(src_map_.data(start_width + w, start_depth + d));

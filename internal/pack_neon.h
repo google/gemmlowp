@@ -42,8 +42,6 @@ class PackingRegisterBlock<WidthMajorUint8SideMap, DepthMajorSideFormatNCells4x2
   static const int kCellSize = CellFormat::kSize;
 
   void Store(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
-    ScopedProfilingLabel label("PackingRegisterBlock::Store (NEON intrinsics)");
-
     std::uint8_t* dst_ptr = dst->current_data();
     const std::uint8_t* const src_ptr = this->loaded_src.data();
     const int stride = this->loaded_src.stride();
@@ -125,8 +123,6 @@ class PackingRegisterBlock<WidthMajorUint8SideMap, DepthMajorSideFormat3Cells4x2
   static const int kCellSize = CellFormat::kSize;
 
   void Store(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
-    ScopedProfilingLabel label("PackingRegisterBlock::Store (NEON)");
-
     std::uint8_t* dst_ptr = dst->current_data();
     const std::uint8_t* src_ptr = this->loaded_src.data();
     const int stride = this->loaded_src.stride();
@@ -262,8 +258,6 @@ class PackingRegisterBlock<WidthMajorUint8SideMap, DepthMajorSideFormat2Cells4x2
   static const int kCellSize = CellFormat::kSize;
 
   void Store(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
-    ScopedProfilingLabel label("PackingRegisterBlock::Store (NEON)");
-
     std::uint8_t* dst_ptr = dst->current_data();
     const std::uint8_t* src_ptr = this->loaded_src.data();
     const int stride = this->loaded_src.stride();
