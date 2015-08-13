@@ -284,7 +284,8 @@ class PackSideBlockImpl {
 
   PackSideBlockImpl(PackedSideBlock<KernelSideFormat>* packed_side_block,
                            const SrcMapType& src_map)
-      : packed_side_block_(packed_side_block), src_map_(src_map) {}
+      : packed_side_block_(packed_side_block)
+      , src_map_(src_map) {}
 
   PackedSideBlock<KernelSideFormat>* packed_side_block() const {
     return packed_side_block_;
@@ -306,6 +307,7 @@ class PackSideBlockImpl {
         int ws = std::min<int>(packed_side_block_->params().l1_width,
                                src_map_.width() - w);
 
+        PrefetchL1(w, ws, d, ds);
         PackL1(w, ws, d, ds);
       }
     }
@@ -321,38 +323,42 @@ class PackSideBlockImpl {
     }
   }
 
-  // PackRun packs only a run i.e. is the inner loop in the depth dimension.
-  virtual void PackRun(int start_width, int width, int start_depth, int depth) {
-#if 0 // TODO (benoitjacob) figure if the prefetches are useful and how to optimize them.
-    for (int d = 0; d < depth; d += kDefaultCacheLineSize) {
-      for (int w = 0; w < width; w++) {
-        Prefetch(src_map_.data(start_width + w, start_depth + d));
+  // Prefetches the data that will be read by PackL1
+  void PrefetchL1(int start_width, int width, int start_depth, int depth) {
+    if (SrcMapType::kOrder == SideMapOrder::WidthMajor) {
+      for (int d = 0; d < depth; d += kDefaultCacheLineSize) {
+        for (int w = 0; w < width; w += 1) {
+          Prefetch(src_map_.data(start_width + w, start_depth + d));
+        }
+      }
+    } else {
+      for (int d = 0; d < depth; d++) {
+        for (int w = 0; w < width; w += kDefaultCacheLineSize) {
+          Prefetch(src_map_.data(start_width + w, start_depth + d));
+        }
       }
     }
-#endif
+  }
+
+  // PackRun packs only a run i.e. is the inner loop in the depth dimension.
+  void PackRun(int start_width, int width, int start_depth, int depth) {
+    PackingRegisterBlock<SrcMapType, KernelSideFormat> b;
     if (width == kKernelWidth) {
-      const int aligned_depth = RoundDown<kRegisterSize>(depth);
-      for (int d = 0; d < aligned_depth; d += kRegisterSize) {
-        auto src_block = src_map_.block(start_width, start_depth + d, width, kRegisterSize);
-        PackingRegisterBlock<SrcMapType, KernelSideFormat> b;
-        b.LoadComplete(src_block);
+      const int register_aligned_depth = RoundDown<kRegisterSize>(depth);
+      for (int d = 0; d < register_aligned_depth; d += kRegisterSize) {
+        b.LoadComplete(src_map_.block(start_width, start_depth + d, width, kRegisterSize));
         b.Store(packed_side_block_, start_width);
       }
-      if (aligned_depth < depth) {
-        auto src_block =
-          src_map_.block(start_width, start_depth + aligned_depth,
-                         width, depth - aligned_depth);
-        PackingRegisterBlock<SrcMapType, KernelSideFormat> b;
-        b.LoadIncomplete(src_block);
+      if (register_aligned_depth < depth) {
+        b.LoadIncomplete(src_map_.block(start_width, start_depth + register_aligned_depth,
+                                        width, depth - register_aligned_depth));
         b.Store(packed_side_block_, start_width);
       }
     } else {
       assert(width < kKernelWidth);
       for (int d = 0; d < depth; d += kRegisterSize) {
         const int ds = std::min(+kRegisterSize, depth - d);
-        auto src_block = src_map_.block(start_width, start_depth + d, width, ds);
-        PackingRegisterBlock<SrcMapType, KernelSideFormat> b;
-        b.LoadIncomplete(src_block);
+        b.LoadIncomplete(src_map_.block(start_width, start_depth + d, width, ds));
         b.Store(packed_side_block_, start_width);
       }
     }
