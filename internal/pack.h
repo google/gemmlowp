@@ -195,6 +195,15 @@ class SideMap {
   int width_, depth_, stride_;
 };
 
+// A PackingRegisterBlock is a small fixed-size block of a matrix being
+// packed. This class is the generic non-optimized implementation,
+// it is inherited by the generic implementation of PackingRegisterBlock,
+// which may be overriden by template specialization.
+//
+// The packing of a block proceeds in two steps: loading and storing.
+// Loading can take either of two paths: LoadComplete for the generic
+// case where we have a full block to load, and LoadIncomplete which
+// zero-extends incomplete blocks to handle unaligned boundaries.
 template <typename SrcMapType, typename KernelSideFormat>
 class PackingRegisterBlockBase
 {
@@ -210,14 +219,14 @@ class PackingRegisterBlockBase
   static const SideMapOrder kDstOrder = CellFormat::kOrder == CellOrder::WidthMajor ? SideMapOrder::WidthMajor : SideMapOrder::DepthMajor;
 
   PackingRegisterBlockBase()
-    : loaded_src(nullptr, 0, 0, 0)
+    : loaded_src_(nullptr, 0, 0, 0)
   {}
 
  protected:
   // The source data that's ready for packing. May point to
   // in-place actual source data if it's a complete block,
   // or to the local buf_ below into which we copy incomplete blocks.
-  SrcMapType loaded_src;
+  SrcMapType loaded_src_;
 
   // Temporary buffer for loading incomplete blocks to,
   // in the source storage order
@@ -225,7 +234,7 @@ class PackingRegisterBlockBase
 
  public:
   void LoadComplete(const SrcMapType& src) {
-    loaded_src = src;
+    loaded_src_ = src;
   }
   void LoadIncomplete(const SrcMapType& src) {
     memset(buf_, 0, kKernelWidth * kRegisterSize);
@@ -239,14 +248,14 @@ class PackingRegisterBlockBase
         memcpy(buf_ + d * kKernelWidth, src.data(0, d), src.width());
       }
     }
-    loaded_src = SrcMapType(buf_, kKernelWidth, kRegisterSize);
+    loaded_src_ = SrcMapType(buf_, kKernelWidth, kRegisterSize);
   }
   void Store(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
     std::uint8_t* dst_ptr = dst->current_data();
     for (int start_depth = 0; start_depth < kRegisterSize; start_depth += kCellDepth) {
       for (int c = 0; c < kCells; c++) {
         const SideMap<const std::uint8_t, kSrcOrder> src_cell_map(
-          loaded_src.block(kCellWidth * c, start_depth, kCellWidth, kCellDepth));
+          loaded_src_.block(kCellWidth * c, start_depth, kCellWidth, kCellDepth));
         SideMap<std::uint8_t, kDstOrder> dst_cell_map(dst_ptr, kCellWidth, kCellDepth);
         for (int w = 0; w < kCellWidth; w++) {
           std::int32_t sum = 0;

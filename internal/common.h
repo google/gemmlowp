@@ -72,6 +72,10 @@ const int kDefaultL2CacheSize = 256 * 1024;
 // RHS block.
 const float kDefaultL2RhsFactor = 0.90f;
 
+// The number of bytes in a SIMD register. In the non-SIMD generic fallback
+// code, this is just a generic array size, so any size would work there.
+// Different platforms may set this to different values but must ensure
+// that their optimized packing paths are consistent with this value.
 const int kRegisterSize = 16;
 
 // Hints the CPU to prefetch the cache line containing ptr.
