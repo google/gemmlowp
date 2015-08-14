@@ -250,6 +250,233 @@ struct NEON32Kernel12x4Depth2 : KernelBase {
   }
 };
 
+struct NEON32Kernel8x8Depth4Assuming12BitProducts : KernelBase {
+  typedef KernelFormat<KernelSideFormat<CellFormat<8, 16>, 1>,
+                       KernelSideFormat<CellFormat<8, 16>, 1> > Format;
+
+  static const BitDepthSetting kBitDepthSetting = BitDepthSetting::L7R5;
+
+  const char* Name() const override { return "NEON, 8x8, depth 16, assuming 12-bit products"; }
+
+  // TODO(benoitjacob): reorder function arguments so dst comes last
+  void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
+           const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
+           int start_depth, int run_depth) const override {
+    ScopedProfilingLabel label("optimized kernel (NEON 8x8, assuming 12-bit products)");
+
+    assert(dst_row_stride == 1);
+
+    std::int32_t global_accumulators[8 * 8];
+
+    asm volatile(
+        // Compute stride between consecutive columns, in bytes
+        "mov r0, #4\n"  // multiply by 4 = sizeof(int32)
+        "mul %[dst_col_stride], r0\n"
+
+        "cmp %[start_depth], #0\n"
+        "bne load_global_accumulators_NEON32Kernel8x8Depth4Assuming12BitProducts_%=\n"
+
+        "mov r0, %[global_accumulators]\n"
+        "vmov.s32 q8, #0\n"
+        "vmov.s32 q9, q8\n"
+        "vst1.32 {d16,d17,d18,d19}, [r0]!\n"
+        "vst1.32 {d16,d17,d18,d19}, [r0]!\n"
+        "vst1.32 {d16,d17,d18,d19}, [r0]!\n"
+        "vst1.32 {d16,d17,d18,d19}, [r0]!\n"
+        "vst1.32 {d16,d17,d18,d19}, [r0]!\n"
+        "vst1.32 {d16,d17,d18,d19}, [r0]!\n"
+        "vst1.32 {d16,d17,d18,d19}, [r0]!\n"
+        "vst1.32 {d16,d17,d18,d19}, [r0]!\n"
+        "b loop_NEON32Kernel8x8Depth4Assuming12BitProducts_%=\n"
+
+        "load_global_accumulators_NEON32Kernel8x8Depth4Assuming12BitProducts_%=:\n"
+        "mov r0, %[global_accumulators]\n"
+        "mov r1, %[dst_ptr]\n"
+        "vld1.32 {d0,d1,d2,d3}, [r1], %[dst_col_stride]\n"
+        "vld1.32 {d4,d5,d6,d7}, [r1], %[dst_col_stride]\n"
+        "vld1.32 {d8,d9,d10,d11}, [r1], %[dst_col_stride]\n"
+        "vld1.32 {d12,d13,d14,d15}, [r1], %[dst_col_stride]\n"
+        "vld1.32 {d16,d17,d18,d19}, [r1], %[dst_col_stride]\n"
+        "vld1.32 {d20,d21,d22,d23}, [r1], %[dst_col_stride]\n"
+        "vld1.32 {d24,d25,d26,d27}, [r1], %[dst_col_stride]\n"
+        "vld1.32 {d28,d29,d30,d31}, [r1], %[dst_col_stride]\n"
+        "vst1.32 {d0,d1,d2,d3}, [r0]!\n"
+        "vst1.32 {d4,d5,d6,d7}, [r0]!\n"
+        "vst1.32 {d8,d9,d10,d11}, [r0]!\n"
+        "vst1.32 {d12,d13,d14,d15}, [r0]!\n"
+        "vst1.32 {d16,d17,d18,d19}, [r0]!\n"
+        "vst1.32 {d20,d21,d22,d23}, [r0]!\n"
+        "vst1.32 {d24,d25,d26,d27}, [r0]!\n"
+        "vst1.32 {d28,d29,d30,d31}, [r0]!\n"
+
+        /* Main loop */
+
+        "loop_NEON32Kernel8x8Depth4Assuming12BitProducts_%=:\n"
+
+#define GEMMLOWP_CLEAR_LOCAL_ACCUMULATORS \
+        "vmov.s32 q8, #0\n" \
+        "vmov.s32 q9, q8\n" \
+        "vmov.s32 q10, q8\n" \
+        "vmov.s32 q11, q8\n" \
+        "vmov.s32 q12, q8\n" \
+        "vmov.s32 q13, q8\n" \
+        "vmov.s32 q14, q8\n" \
+        "vmov.s32 q15, q8\n"
+
+        // Overview of register layout:
+        //
+        // TODO write me
+
+#define GEMMLOWP_ACCUMULATE_4_LEVELS_OF_DEPTH \
+        /* Load 1 Rhs cell of size 4x8 */ \
+        "vld1.8 {d0}, [%[rhs_ptr]:64]!\n" \
+        "vld1.8 {d2}, [%[rhs_ptr]:64]!\n" \
+        "vld1.8 {d4}, [%[rhs_ptr]:64]!\n" \
+        "vld1.8 {d6}, [%[rhs_ptr]:64]!\n" \
+        \
+        /* Load 1 Lhs cell of size 8x4 */ \
+        "vld1.8 {d8}, [%[lhs_ptr]:64]!\n" \
+        "vld1.8 {d10}, [%[lhs_ptr]:64]!\n" \
+        "vld1.8 {d12}, [%[lhs_ptr]:64]!\n" \
+        "vld1.8 {d14}, [%[lhs_ptr]:64]!\n" \
+        \
+        /* Expand Lhs/Rhs cells to 16 bit. */ \
+        "vmovl.u8 q0, d0\n" \
+        "vmovl.u8 q1, d2\n" \
+        "vmovl.u8 q2, d4\n" \
+        "vmovl.u8 q3, d6\n" \
+        "vmovl.u8 q4, d8\n" \
+        "vmovl.u8 q5, d10\n" \
+        "vmovl.u8 q6, d12\n" \
+        "vmovl.u8 q7, d14\n" \
+        \
+        /* Multiply-accumulate, level of depth 0 */ \
+        "vmla.u16 q8, q4, d0[0]\n" \
+        "vmla.u16 q9, q4, d0[1]\n" \
+        "vmla.u16 q10, q4, d0[2]\n" \
+        "vmla.u16 q11, q4, d0[3]\n" \
+        "vmla.u16 q12, q4, d1[0]\n" \
+        "vmla.u16 q13, q4, d1[1]\n" \
+        "vmla.u16 q14, q4, d1[2]\n" \
+        "vmla.u16 q15, q4, d1[3]\n" \
+        \
+        /* Multiply-accumulate, level of depth 1 */ \
+        "vmla.u16 q8, q5, d2[0]\n" \
+        "vmla.u16 q9, q5, d2[1]\n" \
+        "vmla.u16 q10, q5, d2[2]\n" \
+        "vmla.u16 q11, q5, d2[3]\n" \
+        "vmla.u16 q12, q5, d3[0]\n" \
+        "vmla.u16 q13, q5, d3[1]\n" \
+        "vmla.u16 q14, q5, d3[2]\n" \
+        "vmla.u16 q15, q5, d3[3]\n" \
+        \
+        /* Multiply-accumulate, level of depth 2 */ \
+        "vmla.u16 q8, q6, d4[0]\n" \
+        "vmla.u16 q9, q6, d4[1]\n" \
+        "vmla.u16 q10, q6, d4[2]\n" \
+        "vmla.u16 q11, q6, d4[3]\n" \
+        "vmla.u16 q12, q6, d5[0]\n" \
+        "vmla.u16 q13, q6, d5[1]\n" \
+        "vmla.u16 q14, q6, d5[2]\n" \
+        "vmla.u16 q15, q6, d5[3]\n" \
+        \
+        /* Multiply-accumulate, level of depth 3 */ \
+        "vmla.u16 q8, q7, d6[0]\n" \
+        "vmla.u16 q9, q7, d6[1]\n" \
+        "vmla.u16 q10, q7, d6[2]\n" \
+        "vmla.u16 q11, q7, d6[3]\n" \
+        "vmla.u16 q12, q7, d7[0]\n" \
+        "vmla.u16 q13, q7, d7[1]\n" \
+        "vmla.u16 q14, q7, d7[2]\n" \
+        "vmla.u16 q15, q7, d7[3]\n"
+
+#define GEMMLOWP_ADD_TO_GLOBAL_ACCUMULATORS \
+        "mov r0, %[global_accumulators]\n" \
+        "mov r1, %[global_accumulators]\n" \
+        "vld1.32 {d0,d1,d2,d3}, [r0]!\n" \
+        "vld1.32 {d4,d5,d6,d7}, [r0]!\n" \
+        "vld1.32 {d8,d9,d10,d11}, [r0]!\n" \
+        "vld1.32 {d12,d13,d14,d15}, [r0]!\n" \
+        "vaddw.u16 q0, q0, d16\n" \
+        "vaddw.u16 q1, q1, d17\n" \
+        "vaddw.u16 q2, q2, d18\n" \
+        "vaddw.u16 q3, q3, d19\n" \
+        "vaddw.u16 q4, q4, d20\n" \
+        "vaddw.u16 q5, q5, d21\n" \
+        "vaddw.u16 q6, q6, d22\n" \
+        "vaddw.u16 q7, q7, d23\n" \
+        "vst1.32 {d0,d1,d2,d3}, [r1]!\n" \
+        "vst1.32 {d4,d5,d6,d7}, [r1]!\n" \
+        "vst1.32 {d8,d9,d10,d11}, [r1]!\n" \
+        "vst1.32 {d12,d13,d14,d15}, [r1]!\n" \
+        "vld1.32 {d0,d1,d2,d3}, [r0]!\n" \
+        "vld1.32 {d4,d5,d6,d7}, [r0]!\n" \
+        "vld1.32 {d8,d9,d10,d11}, [r0]!\n" \
+        "vld1.32 {d12,d13,d14,d15}, [r0]!\n" \
+        "vaddw.u16 q0, q0, d24\n" \
+        "vaddw.u16 q1, q1, d25\n" \
+        "vaddw.u16 q2, q2, d26\n" \
+        "vaddw.u16 q3, q3, d27\n" \
+        "vaddw.u16 q4, q4, d28\n" \
+        "vaddw.u16 q5, q5, d29\n" \
+        "vaddw.u16 q6, q6, d30\n" \
+        "vaddw.u16 q7, q7, d31\n" \
+        "vst1.32 {d0,d1,d2,d3}, [r1]!\n" \
+        "vst1.32 {d4,d5,d6,d7}, [r1]!\n" \
+        "vst1.32 {d8,d9,d10,d11}, [r1]!\n" \
+        "vst1.32 {d12,d13,d14,d15}, [r1]!\n"
+
+        GEMMLOWP_CLEAR_LOCAL_ACCUMULATORS
+        GEMMLOWP_ACCUMULATE_4_LEVELS_OF_DEPTH
+        GEMMLOWP_ACCUMULATE_4_LEVELS_OF_DEPTH
+        GEMMLOWP_ACCUMULATE_4_LEVELS_OF_DEPTH
+        GEMMLOWP_ACCUMULATE_4_LEVELS_OF_DEPTH
+        GEMMLOWP_ADD_TO_GLOBAL_ACCUMULATORS
+
+        // Loop. Decrement loop index (depth) by 16, since we just handled 16
+        // levels of depth (Kernel::kDepth=16).
+        "subs %[run_depth], #16\n"
+        "bne loop_NEON32Kernel8x8Depth4Assuming12BitProducts_%=\n"
+
+        /* end of main loop */
+
+        "mov r0, %[global_accumulators]\n"
+        "mov r1, %[dst_ptr]\n"
+        "vld1.32 {d0,d1,d2,d3}, [r0]!\n"
+        "vld1.32 {d4,d5,d6,d7}, [r0]!\n"
+        "vld1.32 {d8,d9,d10,d11}, [r0]!\n"
+        "vld1.32 {d12,d13,d14,d15}, [r0]!\n"
+        "vld1.32 {d16,d17,d18,d19}, [r0]!\n"
+        "vld1.32 {d20,d21,d22,d23}, [r0]!\n"
+        "vld1.32 {d24,d25,d26,d27}, [r0]!\n"
+        "vld1.32 {d28,d29,d30,d31}, [r0]!\n"
+        "vst1.32 {d0,d1,d2,d3}, [r1], %[dst_col_stride]\n"
+        "vst1.32 {d4,d5,d6,d7}, [r1], %[dst_col_stride]\n"
+        "vst1.32 {d8,d9,d10,d11}, [r1], %[dst_col_stride]\n"
+        "vst1.32 {d12,d13,d14,d15}, [r1], %[dst_col_stride]\n"
+        "vst1.32 {d16,d17,d18,d19}, [r1], %[dst_col_stride]\n"
+        "vst1.32 {d20,d21,d22,d23}, [r1], %[dst_col_stride]\n"
+        "vst1.32 {d24,d25,d26,d27}, [r1], %[dst_col_stride]\n"
+        "vst1.32 {d28,d29,d30,d31}, [r1], %[dst_col_stride]\n"
+        :  // outputs
+        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+        [dst_ptr] "+r"(dst_ptr),
+        [run_depth] "+r"(run_depth)
+        :  // inputs
+        [start_depth] "r"(start_depth),
+        [dst_col_stride] "r"(dst_col_stride),
+        [global_accumulators] "r"(&global_accumulators[0])
+        :  // clobbers
+        "cc", "memory", "r0", "r1",
+        // note: someone on internet says that quad registers are
+        // unsupported in the clobber list!
+        "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
+        "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30",
+        "d31");
+  }
+};
+
 #endif  // GEMMLOWP_NEON32
 
 // The kernels here are specifically arm 64bit assembly, not arm 32bit.

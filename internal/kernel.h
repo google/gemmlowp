@@ -18,6 +18,7 @@
 #define GEMMLOWP_INTERNAL_KERNEL_H_
 
 #include "common.h"
+#include "../public/bit_depth.h"
 
 namespace gemmlowp {
 
@@ -206,8 +207,7 @@ struct KernelBase {
                    const std::uint8_t* rhs_ptr, int start_depth,
                    int run_depth) const = 0;
 
-  static const int kLhsBitDepth = 8;
-  static const int kRhsBitDepth = 8;
+  static const BitDepthSetting kBitDepthSetting = BitDepthSetting::L8R8;
 
   virtual ~KernelBase() {}
 };

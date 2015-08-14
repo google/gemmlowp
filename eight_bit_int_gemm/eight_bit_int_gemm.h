@@ -44,6 +44,12 @@ namespace eight_bit_int_gemm {
 // Users who prefer a state-less, singleton-less interface,
 // should use the main gemmlowp interface (public/gemmlowp.h) instead.
 
+// The BitDepthSetting enum lists supported a/b bit-depth combinations.
+enum class BitDepthSetting {
+  A8B8,  // 8-bit a, 8-bit b
+  A5B7   // 5-bit a, 7-bit b
+};
+
 // The main entry point to compute a Gemm. This is the standard
 // EightBitIntGemm interface.
 void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
@@ -51,7 +57,7 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
                      std::int32_t a_offset, int lda, const std::uint8_t *b,
                      std::int32_t b_offset, int ldb, std::uint8_t *c,
                      std::int32_t c_offset, std::int32_t c_mult_int,
-                     std::int32_t c_shift, int ldc);
+                     std::int32_t c_shift, int ldc, BitDepthSetting bit_depth);
 
 // Frees any persistent resources
 // (threads, thread pools, allocators, buffers, ...)

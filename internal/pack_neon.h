@@ -104,6 +104,73 @@ class PackingRegisterBlock<WidthMajorUint8SideMap, DepthMajorSideFormatNCells4x2
   }
 };
 
+typedef KernelSideFormat<CellFormat<8, 16>, 1> DepthMajorSideFormat1Cell8x16;
+template <>
+class PackingRegisterBlock<WidthMajorUint8SideMap, DepthMajorSideFormat1Cell8x16>
+  : public PackingRegisterBlockBase<WidthMajorUint8SideMap, DepthMajorSideFormat1Cell8x16>
+{
+ public:
+  typedef DepthMajorSideFormat1Cell8x16 KernelSideFormat;
+  typedef typename KernelSideFormat::Cell CellFormat;
+
+  void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
+    std::uint8_t* dst_ptr = dst->current_data();
+    const std::uint8_t* const src_ptr = this->complete_src_.data();
+    const int stride = this->complete_src_.stride();
+    // Load raw source WidthMajor data
+    uint8x16_t src_lines[8];
+    for (int i = 0; i < 8; i++) {
+      src_lines[i] = vld1q_u8(src_ptr + i * stride);
+    }
+    // Reorder the data within registers to make DepthMajor 4x2 cells
+    uint8x16x2_t src_lines_intertwined_2x[4];
+    src_lines_intertwined_2x[0] = vzipq_u8(src_lines[0], src_lines[4]);
+    src_lines_intertwined_2x[1] = vzipq_u8(src_lines[1], src_lines[5]);
+    src_lines_intertwined_2x[2] = vzipq_u8(src_lines[2], src_lines[6]);
+    src_lines_intertwined_2x[3] = vzipq_u8(src_lines[3], src_lines[7]);
+    uint8x16x2_t src_lines_intertwined_4x[4];
+    src_lines_intertwined_4x[0] = vzipq_u8(src_lines_intertwined_2x[0].val[0], src_lines_intertwined_2x[2].val[0]);
+    src_lines_intertwined_4x[1] = vzipq_u8(src_lines_intertwined_2x[1].val[0], src_lines_intertwined_2x[3].val[0]);
+    src_lines_intertwined_4x[2] = vzipq_u8(src_lines_intertwined_2x[0].val[1], src_lines_intertwined_2x[2].val[1]);
+    src_lines_intertwined_4x[3] = vzipq_u8(src_lines_intertwined_2x[1].val[1], src_lines_intertwined_2x[3].val[1]);
+    uint8x16x2_t src_lines_intertwined_8x[4];
+    src_lines_intertwined_8x[0] = vzipq_u8(src_lines_intertwined_4x[0].val[0], src_lines_intertwined_4x[1].val[0]);
+    src_lines_intertwined_8x[1] = vzipq_u8(src_lines_intertwined_4x[0].val[1], src_lines_intertwined_4x[1].val[1]);
+    src_lines_intertwined_8x[2] = vzipq_u8(src_lines_intertwined_4x[2].val[0], src_lines_intertwined_4x[3].val[0]);
+    src_lines_intertwined_8x[3] = vzipq_u8(src_lines_intertwined_4x[2].val[1], src_lines_intertwined_4x[3].val[1]);
+    // Store the resulting DepthMajor 4x2 cells in the destination packed block
+    for (int i = 0; i < 4; i++) {
+      vst1q_u8(dst_ptr, src_lines_intertwined_8x[i].val[0]);
+      dst_ptr += 16;
+      vst1q_u8(dst_ptr, src_lines_intertwined_8x[i].val[1]);
+      dst_ptr += 16;
+    }
+    // Compute sums across the depth dimension
+    uint16x8_t sums_of_2[8];
+    for (int i = 0; i < 4; i++) {
+      sums_of_2[i] = vaddl_u8(vget_low_u8(src_lines_intertwined_8x[i].val[0]),
+                              vget_high_u8(src_lines_intertwined_8x[i].val[0]));
+      sums_of_2[i + 4] = vaddl_u8(vget_low_u8(src_lines_intertwined_8x[i].val[1]),
+                              vget_high_u8(src_lines_intertwined_8x[i].val[1]));
+    }
+    int32x4_t sums_of_4[2][4];
+    for (int i = 0; i < 4; i++) {
+      sums_of_4[0][i] = vreinterpretq_s32_u32(vaddl_u16(vget_low_u16(sums_of_2[2 * i]), vget_low_u16(sums_of_2[2 * i + 1])));
+      sums_of_4[1][i] = vreinterpretq_s32_u32(vaddl_u16(vget_high_u16(sums_of_2[2 * i]), vget_high_u16(sums_of_2[2 * i + 1])));
+    }
+    // Update the rank_one_update vector
+    for (int i = 0; i < 2; i++) {
+      int32x4_t s01 = vaddq_s32(sums_of_4[i][0], sums_of_4[i][1]);
+      int32x4_t s23 = vaddq_s32(sums_of_4[i][2], sums_of_4[i][3]);
+      int32x4_t s = vaddq_s32(s01, s23);
+      int32x4_t u = vmulq_n_s32(s, dst->rank_one_update_multiplier());
+      std::int32_t* rank_one_update_ptr = dst->rank_one_update() + start_width + 4 * i;
+      vst1q_s32(rank_one_update_ptr, vaddq_s32(u, vld1q_s32(rank_one_update_ptr)));
+    }
+    dst->seek_forward_n_cells(kCells * kRegisterSize / kCellDepth);
+  }
+};
+
 }  // namespace gemmlowp
 
 #endif  // GEMMLOWP_INTERNAL_PACK_NEON_H_
