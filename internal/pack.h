@@ -200,10 +200,16 @@ class SideMap {
 // it is inherited by the generic implementation of PackingRegisterBlock,
 // which may be overriden by template specialization.
 //
-// The packing of a block proceeds in two steps: loading and storing.
-// Loading can take either of two paths: LoadComplete for the generic
-// case where we have a full block to load, and LoadIncomplete which
-// zero-extends incomplete blocks to handle unaligned boundaries.
+// The packing of a block proceeds in two steps:
+//   1. Ensuring that we have a complete block of source data, i.e. a block of
+//      the compile-time prescribed size. This is where we handle unaligned
+//      boundaries: if we don't have a complete block of source data, then
+//      we copy and zero-extend it into a local temporary (complete_src_),
+//      see MakeCompleteSrc. In the generic case, we do have a complete block,
+//      so we just use it in-place, see UseCompleteSrcInPlace.
+//   2. Packing a complete block into the destination, see Pack. This is the
+//      most critical part, so it's convenient that unaligned boundaries have
+//      already been handled in step 1.
 template <typename SrcMapType, typename KernelSideFormat>
 class PackingRegisterBlockBase
 {
@@ -218,24 +224,29 @@ class PackingRegisterBlockBase
   static const SideMapOrder kSrcOrder = SrcMapType::kOrder;
 
   PackingRegisterBlockBase()
-    : loaded_src_(nullptr, 0, 0, 0)
+    : complete_src_(nullptr, 0, 0, 0)
   {}
 
  protected:
   // The source data that's ready for packing. May point to
-  // in-place actual source data if it's a complete block,
-  // or to the local buf_ below into which we copy incomplete blocks.
-  SrcMapType loaded_src_;
+  // in-place actual source data if it's already a complete block,
+  // (see UseCompleteSrcInPlace)
+  // or to the local buf_ below into which we copy incomplete blocks
+  // (see MakeCompleteSrc)
+  SrcMapType complete_src_;
 
   // Temporary buffer for loading incomplete blocks to,
   // in the source storage order
   std::uint8_t buf_[kKernelWidth * kRegisterSize];
 
  public:
-  void LoadComplete(const SrcMapType& src) {
-    loaded_src_ = src;
+  // Selects a block if in-place source data that's already a complete block
+  void UseCompleteSrcInPlace(const SrcMapType& src) {
+    complete_src_ = src;
   }
-  void LoadIncomplete(const SrcMapType& src) {
+  // Copies an incomplete block of source data into a local temporary
+  // complete block by zero-extending it.
+  void MakeCompleteSrc(const SrcMapType& src) {
     memset(buf_, 0, kKernelWidth * kRegisterSize);
     if (kSrcOrder == SideMapOrder::WidthMajor) {
       for (int w = 0; w < src.width(); w++) {
@@ -247,16 +258,19 @@ class PackingRegisterBlockBase
         memcpy(buf_ + d * kKernelWidth, src.data(0, d), src.width());
       }
     }
-    loaded_src_ = SrcMapType(buf_, kKernelWidth, kRegisterSize);
+    complete_src_ = SrcMapType(buf_, kKernelWidth, kRegisterSize);
   }
-  void Store(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
+  // Packs a complete block into the destination. This is the most
+  // critical part and the part that we most typically want to
+  // override in architecture-specific optimized specializations.
+  void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
     std::uint8_t* dst_ptr = dst->current_data();
     for (int start_depth = 0; start_depth < kRegisterSize; start_depth += kCellDepth) {
       for (int c = 0; c < kCells; c++) {
         std::int32_t* cell_rank_one_update_ptr =
           dst->rank_one_update() + start_width + c * kCellWidth;
         const SideMap<const std::uint8_t, kSrcOrder> src_cell_map(
-          loaded_src_.block(kCellWidth * c, start_depth, kCellWidth, kCellDepth));
+          complete_src_.block(kCellWidth * c, start_depth, kCellWidth, kCellDepth));
         for (int w = 0; w < kCellWidth; w++) {
           std::int32_t sum = 0;
           for (int d = 0; d < kCellDepth; d++) {
@@ -355,20 +369,20 @@ class PackSideBlockImpl {
     if (width == kKernelWidth) {
       const int register_aligned_depth = RoundDown<kRegisterSize>(depth);
       for (int d = 0; d < register_aligned_depth; d += kRegisterSize) {
-        b.LoadComplete(src_map_.block(start_width, start_depth + d, width, kRegisterSize));
-        b.Store(packed_side_block_, start_width);
+        b.UseCompleteSrcInPlace(src_map_.block(start_width, start_depth + d, width, kRegisterSize));
+        b.Pack(packed_side_block_, start_width);
       }
       if (register_aligned_depth < depth) {
-        b.LoadIncomplete(src_map_.block(start_width, start_depth + register_aligned_depth,
+        b.MakeCompleteSrc(src_map_.block(start_width, start_depth + register_aligned_depth,
                                         width, depth - register_aligned_depth));
-        b.Store(packed_side_block_, start_width);
+        b.Pack(packed_side_block_, start_width);
       }
     } else {
       assert(width < kKernelWidth);
       for (int d = 0; d < depth; d += kRegisterSize) {
         const int ds = std::min(+kRegisterSize, depth - d);
-        b.LoadIncomplete(src_map_.block(start_width, start_depth + d, width, ds));
-        b.Store(packed_side_block_, start_width);
+        b.MakeCompleteSrc(src_map_.block(start_width, start_depth + d, width, ds));
+        b.Pack(packed_side_block_, start_width);
       }
     }
   }

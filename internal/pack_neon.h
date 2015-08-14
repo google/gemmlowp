@@ -41,10 +41,10 @@ class PackingRegisterBlock<WidthMajorUint8SideMap, DepthMajorSideFormatNCells4x2
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
 
-  void Store(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
+  void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
     std::uint8_t* dst_ptr = dst->current_data();
-    const std::uint8_t* const src_ptr = this->loaded_src_.data();
-    const int stride = this->loaded_src_.stride();
+    const std::uint8_t* const src_ptr = this->complete_src_.data();
+    const int stride = this->complete_src_.stride();
     // Load raw source WidthMajor data
     uint8x16_t src_lines[4 * kCells];
     for (int i = 0; i < 4 * kCells; i++) {
