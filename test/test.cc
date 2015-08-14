@@ -435,10 +435,10 @@ void test_gemm_kernel(MultiThreadGemmContext* context) {
                          WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 50, 50, 50, WhatParamsToTest::All,
                          WhatOrdersToTest::OnlyRCC);
-  test_gemm<GemmWrapper>(context, 500, 500, 500,
+  test_gemm<GemmWrapper>(context, 200, 200, 200,
                          WhatParamsToTest::OnlyGenericCase,
                          WhatOrdersToTest::All);
-  test_gemm<GemmWrapper>(context, 100, 5000, 100,
+  test_gemm<GemmWrapper>(context, 50, 5000, 50,
                          WhatParamsToTest::OnlyGenericCase,
                          WhatOrdersToTest::OnlyRCC);
 }
@@ -674,6 +674,16 @@ void test() {
   test_gemm_kernel<
       ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<5, 2, CellOrder::DepthMajor>, 3>,
                                    KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 2>>>>(
+      &context);
+
+  test_gemm_kernel<
+      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<8, 8, CellOrder::Diagonal>, 2>,
+                                   KernelSideFormat<CellFormat<3, 8, CellOrder::WidthMajor>, 1>>>>(
+      &context);
+
+  test_gemm_kernel<
+      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<1, 4, CellOrder::DepthMajor>, 1>,
+                                   KernelSideFormat<CellFormat<4, 4, CellOrder::Diagonal>, 1>>>>(
       &context);
 
   // Run against actual data from a network evaluation.

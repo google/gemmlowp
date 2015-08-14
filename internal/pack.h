@@ -216,7 +216,6 @@ class PackingRegisterBlockBase
   static const int kCellSize = CellFormat::kSize;
   
   static const SideMapOrder kSrcOrder = SrcMapType::kOrder;
-  static const SideMapOrder kDstOrder = CellFormat::kOrder == CellOrder::WidthMajor ? SideMapOrder::WidthMajor : SideMapOrder::DepthMajor;
 
   PackingRegisterBlockBase()
     : loaded_src_(nullptr, 0, 0, 0)
@@ -254,17 +253,18 @@ class PackingRegisterBlockBase
     std::uint8_t* dst_ptr = dst->current_data();
     for (int start_depth = 0; start_depth < kRegisterSize; start_depth += kCellDepth) {
       for (int c = 0; c < kCells; c++) {
+        std::int32_t* cell_rank_one_update_ptr =
+          dst->rank_one_update() + start_width + c * kCellWidth;
         const SideMap<const std::uint8_t, kSrcOrder> src_cell_map(
           loaded_src_.block(kCellWidth * c, start_depth, kCellWidth, kCellDepth));
-        SideMap<std::uint8_t, kDstOrder> dst_cell_map(dst_ptr, kCellWidth, kCellDepth);
         for (int w = 0; w < kCellWidth; w++) {
           std::int32_t sum = 0;
           for (int d = 0; d < kCellDepth; d++) {
             std::uint8_t x = src_cell_map(w, d);
-            dst_cell_map(w, d) = x;
+            dst_ptr[OffsetIntoCell<CellFormat>(w, d)] = x;
             sum += x;
           }
-          dst->rank_one_update()[start_width + w + c * kCellWidth]
+          cell_rank_one_update_ptr[w]
             += sum * dst->rank_one_update_multiplier();
         }
         dst_ptr += kCellSize;

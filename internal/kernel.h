@@ -183,8 +183,8 @@ inline int OffsetIntoCell(int w, int d) {
       return d + w * CellFormat::kDepth;
     case CellOrder::Diagonal:
       assert(CellFormat::kWidth == CellFormat::kDepth);
-      static const int cell_width = CellFormat::kWidth;
-      return w + ((d + cell_width - w) % cell_width) * cell_width;
+      static const int size = CellFormat::kWidth;
+      return ((size + w - d) * size + d) % (size * size);
     default:
       assert(false);
       return 0;
