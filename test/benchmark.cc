@@ -91,9 +91,10 @@ double time_for_gemm_size(GemmContext* context, int rows, int depth,
   while (true) {
     double starttime = time();
     for (int i = 0; i < iters_at_a_time; i++) {
-      Gemm(context, lhs[matrix_index].const_map(),
-           rhs[matrix_index].const_map(), &result[matrix_index].map(), -75, -91,
-           74980, 123, 18 + depth_shift);
+      Gemm<std::uint8_t, Kernel::kBitDepthSetting>(
+        context, lhs[matrix_index].const_map(),
+        rhs[matrix_index].const_map(), &result[matrix_index].map(), -75, -91,
+        74980, 123, 18 + depth_shift);
 
       matrix_index++;
       if (matrix_index == matrix_pool_size) {
@@ -125,14 +126,19 @@ double gflops_for_gemm_size(GemmContext* context, int rows, int depth,
   return 2e-9 * rows * depth * cols / time_per_iter;
 }
 
-void benchmark(GemmContext* context) {
+#ifndef GEMMLOWP_TEST_BIT_DEPTH
+#define GEMMLOWP_TEST_BIT_DEPTH L8R8
+#endif
+
 #ifdef GEMMLOWP_TEST_KERNEL
   typedef gemmlowp::GEMMLOWP_TEST_KERNEL KernelForGEMM;
   typedef gemmlowp::GEMMLOWP_TEST_KERNEL KernelForGEMV;
 #else
-  typedef gemmlowp::DefaultKernelForGEMM KernelForGEMM;
-  typedef gemmlowp::DefaultKernelForGEMV KernelForGEMV;
+  typedef gemmlowp::DefaultKernelForGemm<BitDepthSetting::GEMMLOWP_TEST_BIT_DEPTH> KernelForGEMM;
+  typedef gemmlowp::DefaultKernelForGemm<BitDepthSetting::GEMMLOWP_TEST_BIT_DEPTH> KernelForGEMV;
 #endif
+
+void benchmark(GemmContext* context) {
 
   std::map<std::tuple<int, int, int>, std::vector<double>> benchmark_results;
 
@@ -206,14 +212,6 @@ void benchmark(GemmContext* context) {
 }
 
 void benchmark_googlenet(GemmContext* context) {
-
-#ifdef GEMMLOWP_TEST_KERNEL
-  typedef gemmlowp::GEMMLOWP_TEST_KERNEL KernelForGEMM;
-  typedef gemmlowp::GEMMLOWP_TEST_KERNEL KernelForGEMV;
-#else
-  typedef gemmlowp::DefaultKernelForGEMM KernelForGEMM;
-  typedef gemmlowp::DefaultKernelForGEMV KernelForGEMV;
-#endif
 
   // These are the m, n, k sizes for a typical GoogLeNet.
   const int googlenet_gemm_sizes[] = {
