@@ -39,7 +39,7 @@ struct DefaultKernelForGemv {};
 #if defined GEMMLOWP_NEON32
 #include "kernel_neon.h"
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L8R8, NEON32Kernel12x4Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L7R5, NEON32Kernel8x8Depth4Assuming12BitProducts)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L7R5, NEON32Kernel12x4Depth2Assuming12BitProducts)
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, L8R8, NEONKernel4Nx1Depth2<3>)
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, L7R5, NEONKernel4Nx1Depth2<3>)
 #elif defined GEMMLOWP_NEON64

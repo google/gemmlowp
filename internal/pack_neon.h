@@ -104,6 +104,92 @@ class PackingRegisterBlock<WidthMajorUint8SideMap, DepthMajorSideFormatNCells4x2
   }
 };
 
+template <int Cells>
+using WidthMajorSideFormatNCells4x2 = KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, Cells>;
+
+template <int Cells>
+class PackingRegisterBlock<WidthMajorUint8SideMap, WidthMajorSideFormatNCells4x2<Cells> >
+  : public PackingRegisterBlockBase<WidthMajorUint8SideMap, WidthMajorSideFormatNCells4x2<Cells> >
+{
+ public:
+  typedef WidthMajorSideFormatNCells4x2<Cells> KernelSideFormat;
+  typedef typename KernelSideFormat::Cell CellFormat;
+  static const int kCells = KernelSideFormat::kCells;
+  static const int kCellWidth = CellFormat::kWidth;
+  static const int kKernelWidth = CellFormat::kWidth * kCells;
+  static const int kCellDepth = CellFormat::kDepth;
+  static const int kCellSize = CellFormat::kSize;
+
+  void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
+    std::uint8_t* dst_ptr = dst->current_data();
+    const std::uint8_t* src_ptr = this->complete_src_.data();
+    const int stride = this->complete_src_.stride();
+    // Load raw source WidthMajor data
+    uint16x8_t src_lines[kCells * 4];
+    for (int i = 0; i < 4 * kCells; i++) {
+      src_lines[i] = vreinterpretq_u16_u8(vld1q_u8(src_ptr));
+      src_ptr += stride;
+    }
+    // Reorder the data within registers to make WidthMajor 4x2 cells
+    uint16x8x2_t src_lines_intertwined_2x[2 * kCells];
+    for (int i = 0; i < kCells; i++) {
+      src_lines_intertwined_2x[2 * i] = vzipq_u16(src_lines[4 * i], src_lines[4 * i + 2]);
+      src_lines_intertwined_2x[2 * i + 1] = vzipq_u16(src_lines[4 * i + 1], src_lines[4 * i + 3]);
+    }
+    uint16x8x2_t src_lines_intertwined_4x[2 * kCells];
+    for (int i = 0; i < kCells; i++) {
+      src_lines_intertwined_4x[2 * i] = vzipq_u16(src_lines_intertwined_2x[2 * i].val[0], src_lines_intertwined_2x[2 * i + 1].val[0]);
+      src_lines_intertwined_4x[2 * i + 1] = vzipq_u16(src_lines_intertwined_2x[2 * i].val[1], src_lines_intertwined_2x[2 * i + 1].val[1]);
+    }
+    // Store the resulting WidthMajor 4x2 cells in the destination packed block
+    for (int outer = 0; outer < 2; outer++) {
+      for (int inner = 0; inner < 2; inner++) {
+        for (int cell = 0; cell < kCells; cell++) {
+          vst1_u8(dst_ptr, vreinterpret_u8_u16(vget_low_u16(src_lines_intertwined_4x[2 * cell + outer].val[inner])));
+          dst_ptr += 8;
+        }
+        for (int cell = 0; cell < kCells; cell++) {
+          vst1_u8(dst_ptr, vreinterpret_u8_u16(vget_high_u16(src_lines_intertwined_4x[2 * cell + outer].val[inner])));
+          dst_ptr += 8;
+        }
+      }
+    }
+    // Compute sums across the depth dimension
+    uint16x8_t sums_of_2[kCells][4];
+    for (int outer = 0; outer < 2; outer++) {
+      for (int inner = 0; inner < 2; inner++) {
+        int i = 2 * outer + inner;
+        for (int cell = 0; cell < kCells; cell++) {
+          sums_of_2[cell][i] = vpaddlq_u8(vreinterpretq_u8_u16(src_lines_intertwined_4x[2 * cell + outer].val[inner]));
+        }
+      }
+    }
+    uint16x8_t sums_of_4[kCells][2];
+    for (int i = 0; i < 2; i++) {
+      for (int cell = 0; cell < kCells; cell++) {
+        sums_of_4[cell][i] = vaddq_u16(sums_of_2[cell][2 * i], sums_of_2[cell][2 * i + 1]);
+      }
+    }
+    uint16x8_t sums_of_8[kCells];
+    for (int cell = 0; cell < kCells; cell++) {
+      sums_of_8[cell] = vaddq_u16(sums_of_4[cell][0], sums_of_4[cell][1]);
+    }
+
+    uint16x4_t sums_of_16[kCells];
+    for (int cell = 0; cell < kCells; cell++) {
+      sums_of_16[cell] = vadd_u16(vget_low_u16(sums_of_8[cell]), vget_high_u16(sums_of_8[cell]));
+    }
+    // Update the rank_one_update vector
+    for (int cell = 0; cell < kCells; cell++) {
+      int32x4_t s = vreinterpretq_s32_u32(vmovl_u16(sums_of_16[cell]));
+      int32x4_t u = vmulq_n_s32(s, dst->rank_one_update_multiplier());
+      std::int32_t* rank_one_update_ptr = dst->rank_one_update() + start_width + 4 * cell;
+      vst1q_s32(rank_one_update_ptr, vaddq_s32(u, vld1q_s32(rank_one_update_ptr)));
+    }
+    dst->seek_forward_n_cells(kCells * kRegisterSize / kCellDepth);
+  }
+};
+
 typedef KernelSideFormat<CellFormat<8, 16>, 1> DepthMajorSideFormat1Cell8x16;
 template <>
 class PackingRegisterBlock<WidthMajorUint8SideMap, DepthMajorSideFormat1Cell8x16>
