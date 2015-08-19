@@ -109,11 +109,6 @@ double time_for_gemms(GemmContext* context,
   float time_per_iter = 0.0f;
   std::size_t pool_index = 0;
 
-#ifdef GEMMLOWP_TEST_PROFILE
-  gemmlowp::RegisterCurrentThreadForProfiling();
-  gemmlowp::StartProfiling();
-#endif
-
   while (true) {
     double starttime = time();
     for (int i = 0; i < iters_at_a_time; i++) {
@@ -140,10 +135,6 @@ double time_for_gemms(GemmContext* context,
 
     iters_at_a_time *= 2;
   }
-
-#ifdef GEMMLOWP_TEST_PROFILE
-  gemmlowp::FinishProfiling();
-#endif
 
   return time_per_iter;
 }
@@ -188,6 +179,11 @@ void benchmark(GemmContext* context) {
   typedef Matrix<std::uint8_t, MapOrder::ColMajor> RhsType;
   typedef Matrix<std::uint8_t, MapOrder::ColMajor> ResultType;
 
+#ifdef GEMMLOWP_TEST_PROFILE
+  gemmlowp::RegisterCurrentThreadForProfiling();
+  gemmlowp::StartProfiling();
+#endif
+
   // We don't record the first repetition, it's just warm-up.
   for (int r = 0; r < repeat + 1; r++) {
     std::cout << "repetition " << r + 1 << "/" << repeat + 1 << "...\r"
@@ -204,6 +200,10 @@ void benchmark(GemmContext* context) {
       }
     }
   }
+
+#ifdef GEMMLOWP_TEST_PROFILE
+  gemmlowp::FinishProfiling();
+#endif
 
   std::cout << "                                                \r"
             << std::flush;
@@ -306,11 +306,21 @@ void benchmark_googlenet(GemmContext* context) {
   std::vector<float> gemm_times;
   const double mintime = 20.0;
   std::cout << "running for " << mintime << " seconds..." << std::endl;
+
+#ifdef GEMMLOWP_TEST_PROFILE
+  gemmlowp::RegisterCurrentThreadForProfiling();
+  gemmlowp::StartProfiling();
+#endif
+
   double starttime = time();
   while (time() < starttime + mintime) {
     gemm_times.push_back(time_for_gemms<LhsType, RhsType, ResultType>(
         context, googlenet_gemms));
   }
+
+#ifdef GEMMLOWP_TEST_PROFILE
+  gemmlowp::FinishProfiling();
+#endif
 
   std::sort(gemm_times.begin(), gemm_times.end());
   const std::size_t omit = gemm_times.size() / 4;
