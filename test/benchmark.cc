@@ -27,6 +27,10 @@
 #include "test.h"
 #include "../public/gemmlowp.h"
 
+#ifndef GEMMLOWP_TEST_BIT_DEPTH
+#define GEMMLOWP_TEST_BIT_DEPTH L8R8
+#endif
+
 #if defined(__arm__) && !defined(GEMMLOWP_NEON)
 #warning "Building without NEON support on ARM, check your compiler setup!"
 #endif
@@ -48,57 +52,81 @@ double time() {
 const double min_accurate_duration = 1e-1;
 const std::size_t min_working_set_size = 16 * 1024 * 1024;
 
-template <typename Kernel, typename LhsType, typename RhsType,
+struct gemm_t
+{
+  int rows, depth, cols;
+  gemm_t () : rows(0), depth(0), cols(0) {}
+  gemm_t (int r, int d, int c) : rows(r), depth(d), cols(c) {}
+};
+
+bool operator<(const gemm_t& a, const gemm_t& b) {
+  return a.rows < b.rows || (
+         a.rows <= b.rows && (
+         a.depth < b.depth || (
+         a.depth <= b.depth && (
+         a.cols < b.cols))));      
+}
+
+template <typename LhsType, typename RhsType,
           typename ResultType>
-double time_for_gemm_size(GemmContext* context, int rows, int depth,
-                            int cols) {
+double time_for_gemms(GemmContext* context,
+                      const std::vector<gemm_t>& gemms) {
   typedef std::uint8_t Scalar;
 
   // set up the matrix pool
 
-  const std::size_t combined_three_matrices_sizes =
+  std::size_t combined_gemm_sizes = 0;
+  for (auto gemm : gemms) {
+    int rows = gemm.rows;
+    int depth = gemm.depth;
+    int cols = gemm.cols;
+    combined_gemm_sizes +=
       sizeof(Scalar) * (rows * depth + depth * cols + rows * cols);
-
-  const std::size_t matrix_pool_size =
-      1 + min_working_set_size / combined_three_matrices_sizes;
-
-  std::vector<LhsType> lhs(matrix_pool_size);
-  std::vector<RhsType> rhs(matrix_pool_size);
-  std::vector<ResultType> result(matrix_pool_size);
-
-  lhs[0].Resize(rows, depth);
-  MakeConstant(&lhs[0], 128);
-  rhs[0].Resize(depth, cols);
-  MakeConstant(&rhs[0], 128);
-  result[0].Resize(rows, cols);
-  MakeZero(&result[0]);
-
-  for (std::size_t i = 1; i < matrix_pool_size; i++) {
-    lhs[i] = lhs[0];
-    rhs[i] = rhs[0];
-    result[i] = result[0];
   }
 
-  const int depth_shift = static_cast<int>(
-      std::ceil(0.5 * std::log(static_cast<float>(depth)) / std::log(2.0f)));
+  const std::size_t pool_size =
+      1 + min_working_set_size / combined_gemm_sizes;
+
+  std::vector<LhsType> lhs(pool_size * gemms.size());
+  std::vector<RhsType> rhs(pool_size * gemms.size());
+  std::vector<ResultType> result(pool_size * gemms.size());
+
+  for (std::size_t i = 0; i < pool_size; i++) {
+    for (std::size_t j = 0; j < gemms.size(); j++) {
+      int k = i * gemms.size() + j;
+      lhs[k].Resize(gemms[j].rows, gemms[j].depth);
+      MakeConstant(&lhs[k], 0);
+      rhs[k].Resize(gemms[j].depth, gemms[j].cols);
+      MakeConstant(&rhs[k], 0);
+      result[k].Resize(gemms[j].rows, gemms[j].cols);
+      MakeConstant(&result[k], 0);
+    }
+  }
 
   // main benchmark loop
 
   int iters_at_a_time = 1;
   float time_per_iter = 0.0f;
-  std::size_t matrix_index = 0;
+  std::size_t pool_index = 0;
+
+#ifdef GEMMLOWP_TEST_PROFILE
+  gemmlowp::RegisterCurrentThreadForProfiling();
+  gemmlowp::StartProfiling();
+#endif
 
   while (true) {
     double starttime = time();
     for (int i = 0; i < iters_at_a_time; i++) {
-      Gemm<std::uint8_t, Kernel::kBitDepthSetting>(
-        context, lhs[matrix_index].const_map(),
-        rhs[matrix_index].const_map(), &result[matrix_index].map(), -75, -91,
-        74980, 123, 18 + depth_shift);
-
-      matrix_index++;
-      if (matrix_index == matrix_pool_size) {
-        matrix_index = 0;
+      for (int j = 0; j < gemms.size(); j++) {
+        int k = pool_index * gemms.size() + j;
+        Gemm<std::uint8_t, BitDepthSetting::GEMMLOWP_TEST_BIT_DEPTH>(
+          context, lhs[k].const_map(),
+          rhs[k].const_map(), &result[k].map(), -75, -91,
+          74980, 123, 20);
+      }
+      pool_index++;
+      if (pool_index == pool_size) {
+        pool_index = 0;
       }
     }
     double endtime = time();
@@ -113,50 +141,46 @@ double time_for_gemm_size(GemmContext* context, int rows, int depth,
     iters_at_a_time *= 2;
   }
 
+#ifdef GEMMLOWP_TEST_PROFILE
+  gemmlowp::FinishProfiling();
+#endif
+
   return time_per_iter;
 }
 
-template <typename Kernel, typename LhsType, typename RhsType,
+template <typename LhsType, typename RhsType,
           typename ResultType>
-double gflops_for_gemm_size(GemmContext* context, int rows, int depth,
-                            int cols) {
+double gflops_for_gemms(GemmContext* context,
+                        const std::vector<gemm_t>& gemms) {
   const double time_per_iter =
-      time_for_gemm_size<Kernel, LhsType, RhsType, ResultType>(
-          context, rows, depth, cols);
-  return 2e-9 * rows * depth * cols / time_per_iter;
+      time_for_gemms<LhsType, RhsType, ResultType>(
+          context, gemms);
+  double ops = 0;
+  for (auto gemm : gemms) {
+    ops += 2.0 * gemm.rows * gemm.depth * gemm.cols;
+  }
+  return 1e-9 * ops / time_per_iter;
 }
-
-#ifndef GEMMLOWP_TEST_BIT_DEPTH
-#define GEMMLOWP_TEST_BIT_DEPTH L8R8
-#endif
-
-#ifdef GEMMLOWP_TEST_KERNEL
-  typedef gemmlowp::GEMMLOWP_TEST_KERNEL KernelForGEMM;
-  typedef gemmlowp::GEMMLOWP_TEST_KERNEL KernelForGEMV;
-#else
-  typedef gemmlowp::DefaultKernelForGemm<BitDepthSetting::GEMMLOWP_TEST_BIT_DEPTH> KernelForGEMM;
-  typedef gemmlowp::DefaultKernelForGemm<BitDepthSetting::GEMMLOWP_TEST_BIT_DEPTH> KernelForGEMV;
-#endif
 
 void benchmark(GemmContext* context) {
 
-  std::map<std::tuple<int, int, int>, std::vector<double>> benchmark_results;
+  std::map<gemm_t, std::vector<double>> benchmark_results;
 
-  std::vector<std::tuple<int, int, int>> benchmark_sizes;
-  benchmark_sizes.emplace_back(10, 10, 10);
-  benchmark_sizes.emplace_back(20, 20, 20);
-  benchmark_sizes.emplace_back(30, 30, 30);
-  benchmark_sizes.emplace_back(40, 40, 40);
-  benchmark_sizes.emplace_back(50, 50, 50);
-  benchmark_sizes.emplace_back(60, 60, 60);
-  benchmark_sizes.emplace_back(64, 256, 147);
-  benchmark_sizes.emplace_back(100, 100, 1);
-  benchmark_sizes.emplace_back(100, 100, 100);
-  benchmark_sizes.emplace_back(100, 1000, 100);
-  benchmark_sizes.emplace_back(1000, 1000, 1);
-  benchmark_sizes.emplace_back(1000, 1000, 10);
-  benchmark_sizes.emplace_back(1000, 1000, 100);
-  benchmark_sizes.emplace_back(1000, 1000, 1000);
+  std::vector<gemm_t> benchmark_gemms;
+  benchmark_gemms.emplace_back(10, 10, 10);
+  benchmark_gemms.emplace_back(20, 20, 20);
+  benchmark_gemms.emplace_back(30, 30, 30);
+  benchmark_gemms.emplace_back(40, 40, 40);
+  benchmark_gemms.emplace_back(50, 50, 50);
+  benchmark_gemms.emplace_back(60, 60, 60);
+  benchmark_gemms.emplace_back(64, 256, 147);
+  benchmark_gemms.emplace_back(100, 100, 1);
+  benchmark_gemms.emplace_back(100, 100, 100);
+  benchmark_gemms.emplace_back(100, 1000, 100);
+  benchmark_gemms.emplace_back(1000, 1000, 1);
+  benchmark_gemms.emplace_back(1000, 1000, 10);
+  benchmark_gemms.emplace_back(1000, 1000, 100);
+  benchmark_gemms.emplace_back(1000, 1000, 1000);
 
   const int repeat = 2;
 
@@ -164,31 +188,19 @@ void benchmark(GemmContext* context) {
   typedef Matrix<std::uint8_t, MapOrder::ColMajor> RhsType;
   typedef Matrix<std::uint8_t, MapOrder::ColMajor> ResultType;
 
-#ifdef GEMMLOWP_TEST_PROFILE
-  gemmlowp::RegisterCurrentThreadForProfiling();
-  gemmlowp::StartProfiling();
-#endif
-
   // We don't record the first repetition, it's just warm-up.
   for (int r = 0; r < repeat + 1; r++) {
     std::cout << "repetition " << r + 1 << "/" << repeat + 1 << "...\r"
               << std::flush;
-    for (auto s : benchmark_sizes) {
+    for (auto gemm : benchmark_gemms) {
       double gflops = 0;
-      int rows = std::get<0>(s);
-      int depth = std::get<1>(s);
-      int cols = std::get<2>(s);
-      if (cols > KernelForGEMM::Format::kCols / 2) {
-        gflops =
-            gflops_for_gemm_size<KernelForGEMM, LhsType, RhsType, ResultType>(
-                context, rows, depth, cols);
-      } else {
-        gflops =
-            gflops_for_gemm_size<KernelForGEMV, LhsType, RhsType, ResultType>(
-                context, rows, depth, cols);
-      }
+      std::vector<gemm_t> unique_gemm;
+      unique_gemm.push_back(gemm);
+      gflops =
+        gflops_for_gemms<LhsType, RhsType, ResultType>(
+          context, unique_gemm);
       if (r > 0) {
-        benchmark_results[s].emplace_back(gflops);
+        benchmark_results[gemm].emplace_back(gflops);
       }
     }
   }
@@ -196,16 +208,12 @@ void benchmark(GemmContext* context) {
   std::cout << "                                                \r"
             << std::flush;
 
-#ifdef GEMMLOWP_TEST_PROFILE
-  gemmlowp::FinishProfiling();
-#endif
-
   std::cout.precision(4);
 
   for (auto b : benchmark_results) {
     sort(b.second.begin(), b.second.end());
-    std::cout << std::get<0>(b.first) << "x" << std::get<1>(b.first) << "x"
-              << std::get<2>(b.first) << " : " << b.second.back() << " GFlops/s"
+    std::cout << b.first.rows << "x" << b.first.depth << "x"
+              << b.first.cols << " : " << b.second.back() << " GFlops/s"
               << std::endl;
   }
   std::cout << std::endl;
@@ -280,52 +288,40 @@ void benchmark_googlenet(GemmContext* context) {
     1, 1008, 1024,
     1, 1008, 1024,
   };
-  const int param_count =
-      sizeof(googlenet_gemm_sizes) / sizeof(googlenet_gemm_sizes[0]);
-  const int gemm_count = param_count / 3;
+  assert(sizeof(googlenet_gemm_sizes) % (3 * sizeof(googlenet_gemm_sizes[0])) == 0);
+  const std::size_t num_googlenet_gemms =
+    sizeof(googlenet_gemm_sizes) / (3 * sizeof(googlenet_gemm_sizes[0]));
 
-  const int repeat = 2;
+  std::vector<gemm_t> googlenet_gemms(num_googlenet_gemms);
+  for (std::size_t i = 0; i < num_googlenet_gemms; i++) {
+    googlenet_gemms[i].rows = googlenet_gemm_sizes[3 * i + 1];
+    googlenet_gemms[i].depth = googlenet_gemm_sizes[3 * i + 2];
+    googlenet_gemms[i].cols = googlenet_gemm_sizes[3 * i + 0];
+  }
 
   typedef Matrix<std::uint8_t, MapOrder::RowMajor> LhsType;
   typedef Matrix<std::uint8_t, MapOrder::ColMajor> RhsType;
   typedef Matrix<std::uint8_t, MapOrder::ColMajor> ResultType;
 
-#ifdef GEMMLOWP_TEST_PROFILE
-  gemmlowp::RegisterCurrentThreadForProfiling();
-  gemmlowp::StartProfiling();
-#endif
-
-  float total_time = 0;
-
-  // We don't record the first repetition, it's just warm-up.
-  for (int r = 0; r < repeat + 1; r++) {
-    std::cout << "repetition " << r + 1 << "/" << repeat + 1 << "...\r"
-              << std::flush;
-    for (int gemm_index = 0; gemm_index < gemm_count; ++gemm_index) {
-      float gemm_time = 0;
-      const int rows = googlenet_gemm_sizes[(gemm_index * 3) + 1];
-      const int cols = googlenet_gemm_sizes[(gemm_index * 3) + 0];
-      const int depth = googlenet_gemm_sizes[(gemm_index * 3) + 2];
-      if (cols > KernelForGEMM::Format::kCols / 2) {
-        gemm_time =
-            time_for_gemm_size<KernelForGEMM, LhsType, RhsType, ResultType>(
-                context, rows, depth, cols);
-      } else {
-        gemm_time =
-            time_for_gemm_size<KernelForGEMV, LhsType, RhsType, ResultType>(
-                context, rows, depth, cols);
-      }
-      if (r > 0) {
-        total_time += gemm_time;
-      }
-    }
+  std::vector<float> gemm_times;
+  const double mintime = 20.0;
+  std::cout << "running for " << mintime << " seconds..." << std::endl;
+  double starttime = time();
+  while (time() < starttime + mintime) {
+    gemm_times.push_back(time_for_gemms<LhsType, RhsType, ResultType>(
+        context, googlenet_gemms));
   }
 
-#ifdef GEMMLOWP_TEST_PROFILE
-  gemmlowp::FinishProfiling();
-#endif
-
-  const float ms_per_network = (total_time / repeat) * 1000.0f;
+  std::sort(gemm_times.begin(), gemm_times.end());
+  const std::size_t omit = gemm_times.size() / 4;
+  float sum = 0;
+  float count = 0;
+  for(std::size_t i = omit; i < gemm_times.size() - omit; i++) {
+    sum += gemm_times[i];
+    count++;
+  }
+  const float avg = sum / count;
+  const float ms_per_network = avg * 1000.0f;
   std::cout.precision(4);
   std::cout << "GoogLeNet GEMMs took " << ms_per_network << "ms" << std::endl;
 }
@@ -333,6 +329,12 @@ void benchmark_googlenet(GemmContext* context) {
 }  // end namespace gemmlowp
 
 int main() {
+  {
+    gemmlowp::GemmContext context;
+    std::cout << "Benchmarking typical GoogLeNet GEMMs..." << std::endl;
+    gemmlowp::benchmark_googlenet(&context);
+  }
+
   {
     gemmlowp::GemmContext context;
     std::cout << "Benchmarking default mode (typically multi-threaded)..."
@@ -345,11 +347,5 @@ int main() {
     context.set_max_num_threads(1);
     std::cout << "Benchmarking single-threaded mode..." << std::endl;
     gemmlowp::benchmark(&context);
-  }
-
-  {
-    gemmlowp::GemmContext context;
-    std::cout << "Benchmarking typical GoogLeNet GEMMs..." << std::endl;
-    gemmlowp::benchmark_googlenet(&context);
   }
 }
