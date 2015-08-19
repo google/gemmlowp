@@ -64,7 +64,7 @@ const int kDefaultCacheLineSize = 64;
 // Of course, they would be too low for typical x86 CPUs where we would want
 // to set the L2 value to (L3 cache size / number of cores) at least.
 const int kDefaultL1CacheSize = 16 * 1024;
-const int kDefaultL2CacheSize = 256 * 1024;
+const int kDefaultL2CacheSize = 384 * 1024;
 
 // The proportion of the cache that we intend to use for storing
 // RHS blocks. This should be between 0 and 1, and typically closer to 1,
