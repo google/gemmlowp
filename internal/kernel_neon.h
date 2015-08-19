@@ -275,6 +275,7 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "cmp %[start_depth], #0\n"
         "bne load_global_accumulators_NEON32Kernel12x4Depth2Assuming12BitProducts_%=\n"
 
+        // If start_depth==0, we need to clear our global accumulators
         "mov r0, %[global_accumulators]\n"
         "vmov.s32 q8, #0\n"
         "vmov.s32 q9, q8\n"
@@ -286,7 +287,9 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "vst1.32 {d16,d17,d18,d19}, [r0]!\n"
         "b loop_NEON32Kernel12x4Depth2Assuming12BitProducts_%=\n"
 
+        // If start_depth!=0, we need to load our existing global accumulators
         "load_global_accumulators_NEON32Kernel12x4Depth2Assuming12BitProducts_%=:\n"
+        // Load global accumulators from destination matrix, column-major
         "mov r1, %[dst_ptr]\n"
         "mov r0, %[dst_col_stride]\n"
         "sub r0, #32\n"
@@ -302,6 +305,14 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "vld1.32 {d6,d7}, [r1]!\n"
         "vld1.32 {d14,d15}, [r1]!\n"
         "vld1.32 {d22,d23}, [r1], r0\n"
+        // Now we need to convert the global accumulator registers to
+        // 4x4-block-wise diagonal-major order. What we effectively want to do
+        // is to rotate the rows, however the accumulators are stored in
+        // column-major order in registers. So we achieve this by
+        // transposing, rotating the registers, and transposing again each
+        // 4x4 block.
+        //
+        // Transpose 3 4x4 blocks separately
         "vtrn.32 q0, q1\n"
         "vtrn.32 q2, q3\n"
         "vswp d1, d4\n"
@@ -314,6 +325,7 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "vtrn.32 q10, q11\n"
         "vswp d17, d20\n"
         "vswp d19, d22\n"
+        // Rotate the registers
         "vext.32 q1, q1, q1, #1\n"
         "vext.32 q2, q2, q2, #2\n"
         "vext.32 q3, q3, q3, #3\n"
@@ -323,6 +335,8 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "vext.32 q9, q9, q9, #1\n"
         "vext.32 q10, q10, q10, #2\n"
         "vext.32 q11, q11, q11, #3\n"
+        // Transpose again and store into our global accumulators
+        // buffer. These two operations are done at once using vst4.
         "mov r0, %[global_accumulators]\n"
         "vst4.32 {d0,d2,d4,d6}, [r0]!\n"
         "vst4.32 {d1,d3,d5,d7}, [r0]!\n"
@@ -334,20 +348,6 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         /* Main loop */
 
         "loop_NEON32Kernel12x4Depth2Assuming12BitProducts_%=:\n"
-
-#define GEMMLOWP_CLEAR_LOCAL_ACCUMULATORS \
-        "vmov.s32 q4, #0\n" \
-        "vmov.s32 q5, q4\n" \
-        "vmov.s32 q6, q4\n" \
-        "vmov.s32 q7, q4\n" \
-        "vmov.s32 q8, q4\n" \
-        "vmov.s32 q9, q4\n" \
-        "vmov.s32 q10, q4\n" \
-        "vmov.s32 q11, q4\n" \
-        "vmov.s32 q12, q4\n" \
-        "vmov.s32 q13, q4\n" \
-        "vmov.s32 q14, q4\n" \
-        "vmov.s32 q15, q4\n"
 
         // Overview of register layout:
         //
@@ -379,42 +379,29 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         \
         "sub %[run_depth], #2\n"
 
-#define GEMMLOWP_ADD_TO_GLOBAL_ACCUMULATORS \
-        "mov r0, %[global_accumulators]\n" \
-        "mov r1, %[global_accumulators]\n" \
-        "vld1.32 {d0,d1,d2,d3}, [r0]!\n" \
-        "vld1.32 {d4,d5,d6,d7}, [r0]!\n" \
-        "vpadal.u16 q0, q4\n" \
-        "vpadal.u16 q1, q5\n" \
-        "vpadal.u16 q2, q6\n" \
-        "vpadal.u16 q3, q7\n" \
-        "vst1.32 {d0,d1,d2,d3}, [r1]!\n" \
-        "vst1.32 {d4,d5,d6,d7}, [r1]!\n" \
-        "vld1.32 {d0,d1,d2,d3}, [r0]!\n" \
-        "vld1.32 {d4,d5,d6,d7}, [r0]!\n" \
-        "vpadal.u16 q0, q8\n" \
-        "vpadal.u16 q1, q9\n" \
-        "vpadal.u16 q2, q10\n" \
-        "vpadal.u16 q3, q11\n" \
-        "vst1.32 {d0,d1,d2,d3}, [r1]!\n" \
-        "vst1.32 {d4,d5,d6,d7}, [r1]!\n" \
-        "vld1.32 {d0,d1,d2,d3}, [r0]!\n" \
-        "vld1.32 {d4,d5,d6,d7}, [r0]!\n" \
-        "vpadal.u16 q0, q12\n" \
-        "vpadal.u16 q1, q13\n" \
-        "vpadal.u16 q2, q14\n" \
-        "vpadal.u16 q3, q15\n" \
-        "vst1.32 {d0,d1,d2,d3}, [r1]!\n" \
-        "vst1.32 {d4,d5,d6,d7}, [r1]!\n"
-
 #define GEMMLOWP_ACCUMULATE_8_LEVELS_OF_DEPTH \
         GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH \
         GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH \
         GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH \
         GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH
 
-        GEMMLOWP_CLEAR_LOCAL_ACCUMULATORS
+        // Clear local 16-bit accumulators
+        "vmov.s32 q4, #0\n"
+        "vmov.s32 q5, q4\n"
+        "vmov.s32 q6, q4\n"
+        "vmov.s32 q7, q4\n"
+        "vmov.s32 q8, q4\n"
+        "vmov.s32 q9, q4\n"
+        "vmov.s32 q10, q4\n"
+        "vmov.s32 q11, q4\n"
+        "vmov.s32 q12, q4\n"
+        "vmov.s32 q13, q4\n"
+        "vmov.s32 q14, q4\n"
+        "vmov.s32 q15, q4\n"
 
+        // Select a suitable number of depth levels
+        // to process at this iteration. TODO (benoitjacob) I guess that
+        // someone who really knows asm should make this a jump table.
         "cmp %[run_depth], #32\n"
         "bge label_32\n"
         "cmp %[run_depth], #24\n"
@@ -438,7 +425,33 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "label_2:\n"
         GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH
 
-        GEMMLOWP_ADD_TO_GLOBAL_ACCUMULATORS
+        // Accumulate the local accumulators into the global accumulators
+        "mov r0, %[global_accumulators]\n"
+        "mov r1, %[global_accumulators]\n"
+        "vld1.32 {d0,d1,d2,d3}, [r0]!\n"
+        "vld1.32 {d4,d5,d6,d7}, [r0]!\n"
+        "vpadal.u16 q0, q4\n"
+        "vpadal.u16 q1, q5\n"
+        "vpadal.u16 q2, q6\n"
+        "vpadal.u16 q3, q7\n"
+        "vst1.32 {d0,d1,d2,d3}, [r1]!\n"
+        "vst1.32 {d4,d5,d6,d7}, [r1]!\n"
+        "vld1.32 {d0,d1,d2,d3}, [r0]!\n"
+        "vld1.32 {d4,d5,d6,d7}, [r0]!\n"
+        "vpadal.u16 q0, q8\n"
+        "vpadal.u16 q1, q9\n"
+        "vpadal.u16 q2, q10\n"
+        "vpadal.u16 q3, q11\n"
+        "vst1.32 {d0,d1,d2,d3}, [r1]!\n"
+        "vst1.32 {d4,d5,d6,d7}, [r1]!\n"
+        "vld1.32 {d0,d1,d2,d3}, [r0]!\n"
+        "vld1.32 {d4,d5,d6,d7}, [r0]!\n"
+        "vpadal.u16 q0, q12\n"
+        "vpadal.u16 q1, q13\n"
+        "vpadal.u16 q2, q14\n"
+        "vpadal.u16 q3, q15\n"
+        "vst1.32 {d0,d1,d2,d3}, [r1]!\n"
+        "vst1.32 {d4,d5,d6,d7}, [r1]!\n"
 
         // Loop. Decrement loop index (depth) by 16, since we just handled 16
         // levels of depth (Kernel::kDepth=16).
@@ -452,6 +465,16 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
 
         /* end of main loop */
 
+        // Store the global accumulators to the destination matrix (column-major)
+        // This is the reverse of the steps that we followed at the beginning
+        // when we load the global accumulators from the destination matrix.
+        // The problem is the same: how to convert 4x4 blocks
+        // between column-major and diagonal-major orders.
+        // Like above, we do this by rotating rows, and we achieve that by
+        // tranposing, rotating columns, and transposing again.
+        //
+        // Load and transpose 4x4 blocks of global accumulators
+        // These two steps are done at once by the vld4 instruction.
         "mov r0, %[global_accumulators]\n"
         "vld4.32 {d0,d2,d4,d6}, [r0]!\n"
         "vld4.32 {d1,d3,d5,d7}, [r0]!\n"
@@ -459,6 +482,7 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "vld4.32 {d9,d11,d13,d15}, [r0]!\n"
         "vld4.32 {d16,d18,d20,d22}, [r0]!\n"
         "vld4.32 {d17,d19,d21,d23}, [r0]!\n"
+        // Rotate the rows of each 4x4 block
         "vext.32 q1, q1, q1, #3\n"
         "vext.32 q2, q2, q2, #2\n"
         "vext.32 q3, q3, q3, #1\n"
@@ -468,6 +492,7 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "vext.32 q9, q9, q9, #3\n"
         "vext.32 q10, q10, q10, #2\n"
         "vext.32 q11, q11, q11, #1\n"
+        // Transpose again each 4x4 block
         "vtrn.32 q0, q1\n"
         "vtrn.32 q2, q3\n"
         "vswp d1, d4\n"
@@ -480,6 +505,7 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "vtrn.32 q10, q11\n"
         "vswp d17, d20\n"
         "vswp d19, d22\n"
+        // Store into the column-major destination matrix
         "mov r1, %[dst_ptr]\n"
         "mov r0, %[dst_col_stride]\n"
         "sub r0, #32\n"
