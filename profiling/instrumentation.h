@@ -25,6 +25,7 @@
 #define GEMMLOWP_PROFILING_INSTRUMENTATION_H_
 
 #include <pthread.h>
+#include <cstdio>
 
 #ifndef GEMMLOWP_USE_OLD_ANDROID_SDK
 #include <cstdint>
