@@ -207,8 +207,6 @@ struct KernelBase {
                    const std::uint8_t* rhs_ptr, int start_depth,
                    int run_depth) const = 0;
 
-  static const BitDepthSetting kBitDepthSetting = BitDepthSetting::L8R8;
-
   virtual ~KernelBase() {}
 };
 

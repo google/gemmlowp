@@ -254,8 +254,6 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
   typedef KernelFormat<KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 3>,
                        KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1> > Format;
 
-  static const BitDepthSetting kBitDepthSetting = BitDepthSetting::L7R5;
-
   const char* Name() const override { return "NEON, 12x4, depth 2, assuming 12-bit products"; }
 
   // TODO(benoitjacob): reorder function arguments so dst comes last
