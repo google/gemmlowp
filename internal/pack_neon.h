@@ -104,6 +104,99 @@ class PackingRegisterBlock<WidthMajorUint8SideMap, DepthMajorSideFormatNCells4x2
   }
 };
 
+// The paths here are specifically arm 32bit assembly, not arm 64bit.
+#ifdef GEMMLOWP_NEON32
+
+// We provide a PackAlignedRunImpl specialization for the very important case
+// of the RHS format of our default GEMM kernel. Indeed, profiles show a
+// substantial amount of time spent packing the RHS, even with the above
+// PackingRegisterBlock specialization.
+typedef KernelSideFormat<CellFormat<4, 2>, 1> DepthMajorSideFormat1Cell4x2;
+
+template <>
+class PackAlignedRunImpl<WidthMajorUint8SideMap, DepthMajorSideFormat1Cell4x2>
+{
+ public:
+  typedef WidthMajorUint8SideMap SrcMapType;
+  typedef DepthMajorSideFormat1Cell4x2 KernelSideFormat;
+
+  static void PackAlignedRun(
+    PackedSideBlock<KernelSideFormat>* packed_side_block,
+    const SrcMapType& src_map,
+    int start_width, int /*width*/, int start_depth, int depth)
+  {
+    const std::uint8_t* src_line0_ptr = src_map.data(start_width, start_depth);
+    const std::uint8_t* src_line1_ptr = src_line0_ptr + src_map.stride();
+    const std::uint8_t* src_line2_ptr = src_line1_ptr + src_map.stride();
+    const std::uint8_t* src_line3_ptr = src_line2_ptr + src_map.stride();
+    std::uint8_t* dst_ptr = packed_side_block->current_data();
+    std::uint8_t* dst_end_ptr = dst_ptr + 4 * depth;
+    std::int32_t* rank_one_update_ptr = packed_side_block->rank_one_update() + start_width;
+    std::int32_t rank_one_update_multiplier = packed_side_block->rank_one_update_multiplier();
+    asm volatile(
+      // Clear accumulator register for the rank-one-update sum.
+      "vmov.s32 q4, #0\n"
+      // Main loop across the depth dimension.
+      "loop_PackAlignedRun_WidthMajor_to_DepthMajorSideFormat1Cell4x2_%=:\n"
+      // Load source data (width-major).
+      "vld1.u8 {d16,d17}, [%[src_line0_ptr]]!\n"
+      "vld1.u8 {d18,d19}, [%[src_line1_ptr]]!\n"
+      "vld1.u8 {d20,d21}, [%[src_line2_ptr]]!\n"
+      "vld1.u8 {d22,d23}, [%[src_line3_ptr]]!\n"
+      // Sum across the depth dimension
+      "vpaddl.u8 q0, q8\n"
+      "vpaddl.u8 q1, q9\n"
+      "vpaddl.u8 q2, q10\n"
+      "vpaddl.u8 q3, q11\n"
+      "vpaddl.u16 q0, q0\n"
+      "vpaddl.u16 q1, q1\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+      "vtrn.32 d0, d2\n"
+      "vtrn.32 d4, d6\n"
+      "vmov d1, d4\n"
+      "vmov d3, d6\n"
+      "vadd.u32 q0, q0, q1\n"
+      "vadd.u32 q4, q4, q0\n"
+      // Store depth-major cells; the storage order flip is handled by vst4.
+      "vst4.u8 {d16, d18, d20, d22}, [%[dst_ptr]]!\n"
+      "vst4.u8 {d17, d19, d21, d23}, [%[dst_ptr]]!\n"
+      // Loop.
+      "cmp %[dst_ptr], %[dst_end_ptr]\n"
+      "bne loop_PackAlignedRun_WidthMajor_to_DepthMajorSideFormat1Cell4x2_%=\n"
+      // Update the rank-one-update data.
+      "vld1.32 {d10, d11}, [%[rank_one_update_ptr]]\n"
+      "vdup.32 d12, %[rank_one_update_multiplier]\n"
+      "vmla.s32 q5, q4, d12[0]\n"
+      "vst1.32 {d10, d11}, [%[rank_one_update_ptr]]\n"
+        :  // outputs
+        [src_line0_ptr] "+r"(src_line0_ptr),
+        [src_line1_ptr] "+r"(src_line1_ptr),
+        [src_line2_ptr] "+r"(src_line2_ptr),
+        [src_line3_ptr] "+r"(src_line3_ptr),
+        [dst_ptr] "+r"(dst_ptr)
+        :  // inputs
+        [dst_end_ptr] "r"(dst_end_ptr),
+        [rank_one_update_multiplier] "r"(rank_one_update_multiplier),
+        [rank_one_update_ptr] "r"(rank_one_update_ptr)
+        :  // clobbers
+        "cc", "memory",
+        // note: someone on internet says that quad registers are
+        // unsupported in the clobber list!
+        "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
+        "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30",
+        "d31");
+    packed_side_block->seek_forward_n_cells(
+      KernelSideFormat::kCells * depth / KernelSideFormat::kDepth);
+  }
+};
+#endif  // GEMMLOWP_NEON32
+
 template <int Cells>
 using WidthMajorSideFormatNCells4x2 = KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, Cells>;
 
