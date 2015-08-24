@@ -25,23 +25,24 @@
 
 namespace gemmlowp {
 
-template <typename KernelFormat, typename PackedResult>
+template <typename PackedLhs, typename PackedRhs, typename PackedResult>
 class ComputeImpl {
-  typedef typename KernelFormat::Lhs KernelLhsFormat;
-  typedef typename KernelFormat::Rhs KernelRhsFormat;
+  typedef typename PackedLhs::KernelSideFormat KernelLhsFormat;
+  typedef typename PackedRhs::KernelSideFormat KernelRhsFormat;
+  typedef KernelFormat<KernelLhsFormat, KernelRhsFormat> Format;
 
   const KernelBase& kernel_;
   const BlockParams& block_params_;
 
   PackedResult* const packed_result_;
-  const PackedSideBlock<KernelLhsFormat>& packed_lhs_;
-  const PackedSideBlock<KernelRhsFormat>& packed_rhs_;
+  const PackedLhs& packed_lhs_;
+  const PackedRhs& packed_rhs_;
 
  public:
   ComputeImpl(const KernelBase& _kernel, const BlockParams& _block_params,
               PackedResult* _packed_result,
-              const PackedSideBlock<KernelLhsFormat>& _packed_lhs,
-              const PackedSideBlock<KernelRhsFormat>& _packed_rhs)
+              const PackedLhs& _packed_lhs,
+              const PackedRhs& _packed_rhs)
       : kernel_(_kernel),
         block_params_(_block_params),
         packed_result_(_packed_result),
@@ -65,7 +66,7 @@ class ComputeImpl {
     packed_lhs_.seek_run(start_row, start_depth);
     packed_rhs_.seek_run(start_col, start_depth);
     auto packed_result_block = packed_result_->Map().block(
-        start_row, start_col, KernelFormat::kRows, KernelFormat::kCols);
+        start_row, start_col, Format::kRows, Format::kCols);
     kernel_.Run(packed_result_block.data(), packed_result_block.rows_stride(),
                 packed_result_block.cols_stride(), packed_lhs_.current_data(),
                 packed_rhs_.current_data(), start_depth, depth);
@@ -73,26 +74,26 @@ class ComputeImpl {
 
   void ComputeL1(int start_row, int rows, int start_col, int cols,
                  int start_depth, int depth) {
-    assert(rows % KernelFormat::kRows == 0);
-    assert(cols % KernelFormat::kCols == 0);
-    assert(depth % KernelFormat::kDepth == 0);
+    assert(rows % Format::kRows == 0);
+    assert(cols % Format::kCols == 0);
+    assert(depth % Format::kDepth == 0);
 
-    for (int c = 0; c < cols; c += KernelFormat::kCols) {
-      for (int r = 0; r < rows; r += KernelFormat::kRows) {
+    for (int c = 0; c < cols; c += Format::kCols) {
+      for (int r = 0; r < rows; r += Format::kRows) {
         ComputeRun(start_row + r, start_col + c, start_depth, depth);
       }
     }
   }
 };
 
-template <typename PackedResult, typename KernelLhsFormat,
-          typename KernelRhsFormat>
+template <typename PackedLhs, typename PackedRhs,
+          typename PackedResult>
 void Compute(const KernelBase& kernel, const BlockParams& block_params,
              PackedResult* packed_result,
-             const PackedSideBlock<KernelLhsFormat>& packed_lhs,
-             const PackedSideBlock<KernelRhsFormat>& packed_rhs) {
+             const PackedLhs& packed_lhs,
+             const PackedRhs& packed_rhs) {
   ScopedProfilingLabel label("compute");
-  ComputeImpl<KernelFormat<KernelLhsFormat, KernelRhsFormat>, PackedResult>
+  ComputeImpl<PackedLhs, PackedRhs, PackedResult>
       impl(kernel, block_params, packed_result, packed_lhs, packed_rhs);
 
   impl.Compute();

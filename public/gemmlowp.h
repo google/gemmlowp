@@ -38,11 +38,11 @@ void Gemm(GemmContext* context, const MatrixMap<const Scalar, LhsOrder>& lhs,
           int rhs_offset, int result_offset, int result_mult_int,
           int result_shift) {
   if (rhs.cols() == 1) {
-    MultiThreadGemm<typename DefaultKernelForGemv<BitDepth>::Format>(
+    MultiThreadGemm<typename DefaultKernelForGemv<BitDepth>::Format, std::uint8_t, BitDepth>(
         context, DefaultKernelForGemv<BitDepth>(), lhs, rhs, result, lhs_offset,
         rhs_offset, result_offset, result_mult_int, result_shift);
   } else {
-    MultiThreadGemm<typename DefaultKernelForGemm<BitDepth>::Format>(
+    MultiThreadGemm<typename DefaultKernelForGemm<BitDepth>::Format, std::uint8_t, BitDepth>(
         context, DefaultKernelForGemm<BitDepth>(), lhs, rhs, result, lhs_offset,
         rhs_offset, result_offset, result_mult_int, result_shift);
   }

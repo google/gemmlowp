@@ -28,9 +28,11 @@ typedef SideMap<const std::uint8_t, SideMapOrder::WidthMajor> WidthMajorUint8Sid
 template <int Cells>
 using DepthMajorSideFormatNCells4x2 = KernelSideFormat<CellFormat<4, 2>, Cells>;
 
-template <int Cells>
-class PackingRegisterBlock<WidthMajorUint8SideMap, DepthMajorSideFormatNCells4x2<Cells> >
-  : public PackingRegisterBlockBase<WidthMajorUint8SideMap, DepthMajorSideFormatNCells4x2<Cells> >
+template <int Cells, typename BitDepth>
+class PackingRegisterBlock<
+        WidthMajorUint8SideMap,
+        PackedSideBlock<DepthMajorSideFormatNCells4x2<Cells>, BitDepth> >
+  : public PackingRegisterBlockBase<WidthMajorUint8SideMap, PackedSideBlock<DepthMajorSideFormatNCells4x2<Cells>, BitDepth> >
 {
  public:
   typedef DepthMajorSideFormatNCells4x2<Cells> KernelSideFormat;
@@ -41,7 +43,7 @@ class PackingRegisterBlock<WidthMajorUint8SideMap, DepthMajorSideFormatNCells4x2
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
 
-  void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
+  void Pack(PackedSideBlock<KernelSideFormat, BitDepth>* dst, int start_width) {
     std::uint8_t* dst_ptr = dst->current_data();
     const std::uint8_t* const src_ptr = this->complete_src_.data();
     const int stride = this->complete_src_.stride();
@@ -113,15 +115,17 @@ class PackingRegisterBlock<WidthMajorUint8SideMap, DepthMajorSideFormatNCells4x2
 // PackingRegisterBlock specialization.
 typedef KernelSideFormat<CellFormat<4, 2>, 1> DepthMajorSideFormat1Cell4x2;
 
-template <>
-class PackAlignedRunImpl<WidthMajorUint8SideMap, DepthMajorSideFormat1Cell4x2>
+template <typename BitDepth>
+class PackAlignedRunImpl<
+        WidthMajorUint8SideMap,
+        PackedSideBlock<DepthMajorSideFormat1Cell4x2, BitDepth> >
 {
  public:
   typedef WidthMajorUint8SideMap SrcMapType;
   typedef DepthMajorSideFormat1Cell4x2 KernelSideFormat;
 
   static void PackAlignedRun(
-    PackedSideBlock<KernelSideFormat>* packed_side_block,
+    PackedSideBlock<KernelSideFormat, BitDepth>* packed_side_block,
     const SrcMapType& src_map,
     int start_width, int /*width*/, int start_depth, int depth)
   {
@@ -200,9 +204,11 @@ class PackAlignedRunImpl<WidthMajorUint8SideMap, DepthMajorSideFormat1Cell4x2>
 template <int Cells>
 using WidthMajorSideFormatNCells4x2 = KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, Cells>;
 
-template <int Cells>
-class PackingRegisterBlock<WidthMajorUint8SideMap, WidthMajorSideFormatNCells4x2<Cells> >
-  : public PackingRegisterBlockBase<WidthMajorUint8SideMap, WidthMajorSideFormatNCells4x2<Cells> >
+template <int Cells, typename BitDepth>
+class PackingRegisterBlock<
+        WidthMajorUint8SideMap,
+        PackedSideBlock<WidthMajorSideFormatNCells4x2<Cells>, BitDepth> >
+  : public PackingRegisterBlockBase<WidthMajorUint8SideMap, PackedSideBlock<WidthMajorSideFormatNCells4x2<Cells>, BitDepth> >
 {
  public:
   typedef WidthMajorSideFormatNCells4x2<Cells> KernelSideFormat;
@@ -213,7 +219,7 @@ class PackingRegisterBlock<WidthMajorUint8SideMap, WidthMajorSideFormatNCells4x2
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
 
-  void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
+  void Pack(PackedSideBlock<KernelSideFormat, BitDepth>* dst, int start_width) {
     std::uint8_t* dst_ptr = dst->current_data();
     const std::uint8_t* src_ptr = this->complete_src_.data();
     const int stride = this->complete_src_.stride();

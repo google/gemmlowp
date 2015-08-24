@@ -36,6 +36,41 @@
 
 namespace gemmlowp {
 
+template <int tBits>
+struct BitDepth
+{
+  static const int kBits = tBits;
+};
+
+template <BitDepthSetting tBitDepthSetting>
+struct LhsBitDepth
+{};
+
+template <BitDepthSetting tBitDepthSetting>
+struct RhsBitDepth
+{};
+
+template <>
+struct LhsBitDepth<BitDepthSetting::L8R8>
+  : BitDepth<8>
+{};
+
+template <>
+struct RhsBitDepth<BitDepthSetting::L8R8>
+  : BitDepth<8>
+{};
+
+template <>
+struct LhsBitDepth<BitDepthSetting::L7R5>
+  : BitDepth<7>
+{};
+
+template <>
+struct RhsBitDepth<BitDepthSetting::L7R5>
+  : BitDepth<5>
+{};
+
+
 // A PackedSideBlock instance is a packed block of either the LHS or RHS
 // (whence the generic 'Side' name).
 //
@@ -43,9 +78,12 @@ namespace gemmlowp {
 // is expected by the specified kernel format. From a block of the input
 // LHS or RHS matrix, one obtains a PackedSideBlock by calling PackLhs()
 // or PackRhs().
-template <typename KernelSideFormat>
+template <typename tKernelSideFormat, typename tBitDepth>
 class PackedSideBlock {
  public:
+  typedef tKernelSideFormat KernelSideFormat;
+  typedef tBitDepth BitDepth;
+
   PackedSideBlock(Side side, Allocator* allocator,
                   const BlockParams& block_params,
                   int rank_one_update_multiplier)
@@ -215,10 +253,12 @@ class SideMap {
 //   2. Packing a complete block into the destination, see Pack. This is the
 //      most critical part, so it's convenient that unaligned boundaries have
 //      already been handled in step 1.
-template <typename SrcMapType, typename KernelSideFormat>
+template <typename SrcMapType, typename PackedSideBlock>
 class PackingRegisterBlockBase
 {
  public:
+  typedef typename PackedSideBlock::BitDepth BitDepth;
+  typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
   typedef typename KernelSideFormat::Cell CellFormat;
   static const int kCells = KernelSideFormat::kCells;
   static const int kCellWidth = CellFormat::kWidth;
@@ -268,7 +308,7 @@ class PackingRegisterBlockBase
   // Packs a complete block into the destination. This is the most
   // critical part and the part that we most typically want to
   // override in architecture-specific optimized specializations.
-  void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
+  void Pack(PackedSideBlock* dst, int start_width) {
     std::uint8_t* dst_ptr = dst->current_data();
     for (int start_depth = 0; start_depth < kRegisterSize; start_depth += kCellDepth) {
       for (int c = 0; c < kCells; c++) {
@@ -293,9 +333,9 @@ class PackingRegisterBlockBase
   }
 };
 
-template <typename SrcMapType, typename KernelSideFormat>
+template <typename SrcMapType, typename PackedSideBlock>
 class PackingRegisterBlock
-  : public PackingRegisterBlockBase<SrcMapType, KernelSideFormat>
+  : public PackingRegisterBlockBase<SrcMapType, PackedSideBlock>
 {};
 
 // PackAlignedRunImpl is the second of two levels at which one may
@@ -315,20 +355,20 @@ class PackingRegisterBlock
 // innermost loop, along the 'depth' dimension, is called a "run".
 // (The word "run" is consistently used throughout gemmlowp to mean
 // an innermost loop along the depth dimension). 
-template <typename SrcMapType, typename KernelSideFormat>
+template <typename SrcMapType, typename PackedSideBlock>
 class PackAlignedRunImplBase
 {
  public:
   static void PackAlignedRun(
-    PackedSideBlock<KernelSideFormat>* packed_side_block,
+    PackedSideBlock* packed_side_block,
     const SrcMapType& src_map,
     int start_width, int width, int start_depth, int depth)
   {
     // Since this function is only called on _aligned_ runs, the 'width'
     // parameter is useless. We keep it for consistency and only check
     // that it has the expected value.
-    assert(width == KernelSideFormat::kWidth);
-    PackingRegisterBlock<SrcMapType, KernelSideFormat> b;
+    assert(width == PackedSideBlock::KernelSideFormat::kWidth);
+    PackingRegisterBlock<SrcMapType, PackedSideBlock> b;
     for (int d = 0; d < depth; d += kRegisterSize) {
       b.UseCompleteSrcInPlace(
         src_map.block(start_width, start_depth + d, width, kRegisterSize));
@@ -337,27 +377,28 @@ class PackAlignedRunImplBase
   }
 };
 
-template <typename SrcMapType, typename KernelSideFormat>
+template <typename SrcMapType, typename PackedSideBlock>
 class PackAlignedRunImpl
-  : public PackAlignedRunImplBase<SrcMapType, KernelSideFormat>
+  : public PackAlignedRunImplBase<SrcMapType, PackedSideBlock>
 {};
 
 // Base/generic implementation of packing
-template <typename SrcMapType, typename KernelSideFormat>
+template <typename SrcMapType, typename PackedSideBlock>
 class PackSideBlockImplBase {
  public:
+  typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
   typedef typename KernelSideFormat::Cell CellFormat;
   static const int kCells = KernelSideFormat::kCells;
   static const int kCellWidth = CellFormat::kWidth;
   static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
 
-  PackSideBlockImplBase(PackedSideBlock<KernelSideFormat>* packed_side_block,
+  PackSideBlockImplBase(PackedSideBlock* packed_side_block,
                         const SrcMapType& src_map)
       : packed_side_block_(packed_side_block)
       , src_map_(src_map) {}
 
-  PackedSideBlock<KernelSideFormat>* packed_side_block() const {
+  PackedSideBlock* packed_side_block() const {
     return packed_side_block_;
   }
 
@@ -412,11 +453,11 @@ class PackSideBlockImplBase {
 
   // PackRun packs only a run i.e. is the inner loop in the depth dimension.
   void PackRun(int start_width, int width, int start_depth, int depth) {
-    PackingRegisterBlock<SrcMapType, KernelSideFormat> b;
+    PackingRegisterBlock<SrcMapType, PackedSideBlock> b;
     if (width == kKernelWidth) {
       const int register_aligned_depth = RoundDown<kRegisterSize>(depth);
       if (register_aligned_depth) {
-        PackAlignedRunImpl<SrcMapType, KernelSideFormat>::PackAlignedRun(
+        PackAlignedRunImpl<SrcMapType, PackedSideBlock>::PackAlignedRun(
           packed_side_block_, src_map_,
           start_width, width, start_depth, register_aligned_depth);
       }
@@ -436,28 +477,30 @@ class PackSideBlockImplBase {
   }
 
   // The PackedSideBlock being packed, i.e. the 'destination'.
-  PackedSideBlock<KernelSideFormat>* const packed_side_block_;
+  PackedSideBlock* const packed_side_block_;
 
   // A map on the block of the original matrix block being packed,
   // i.e. the 'source'.
   const SrcMapType& src_map_;
 };
 
-template <typename SrcMapType, typename KernelSideFormat>
+template <typename SrcMapType, typename PackedSideBlock>
 class PackSideBlockImpl
-  : public PackSideBlockImplBase<SrcMapType, KernelSideFormat>
+  : public PackSideBlockImplBase<SrcMapType, PackedSideBlock>
 {
  public:
-  typedef PackSideBlockImplBase<SrcMapType, KernelSideFormat> Base;
+  typedef PackSideBlockImplBase<SrcMapType, PackedSideBlock> Base;
 
-  PackSideBlockImpl(PackedSideBlock<KernelSideFormat>* packed_side_block,
+  PackSideBlockImpl(PackedSideBlock* packed_side_block,
                     const SrcMapType& src_map)
     : Base(packed_side_block, src_map) {}
 };
 
 // Packs a block of the input LHS matrix, into a PackedSideBlock
-template <typename KernelSideFormat, typename MatrixMapType>
-void PackLhs(PackedSideBlock<KernelSideFormat>* dst, const MatrixMapType& src) {
+template <typename PackedSideBlock, typename MatrixMapType>
+void PackLhs(PackedSideBlock* dst,
+             const MatrixMapType& src)
+{
   ScopedProfilingLabel label("pack LHS");
   static const SideMapOrder kSideMapOrder =
       MatrixMapType::kOrder == MapOrder::RowMajor ? SideMapOrder::WidthMajor
@@ -465,14 +508,16 @@ void PackLhs(PackedSideBlock<KernelSideFormat>* dst, const MatrixMapType& src) {
   typedef typename MatrixMapType::Scalar Scalar;
   typedef SideMap<Scalar, kSideMapOrder> SideMapType;
   SideMapType src_side_map(src.data(), src.rows(), src.cols(), src.stride());
-  typedef PackSideBlockImpl<SideMapType, KernelSideFormat> ImplType;
+  typedef PackSideBlockImpl<SideMapType, PackedSideBlock> ImplType;
   ImplType impl(dst, src_side_map);
   impl.PackL2();
 }
 
 // Packs a block of the input RHS matrix, into a PackedSideBlock
-template <typename KernelSideFormat, typename MatrixMapType>
-void PackRhs(PackedSideBlock<KernelSideFormat>* dst, const MatrixMapType& src) {
+template <typename PackedSideBlock, typename MatrixMapType>
+void PackRhs(PackedSideBlock* dst,
+             const MatrixMapType& src)
+{
   ScopedProfilingLabel label("pack RHS");
   static const SideMapOrder kSideMapOrder =
       MatrixMapType::kOrder == MapOrder::ColMajor ? SideMapOrder::WidthMajor
@@ -480,7 +525,7 @@ void PackRhs(PackedSideBlock<KernelSideFormat>* dst, const MatrixMapType& src) {
   typedef typename MatrixMapType::Scalar Scalar;
   typedef SideMap<Scalar, kSideMapOrder> SideMapType;
   SideMapType src_side_map(src.data(), src.cols(), src.rows(), src.stride());
-  typedef PackSideBlockImpl<SideMapType, KernelSideFormat> ImplType;
+  typedef PackSideBlockImpl<SideMapType, PackedSideBlock> ImplType;
   ImplType impl(dst, src_side_map);
   impl.PackL2();
 }

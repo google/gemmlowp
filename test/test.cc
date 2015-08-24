@@ -110,7 +110,7 @@ void ReferenceEightBitIntGemm(ReferenceEightBitIntGemmContext* context,
 // *GemmWrapper's allow to wrap various Gemm functions in a uniform
 // interface, so we can use the same testing code to test all of them
 
-template <typename Kernel, BitDepthSetting BitDepth, typename Scalar>
+template <typename Kernel, typename Scalar, BitDepthSetting BitDepth>
 struct SingleThreadGemmWrapper {
   static const BitDepthSetting kBitDepthSetting = BitDepth;
 
@@ -129,14 +129,14 @@ struct SingleThreadGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    SingleThreadGemm<typename Kernel::Format, Scalar, LhsOrder, RhsOrder,
+    SingleThreadGemm<typename Kernel::Format, Scalar, BitDepth, LhsOrder, RhsOrder,
                      ResultOrder>(context, Kernel(), lhs, rhs, result,
                                   lhs_offset, rhs_offset, result_offset,
                                   result_mult_int, result_shift);
   }
 };
 
-template <typename Kernel, BitDepthSetting BitDepth, typename Scalar>
+template <typename Kernel, typename Scalar, BitDepthSetting BitDepth>
 struct MultiThreadGemmWrapper {
   static const BitDepthSetting kBitDepthSetting = BitDepth;
 
@@ -155,7 +155,7 @@ struct MultiThreadGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    MultiThreadGemm<typename Kernel::Format, Scalar, LhsOrder, RhsOrder,
+    MultiThreadGemm<typename Kernel::Format, Scalar, BitDepth, LhsOrder, RhsOrder,
                     ResultOrder>(context, Kernel(), lhs, rhs, result,
                                  lhs_offset, rhs_offset, result_offset,
                                  result_mult_int, result_shift);
@@ -360,22 +360,6 @@ enum class WhatParamsToTest {
   OnlyGenericCase,
 };
 
-int LhsBitDepth(BitDepthSetting s) {
-  switch (s) {
-    case BitDepthSetting::L8R8: return 8;
-    case BitDepthSetting::L7R5: return 7;
-    default: abort(); return 0;
-  }
-}
-
-int RhsBitDepth(BitDepthSetting s) {
-  switch (s) {
-    case BitDepthSetting::L8R8: return 8;
-    case BitDepthSetting::L7R5: return 5;
-    default: abort(); return 0;
-  }
-}
-
 template <typename GemmWrapper, MapOrder LhsOrder, MapOrder RhsOrder,
           MapOrder ResultOrder>
 void test_gemm(typename GemmWrapper::Context* context, int rows, int depth,
@@ -383,10 +367,10 @@ void test_gemm(typename GemmWrapper::Context* context, int rows, int depth,
   typedef std::uint8_t Scalar;
   typedef Matrix<Scalar, LhsOrder> LhsType;
   LhsType lhs(rows, depth);
-  MakeRandom(&lhs, LhsBitDepth(GemmWrapper::kBitDepthSetting));
+  MakeRandom(&lhs, 8);
   typedef Matrix<Scalar, RhsOrder> RhsType;
   RhsType rhs(depth, cols);
-  MakeRandom(&rhs, RhsBitDepth(GemmWrapper::kBitDepthSetting));
+  MakeRandom(&rhs, 8);
   typedef Matrix<Scalar, ResultOrder> ResultType;
   ResultType result(rows, cols);
   MakeZero(&result);
@@ -435,7 +419,7 @@ void test_gemm(typename GemmWrapper::Context* context, int rows, int depth,
 
 template <typename Kernel>
 void test_gemm_kernel(MultiThreadGemmContext* context) {
-  typedef MultiThreadGemmWrapper<Kernel, BitDepthSetting::L8R8, uint8_t> GemmWrapper;
+  typedef MultiThreadGemmWrapper<Kernel, std::uint8_t, BitDepthSetting::L8R8> GemmWrapper;
   test_gemm<GemmWrapper>(context, 1, 1, 1, WhatParamsToTest::OnlyGenericCase,
                          WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 2, 2, 2, WhatParamsToTest::OnlyGenericCase,
@@ -638,13 +622,13 @@ void test() {
   // Test the internal GEMM interfaces
   test_gemm<SingleThreadGemmWrapper<
     DefaultKernelForGemm<BitDepthSetting::L8R8>,
-    BitDepthSetting::L8R8,
-    uint8_t>>(&context);
+    std::uint8_t,
+    BitDepthSetting::L8R8>>(&context);
 
   test_gemm<MultiThreadGemmWrapper<
     DefaultKernelForGemm<BitDepthSetting::L8R8>,
-    BitDepthSetting::L8R8,
-    uint8_t>>(&context);
+    std::uint8_t,
+    BitDepthSetting::L8R8>>(&context);
 
   // Test the public GEMM interfaces
   test_gemm<PublicGemmWrapper<uint8_t, BitDepthSetting::L8R8>>(&context);
@@ -654,13 +638,13 @@ void test() {
   // Test GEMV cases (internal interfaces)
   test_gemv<SingleThreadGemmWrapper<
     DefaultKernelForGemv<BitDepthSetting::L8R8>,
-    BitDepthSetting::L8R8,
-    uint8_t>>(&context);
+    std::uint8_t,
+    BitDepthSetting::L8R8>>(&context);
 
   test_gemv<MultiThreadGemmWrapper<
     DefaultKernelForGemv<BitDepthSetting::L8R8>,
-    BitDepthSetting::L8R8,
-    uint8_t>>(&context);
+    std::uint8_t,
+    BitDepthSetting::L8R8>>(&context);
 
   // Test GEMV cases (public interfaces)
   test_gemv<PublicGemmWrapper<uint8_t, BitDepthSetting::L8R8>>(&context);
@@ -671,16 +655,16 @@ void test() {
   // L7R5
   test_gemm<SingleThreadGemmWrapper<
     DefaultKernelForGemm<BitDepthSetting::L7R5>,
-    BitDepthSetting::L7R5,
-    uint8_t>>(&context);
+    std::uint8_t,
+    BitDepthSetting::L7R5>>(&context);
 
   test_gemv<SingleThreadGemmWrapper<
     DefaultKernelForGemv<BitDepthSetting::L7R5>,
-    BitDepthSetting::L7R5,
-    uint8_t>>(&context);
+    std::uint8_t,
+    BitDepthSetting::L7R5>>(&context);
 
   test_gemm<EightBitIntGemmWrapper<
-    uint8_t,
+    std::uint8_t,
     eight_bit_int_gemm::BitDepthSetting::A5B7>>(&context);
 
 

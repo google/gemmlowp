@@ -38,8 +38,8 @@ class SingleThreadGemmContext {
   Allocator allocator_;
 };
 
-template <typename KernelFormat, typename Scalar, MapOrder LhsOrder,
-          MapOrder RhsOrder, MapOrder ResultOrder>
+template <typename KernelFormat, typename Scalar, BitDepthSetting BitDepth,
+          MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
 void SingleThreadGemm(SingleThreadGemmContext* context,
                       const KernelBase& kernel,
                       const MatrixMap<const Scalar, LhsOrder>& lhs,
@@ -60,10 +60,10 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
   BlockParams block_params;
   block_params.Init<KernelFormat>(rows, cols, depth, 1);
 
-  PackedSideBlock<typename KernelFormat::Lhs> packed_lhs(
-      Side::Lhs, allocator, block_params, rhs_offset);
-  PackedSideBlock<typename KernelFormat::Rhs> packed_rhs(
-      Side::Rhs, allocator, block_params, lhs_offset);
+  PackedSideBlock<typename KernelFormat::Lhs, LhsBitDepth<BitDepth> >
+    packed_lhs(Side::Lhs, allocator, block_params, rhs_offset);
+  PackedSideBlock<typename KernelFormat::Rhs, RhsBitDepth<BitDepth> >
+    packed_rhs(Side::Rhs, allocator, block_params, lhs_offset);
 
   PackedResultInt32 packed_result(allocator, block_params);
 
