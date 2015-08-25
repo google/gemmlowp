@@ -55,6 +55,10 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
   int cols = result->cols();
   int depth = lhs.cols();
 
+  AdjustParamsForBitDepth<BitDepth>(
+    &lhs_offset, &rhs_offset, &result_offset,
+    &result_mult_int, &result_shift);
+
   Allocator* allocator = context->allocator();
 
   BlockParams block_params;
@@ -65,7 +69,7 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
   PackedSideBlock<typename KernelFormat::Rhs, RhsBitDepth<BitDepth> >
     packed_rhs(Side::Rhs, allocator, block_params, lhs_offset);
 
-  PackedResultInt32 packed_result(allocator, block_params);
+  PackedResult packed_result(allocator, block_params);
 
   allocator->Commit();
 

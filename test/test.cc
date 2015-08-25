@@ -37,6 +37,7 @@ struct ReferenceEightBitIntGemmContext {
   int saturated_0_values, saturated_255_values;
 };
 
+template <BitDepthSetting BitDepth>
 void ReferenceEightBitIntGemm(ReferenceEightBitIntGemmContext* context,
                               bool transpose_a, bool transpose_b,
                               bool transpose_c, int m, int n, int k,
@@ -46,7 +47,19 @@ void ReferenceEightBitIntGemm(ReferenceEightBitIntGemmContext* context,
                               int32_t c_shift, int ldc) {
   context->saturated_0_values = 0;
   context->saturated_255_values = 0;
-  assert((c_shift > 0) && (c_shift < 32));
+
+  assert((c_shift >= 0) && (c_shift <= 32));
+
+  const int kLhsBits = LhsBitDepth<BitDepth>::kBits;
+  const int kRhsBits = RhsBitDepth<BitDepth>::kBits;
+  const int kLhsBitDepthShift = 8 - kLhsBits;
+  const int kRhsBitDepthShift = 8 - kRhsBits;
+  const int kResultBitDepthShift = kLhsBitDepthShift + kRhsBitDepthShift;
+  b_offset /= (1 << kLhsBitDepthShift);
+  a_offset /= (1 << kRhsBitDepthShift);
+  c_offset /= (1 << kResultBitDepthShift);
+  c_mult_int <<= kResultBitDepthShift;
+
   assert(a != nullptr);
   assert(b != nullptr);
   assert(c != nullptr);
@@ -78,15 +91,16 @@ void ReferenceEightBitIntGemm(ReferenceEightBitIntGemmContext* context,
     c_j_stride = ldc;
   }
   int i, j, l;
+  
   for (j = 0; j < n; j++) {
     for (i = 0; i < m; i++) {
       int32_t total = 0;
       for (l = 0; l < k; l++) {
         const int a_index = i * a_i_stride + l * a_l_stride;
-        const uint8_t a_as_byte = a[a_index];
+        const uint8_t a_as_byte = a[a_index] >> kRhsBitDepthShift;
         const int32_t a_as_int = static_cast<int32_t>(a_as_byte) + a_offset;
         const int b_index = j * b_j_stride + l * b_l_stride;
-        const uint8_t b_as_byte = b[b_index];
+        const uint8_t b_as_byte = b[b_index] >> kLhsBitDepthShift;
         const int32_t b_as_int = static_cast<int32_t>(b_as_byte) + b_offset;
         const int32_t mult_as_int = a_as_int * b_as_int;
         total += mult_as_int;
@@ -215,9 +229,9 @@ struct EightBitIntGemmWrapper {
   }
 };
 
-template <typename Scalar>
+template <typename Scalar, BitDepthSetting BitDepth>
 struct ReferenceEightBitIntGemmWrapper {
-  static const BitDepthSetting kBitDepthSetting = BitDepthSetting::L8R8;
+  static const BitDepthSetting kBitDepthSetting = BitDepth;
 
   static const char* Name() { return "ReferenceEightBitIntGemm"; }
 
@@ -231,11 +245,12 @@ struct ReferenceEightBitIntGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    ReferenceEightBitIntGemm(context, transpose_a, transpose_b, transpose_c,
-                             rhs.cols(), lhs.rows(), lhs.cols(), rhs.data(),
-                             rhs_offset, rhs.stride(), lhs.data(), lhs_offset,
-                             lhs.stride(), result->data(), result_offset,
-                             result_mult_int, result_shift, result->stride());
+    ReferenceEightBitIntGemm<BitDepth>(
+      context, transpose_a, transpose_b, transpose_c,
+      rhs.cols(), lhs.rows(), lhs.cols(), rhs.data(),
+      rhs_offset, rhs.stride(), lhs.data(), lhs_offset,
+      lhs.stride(), result->data(), result_offset,
+      result_mult_int, result_shift, result->stride());
   }
 };
 
@@ -280,7 +295,8 @@ void test_gemm_impl(typename GemmWrapper::Context* context, const LhsType& lhs,
       kRhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
   const bool transpose_b =
       kLhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
-  ReferenceEightBitIntGemmWrapper<Scalar>::Gemm(
+  static const BitDepthSetting BitDepth = GemmWrapper::kBitDepthSetting;
+  ReferenceEightBitIntGemmWrapper<Scalar, BitDepth>::Gemm(
       &reference_context, transpose_a, transpose_b, transpose_c,
       lhs.const_map(), rhs.const_map(), &ref_result.map(), lhs_offset,
       rhs_offset, result_offset, result_mult_int, result_shift);
@@ -470,7 +486,6 @@ void test_gemm(typename GemmWrapper::Context* context) {
                          WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 8, 8, 8, WhatParamsToTest::All,
                          WhatOrdersToTest::OnlyRCC);
-
   test_gemm<GemmWrapper>(context, 16, 16, 16, WhatParamsToTest::All,
                          WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 32, 32, 32, WhatParamsToTest::All,

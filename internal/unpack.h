@@ -24,19 +24,16 @@
 
 namespace gemmlowp {
 
-class PackedResultInt32 {
-  Allocator* allocator_;
-  Allocator::Handle matrix_handle_;
-  const BlockParams& block_params_;
-
+class PackedResult {
  public:
-  PackedResultInt32(Allocator* _allocator, const BlockParams& _block_params)
+
+  PackedResult(Allocator* _allocator, const BlockParams& _block_params)
       : allocator_(_allocator), block_params_(_block_params) {
     matrix_handle_ = allocator_->Reserve<std::int32_t>(block_params_.l2_rows *
                                                        block_params_.l2_cols);
   }
 
-  ~PackedResultInt32() {}
+  ~PackedResult() {}
 
   MatrixMap<std::int32_t, MapOrder::ColMajor> Map() {
     return MatrixMap<std::int32_t, MapOrder::ColMajor>(
@@ -49,11 +46,16 @@ class PackedResultInt32 {
         allocator_->GetPointer<const std::int32_t>(matrix_handle_),
         block_params_.l2_rows, block_params_.l2_cols, block_params_.l2_rows);
   }
+
+ private:
+  Allocator* allocator_;
+  Allocator::Handle matrix_handle_;
+  const BlockParams& block_params_;
 };
 
 template <typename ResultBlockType>
 struct UnpackResultImplGeneric {
-  static void Unpack(ResultBlockType* dst, const PackedResultInt32& src,
+  static void Unpack(ResultBlockType* dst, const PackedResult& src,
                      int depth, const std::int32_t* lhs_rank_one_update,
                      const std::int32_t* rhs_rank_one_update,
                      std::int32_t lhs_offset, std::int32_t rhs_offset,
@@ -77,10 +79,11 @@ struct UnpackResultImplGeneric {
 };
 
 template <typename ResultBlockType>
-struct UnpackResultImpl : UnpackResultImplGeneric<ResultBlockType> {};
+struct UnpackResultImpl
+  : UnpackResultImplGeneric<ResultBlockType> {};
 
 template <typename ResultBlockType>
-void UnpackResult(ResultBlockType* dst, const PackedResultInt32& src, int depth,
+void UnpackResult(ResultBlockType* dst, const PackedResult& src, int depth,
                   const std::int32_t* lhs_rank_one_update,
                   const std::int32_t* rhs_rank_one_update,
                   std::int32_t lhs_offset, std::int32_t rhs_offset,
@@ -88,8 +91,12 @@ void UnpackResult(ResultBlockType* dst, const PackedResultInt32& src, int depth,
                   std::int32_t result_shift) {
   ScopedProfilingLabel label("unpack");
   UnpackResultImpl<ResultBlockType>::Unpack(
-      dst, src, depth, lhs_rank_one_update, rhs_rank_one_update, lhs_offset,
-      rhs_offset, result_offset, result_mult_int, result_shift);
+      dst, src, depth, lhs_rank_one_update, rhs_rank_one_update,
+      lhs_offset,
+      rhs_offset,
+      result_offset,
+      result_mult_int,
+      result_shift);
 }
 
 }  // namespace gemmlowp

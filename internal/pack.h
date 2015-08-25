@@ -33,43 +33,9 @@
 #include "kernel.h"
 #include "common.h"
 #include "allocator.h"
+#include "bit_depth_util.h"
 
 namespace gemmlowp {
-
-template <int tBits>
-struct BitDepth
-{
-  static const int kBits = tBits;
-};
-
-template <BitDepthSetting tBitDepthSetting>
-struct LhsBitDepth
-{};
-
-template <BitDepthSetting tBitDepthSetting>
-struct RhsBitDepth
-{};
-
-template <>
-struct LhsBitDepth<BitDepthSetting::L8R8>
-  : BitDepth<8>
-{};
-
-template <>
-struct RhsBitDepth<BitDepthSetting::L8R8>
-  : BitDepth<8>
-{};
-
-template <>
-struct LhsBitDepth<BitDepthSetting::L7R5>
-  : BitDepth<7>
-{};
-
-template <>
-struct RhsBitDepth<BitDepthSetting::L7R5>
-  : BitDepth<5>
-{};
-
 
 // A PackedSideBlock instance is a packed block of either the LHS or RHS
 // (whence the generic 'Side' name).
@@ -257,7 +223,6 @@ template <typename SrcMapType, typename PackedSideBlock>
 class PackingRegisterBlockBase
 {
  public:
-  typedef typename PackedSideBlock::BitDepth BitDepth;
   typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
   typedef typename KernelSideFormat::Cell CellFormat;
   static const int kCells = KernelSideFormat::kCells;
@@ -265,6 +230,7 @@ class PackingRegisterBlockBase
   static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
+  static const int kBits = PackedSideBlock::BitDepth::kBits;
   
   static const SideMapOrder kSrcOrder = SrcMapType::kOrder;
 
@@ -320,6 +286,9 @@ class PackingRegisterBlockBase
           std::int32_t sum = 0;
           for (int d = 0; d < kCellDepth; d++) {
             std::uint8_t x = src_cell_map(w, d);
+            if (kBits < 8) {
+              x >>= 8 - kBits;
+            }
             dst_ptr[OffsetIntoCell<CellFormat>(w, d)] = x;
             sum += x;
           }

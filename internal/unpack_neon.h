@@ -26,7 +26,7 @@ namespace gemmlowp {
 template <>
 struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>> {
   typedef MatrixMap<std::uint8_t, MapOrder::ColMajor> ResultBlockType;
-  static void Unpack(ResultBlockType* dst, const PackedResultInt32& src,
+  static void Unpack(ResultBlockType* dst, const PackedResult& src,
                      int depth, const std::int32_t* lhs_rank_one_update,
                      const std::int32_t* rhs_rank_one_update,
                      std::int32_t lhs_offset, std::int32_t rhs_offset,

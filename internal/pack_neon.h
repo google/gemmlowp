@@ -52,6 +52,11 @@ class PackingRegisterBlock<
     for (int i = 0; i < 4 * kCells; i++) {
       src_lines[i] = vld1q_u8(src_ptr + i * stride);
     }
+    if (BitDepth::kBits < 8) {
+      for (int i = 0; i < 4 * kCells; i++) {
+        src_lines[i] = vshrq_n_u8(src_lines[i], 8 - BitDepth::kBits);
+      }
+    }
     // Reorder the data within registers to make DepthMajor 4x2 cells
     uint8x16x2_t src_lines_intertwined_2x[2 * kCells];
     for (int i = 0; i < kCells; i++) {
@@ -115,17 +120,17 @@ class PackingRegisterBlock<
 // PackingRegisterBlock specialization.
 typedef KernelSideFormat<CellFormat<4, 2>, 1> DepthMajorSideFormat1Cell4x2;
 
-template <typename BitDepth>
+template <>
 class PackAlignedRunImpl<
         WidthMajorUint8SideMap,
-        PackedSideBlock<DepthMajorSideFormat1Cell4x2, BitDepth> >
+        PackedSideBlock<DepthMajorSideFormat1Cell4x2, BitDepth<8> > >
 {
  public:
   typedef WidthMajorUint8SideMap SrcMapType;
   typedef DepthMajorSideFormat1Cell4x2 KernelSideFormat;
 
   static void PackAlignedRun(
-    PackedSideBlock<KernelSideFormat, BitDepth>* packed_side_block,
+    PackedSideBlock<KernelSideFormat, BitDepth<8> >* packed_side_block,
     const SrcMapType& src_map,
     int start_width, int /*width*/, int start_depth, int depth)
   {
@@ -228,6 +233,11 @@ class PackingRegisterBlock<
     for (int i = 0; i < 4 * kCells; i++) {
       src_lines[i] = vreinterpretq_u16_u8(vld1q_u8(src_ptr));
       src_ptr += stride;
+    }
+    if (BitDepth::kBits < 8) {
+      for (int i = 0; i < 4 * kCells; i++) {
+        src_lines[i] = vreinterpretq_u16_u8(vshrq_n_u8(vreinterpretq_u8_u16(src_lines[i]), 8 - BitDepth::kBits));
+      }
     }
     // Reorder the data within registers to make WidthMajor 4x2 cells
     uint16x8x2_t src_lines_intertwined_2x[2 * kCells];

@@ -27,4 +27,4 @@ enum class BitDepthSetting {
 
 }  // namespace gemmlowp
 
-#endif
+#endif  // GEMMLOWP_PUBLIC_BIT_DEPTH_H_

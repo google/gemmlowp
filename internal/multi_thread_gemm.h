@@ -315,7 +315,7 @@ struct GemmWithPackedRhsTask : Task {
     PackedLhs packed_lhs(
       Side::Lhs, local_allocator, block_params, rhs_offset);
 
-    PackedResultInt32 packed_result(local_allocator, block_params);
+    PackedResult packed_result(local_allocator, block_params);
 
     local_allocator->Commit();
 
@@ -453,6 +453,10 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
       result_mult_int, result_shift);
   }
   assert(workers_count > 1);
+
+  AdjustParamsForBitDepth<BitDepth>(
+    &lhs_offset, &rhs_offset, &result_offset,
+    &result_mult_int, &result_shift);
 
   Allocator* allocator = context->allocator();
   WorkersPool* workers_pool = context->workers_pool();

@@ -1,0 +1,77 @@
+// Copyright 2015 Google Inc. All Rights Reserved.
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+// bit_depth.h: defines the BitDepthSetting enum
+
+#ifndef GEMMLOWP_INTERNAL_BIT_DEPTH_H_
+#define GEMMLOWP_INTERNAL_BIT_DEPTH_H_
+
+#include "../public/bit_depth.h"
+
+namespace gemmlowp {
+
+template <int tBits>
+struct BitDepth
+{
+  static const int kBits = tBits;
+};
+
+template <BitDepthSetting tBitDepthSetting>
+struct LhsBitDepth
+{};
+
+template <BitDepthSetting tBitDepthSetting>
+struct RhsBitDepth
+{};
+
+template <>
+struct LhsBitDepth<BitDepthSetting::L8R8>
+  : BitDepth<8>
+{};
+
+template <>
+struct RhsBitDepth<BitDepthSetting::L8R8>
+  : BitDepth<8>
+{};
+
+template <>
+struct LhsBitDepth<BitDepthSetting::L7R5>
+  : BitDepth<7>
+{};
+
+template <>
+struct RhsBitDepth<BitDepthSetting::L7R5>
+  : BitDepth<5>
+{};
+
+template <BitDepthSetting BitDepth>
+void AdjustParamsForBitDepth(
+  int* lhs_offset, int* rhs_offset, int* result_offset,
+  int* result_mult_int, int* result_shift)
+{
+  const int kLhsBits = LhsBitDepth<BitDepth>::kBits;
+  const int kRhsBits = RhsBitDepth<BitDepth>::kBits;
+  const int kLhsBitDepthShift = 8 - kLhsBits;
+  const int kRhsBitDepthShift = 8 - kRhsBits;
+  const int kResultBitDepthShift = kLhsBitDepthShift + kRhsBitDepthShift;
+  *lhs_offset /= (1 << kLhsBitDepthShift);
+  *rhs_offset /= (1 << kRhsBitDepthShift);
+  *result_offset /= (1 << kResultBitDepthShift);
+  *result_mult_int *= (1 << kResultBitDepthShift);
+  (void) result_shift;
+}
+
+}  // namespace gemmlowp
+
+#endif  // GEMMLOWP_INTERNAL_BIT_DEPTH_H_
