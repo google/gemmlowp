@@ -202,12 +202,8 @@ class SideMap {
 // A PackingRegisterBlock is a small fixed-size block of a matrix being
 // packed. This class is the generic non-optimized implementation,
 // it is inherited by the generic implementation of PackingRegisterBlock,
-// which may be overriden by template specialization. Overriding it is the
-// first of two different levels at which one may provide optimized packing
-// code paths. It is the one that should be considered first when
-// optimizing packing for a given architecture, because it is easiest
-// (no loops) and has the broadest impact (it affects all packing, even with
-// unaligned boundaries). The second level is overriding PackAlignedRunImpl. 
+// which may be overriden by template specialization. Overriding it is how
+// one may provide optimized packing code paths.
 //
 // The packing of a block proceeds in two steps:
 //   1. Ensuring that we have a complete block of source data, i.e. a block of
