@@ -52,6 +52,7 @@ class PackingRegisterBlock<
     for (int i = 0; i < 4 * kCells; i++) {
       src_lines[i] = vld1q_u8(src_ptr + i * stride);
     }
+    // Right-shift, in case of less-than-8-bit depth
     if (BitDepth::kBits < 8) {
       for (int i = 0; i < 4 * kCells; i++) {
         src_lines[i] = vshrq_n_u8(src_lines[i], 8 - BitDepth::kBits);
@@ -72,11 +73,13 @@ class PackingRegisterBlock<
     for (int outer = 0; outer < 2; outer++) {
       for (int inner = 0; inner < 2; inner++) {
         for (int cell = 0; cell < kCells; cell++) {
-          vst1_u8(dst_ptr, vget_low_u8(src_lines_intertwined_4x[2 * cell + outer].val[inner]));
+          uint8x8_t value = vget_low_u8(src_lines_intertwined_4x[2 * cell + outer].val[inner]);
+          vst1_u8(dst_ptr, value);
           dst_ptr += 8;
         }
         for (int cell = 0; cell < kCells; cell++) {
-          vst1_u8(dst_ptr, vget_high_u8(src_lines_intertwined_4x[2 * cell + outer].val[inner]));
+          uint8x8_t value = vget_high_u8(src_lines_intertwined_4x[2 * cell + outer].val[inner]);
+          vst1_u8(dst_ptr, value);
           dst_ptr += 8;
         }
       }
@@ -139,9 +142,13 @@ class PackingRegisterBlock<
       src_lines[i] = vreinterpretq_u16_u8(vld1q_u8(src_ptr));
       src_ptr += stride;
     }
+    // Right-shift, in case of less-than-8-bit depth
     if (BitDepth::kBits < 8) {
       for (int i = 0; i < 4 * kCells; i++) {
-        src_lines[i] = vreinterpretq_u16_u8(vshrq_n_u8(vreinterpretq_u8_u16(src_lines[i]), 8 - BitDepth::kBits));
+        src_lines[i] = vreinterpretq_u16_u8(
+          vshrq_n_u8(
+            vreinterpretq_u8_u16(src_lines[i]),
+            8 - BitDepth::kBits));
       }
     }
     // Reorder the data within registers to make WidthMajor 4x2 cells
@@ -159,11 +166,13 @@ class PackingRegisterBlock<
     for (int outer = 0; outer < 2; outer++) {
       for (int inner = 0; inner < 2; inner++) {
         for (int cell = 0; cell < kCells; cell++) {
-          vst1_u8(dst_ptr, vreinterpret_u8_u16(vget_low_u16(src_lines_intertwined_4x[2 * cell + outer].val[inner])));
+          uint8x8_t value = vreinterpret_u8_u16(vget_low_u16(src_lines_intertwined_4x[2 * cell + outer].val[inner]));
+          vst1_u8(dst_ptr, value);
           dst_ptr += 8;
         }
         for (int cell = 0; cell < kCells; cell++) {
-          vst1_u8(dst_ptr, vreinterpret_u8_u16(vget_high_u16(src_lines_intertwined_4x[2 * cell + outer].val[inner])));
+          uint8x8_t value = vreinterpret_u8_u16(vget_high_u16(src_lines_intertwined_4x[2 * cell + outer].val[inner]));
+          vst1_u8(dst_ptr, value);
           dst_ptr += 8;
         }
       }

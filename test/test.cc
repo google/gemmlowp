@@ -37,6 +37,19 @@ struct ReferenceEightBitIntGemmContext {
   int saturated_0_values, saturated_255_values;
 };
 
+template <std::uint32_t numerator, std::uint32_t denominator>
+std::int32_t reference_multiply_by_constant_fraction(std::int32_t x)
+{
+  static_assert(numerator > 0 && denominator > 0,
+    "only supporting positive num/denom");
+
+  if (numerator == denominator) {
+    return x;
+  }
+
+  return static_cast<int32_t>(round(double(x) * numerator / denominator));
+}
+
 template <BitDepthSetting BitDepth>
 void ReferenceEightBitIntGemm(ReferenceEightBitIntGemmContext* context,
                               bool transpose_a, bool transpose_b,
@@ -54,11 +67,8 @@ void ReferenceEightBitIntGemm(ReferenceEightBitIntGemmContext* context,
   const int kRhsBits = RhsBitDepth<BitDepth>::kBits;
   const int kLhsBitDepthShift = 8 - kLhsBits;
   const int kRhsBitDepthShift = 8 - kRhsBits;
-  const int kResultBitDepthShift = kLhsBitDepthShift + kRhsBitDepthShift;
-  b_offset /= (1 << kLhsBitDepthShift);
-  a_offset /= (1 << kRhsBitDepthShift);
-  c_offset /= (1 << kResultBitDepthShift);
-  c_mult_int <<= kResultBitDepthShift;
+  const int kLhsMax = (1 << kLhsBits) - 1;
+  const int kRhsMax = (1 << kRhsBits) - 1;
 
   assert(a != nullptr);
   assert(b != nullptr);
@@ -92,21 +102,71 @@ void ReferenceEightBitIntGemm(ReferenceEightBitIntGemmContext* context,
   }
   int i, j, l;
   
+  // We will split the accumulator sum into 4 parts, by splitting the
+  // constant part (denoted by a '1') from the variable part (denoted by 'x')
+  // in both the lhs and the rhs. Thus, our 4 partial sums will be denoted
+  // sum_11, sum_1x, sum_x1, sum_xx.
+
+  // sum_11 is the constant term, so we can compute it once before the loop.
+  const int32_t sum_11 = a_offset * b_offset * k + c_offset;
+
+  // sum_1x is the term that depends only on the rhs
+  std::vector<int32_t> sum_1x(n);
+  for (j = 0; j < n; j++) {
+    // In less-than-8-bit-depth cases, we have to right-shift
+    // to correctly simulate the loss of precision from this re-quantization.
+    int32_t sum_of_lhs_rows_shifted = 0;
+    for (l = 0; l < k; l++) {
+      const int b_index = j * b_j_stride + l * b_l_stride;
+      sum_of_lhs_rows_shifted += b[b_index] >> kLhsBitDepthShift;
+    }
+    // Multiply by 255/(2^n-1) to get back the right scale, with the
+    // exact required requantization error.
+    sum_1x[j] = reference_multiply_by_constant_fraction<255, kLhsMax>(
+      a_offset * sum_of_lhs_rows_shifted);
+  }
+
+  // sum_x1 is the term that depends only on the lhs
+  std::vector<int32_t> sum_x1(m);
+  for (i = 0; i < m; i++) {
+    // In less-than-8-bit-depth cases, we have to right-shift
+    // to correctly simulate the loss of precision from this re-quantization.
+    int32_t sum_of_rhs_cols_shifted = 0;
+    for (l = 0; l < k; l++) {
+      const int a_index = i * a_i_stride + l * a_l_stride;
+      sum_of_rhs_cols_shifted += a[a_index] >> kRhsBitDepthShift;
+    }
+    // Multiply by 255/(2^n-1) to get back the right scale, with the
+    // exact required requantization error.
+    sum_x1[i] = reference_multiply_by_constant_fraction<255, kRhsMax>(
+      b_offset * sum_of_rhs_cols_shifted);
+  }
+
   for (j = 0; j < n; j++) {
     for (i = 0; i < m; i++) {
-      int32_t total = 0;
+      // sum_xx is the term that depends on both the lhs and the rhs,
+      // so we have to compute it here in this loop.
+      int32_t sum_xx_shifted = 0;
       for (l = 0; l < k; l++) {
+        // In less-than-8-bit-depth cases, we have to right-shift
+        // to correctly simulate the loss of precision from this re-quantization.
         const int a_index = i * a_i_stride + l * a_l_stride;
         const uint8_t a_as_byte = a[a_index] >> kRhsBitDepthShift;
-        const int32_t a_as_int = static_cast<int32_t>(a_as_byte) + a_offset;
+        const int32_t a_as_int = static_cast<int32_t>(a_as_byte);
         const int b_index = j * b_j_stride + l * b_l_stride;
         const uint8_t b_as_byte = b[b_index] >> kLhsBitDepthShift;
-        const int32_t b_as_int = static_cast<int32_t>(b_as_byte) + b_offset;
+        const int32_t b_as_int = static_cast<int32_t>(b_as_byte);
         const int32_t mult_as_int = a_as_int * b_as_int;
-        total += mult_as_int;
+        sum_xx_shifted += mult_as_int;
       }
+      // Multiply by 255*255/[(2^m-1)*(2^n-1)] to get back the right scale,
+      // with the exact required requantization error.
+      int32_t sum_xx =
+        reference_multiply_by_constant_fraction<255 * 255, kLhsMax * kRhsMax>(
+          sum_xx_shifted);
+      int32_t sum = sum_xx + sum_x1[i] + sum_1x[j] + sum_11;
       int32_t output =
-          (((total + c_offset) * c_mult_int) + (1 << (c_shift - 1))) >> c_shift;
+        (sum * c_mult_int + (1 << (c_shift - 1))) >> c_shift;
       if (output > 255) {
         output = 255;
         context->saturated_255_values++;
@@ -588,7 +648,10 @@ void test_gemv(typename GemmWrapper::Context* context) {
 // This is the most realistic test of how we'll be using the low-precision GEMM
 // function in applications. It takes in large input matrices that have been
 // captured from an actual neural network run.
-void TestWithRealData() {
+void TestWithRealData(
+  eight_bit_int_gemm::BitDepthSetting BitDepth,
+  int tolerance_median,
+  int tolerance_max) {
   std::unique_ptr<uint8_t[]> output_data(
       new uint8_t[test_data::c_count]);
   gemmlowp::eight_bit_int_gemm::EightBitIntGemm(
@@ -597,36 +660,48 @@ void TestWithRealData() {
       test_data::a_data, test_data::a_offset, test_data::k, test_data::b_data,
       test_data::b_offset, test_data::k, output_data.get(), test_data::c_offset,
       test_data::c_mult_int, test_data::c_shift, test_data::n,
-      eight_bit_int_gemm::BitDepthSetting::A8B8);
-  int how_many_different = 0;
-  int how_many_very_different = 0;
+      BitDepth);
+  std::vector<uint8_t> diff;
   for (int n = 0; n < test_data::c_count; ++n) {
     const int expected_value = test_data::expected_c_data[n];
     const int actual_value = output_data[n];
     const int delta = (expected_value - actual_value);
-    // First make sure that the difference is no more than one.
-    if ((delta != -1) && (delta != 0) && (delta != 1)) {
-      ++how_many_very_different;
-    }
-    // If there is a difference, increment the counter to track it.
-    if (delta != 0) {
-      ++how_many_different;
-    }
+    diff.push_back(std::abs(delta));
   }
-  const bool good = (how_many_different == 0);
-  if (good) {
-    printf("TestWithRealData(): PASS\n");
-  } else {
-    printf("TestWithRealData(): FAIL - Found %d (%.1f%%) differences, %d (%.1f%%) were"
-           " large\n", how_many_different,
-           (how_many_different * 100.0f) / test_data::c_count,
-           how_many_very_different,
-           (how_many_very_different * 100.0f) / test_data::c_count);
+  std::sort(diff.begin(), diff.end());
+  int diff_min = diff.front();
+  int diff_max = diff.back();
+  int diff_med = diff[diff.size() / 2];
+  int count_diff_less_than_pot[8];
+  size_t index = 0;
+  for (int exponent = 0; exponent < 8; exponent++) {
+    int pot = 1 << exponent;
+    while (index < diff.size() && diff[index] < pot)
+    {
+      index++;
+    }
+    count_diff_less_than_pot[exponent] = index;
   }
+
+  const bool good = diff_med <= tolerance_median && diff_max <= tolerance_max;
+  printf("TestWithRealData: %s\n", good ? "PASS" : "FAIL");
+
+  printf("Error: min %d, median %d, max %d\n", diff_min, diff_med, diff_max);
+  printf("Error = 0: %.2f %% of entries\n",
+    100.f * count_diff_less_than_pot[0] / diff.size());
+  for (int exponent = 1; exponent < 8; exponent++) {
+    printf("Error in %d..%d range: %.2f %% of entries\n",
+      1 << (exponent - 1),
+      (1 << exponent) - 1,
+      100.f * (count_diff_less_than_pot[exponent] - count_diff_less_than_pot[exponent - 1]) / diff.size());
+
+  }
+
   Check(good);
 }
 
 void test() {
+
 #ifdef GEMMLOWP_TEST_PROFILE
   RegisterCurrentThreadForProfiling();
   StartProfiling();
@@ -668,6 +743,7 @@ void test() {
 
   // Test other bit depths
   // L7R5
+  for (int foo = 0; foo < 4; foo++) {
   test_gemm<SingleThreadGemmWrapper<
     DefaultKernelForGemm<BitDepthSetting::L7R5>,
     std::uint8_t,
@@ -681,7 +757,7 @@ void test() {
   test_gemm<EightBitIntGemmWrapper<
     std::uint8_t,
     eight_bit_int_gemm::BitDepthSetting::A5B7>>(&context);
-
+  }
 
   // Test specific kernels with various different formats,
   // to exercises corner cases especially in the packing code.
@@ -731,7 +807,8 @@ void test() {
       &context);
 
   // Run against actual data from a network evaluation.
-  TestWithRealData();
+  TestWithRealData(eight_bit_int_gemm::BitDepthSetting::A8B8, 0, 0);
+  TestWithRealData(eight_bit_int_gemm::BitDepthSetting::A5B7, 3, 11);
 
 #ifdef GEMMLOWP_TEST_PROFILE
   FinishProfiling();

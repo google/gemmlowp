@@ -21,11 +21,15 @@
 #include "allocator.h"
 #include "block_params.h"
 #include "pack.h"
+#include <cmath>
+#include <iostream>
 
 namespace gemmlowp {
 
+template <BitDepthSetting tBitDepth>
 class PackedResult {
  public:
+  static const BitDepthSetting BitDepth = tBitDepth;
 
   PackedResult(Allocator* _allocator, const BlockParams& _block_params)
       : allocator_(_allocator), block_params_(_block_params) {
@@ -53,44 +57,91 @@ class PackedResult {
   const BlockParams& block_params_;
 };
 
-template <typename ResultBlockType>
+template <std::uint32_t numerator, std::uint32_t denominator>
+std::int32_t multiply_by_constant_fraction(std::int32_t x)
+{
+  if (numerator == denominator) {
+    return x;
+  }
+
+  // We'll use only signed arithmetic here. This is
+  // simpler (since this function operates on signed int32's) and
+  // more friendly to ARM NEON, where this allows us to use the
+  // VQRDMULH instruction.
+  static const int precision_bits = 31;
+
+  static const std::int32_t int_quotient = (numerator + denominator / 2) / denominator;
+  static const std::int32_t remaining_numerator =
+    numerator - int_quotient * denominator;
+  static const std::int32_t scaled_remaining_numerator =
+    static_cast<std::int32_t>(
+      (static_cast<std::int64_t>(remaining_numerator) << 31) /
+      denominator);
+
+  const std::int64_t scaled_remaining_product =
+    static_cast<std::int64_t>(x) *
+    static_cast<std::int64_t>(scaled_remaining_numerator);
+
+  const std::int32_t scaled_remaining_product_nudge =
+    (scaled_remaining_product > 0 ? 1 : -1) * (1 << 30);
+
+  const std::int32_t remaining_product =
+    (scaled_remaining_product + scaled_remaining_product_nudge) /
+    (1u << 31);
+
+  return x * int_quotient + remaining_product;
+}
+
+template <typename ResultBlockType, typename PackedResultType>
 struct UnpackResultImplGeneric {
-  static void Unpack(ResultBlockType* dst, const PackedResult& src,
+  static void Unpack(ResultBlockType* dst, const PackedResultType& src,
                      int depth, const std::int32_t* lhs_rank_one_update,
                      const std::int32_t* rhs_rank_one_update,
                      std::int32_t lhs_offset, std::int32_t rhs_offset,
                      std::int32_t result_offset, std::int32_t result_mult_int,
                      std::int32_t result_shift) {
-    std::int32_t rank0update = lhs_offset * rhs_offset * depth;
+    std::int32_t term_11 = lhs_offset * rhs_offset * depth + result_offset;
     auto src_map = src.Map();
     // No top-level blocking in the depth dimension at the moment.
     // Too much loss of precision.
+    const BitDepthSetting BitDepth = PackedResultType::BitDepth;
+    const int kLhsBits = LhsBitDepth<BitDepth>::kBits;
+    const int kRhsBits = RhsBitDepth<BitDepth>::kBits;
+    const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
+    const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     for (int c = 0; c < dst->cols(); c++) {
       for (int r = 0; r < dst->rows(); r++) {
-        std::int32_t q = *src_map.data(r, c);
-        q += lhs_rank_one_update[r] + rhs_rank_one_update[c] + rank0update;
-        q = ((q + result_offset) * result_mult_int +
-             (1 << (result_shift - 1))) >>
-            result_shift;
-        (*dst)(r, c) = q > 255 ? 255 : q < 0 ? 0 : q;
+        std::int32_t raw_xx = src_map(r, c);
+        std::int32_t raw_x1 = lhs_rank_one_update[r];
+        std::int32_t raw_1x = rhs_rank_one_update[c];
+        std::int32_t term_xx =
+          multiply_by_constant_fraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
+        std::int32_t term_x1 =
+          multiply_by_constant_fraction<255, kLhsMax>(raw_x1);
+        std::int32_t term_1x =
+          multiply_by_constant_fraction<255, kRhsMax>(raw_1x);
+        std::int32_t sum = term_xx + term_x1 + term_1x + term_11;
+        std::int32_t result =
+          (sum * result_mult_int + (1 << (result_shift - 1))) >> result_shift;
+        (*dst)(r, c) = result > 255 ? 255 : result < 0 ? 0 : result;
       }
     }
   }
 };
 
-template <typename ResultBlockType>
+template <typename ResultBlockType, typename PackedResultType>
 struct UnpackResultImpl
-  : UnpackResultImplGeneric<ResultBlockType> {};
+  : UnpackResultImplGeneric<ResultBlockType, PackedResultType> {};
 
-template <typename ResultBlockType>
-void UnpackResult(ResultBlockType* dst, const PackedResult& src, int depth,
+template <typename ResultBlockType, typename PackedResultType>
+void UnpackResult(ResultBlockType* dst, const PackedResultType& src, int depth,
                   const std::int32_t* lhs_rank_one_update,
                   const std::int32_t* rhs_rank_one_update,
                   std::int32_t lhs_offset, std::int32_t rhs_offset,
                   std::int32_t result_offset, std::int32_t result_mult_int,
                   std::int32_t result_shift) {
   ScopedProfilingLabel label("unpack");
-  UnpackResultImpl<ResultBlockType>::Unpack(
+  UnpackResultImpl<ResultBlockType, PackedResultType>::Unpack(
       dst, src, depth, lhs_rank_one_update, rhs_rank_one_update,
       lhs_offset,
       rhs_offset,

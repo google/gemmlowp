@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// bit_depth.h: defines the BitDepthSetting enum
+// bit_depth_util.h: helpers to handle BitDepthSetting's
 
 #ifndef GEMMLOWP_INTERNAL_BIT_DEPTH_H_
 #define GEMMLOWP_INTERNAL_BIT_DEPTH_H_
@@ -54,23 +54,6 @@ template <>
 struct RhsBitDepth<BitDepthSetting::L7R5>
   : BitDepth<5>
 {};
-
-template <BitDepthSetting BitDepth>
-void AdjustParamsForBitDepth(
-  int* lhs_offset, int* rhs_offset, int* result_offset,
-  int* result_mult_int, int* result_shift)
-{
-  const int kLhsBits = LhsBitDepth<BitDepth>::kBits;
-  const int kRhsBits = RhsBitDepth<BitDepth>::kBits;
-  const int kLhsBitDepthShift = 8 - kLhsBits;
-  const int kRhsBitDepthShift = 8 - kRhsBits;
-  const int kResultBitDepthShift = kLhsBitDepthShift + kRhsBitDepthShift;
-  *lhs_offset /= (1 << kLhsBitDepthShift);
-  *rhs_offset /= (1 << kRhsBitDepthShift);
-  *result_offset /= (1 << kResultBitDepthShift);
-  *result_mult_int *= (1 << kResultBitDepthShift);
-  (void) result_shift;
-}
 
 }  // namespace gemmlowp
 

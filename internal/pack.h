@@ -281,10 +281,7 @@ class PackingRegisterBlockBase
         for (int w = 0; w < kCellWidth; w++) {
           std::int32_t sum = 0;
           for (int d = 0; d < kCellDepth; d++) {
-            std::uint8_t x = src_cell_map(w, d);
-            if (kBits < 8) {
-              x >>= 8 - kBits;
-            }
+            std::uint8_t x = src_cell_map(w, d) >> (8 - kBits);
             dst_ptr[OffsetIntoCell<CellFormat>(w, d)] = x;
             sum += x;
           }

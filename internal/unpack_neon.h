@@ -23,91 +23,121 @@
 
 namespace gemmlowp {
 
-template <>
-struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>> {
+template <std::uint32_t numerator, std::uint32_t denominator>
+int32x4_t multiply_by_constant_fraction(int32x4_t x)
+{
+  static_assert(numerator > 0 && denominator > 0,
+    "only supporting positive num/denom");
+
+  if (numerator == denominator) {
+    return x;
+  }
+
+  static const std::int32_t int_quotient = (numerator + denominator / 2) / denominator;
+  static const std::int32_t remaining_numerator =
+    numerator - int_quotient * denominator;
+  static const std::int32_t scaled_remaining_numerator =
+    static_cast<std::int32_t>(
+      (static_cast<std::int64_t>(remaining_numerator) << 31) /
+      denominator);
+  const int32x4_t remaining_product =
+    vqrdmulhq_n_s32(x, scaled_remaining_numerator);
+
+  return vmlaq_n_s32(remaining_product, x, int_quotient);
+}
+
+template <typename PackedResultType>
+struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>, PackedResultType> {
+  static const BitDepthSetting BitDepth = PackedResultType::BitDepth;
   typedef MatrixMap<std::uint8_t, MapOrder::ColMajor> ResultBlockType;
-  static void Unpack(ResultBlockType* dst, const PackedResult& src,
+  static void Unpack(ResultBlockType* dst, const PackedResultType& src,
                      int depth, const std::int32_t* lhs_rank_one_update,
                      const std::int32_t* rhs_rank_one_update,
                      std::int32_t lhs_offset, std::int32_t rhs_offset,
                      std::int32_t result_offset, std::int32_t result_mult_int,
                      std::int32_t result_shift) {
     ScopedProfilingLabel label("optimized path (NEON)");
-
+    const int kLhsBits = LhsBitDepth<BitDepth>::kBits;
+    const int kRhsBits = RhsBitDepth<BitDepth>::kBits;
+    const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
+    const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     auto src_map = src.Map();
-    std::int32_t rank0update = lhs_offset * rhs_offset * depth;
-    std::int32_t preshift_offset = 1 << (result_shift - 1);
+    std::int32_t term_11 = lhs_offset * rhs_offset * depth + result_offset;
     int32x4_t shift_reg = vdupq_n_s32(-result_shift);
     for (int c = 0; c < dst->cols(); c++) {
       std::uint8_t* dst_ptr = dst->data(0, c);
       const std::int32_t* src_ptr = src_map.data(0, c);
       const std::int32_t* rank_one_update_ptr = lhs_rank_one_update;
-      std::int32_t rank1update = rhs_rank_one_update[c];
-      std::int32_t constant_offset = rank1update + rank0update + result_offset;
+      const std::int32_t raw_1x = rhs_rank_one_update[c];
+      const std::int32_t term_1x =
+          multiply_by_constant_fraction<255, kRhsMax>(raw_1x);
+      const std::int32_t term_1x_plus_term_11 = term_1x + term_11;
 
       int dst_rows_aligned16 = RoundDown<16>(dst->rows());
       for (int r = 0; r < dst_rows_aligned16; r += 16) {
-        int32x4_t q0 = vld1q_s32(src_ptr);
-        int32x4_t q1 = vld1q_s32(src_ptr + 4);
-        int32x4_t q2 = vld1q_s32(src_ptr + 8);
-        int32x4_t q3 = vld1q_s32(src_ptr + 12);
-        q0 = vaddq_s32(q0, vld1q_s32(rank_one_update_ptr));
-        q1 = vaddq_s32(q1, vld1q_s32(rank_one_update_ptr + 4));
-        q2 = vaddq_s32(q2, vld1q_s32(rank_one_update_ptr + 8));
-        q3 = vaddq_s32(q3, vld1q_s32(rank_one_update_ptr + 12));
-        int32x4_t o = vdupq_n_s32(constant_offset);
-        q0 = vaddq_s32(q0, o);
-        q1 = vaddq_s32(q1, o);
-        q2 = vaddq_s32(q2, o);
-        q3 = vaddq_s32(q3, o);
-        q0 = vmulq_n_s32(q0, result_mult_int);
-        q1 = vmulq_n_s32(q1, result_mult_int);
-        q2 = vmulq_n_s32(q2, result_mult_int);
-        q3 = vmulq_n_s32(q3, result_mult_int);
-        o = vdupq_n_s32(preshift_offset);
-        q0 = vaddq_s32(q0, o);
-        q1 = vaddq_s32(q1, o);
-        q2 = vaddq_s32(q2, o);
-        q3 = vaddq_s32(q3, o);
-        q0 = vshlq_s32(q0, shift_reg);
-        q1 = vshlq_s32(q1, shift_reg);
-        q2 = vshlq_s32(q2, shift_reg);
-        q3 = vshlq_s32(q3, shift_reg);
-        int16x4_t q0_16 = vqmovn_s32(q0);
-        int16x4_t q1_16 = vqmovn_s32(q1);
-        int16x4_t q2_16 = vqmovn_s32(q2);
-        int16x4_t q3_16 = vqmovn_s32(q3);
-        uint8x8_t q0_8 = vqmovun_s16(vcombine_s16(q0_16, q0_16));
-        uint8x8_t q1_8 = vqmovun_s16(vcombine_s16(q1_16, q1_16));
-        uint8x8_t q2_8 = vqmovun_s16(vcombine_s16(q2_16, q2_16));
-        uint8x8_t q3_8 = vqmovun_s16(vcombine_s16(q3_16, q3_16));
-        vst1_lane_u32(reinterpret_cast<std::uint32_t*>(dst_ptr),
-                      vreinterpret_u32_u8(q0_8), 0);
-        vst1_lane_u32(reinterpret_cast<std::uint32_t*>(dst_ptr + 4),
-                      vreinterpret_u32_u8(q1_8), 0);
-        vst1_lane_u32(reinterpret_cast<std::uint32_t*>(dst_ptr + 8),
-                      vreinterpret_u32_u8(q2_8), 0);
-        vst1_lane_u32(reinterpret_cast<std::uint32_t*>(dst_ptr + 12),
-                      vreinterpret_u32_u8(q3_8), 0);
-        dst_ptr += 16;
-        src_ptr += 16;
-        rank_one_update_ptr += 16;
+        int32x4_t raw_xx[4];
+        for (int i = 0; i < 4; i++) {
+          raw_xx[i] = vld1q_s32(src_ptr);
+          src_ptr += 4;
+        }
+        int32x4_t raw_x1[4];
+        for (int i = 0; i < 4; i++) {
+          raw_x1[i] = vld1q_s32(rank_one_update_ptr);
+          rank_one_update_ptr += 4;
+        }
+        int32x4_t term_xx[4];
+        for (int i = 0; i < 4; i++) {
+          term_xx[i] = multiply_by_constant_fraction<255 * 255, kLhsMax * kRhsMax>(raw_xx[i]);
+        }
+        int32x4_t term_x1[4];
+        for (int i = 0; i < 4; i++) {
+          term_x1[i] = multiply_by_constant_fraction<255, kLhsMax>(raw_x1[i]);
+        }
+        int32x4_t q[4];
+        for (int i = 0; i < 4; i++) {
+          q[i] = vaddq_s32(
+            vaddq_s32(term_xx[i], term_x1[i]),
+            vdupq_n_s32(term_1x_plus_term_11));
+        }
+        for (int i = 0; i < 4; i++) {
+          q[i] = vmulq_n_s32(q[i], result_mult_int);
+        }
+        for (int i = 0; i < 4; i++) {
+          q[i] = vrshlq_s32(q[i], shift_reg);
+        }
+        int16x4_t q16[4];
+        for (int i = 0; i < 4; i++) {
+          q16[i] = vqmovn_s32(q[i]);
+        }
+        uint8x8_t q8[4];
+        for (int i = 0; i < 4; i++) {
+          q8[i] = vqmovun_s16(vcombine_s16(q16[i], q16[i]));
+        }
+        for (int i = 0; i < 4; i++) {
+          vst1_lane_u32(reinterpret_cast<std::uint32_t*>(dst_ptr),
+                        vreinterpret_u32_u8(q8[i]), 0);
+          dst_ptr += 4;
+        }
       }
-
       // We have finished handling groups of 16 entries at once; now
       // try to handle 4 entries at once.
       int dst_rows_aligned4 = RoundDown<4>(dst->rows());
       for (int r = dst_rows_aligned16; r < dst_rows_aligned4; r += 4) {
-        int32x4_t q = vld1q_s32(src_ptr);
-        q = vaddq_s32(q, vld1q_s32(rank_one_update_ptr));
-        q = vaddq_s32(q, vdupq_n_s32(constant_offset));
+        const int32x4_t raw_xx = vld1q_s32(src_ptr);
+        const int32x4_t term_xx =
+          multiply_by_constant_fraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
+        const int32x4_t raw_x1 = vld1q_s32(rank_one_update_ptr);
+        const int32x4_t term_x1 =
+          multiply_by_constant_fraction<255, kLhsMax>(raw_x1);
+        int32x4_t q = vaddq_s32(
+          vaddq_s32(term_xx, term_x1),
+          vdupq_n_s32(term_1x_plus_term_11));
         q = vmulq_n_s32(q, result_mult_int);
-        q = vaddq_s32(q, vdupq_n_s32(preshift_offset));
-        q = vshlq_s32(q, shift_reg);
-        int16x4_t q_16 = vqmovn_s32(q);
-        uint8x8_t q_8 = vqmovun_s16(vcombine_s16(q_16, q_16));
+        q = vrshlq_s32(q, shift_reg);
+        int16x4_t q16 = vqmovn_s32(q);
+        uint8x8_t q8 = vqmovun_s16(vcombine_s16(q16, q16));
         vst1_lane_u32(reinterpret_cast<std::uint32_t*>(dst_ptr),
-                      vreinterpret_u32_u8(q_8), 0);
+                      vreinterpret_u32_u8(q8), 0);
         dst_ptr += 4;
         src_ptr += 4;
         rank_one_update_ptr += 4;
@@ -115,12 +145,16 @@ struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>> {
       // We have finished handling 4 entries at once; now handle
       // remaining entries one by one.
       for (int r = dst_rows_aligned4; r < dst->rows(); r++) {
-        std::int32_t q = src_map(r, c);
-        q += lhs_rank_one_update[r] + rank1update + rank0update;
-        q = ((q + result_offset) * result_mult_int +
-             (1 << (result_shift - 1))) >>
-            result_shift;
-        (*dst)(r, c) = q > 255 ? 255 : q < 0 ? 0 : q;
+        std::int32_t raw_xx = src_map(r, c);
+        std::int32_t raw_x1 = lhs_rank_one_update[r];
+        std::int32_t term_xx =
+          multiply_by_constant_fraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
+        std::int32_t term_x1 =
+          multiply_by_constant_fraction<255, kLhsMax>(raw_x1);
+        std::int32_t sum = term_xx + term_x1 + term_1x_plus_term_11;
+        std::int32_t result =
+          (sum * result_mult_int + (1 << (result_shift - 1))) >> result_shift;
+        (*dst)(r, c) = result > 255 ? 255 : result < 0 ? 0 : result;
       }
     }
   }
