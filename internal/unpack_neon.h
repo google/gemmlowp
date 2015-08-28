@@ -62,8 +62,10 @@ struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>, PackedResul
     const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     auto src_map = src.Map();
-    std::int32_t term_11 = lhs_offset * rhs_offset * depth + result_offset;
-    int32x4_t shift_reg = vdupq_n_s32(-result_shift);
+    const std::int32_t term_11 = lhs_offset * rhs_offset * depth + result_offset;
+    const int32x4_t shift_reg = vdupq_n_s32(-result_shift);
+    const std::int32_t preshift_offset = 1 << (result_shift - 1);
+    const int32x4_t preshift_offset_reg = vdupq_n_s32(preshift_offset);
     for (int c = 0; c < dst->cols(); c++) {
       std::uint8_t* dst_ptr = dst->data(0, c);
       const std::int32_t* src_ptr = src_map.data(0, c);
@@ -103,7 +105,7 @@ struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>, PackedResul
           q[i] = vmulq_n_s32(q[i], result_mult_int);
         }
         for (int i = 0; i < 4; i++) {
-          q[i] = vrshlq_s32(q[i], shift_reg);
+          q[i] = vshlq_s32(vaddq_s32(q[i], preshift_offset_reg), shift_reg);
         }
         int16x4_t q16[4];
         for (int i = 0; i < 4; i++) {
@@ -133,7 +135,7 @@ struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>, PackedResul
           vaddq_s32(term_xx, term_x1),
           vdupq_n_s32(term_1x_plus_term_11));
         q = vmulq_n_s32(q, result_mult_int);
-        q = vrshlq_s32(q, shift_reg);
+        q = vshlq_s32(vaddq_s32(q, preshift_offset_reg), shift_reg);
         int16x4_t q16 = vqmovn_s32(q);
         uint8x8_t q8 = vqmovun_s16(vcombine_s16(q16, q16));
         vst1_lane_u32(reinterpret_cast<std::uint32_t*>(dst_ptr),
