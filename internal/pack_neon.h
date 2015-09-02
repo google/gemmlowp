@@ -23,6 +23,93 @@
 
 namespace gemmlowp {
 
+
+// Variant of PseudoRandomNonzeroBytesGenerator that produces
+// random NEON 128-bit vectors.
+class NEONPseudoRandomNonzeroBytesGenerator
+{
+ public:
+  NEONPseudoRandomNonzeroBytesGenerator()
+  {
+    uint8_t s = 1;
+    std::uint8_t a[16];
+    for (int i = 0; i < 16; i++) {
+      a[i] = s;
+      // Xorshift8(7,7,1). Very important to choose a different
+      // xorshift than we do in get(), otherwise lanes would contain
+      // the same values!
+      s ^= s << 7;
+      s ^= s >> 7;
+      s ^= s << 1;
+    }
+    x_ = vld1q_u8(a);
+  }
+
+  uint8x16_t get() {
+    // Xorshift8(7,5,3)
+    x_ = veorq_u8(x_, vshlq_n_u8(x_, 7));
+    x_ = veorq_u8(x_, vshrq_n_u8(x_, 5));
+    x_ = veorq_u8(x_, vshlq_n_u8(x_, 3));
+    return x_;
+  }
+
+ private:
+  // State
+  uint8x16_t x_;
+};
+
+// Requantizes source uint8 values in [0..255] range
+// to the range specified by BitDepth, [0..((2^bits)-1)].
+// Bias must be avoided. Currently this is achieved
+// by probabilistic rounding.
+template <typename BitDepth>
+uint8x16_t Requantize(
+  uint8x16_t raw_src_data,
+  NEONPseudoRandomNonzeroBytesGenerator* prng)
+{
+  static const int kBits = BitDepth::kBits;
+  static const std::uint8_t kMaxVal = (1 << kBits) - 1;
+
+  if (kBits == 8) {
+    return raw_src_data;
+  }
+
+  // We will need to temporarily work in 16 bit precision.
+  uint16x8_t x[2];
+
+  // Multiply source values by 2^(kBits-1)
+  x[0] = vshll_n_u8(vget_low_u8(raw_src_data), kBits - 1);
+  x[1] = vshll_n_u8(vget_high_u8(raw_src_data), kBits - 1);
+
+  // Get some random values in [1..255] range
+  uint8x16_t random_nonzero = prng->get();
+
+  // Compute (source + random)/2.
+  // Note: the truncation of the lsb compensates for the fact that the
+  // random values are in [1..255] instead of [0..254]... this is to be
+  // interpreted as a *rounding* mean with random values in [0..254].
+  int8x16_t f = vreinterpretq_s8_u8(vhsubq_u8(random_nonzero, raw_src_data));
+
+  // Add. Now we have our source values multiplied by 2^((Bits-1) - 1/2,
+  // (thus a half-integer), with random half-integer values in [0..127] added,
+  // finally rounded upward (see previous step).
+  x[0] = vreinterpretq_u16_s16(vaddw_s8(vreinterpretq_s16_u16(x[0]), vget_low_s8(f)));
+  x[1] = vreinterpretq_u16_s16(vaddw_s8(vreinterpretq_s16_u16(x[1]), vget_high_s8(f)));
+
+  // Multiply by 257/256, which is close enough to 256/255.
+  x[0] = vaddq_u16(x[0], vshrq_n_u16(x[0], 8));
+  x[1] = vaddq_u16(x[1], vshrq_n_u16(x[1], 8));
+
+  uint8x8_t y[2];
+  // Divide by 128. Why not by 256? Because we have computed *half* of what we
+  // were supposed to, see the above 2^((Bits-1) - 1/2 factor instead of
+  // 2^Bits - 1.
+  y[0] = vshrn_n_u16(x[0], 7);
+  y[1] = vshrn_n_u16(x[1], 7);
+
+  return vcombine_u8(y[0], y[1]);
+}
+
 typedef SideMap<const std::uint8_t, SideMapOrder::WidthMajor> WidthMajorUint8SideMap;
 
 template <int Cells>
@@ -42,21 +129,21 @@ class PackingRegisterBlock<
   static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
+  static const int kBits = BitDepth::kBits;
+  static const std::uint16_t kMaxVal = (1 << kBits) - 1;
 
-  void Pack(PackedSideBlock<KernelSideFormat, BitDepth>* dst, int start_width) {
+  typedef NEONPseudoRandomNonzeroBytesGenerator PseudoRandomNonzeroBytesGenerator;
+
+  void Pack(PackedSideBlock<KernelSideFormat, BitDepth>* dst, int start_width,
+    PseudoRandomNonzeroBytesGenerator* prng)
+  {
     std::uint8_t* dst_ptr = dst->current_data();
     const std::uint8_t* const src_ptr = this->complete_src_.data();
     const int stride = this->complete_src_.stride();
-    // Load raw source WidthMajor data
+    // Load and requantize source WidthMajor data
     uint8x16_t src_lines[4 * kCells];
     for (int i = 0; i < 4 * kCells; i++) {
-      src_lines[i] = vld1q_u8(src_ptr + i * stride);
-    }
-    // Right-shift, in case of less-than-8-bit depth
-    if (BitDepth::kBits < 8) {
-      for (int i = 0; i < 4 * kCells; i++) {
-        src_lines[i] = vshrq_n_u8(src_lines[i], 8 - BitDepth::kBits);
-      }
+      src_lines[i] = Requantize<BitDepth>(vld1q_u8(src_ptr + i * stride), prng);
     }
     // Reorder the data within registers to make DepthMajor 4x2 cells
     uint8x16x2_t src_lines_intertwined_2x[2 * kCells];
@@ -131,25 +218,37 @@ class PackingRegisterBlock<
   static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
+  static const int kBits = BitDepth::kBits;
+  static const std::uint16_t kMaxVal = (1 << kBits) - 1;
 
-  void Pack(PackedSideBlock<KernelSideFormat, BitDepth>* dst, int start_width) {
+  typedef NEONPseudoRandomNonzeroBytesGenerator PseudoRandomNonzeroBytesGenerator;
+
+  void Pack(PackedSideBlock<KernelSideFormat, BitDepth>* dst, int start_width,
+    PseudoRandomNonzeroBytesGenerator* prng)
+  {
     std::uint8_t* dst_ptr = dst->current_data();
     const std::uint8_t* src_ptr = this->complete_src_.data();
     const int stride = this->complete_src_.stride();
-    // Load raw source WidthMajor data
+    // Load and requantize source WidthMajor data
     uint16x8_t src_lines[kCells * 4];
-    for (int i = 0; i < 4 * kCells; i++) {
-      src_lines[i] = vreinterpretq_u16_u8(vld1q_u8(src_ptr));
+    for (int i = 0; i < kCells; i++) {
+
+      // This packing path is used with our current
+      // less-than-8-bit kernel, and the partial unrolling of this loop
+      // results in substantially faster code (thanks to better
+      // register allocation) on Nexus 5.
+
+#define GEMMLOWP_UNROLLED_LOOP_ITER(k) \
+      src_lines[4 * i + k] = vreinterpretq_u16_u8( \
+        Requantize<BitDepth>(vld1q_u8(src_ptr), prng)); \
       src_ptr += stride;
-    }
-    // Right-shift, in case of less-than-8-bit depth
-    if (BitDepth::kBits < 8) {
-      for (int i = 0; i < 4 * kCells; i++) {
-        src_lines[i] = vreinterpretq_u16_u8(
-          vshrq_n_u8(
-            vreinterpretq_u8_u16(src_lines[i]),
-            8 - BitDepth::kBits));
-      }
+
+      GEMMLOWP_UNROLLED_LOOP_ITER(0)
+      GEMMLOWP_UNROLLED_LOOP_ITER(1)
+      GEMMLOWP_UNROLLED_LOOP_ITER(2)
+      GEMMLOWP_UNROLLED_LOOP_ITER(3)
+
+#undef GEMMLOWP_UNROLLED_LOOP_ITER
     }
     // Reorder the data within registers to make WidthMajor 4x2 cells
     uint16x8x2_t src_lines_intertwined_2x[2 * kCells];

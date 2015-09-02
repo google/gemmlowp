@@ -70,7 +70,12 @@ const int kDefaultL2CacheSize = 384 * 1024;
 // RHS blocks. This should be between 0 and 1, and typically closer to 1,
 // as we typically want to use most of the L2 cache for storing a large
 // RHS block.
-const float kDefaultL2RhsFactor = 0.90f;
+// Note: with less-than-8-bit depth, requantization makes packing more
+// expensive. For large matrices not fitting in L2 cache, redundant packing
+// of LHS blocks can cause substantial overhead. This is why we lowered
+// this value from 0.9 to 0.75 with the introduction of requantization.
+// Clearly we will eventually need better heuristics.
+const float kDefaultL2RhsFactor = 0.75f;
 
 // The number of bytes in a SIMD register. In the non-SIMD generic fallback
 // code, this is just a generic array size, so any size would work there.

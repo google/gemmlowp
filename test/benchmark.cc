@@ -339,13 +339,13 @@ void benchmark_googlenet(GemmContext* context) {
 }  // end namespace gemmlowp
 
 int main() {
-  {
+  if (1){
     gemmlowp::GemmContext context;
     std::cout << "Benchmarking typical GoogLeNet GEMMs..." << std::endl;
     gemmlowp::benchmark_googlenet(&context);
   }
 
-  {
+  if (0){
     gemmlowp::GemmContext context;
     std::cout << "Benchmarking default mode (typically multi-threaded)..."
               << std::endl;

@@ -199,6 +199,53 @@ class SideMap {
   int width_, depth_, stride_;
 };
 
+// A cheap and reasonably good PRNG producing nonzero uint8's.
+// Its period of 255 seems large enough for us.
+class DefaultPseudoRandomNonzeroBytesGenerator
+{
+ public:
+  DefaultPseudoRandomNonzeroBytesGenerator()
+  {
+    x_ = 1;
+  }
+
+  std::uint8_t get() {
+    // Xorshift8(7,5,3)
+    x_ ^= x_ << 7;
+    x_ ^= x_ >> 5;
+    x_ ^= x_ << 3;
+    return x_;
+  }
+
+ private:
+  // State
+  std::uint8_t x_;
+};
+
+// Requantizes a source uint8 value in [0..255] range
+// to the range specified by BitDepth, [0..((2^bits)-1)].
+// Bias must be avoided. Currently this is achieved
+// by probabilistic rounding.
+template <typename BitDepth>
+std::uint8_t Requantize(
+  std::uint8_t raw_src_val,
+  DefaultPseudoRandomNonzeroBytesGenerator* prng)
+{
+  static const int kBits = BitDepth::kBits;
+  static const std::uint8_t kMaxVal = (1 << kBits) - 1;
+
+  if (kBits == 8) {
+    return raw_src_val;
+  }
+
+  std::uint16_t x =
+    static_cast<std::uint16_t>(raw_src_val) * kMaxVal;
+  std::uint16_t fx = x / 255;
+  std::uint8_t rx = x - 255 * fx;
+  std::uint8_t ax = prng->get() <= rx;
+  return fx + ax;
+}
+
 // A PackingRegisterBlock is a small fixed-size block of a matrix being
 // packed. This class is the generic non-optimized implementation,
 // it is inherited by the generic implementation of PackingRegisterBlock,
@@ -219,6 +266,7 @@ template <typename SrcMapType, typename PackedSideBlock>
 class PackingRegisterBlockBase
 {
  public:
+  typedef typename PackedSideBlock::BitDepth BitDepth;
   typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
   typedef typename KernelSideFormat::Cell CellFormat;
   static const int kCells = KernelSideFormat::kCells;
@@ -226,9 +274,10 @@ class PackingRegisterBlockBase
   static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
-  static const int kBits = PackedSideBlock::BitDepth::kBits;
-  
+
   static const SideMapOrder kSrcOrder = SrcMapType::kOrder;
+
+  typedef DefaultPseudoRandomNonzeroBytesGenerator PseudoRandomNonzeroBytesGenerator;
 
   PackingRegisterBlockBase()
     : complete_src_(nullptr, 0, 0, 0)
@@ -270,20 +319,23 @@ class PackingRegisterBlockBase
   // Packs a complete block into the destination. This is the most
   // critical part and the part that we most typically want to
   // override in architecture-specific optimized specializations.
-  void Pack(PackedSideBlock* dst, int start_width) {
+  void Pack(PackedSideBlock* dst, int start_width,
+            PseudoRandomNonzeroBytesGenerator* prng) {
     std::uint8_t* dst_ptr = dst->current_data();
-    for (int start_depth = 0; start_depth < kRegisterSize; start_depth += kCellDepth) {
-      for (int c = 0; c < kCells; c++) {
+    for (int cell_start_depth = 0; cell_start_depth < kRegisterSize; cell_start_depth += kCellDepth) {
+      for (int cell_start_width = 0; cell_start_width < kKernelWidth; cell_start_width += kCellWidth) {
         std::int32_t* cell_rank_one_update_ptr =
-          dst->rank_one_update() + start_width + c * kCellWidth;
+          dst->rank_one_update() + start_width + cell_start_width;
         const SideMap<const std::uint8_t, kSrcOrder> src_cell_map(
-          complete_src_.block(kCellWidth * c, start_depth, kCellWidth, kCellDepth));
+          complete_src_.block(cell_start_width, cell_start_depth, kCellWidth, kCellDepth));
         for (int w = 0; w < kCellWidth; w++) {
           std::int32_t sum = 0;
           for (int d = 0; d < kCellDepth; d++) {
-            std::uint8_t x = src_cell_map(w, d) >> (8 - kBits);
-            dst_ptr[OffsetIntoCell<CellFormat>(w, d)] = x;
-            sum += x;
+            const std::uint8_t raw_src_val = src_cell_map(w, d);
+            const std::uint8_t requantized =
+              Requantize<BitDepth>(raw_src_val, prng);
+            dst_ptr[OffsetIntoCell<CellFormat>(w, d)] = requantized;
+            sum += requantized;
           }
           cell_rank_one_update_ptr[w]
             += sum * dst->rank_one_update_multiplier();
@@ -311,10 +363,16 @@ class PackSideBlockImplBase {
   static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
 
+  typedef
+    typename PackingRegisterBlock<SrcMapType, PackedSideBlock>::PseudoRandomNonzeroBytesGenerator
+    PseudoRandomNonzeroBytesGenerator;
+
   PackSideBlockImplBase(PackedSideBlock* packed_side_block,
                         const SrcMapType& src_map)
       : packed_side_block_(packed_side_block)
-      , src_map_(src_map) {}
+      , src_map_(src_map)
+  {
+  }
 
   PackedSideBlock* packed_side_block() const {
     return packed_side_block_;
@@ -378,20 +436,20 @@ class PackSideBlockImplBase {
         for (int d = 0; d < register_aligned_depth; d += kRegisterSize) {
           b.UseCompleteSrcInPlace(
             src_map_.block(start_width, start_depth + d, width, kRegisterSize));
-          b.Pack(packed_side_block_, start_width);
+          b.Pack(packed_side_block_, start_width, &prng_);
         }
       }
       if (register_aligned_depth < depth) {
         b.MakeCompleteSrc(src_map_.block(start_width, start_depth + register_aligned_depth,
                                         width, depth - register_aligned_depth));
-        b.Pack(packed_side_block_, start_width);
+        b.Pack(packed_side_block_, start_width, &prng_);
       }
     } else {
       assert(width < kKernelWidth);
       for (int d = 0; d < depth; d += kRegisterSize) {
         const int ds = std::min(+kRegisterSize, depth - d);
         b.MakeCompleteSrc(src_map_.block(start_width, start_depth + d, width, ds));
-        b.Pack(packed_side_block_, start_width);
+        b.Pack(packed_side_block_, start_width, &prng_);
       }
     }
   }
@@ -402,6 +460,10 @@ class PackSideBlockImplBase {
   // A map on the block of the original matrix block being packed,
   // i.e. the 'source'.
   const SrcMapType& src_map_;
+
+  // Used for probabilistic requantization in the less-than-8-bit case.
+  // Otherwise unused.
+  PseudoRandomNonzeroBytesGenerator prng_;
 };
 
 template <typename SrcMapType, typename PackedSideBlock>

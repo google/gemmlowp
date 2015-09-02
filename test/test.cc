@@ -30,45 +30,14 @@
 
 namespace gemmlowp {
 
-struct ReferenceEightBitIntGemmContext {
-  ReferenceEightBitIntGemmContext()
-      : saturated_0_values(0), saturated_255_values(0) {}
-
-  int saturated_0_values, saturated_255_values;
-};
-
-template <std::uint32_t numerator, std::uint32_t denominator>
-std::int32_t reference_multiply_by_constant_fraction(std::int32_t x)
-{
-  static_assert(numerator > 0 && denominator > 0,
-    "only supporting positive num/denom");
-
-  if (numerator == denominator) {
-    return x;
-  }
-
-  return static_cast<int32_t>(round(double(x) * numerator / denominator));
-}
-
-template <BitDepthSetting BitDepth>
-void ReferenceEightBitIntGemm(ReferenceEightBitIntGemmContext* context,
-                              bool transpose_a, bool transpose_b,
+void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
                               bool transpose_c, int m, int n, int k,
                               const uint8_t* a, int32_t a_offset, int lda,
                               const uint8_t* b, int32_t b_offset, int ldb,
                               uint8_t* c, int32_t c_offset, int32_t c_mult_int,
                               int32_t c_shift, int ldc) {
-  context->saturated_0_values = 0;
-  context->saturated_255_values = 0;
 
   assert((c_shift >= 0) && (c_shift <= 32));
-
-  const int kLhsBits = LhsBitDepth<BitDepth>::kBits;
-  const int kRhsBits = RhsBitDepth<BitDepth>::kBits;
-  const int kLhsBitDepthShift = 8 - kLhsBits;
-  const int kRhsBitDepthShift = 8 - kRhsBits;
-  const int kLhsMax = (1 << kLhsBits) - 1;
-  const int kRhsMax = (1 << kRhsBits) - 1;
 
   assert(a != nullptr);
   assert(b != nullptr);
@@ -102,85 +71,32 @@ void ReferenceEightBitIntGemm(ReferenceEightBitIntGemmContext* context,
   }
   int i, j, l;
   
-  // We will split the accumulator sum into 4 parts, by splitting the
-  // constant part (denoted by a '1') from the variable part (denoted by 'x')
-  // in both the lhs and the rhs. Thus, our 4 partial sums will be denoted
-  // sum_11, sum_1x, sum_x1, sum_xx.
-
-  // sum_11 is the constant term, so we can compute it once before the loop.
-  const int32_t sum_11 = a_offset * b_offset * k + c_offset;
-
-  // sum_1x is the term that depends only on the rhs
-  std::vector<int32_t> sum_1x(n);
-  for (j = 0; j < n; j++) {
-    // In less-than-8-bit-depth cases, we have to right-shift
-    // to correctly simulate the loss of precision from this re-quantization.
-    int32_t sum_of_lhs_rows_shifted = 0;
-    for (l = 0; l < k; l++) {
-      const int b_index = j * b_j_stride + l * b_l_stride;
-      sum_of_lhs_rows_shifted += b[b_index] >> kLhsBitDepthShift;
-    }
-    // Multiply by 255/(2^n-1) to get back the right scale, with the
-    // exact required requantization error.
-    sum_1x[j] = reference_multiply_by_constant_fraction<255, kLhsMax>(
-      a_offset * sum_of_lhs_rows_shifted);
-  }
-
-  // sum_x1 is the term that depends only on the lhs
-  std::vector<int32_t> sum_x1(m);
-  for (i = 0; i < m; i++) {
-    // In less-than-8-bit-depth cases, we have to right-shift
-    // to correctly simulate the loss of precision from this re-quantization.
-    int32_t sum_of_rhs_cols_shifted = 0;
-    for (l = 0; l < k; l++) {
-      const int a_index = i * a_i_stride + l * a_l_stride;
-      sum_of_rhs_cols_shifted += a[a_index] >> kRhsBitDepthShift;
-    }
-    // Multiply by 255/(2^n-1) to get back the right scale, with the
-    // exact required requantization error.
-    sum_x1[i] = reference_multiply_by_constant_fraction<255, kRhsMax>(
-      b_offset * sum_of_rhs_cols_shifted);
-  }
-
   for (j = 0; j < n; j++) {
     for (i = 0; i < m; i++) {
-      // sum_xx is the term that depends on both the lhs and the rhs,
-      // so we have to compute it here in this loop.
-      int32_t sum_xx_shifted = 0;
+      int32_t total = 0;
       for (l = 0; l < k; l++) {
-        // In less-than-8-bit-depth cases, we have to right-shift
-        // to correctly simulate the loss of precision from this re-quantization.
         const int a_index = i * a_i_stride + l * a_l_stride;
-        const uint8_t a_as_byte = a[a_index] >> kRhsBitDepthShift;
-        const int32_t a_as_int = static_cast<int32_t>(a_as_byte);
+        const uint8_t a_as_byte = a[a_index];
+        const int32_t a_as_int = static_cast<int32_t>(a_as_byte) + a_offset;
         const int b_index = j * b_j_stride + l * b_l_stride;
-        const uint8_t b_as_byte = b[b_index] >> kLhsBitDepthShift;
-        const int32_t b_as_int = static_cast<int32_t>(b_as_byte);
+        const uint8_t b_as_byte = b[b_index];
+        const int32_t b_as_int = static_cast<int32_t>(b_as_byte) + b_offset;
         const int32_t mult_as_int = a_as_int * b_as_int;
-        sum_xx_shifted += mult_as_int;
+        total += mult_as_int;
       }
-      // Multiply by 255*255/[(2^m-1)*(2^n-1)] to get back the right scale,
-      // with the exact required requantization error.
-      int32_t sum_xx =
-        reference_multiply_by_constant_fraction<255 * 255, kLhsMax * kRhsMax>(
-          sum_xx_shifted);
-      int32_t sum = sum_xx + sum_x1[i] + sum_1x[j] + sum_11;
       int32_t output =
-        (sum * c_mult_int + (1 << (c_shift - 1))) >> c_shift;
+          (((total + c_offset) * c_mult_int) + (1 << (c_shift - 1))) >> c_shift;
       if (output > 255) {
         output = 255;
-        context->saturated_255_values++;
       }
       if (output < 0) {
         output = 0;
-        context->saturated_0_values++;
       }
       const int c_index = i * c_i_stride + j * c_j_stride;
       c[c_index] = static_cast<uint8_t>(output);
     }
   }
 }
-
 // *GemmWrapper's allow to wrap various Gemm functions in a uniform
 // interface, so we can use the same testing code to test all of them
 
@@ -289,24 +205,22 @@ struct EightBitIntGemmWrapper {
   }
 };
 
-template <typename Scalar, BitDepthSetting BitDepth>
+template <typename Scalar>
 struct ReferenceEightBitIntGemmWrapper {
-  static const BitDepthSetting kBitDepthSetting = BitDepth;
+  static const BitDepthSetting kBitDepthSetting = BitDepthSetting::L8R8;
 
   static const char* Name() { return "ReferenceEightBitIntGemm"; }
 
-  typedef ReferenceEightBitIntGemmContext Context;
-
   template <MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
-  static void Gemm(Context* context, bool transpose_a, bool transpose_b,
+  static void Gemm(bool transpose_a, bool transpose_b,
                    bool transpose_c,
                    const MatrixMap<const Scalar, LhsOrder>& lhs,
                    const MatrixMap<const Scalar, RhsOrder>& rhs,
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    ReferenceEightBitIntGemm<BitDepth>(
-      context, transpose_a, transpose_b, transpose_c,
+    ReferenceEightBitIntGemm(
+      transpose_a, transpose_b, transpose_c,
       rhs.cols(), lhs.rows(), lhs.cols(), rhs.data(),
       rhs_offset, rhs.stride(), lhs.data(), lhs_offset,
       lhs.stride(), result->data(), result_offset,
@@ -316,6 +230,95 @@ struct ReferenceEightBitIntGemmWrapper {
 
 const char* OrderName(MapOrder order) {
   return order == MapOrder::ColMajor ? "ColMajor" : "RowMajor";
+}
+
+struct ResultStats
+{
+  ResultStats()
+    : med_val(0)
+    , mean_signed_diff(0)
+    , med_signed_diff(0)
+    , med_unsigned_diff(0)
+    , max_unsigned_diff(0)
+  {}
+
+  int med_val;
+  float mean_signed_diff;
+  int med_signed_diff;
+  int med_unsigned_diff;
+  int max_unsigned_diff;
+};
+
+void GetResultStats(
+  const uint8_t* actual,
+  const uint8_t* expected,
+  size_t count,
+  ResultStats* stats)
+{
+  std::vector<uint8_t> results;
+  std::vector<int16_t> signed_diffs;
+  std::vector<uint8_t> unsigned_diffs;
+  int64_t signed_diffs_sum = 0;
+  for (size_t i = 0; i < count; i++) {
+    results.push_back(actual[i]);
+    int16_t signed_diff = actual[i] - expected[i];
+    signed_diffs.push_back(signed_diff);
+    unsigned_diffs.push_back(std::abs(signed_diff));
+    signed_diffs_sum += signed_diff;
+  }
+
+  std::sort(results.begin(), results.end());
+  std::sort(signed_diffs.begin(), signed_diffs.end());
+  std::sort(unsigned_diffs.begin(), unsigned_diffs.end());
+
+  const size_t middle = count / 2;
+
+  stats->med_val = results[middle];
+  stats->mean_signed_diff = float(signed_diffs_sum) / count;
+  stats->med_signed_diff = signed_diffs[middle];
+  stats->med_unsigned_diff = unsigned_diffs[middle];
+  stats->max_unsigned_diff = unsigned_diffs.back();
+}
+
+struct ResultStatsBounds
+{
+  ResultStatsBounds()
+    : mean_signed_diff(0)
+    , med_signed_diff(0)
+    , med_unsigned_diff(0)
+    , max_unsigned_diff(0)
+  {}
+
+  float mean_signed_diff;
+  int med_signed_diff;
+  int med_unsigned_diff;
+  int max_unsigned_diff;
+};
+
+bool CheckResultStatsBounds(
+  const ResultStats& stats,
+  const ResultStatsBounds& bounds)
+{
+  return
+    stats.max_unsigned_diff <= bounds.max_unsigned_diff &&
+    stats.med_unsigned_diff <= bounds.med_unsigned_diff &&
+    std::abs(stats.med_signed_diff) <= bounds.med_signed_diff &&
+    std::abs(stats.mean_signed_diff) <= bounds.mean_signed_diff;
+}
+
+void ReportResultStats(
+  const ResultStats& stats,
+  const ResultStatsBounds& bounds)
+{
+  printf("    median value: %d\n", stats.med_val);
+  printf("    median unsigned diff: %d (tolerating %d)\n",
+    stats.med_unsigned_diff, bounds.med_unsigned_diff);
+  printf("    max unsigned diff: %d (tolerating %d)\n",
+    stats.max_unsigned_diff, bounds.max_unsigned_diff);
+  printf("    median signed diff: %d (tolerating %d)\n",
+    stats.med_signed_diff, bounds.med_signed_diff);
+  printf("    mean signed diff: %.3g (tolerating %.3g)\n",
+    stats.mean_signed_diff, bounds.mean_signed_diff);
 }
 
 // Our approach to choosing result_shift values for testing, is bisection.
@@ -349,19 +352,65 @@ void test_gemm_impl(typename GemmWrapper::Context* context, const LhsType& lhs,
   static const MapOrder kRhsOrder = RhsType::kOrder;
   static const MapOrder kResultOrder = ResultType::kOrder;
   ResultType ref_result(rows, cols);
-  ReferenceEightBitIntGemmContext reference_context;
   const bool transpose_c = kResultOrder == MapOrder::ColMajor;
   const bool transpose_a =
       kRhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
   const bool transpose_b =
       kLhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
-  static const BitDepthSetting BitDepth = GemmWrapper::kBitDepthSetting;
-  ReferenceEightBitIntGemmWrapper<Scalar, BitDepth>::Gemm(
-      &reference_context, transpose_a, transpose_b, transpose_c,
+  ReferenceEightBitIntGemmWrapper<Scalar>::Gemm(
+      transpose_a, transpose_b, transpose_c,
       lhs.const_map(), rhs.const_map(), &ref_result.map(), lhs_offset,
       rhs_offset, result_offset, result_mult_int, result_shift);
 
-  const bool good = *result == ref_result;
+  static const BitDepthSetting BitDepth = GemmWrapper::kBitDepthSetting;
+
+  ResultStats stats;
+  GetResultStats(result->data(), ref_result.data(), rows * cols, &stats);
+
+  // Adjust shifts until we get meaningful results
+  int new_result_shift_min = result_shift_min;
+  int new_result_shift_max = result_shift_max;
+  bool retry = false;
+
+  if (stats.med_val < 32) {
+    new_result_shift_max = (result_shift_min + result_shift_max) / 2;
+    retry = true;
+  }
+
+  if (stats.med_val > 224) {
+    new_result_shift_min = (result_shift_min + result_shift_max) / 2;
+    retry = true;
+  }
+
+  if (retry) {
+    if (result_shift_min != result_shift_max) {
+      test_gemm_impl<GemmWrapper>(context, lhs, rhs, result, lhs_offset,
+                                  rhs_offset, result_offset, result_mult_int,
+                                  new_result_shift_min, new_result_shift_max);
+    }
+    return;
+  }
+
+  ResultStatsBounds bounds;
+
+  if (BitDepth == BitDepthSetting::L7R5) {
+    // We have very lax requirements on unsigned diff.
+    // We have tighter requirements on signed diff (bias), but only
+    // if the matrix is large enough for things to average out.
+    // For very small sizes, we... basically don't test anything.
+    // The problem is that this test uses unrealistic combinations of result_mult_int
+    // and result_shift, resulting in potentially wild requantization artifacts
+    // on small GEMMs.
+    int adjust_for_small_sizes = 1000 / (rows * cols);
+    bounds.max_unsigned_diff = std::max(stats.med_val / 2, adjust_for_small_sizes);
+    bounds.med_unsigned_diff = std::max(stats.med_val / 8, adjust_for_small_sizes);
+    bounds.med_signed_diff = std::max(2, adjust_for_small_sizes);
+    bounds.mean_signed_diff = std::max(2, adjust_for_small_sizes);
+  }
+
+  // Check results
+  const bool good = CheckResultStatsBounds(stats, bounds);
+
   printf(
       "%s: %dx%dx%d %s x %s -> %s, %s, offsets %d/%d/%d, mult %d, shift %d\n",
       good ? "PASS" : "FAIL", rows, depth, cols, OrderName(kLhsOrder),
@@ -369,20 +418,8 @@ void test_gemm_impl(typename GemmWrapper::Context* context, const LhsType& lhs,
       lhs_offset, rhs_offset, result_offset, result_mult_int, result_shift);
 
   if (!good) {
-    int maxdiff = 0;
-    int countdiff = 0;
-    for (int c = 0; c < result->cols(); c++) {
-      for (int r = 0; r < result->rows(); r++) {
-        int a = (*result)(r, c);
-        int b = ref_result(r, c);
-        if (a != b) {
-          countdiff++;
-          maxdiff = std::max(maxdiff, std::abs(a - b));
-        }
-      }
-    }
-    printf("max difference: %d\n", maxdiff);
-    printf("number of different places: %d\n", countdiff);
+    ReportResultStats(stats, bounds);
+
     int bad_coeffs_printed = 0;
     for (int c = 0; c < result->cols() && bad_coeffs_printed < 20; c++) {
       for (int r = 0; r < result->rows() && bad_coeffs_printed < 20; r++) {
@@ -396,30 +433,6 @@ void test_gemm_impl(typename GemmWrapper::Context* context, const LhsType& lhs,
   }
 
   Check(good);
-
-  if (result_shift_min != result_shift_max) {
-    const int max_allowed_saturated_values = result->size() / 16;
-
-    int new_result_shift_min = result_shift_min;
-    int new_result_shift_max = result_shift_max;
-    bool retry = false;
-
-    if (reference_context.saturated_0_values > max_allowed_saturated_values) {
-      new_result_shift_max = (result_shift_min + result_shift_max) / 2;
-      retry = true;
-    }
-
-    if (reference_context.saturated_255_values > max_allowed_saturated_values) {
-      new_result_shift_min = (result_shift_min + result_shift_max) / 2;
-      retry = true;
-    }
-
-    if (retry) {
-      test_gemm_impl<GemmWrapper>(context, lhs, rhs, result, lhs_offset,
-                                  rhs_offset, result_offset, result_mult_int,
-                                  new_result_shift_min, new_result_shift_max);
-    }
-  }
 }
 
 template <typename GemmWrapper, typename LhsType, typename RhsType,
@@ -645,6 +658,18 @@ void test_gemv(typename GemmWrapper::Context* context) {
                          WhatOrdersToTest::All);
 }
 
+const char* GetBitDepthName(eight_bit_int_gemm::BitDepthSetting b) {
+  switch (b) {
+    case eight_bit_int_gemm::BitDepthSetting::A8B8:
+      return "Lhs: 8 bit, Rhs: 8 bit";
+    case eight_bit_int_gemm::BitDepthSetting::A5B7:
+      return "Lhs: 7 bit, Rhs: 5 bit";
+    default:
+      abort();
+      return nullptr;
+  }
+}
+
 // This is the most realistic test of how we'll be using the low-precision GEMM
 // function in applications. It takes in large input matrices that have been
 // captured from an actual neural network run.
@@ -661,42 +686,26 @@ void TestWithRealData(
       test_data::b_offset, test_data::k, output_data.get(), test_data::c_offset,
       test_data::c_mult_int, test_data::c_shift, test_data::n,
       BitDepth);
-  std::vector<uint8_t> diff;
-  for (int n = 0; n < test_data::c_count; ++n) {
-    const int expected_value = test_data::expected_c_data[n];
-    const int actual_value = output_data[n];
-    const int delta = (expected_value - actual_value);
-    diff.push_back(std::abs(delta));
-  }
-  std::sort(diff.begin(), diff.end());
-  int diff_min = diff.front();
-  int diff_max = diff.back();
-  int diff_med = diff[diff.size() / 2];
-  int count_diff_less_than_pot[8];
-  size_t index = 0;
-  for (int exponent = 0; exponent < 8; exponent++) {
-    int pot = 1 << exponent;
-    while (index < diff.size() && diff[index] < pot)
-    {
-      index++;
-    }
-    count_diff_less_than_pot[exponent] = index;
+
+  ResultStats stats;
+  GetResultStats(output_data.get(),
+                 test_data::expected_c_data,
+                 test_data::c_count,
+                 &stats);
+
+  ResultStatsBounds bounds;
+  if (BitDepth == eight_bit_int_gemm::BitDepthSetting::A5B7) {
+    bounds.med_unsigned_diff = tolerance_median;
+    bounds.max_unsigned_diff = tolerance_max;
+    bounds.med_signed_diff = 0;
+    bounds.mean_signed_diff = 0.2f;
   }
 
-  const bool good = diff_med <= tolerance_median && diff_max <= tolerance_max;
-  printf("TestWithRealData: %s\n", good ? "PASS" : "FAIL");
-
-  printf("Error: min %d, median %d, max %d\n", diff_min, diff_med, diff_max);
-  printf("Error = 0: %.2f %% of entries\n",
-    100.f * count_diff_less_than_pot[0] / diff.size());
-  for (int exponent = 1; exponent < 8; exponent++) {
-    printf("Error in %d..%d range: %.2f %% of entries\n",
-      1 << (exponent - 1),
-      (1 << exponent) - 1,
-      100.f * (count_diff_less_than_pot[exponent] - count_diff_less_than_pot[exponent - 1]) / diff.size());
-
-  }
-
+  const bool good = CheckResultStatsBounds(stats, bounds);
+  printf("TestWithRealData: %s with %s\n",
+    good ? "PASS" : "FAIL",
+    GetBitDepthName(BitDepth));
+  ReportResultStats(stats, bounds);
   Check(good);
 }
 
@@ -808,7 +817,7 @@ void test() {
 
   // Run against actual data from a network evaluation.
   TestWithRealData(eight_bit_int_gemm::BitDepthSetting::A8B8, 0, 0);
-  TestWithRealData(eight_bit_int_gemm::BitDepthSetting::A5B7, 3, 11);
+  TestWithRealData(eight_bit_int_gemm::BitDepthSetting::A5B7, 2, 10);
 
 #ifdef GEMMLOWP_TEST_PROFILE
   FinishProfiling();
