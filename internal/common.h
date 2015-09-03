@@ -44,6 +44,17 @@
 #endif
 #endif
 
+// Detect SSE.
+#if defined __SSE4_2__  // at the moment, our SSE code assumes SSE 4.something
+#define GEMMLOWP_SSE
+#if defined(__i386__) || defined(_M_IX86) || defined(_X86_) || defined(__i386)
+#define GEMMLOWP_SSE32
+#endif
+#if defined(__x86_64__) || defined(_M_X64) || defined(__amd64)
+#define GEMMLOWP_SSE64
+#endif
+#endif
+
 namespace gemmlowp {
 
 // Standard cache line size. Useful to optimize alignment and
