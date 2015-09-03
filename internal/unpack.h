@@ -67,8 +67,6 @@ std::int32_t multiply_by_constant_fraction(std::int32_t x) {
   // simpler (since this function operates on signed int32's) and
   // more friendly to ARM NEON, where this allows us to use the
   // VQRDMULH instruction.
-  static const int precision_bits = 31;
-
   static const std::int32_t int_quotient =
       (numerator + denominator / 2) / denominator;
   static const std::int32_t remaining_numerator =
