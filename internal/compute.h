@@ -40,8 +40,7 @@ class ComputeImpl {
 
  public:
   ComputeImpl(const KernelBase& _kernel, const BlockParams& _block_params,
-              PackedResult* _packed_result,
-              const PackedLhs& _packed_lhs,
+              PackedResult* _packed_result, const PackedLhs& _packed_lhs,
               const PackedRhs& _packed_rhs)
       : kernel_(_kernel),
         block_params_(_block_params),
@@ -86,15 +85,13 @@ class ComputeImpl {
   }
 };
 
-template <typename PackedLhs, typename PackedRhs,
-          typename PackedResult>
+template <typename PackedLhs, typename PackedRhs, typename PackedResult>
 void Compute(const KernelBase& kernel, const BlockParams& block_params,
-             PackedResult* packed_result,
-             const PackedLhs& packed_lhs,
+             PackedResult* packed_result, const PackedLhs& packed_lhs,
              const PackedRhs& packed_rhs) {
   ScopedProfilingLabel label("compute");
-  ComputeImpl<PackedLhs, PackedRhs, PackedResult>
-      impl(kernel, block_params, packed_result, packed_lhs, packed_rhs);
+  ComputeImpl<PackedLhs, PackedRhs, PackedResult> impl(
+      kernel, block_params, packed_result, packed_lhs, packed_rhs);
 
   impl.Compute();
 }

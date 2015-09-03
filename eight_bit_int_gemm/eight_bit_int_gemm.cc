@@ -52,8 +52,8 @@ void EightBitIntGemmImpl(GemmContext* context, int m, int n, int k,
                          const std::uint8_t* a, std::int32_t a_offset, int lda,
                          const std::uint8_t* b, std::int32_t b_offset, int ldb,
                          std::uint8_t* c, std::int32_t c_offset,
-                         std::int32_t c_mult_int, std::int32_t c_shift,
-                         int ldc, BitDepthSetting bit_depth) {
+                         std::int32_t c_mult_int, std::int32_t c_shift, int ldc,
+                         BitDepthSetting bit_depth) {
   const int lhs_offset = b_offset;
   const int rhs_offset = a_offset;
   const int result_offset = c_offset;
@@ -72,15 +72,16 @@ void EightBitIntGemmImpl(GemmContext* context, int m, int n, int k,
   MatrixMap<std::uint8_t, ResultOrder> result(c, n, m, ldc);
 
   switch (bit_depth) {
-#define GEMMLOWP_HANDLE_BIT_DEPTH(AnBn, LnRn) \
-    case BitDepthSetting::AnBn: \
-      Gemm<std::uint8_t, gemmlowp::BitDepthSetting::LnRn>( \
+#define GEMMLOWP_HANDLE_BIT_DEPTH(AnBn, LnRn)                              \
+  case BitDepthSetting::AnBn:                                              \
+    Gemm<std::uint8_t, gemmlowp::BitDepthSetting::LnRn>(                   \
         context, lhs, rhs, &result, lhs_offset, rhs_offset, result_offset, \
-        result_mult_int, result_shift); \
-      return;
+        result_mult_int, result_shift);                                    \
+    return;
     GEMMLOWP_HANDLE_BIT_DEPTH(A8B8, L8R8)
     GEMMLOWP_HANDLE_BIT_DEPTH(A5B7, L7R5)
-    default: abort();
+    default:
+      abort();
 #undef GEMMLOWP_HANDLE_BIT_DEPTH
   }
 }
@@ -102,7 +103,7 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
   if (transpose_a == ta && transpose_b == tb && transpose_c == tc) {        \
     EightBitIntGemmImpl<ta, tb, tc>(context, m, n, k, a, a_offset, lda, b,  \
                                     b_offset, ldb, c, c_offset, c_mult_int, \
-                                    c_shift, ldc, bit_depth);                          \
+                                    c_shift, ldc, bit_depth);               \
   }
 
   GEMMLOWP_HANDLE_CASE(false, false, false)

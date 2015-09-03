@@ -36,7 +36,6 @@ void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
                               const uint8_t* b, int32_t b_offset, int ldb,
                               uint8_t* c, int32_t c_offset, int32_t c_mult_int,
                               int32_t c_shift, int ldc) {
-
   assert((c_shift >= 0) && (c_shift <= 32));
 
   assert(a != nullptr);
@@ -70,7 +69,7 @@ void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
     c_j_stride = ldc;
   }
   int i, j, l;
-  
+
   for (j = 0; j < n; j++) {
     for (i = 0; i < m; i++) {
       int32_t total = 0;
@@ -119,10 +118,10 @@ struct SingleThreadGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    SingleThreadGemm<typename Kernel::Format, Scalar, BitDepth, LhsOrder, RhsOrder,
-                     ResultOrder>(context, Kernel(), lhs, rhs, result,
-                                  lhs_offset, rhs_offset, result_offset,
-                                  result_mult_int, result_shift);
+    SingleThreadGemm<typename Kernel::Format, Scalar, BitDepth, LhsOrder,
+                     RhsOrder, ResultOrder>(
+        context, Kernel(), lhs, rhs, result, lhs_offset, rhs_offset,
+        result_offset, result_mult_int, result_shift);
   }
 };
 
@@ -145,10 +144,10 @@ struct MultiThreadGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    MultiThreadGemm<typename Kernel::Format, Scalar, BitDepth, LhsOrder, RhsOrder,
-                    ResultOrder>(context, Kernel(), lhs, rhs, result,
-                                 lhs_offset, rhs_offset, result_offset,
-                                 result_mult_int, result_shift);
+    MultiThreadGemm<typename Kernel::Format, Scalar, BitDepth, LhsOrder,
+                    RhsOrder, ResultOrder>(
+        context, Kernel(), lhs, rhs, result, lhs_offset, rhs_offset,
+        result_offset, result_mult_int, result_shift);
   }
 };
 
@@ -176,10 +175,10 @@ struct PublicGemmWrapper {
 template <typename Scalar, eight_bit_int_gemm::BitDepthSetting BitDepth>
 struct EightBitIntGemmWrapper {
   static const eight_bit_int_gemm::BitDepthSetting kEBitDepthSetting = BitDepth;
-    static const BitDepthSetting kBitDepthSetting =
-    BitDepth == eight_bit_int_gemm::BitDepthSetting::A5B7
-    ? BitDepthSetting::L7R5
-    : BitDepthSetting::L8R8;
+  static const BitDepthSetting kBitDepthSetting =
+      BitDepth == eight_bit_int_gemm::BitDepthSetting::A5B7
+          ? BitDepthSetting::L7R5
+          : BitDepthSetting::L8R8;
 
   static const char* Name() { return "EightBitIntGemm"; }
 
@@ -212,19 +211,17 @@ struct ReferenceEightBitIntGemmWrapper {
   static const char* Name() { return "ReferenceEightBitIntGemm"; }
 
   template <MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
-  static void Gemm(bool transpose_a, bool transpose_b,
-                   bool transpose_c,
+  static void Gemm(bool transpose_a, bool transpose_b, bool transpose_c,
                    const MatrixMap<const Scalar, LhsOrder>& lhs,
                    const MatrixMap<const Scalar, RhsOrder>& rhs,
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    ReferenceEightBitIntGemm(
-      transpose_a, transpose_b, transpose_c,
-      rhs.cols(), lhs.rows(), lhs.cols(), rhs.data(),
-      rhs_offset, rhs.stride(), lhs.data(), lhs_offset,
-      lhs.stride(), result->data(), result_offset,
-      result_mult_int, result_shift, result->stride());
+    ReferenceEightBitIntGemm(transpose_a, transpose_b, transpose_c, rhs.cols(),
+                             lhs.rows(), lhs.cols(), rhs.data(), rhs_offset,
+                             rhs.stride(), lhs.data(), lhs_offset, lhs.stride(),
+                             result->data(), result_offset, result_mult_int,
+                             result_shift, result->stride());
   }
 };
 
@@ -232,15 +229,13 @@ const char* OrderName(MapOrder order) {
   return order == MapOrder::ColMajor ? "ColMajor" : "RowMajor";
 }
 
-struct ResultStats
-{
+struct ResultStats {
   ResultStats()
-    : med_val(0)
-    , mean_signed_diff(0)
-    , med_signed_diff(0)
-    , med_unsigned_diff(0)
-    , max_unsigned_diff(0)
-  {}
+      : med_val(0),
+        mean_signed_diff(0),
+        med_signed_diff(0),
+        med_unsigned_diff(0),
+        max_unsigned_diff(0) {}
 
   int med_val;
   float mean_signed_diff;
@@ -249,12 +244,8 @@ struct ResultStats
   int max_unsigned_diff;
 };
 
-void GetResultStats(
-  const uint8_t* actual,
-  const uint8_t* expected,
-  size_t count,
-  ResultStats* stats)
-{
+void GetResultStats(const uint8_t* actual, const uint8_t* expected,
+                    size_t count, ResultStats* stats) {
   std::vector<uint8_t> results;
   std::vector<int16_t> signed_diffs;
   std::vector<uint8_t> unsigned_diffs;
@@ -280,14 +271,12 @@ void GetResultStats(
   stats->max_unsigned_diff = unsigned_diffs.back();
 }
 
-struct ResultStatsBounds
-{
+struct ResultStatsBounds {
   ResultStatsBounds()
-    : mean_signed_diff(0)
-    , med_signed_diff(0)
-    , med_unsigned_diff(0)
-    , max_unsigned_diff(0)
-  {}
+      : mean_signed_diff(0),
+        med_signed_diff(0),
+        med_unsigned_diff(0),
+        max_unsigned_diff(0) {}
 
   float mean_signed_diff;
   int med_signed_diff;
@@ -295,30 +284,25 @@ struct ResultStatsBounds
   int max_unsigned_diff;
 };
 
-bool CheckResultStatsBounds(
-  const ResultStats& stats,
-  const ResultStatsBounds& bounds)
-{
-  return
-    stats.max_unsigned_diff <= bounds.max_unsigned_diff &&
-    stats.med_unsigned_diff <= bounds.med_unsigned_diff &&
-    std::abs(stats.med_signed_diff) <= bounds.med_signed_diff &&
-    std::abs(stats.mean_signed_diff) <= bounds.mean_signed_diff;
+bool CheckResultStatsBounds(const ResultStats& stats,
+                            const ResultStatsBounds& bounds) {
+  return stats.max_unsigned_diff <= bounds.max_unsigned_diff &&
+         stats.med_unsigned_diff <= bounds.med_unsigned_diff &&
+         std::abs(stats.med_signed_diff) <= bounds.med_signed_diff &&
+         std::abs(stats.mean_signed_diff) <= bounds.mean_signed_diff;
 }
 
-void ReportResultStats(
-  const ResultStats& stats,
-  const ResultStatsBounds& bounds)
-{
+void ReportResultStats(const ResultStats& stats,
+                       const ResultStatsBounds& bounds) {
   printf("    median value: %d\n", stats.med_val);
   printf("    median unsigned diff: %d (tolerating %d)\n",
-    stats.med_unsigned_diff, bounds.med_unsigned_diff);
-  printf("    max unsigned diff: %d (tolerating %d)\n",
-    stats.max_unsigned_diff, bounds.max_unsigned_diff);
-  printf("    median signed diff: %d (tolerating %d)\n",
-    stats.med_signed_diff, bounds.med_signed_diff);
+         stats.med_unsigned_diff, bounds.med_unsigned_diff);
+  printf("    max unsigned diff: %d (tolerating %d)\n", stats.max_unsigned_diff,
+         bounds.max_unsigned_diff);
+  printf("    median signed diff: %d (tolerating %d)\n", stats.med_signed_diff,
+         bounds.med_signed_diff);
   printf("    mean signed diff: %.3g (tolerating %.3g)\n",
-    stats.mean_signed_diff, bounds.mean_signed_diff);
+         stats.mean_signed_diff, bounds.mean_signed_diff);
 }
 
 // Our approach to choosing result_shift values for testing, is bisection.
@@ -358,9 +342,9 @@ void test_gemm_impl(typename GemmWrapper::Context* context, const LhsType& lhs,
   const bool transpose_b =
       kLhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
   ReferenceEightBitIntGemmWrapper<Scalar>::Gemm(
-      transpose_a, transpose_b, transpose_c,
-      lhs.const_map(), rhs.const_map(), &ref_result.map(), lhs_offset,
-      rhs_offset, result_offset, result_mult_int, result_shift);
+      transpose_a, transpose_b, transpose_c, lhs.const_map(), rhs.const_map(),
+      &ref_result.map(), lhs_offset, rhs_offset, result_offset, result_mult_int,
+      result_shift);
 
   static const BitDepthSetting BitDepth = GemmWrapper::kBitDepthSetting;
 
@@ -398,12 +382,15 @@ void test_gemm_impl(typename GemmWrapper::Context* context, const LhsType& lhs,
     // We have tighter requirements on signed diff (bias), but only
     // if the matrix is large enough for things to average out.
     // For very small sizes, we... basically don't test anything.
-    // The problem is that this test uses unrealistic combinations of result_mult_int
+    // The problem is that this test uses unrealistic combinations of
+    // result_mult_int
     // and result_shift, resulting in potentially wild requantization artifacts
     // on small GEMMs.
     int adjust_for_small_sizes = 1000 / (rows * cols);
-    bounds.max_unsigned_diff = std::max(stats.med_val / 2, adjust_for_small_sizes);
-    bounds.med_unsigned_diff = std::max(stats.med_val / 8, adjust_for_small_sizes);
+    bounds.max_unsigned_diff =
+        std::max(stats.med_val / 2, adjust_for_small_sizes);
+    bounds.med_unsigned_diff =
+        std::max(stats.med_val / 8, adjust_for_small_sizes);
     bounds.med_signed_diff = std::max(2, adjust_for_small_sizes);
     bounds.mean_signed_diff = std::max(2, adjust_for_small_sizes);
   }
@@ -508,7 +495,8 @@ void test_gemm(typename GemmWrapper::Context* context, int rows, int depth,
 
 template <typename Kernel>
 void test_gemm_kernel(MultiThreadGemmContext* context) {
-  typedef MultiThreadGemmWrapper<Kernel, std::uint8_t, BitDepthSetting::L8R8> GemmWrapper;
+  typedef MultiThreadGemmWrapper<Kernel, std::uint8_t, BitDepthSetting::L8R8>
+      GemmWrapper;
   test_gemm<GemmWrapper>(context, 1, 1, 1, WhatParamsToTest::OnlyGenericCase,
                          WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 2, 2, 2, WhatParamsToTest::OnlyGenericCase,
@@ -673,25 +661,19 @@ const char* GetBitDepthName(eight_bit_int_gemm::BitDepthSetting b) {
 // This is the most realistic test of how we'll be using the low-precision GEMM
 // function in applications. It takes in large input matrices that have been
 // captured from an actual neural network run.
-void TestWithRealData(
-  eight_bit_int_gemm::BitDepthSetting BitDepth,
-  int tolerance_median,
-  int tolerance_max) {
-  std::unique_ptr<uint8_t[]> output_data(
-      new uint8_t[test_data::c_count]);
+void TestWithRealData(eight_bit_int_gemm::BitDepthSetting BitDepth,
+                      int tolerance_median, int tolerance_max) {
+  std::unique_ptr<uint8_t[]> output_data(new uint8_t[test_data::c_count]);
   gemmlowp::eight_bit_int_gemm::EightBitIntGemm(
       test_data::is_a_transposed, test_data::is_b_transposed,
       test_data::is_c_transposed, test_data::m, test_data::n, test_data::k,
       test_data::a_data, test_data::a_offset, test_data::k, test_data::b_data,
       test_data::b_offset, test_data::k, output_data.get(), test_data::c_offset,
-      test_data::c_mult_int, test_data::c_shift, test_data::n,
-      BitDepth);
+      test_data::c_mult_int, test_data::c_shift, test_data::n, BitDepth);
 
   ResultStats stats;
-  GetResultStats(output_data.get(),
-                 test_data::expected_c_data,
-                 test_data::c_count,
-                 &stats);
+  GetResultStats(output_data.get(), test_data::expected_c_data,
+                 test_data::c_count, &stats);
 
   ResultStatsBounds bounds;
   if (BitDepth == eight_bit_int_gemm::BitDepthSetting::A5B7) {
@@ -702,15 +684,13 @@ void TestWithRealData(
   }
 
   const bool good = CheckResultStatsBounds(stats, bounds);
-  printf("TestWithRealData: %s with %s\n",
-    good ? "PASS" : "FAIL",
-    GetBitDepthName(BitDepth));
+  printf("TestWithRealData: %s with %s\n", good ? "PASS" : "FAIL",
+         GetBitDepthName(BitDepth));
   ReportResultStats(stats, bounds);
   Check(good);
 }
 
 void test() {
-
 #ifdef GEMMLOWP_TEST_PROFILE
   RegisterCurrentThreadForProfiling();
   StartProfiling();
@@ -719,53 +699,50 @@ void test() {
   GemmContext context;
 
   // Test the internal GEMM interfaces
-  test_gemm<SingleThreadGemmWrapper<
-    DefaultKernelForGemm<BitDepthSetting::L8R8>,
-    std::uint8_t,
-    BitDepthSetting::L8R8>>(&context);
+  test_gemm<SingleThreadGemmWrapper<DefaultKernelForGemm<BitDepthSetting::L8R8>,
+                                    std::uint8_t, BitDepthSetting::L8R8>>(
+      &context);
 
-  test_gemm<MultiThreadGemmWrapper<
-    DefaultKernelForGemm<BitDepthSetting::L8R8>,
-    std::uint8_t,
-    BitDepthSetting::L8R8>>(&context);
+  test_gemm<MultiThreadGemmWrapper<DefaultKernelForGemm<BitDepthSetting::L8R8>,
+                                   std::uint8_t, BitDepthSetting::L8R8>>(
+      &context);
 
   // Test the public GEMM interfaces
   test_gemm<PublicGemmWrapper<uint8_t, BitDepthSetting::L8R8>>(&context);
 
-  test_gemm<EightBitIntGemmWrapper<uint8_t, eight_bit_int_gemm::BitDepthSetting::A8B8>>(&context);
+  test_gemm<EightBitIntGemmWrapper<uint8_t,
+                                   eight_bit_int_gemm::BitDepthSetting::A8B8>>(
+      &context);
 
   // Test GEMV cases (internal interfaces)
-  test_gemv<SingleThreadGemmWrapper<
-    DefaultKernelForGemv<BitDepthSetting::L8R8>,
-    std::uint8_t,
-    BitDepthSetting::L8R8>>(&context);
+  test_gemv<SingleThreadGemmWrapper<DefaultKernelForGemv<BitDepthSetting::L8R8>,
+                                    std::uint8_t, BitDepthSetting::L8R8>>(
+      &context);
 
-  test_gemv<MultiThreadGemmWrapper<
-    DefaultKernelForGemv<BitDepthSetting::L8R8>,
-    std::uint8_t,
-    BitDepthSetting::L8R8>>(&context);
+  test_gemv<MultiThreadGemmWrapper<DefaultKernelForGemv<BitDepthSetting::L8R8>,
+                                   std::uint8_t, BitDepthSetting::L8R8>>(
+      &context);
 
   // Test GEMV cases (public interfaces)
   test_gemv<PublicGemmWrapper<uint8_t, BitDepthSetting::L8R8>>(&context);
 
-  test_gemv<EightBitIntGemmWrapper<uint8_t, eight_bit_int_gemm::BitDepthSetting::A8B8>>(&context);
+  test_gemv<EightBitIntGemmWrapper<uint8_t,
+                                   eight_bit_int_gemm::BitDepthSetting::A8B8>>(
+      &context);
 
   // Test other bit depths
   // L7R5
   for (int foo = 0; foo < 4; foo++) {
-  test_gemm<SingleThreadGemmWrapper<
-    DefaultKernelForGemm<BitDepthSetting::L7R5>,
-    std::uint8_t,
-    BitDepthSetting::L7R5>>(&context);
+    test_gemm<
+        SingleThreadGemmWrapper<DefaultKernelForGemm<BitDepthSetting::L7R5>,
+                                std::uint8_t, BitDepthSetting::L7R5>>(&context);
 
-  test_gemv<SingleThreadGemmWrapper<
-    DefaultKernelForGemv<BitDepthSetting::L7R5>,
-    std::uint8_t,
-    BitDepthSetting::L7R5>>(&context);
+    test_gemv<
+        SingleThreadGemmWrapper<DefaultKernelForGemv<BitDepthSetting::L7R5>,
+                                std::uint8_t, BitDepthSetting::L7R5>>(&context);
 
-  test_gemm<EightBitIntGemmWrapper<
-    std::uint8_t,
-    eight_bit_int_gemm::BitDepthSetting::A5B7>>(&context);
+    test_gemm<EightBitIntGemmWrapper<
+        std::uint8_t, eight_bit_int_gemm::BitDepthSetting::A5B7>>(&context);
   }
 
   // Test specific kernels with various different formats,
@@ -785,35 +762,29 @@ void test() {
                                    KernelSideFormat<CellFormat<4, 2>, 5>>>>(
       &context);
 
-  test_gemm_kernel<
-      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<3, 4, CellOrder::DepthMajor>, 2>,
-                                   KernelSideFormat<CellFormat<5, 4, CellOrder::DepthMajor>, 3>>>>(
-      &context);
+  test_gemm_kernel<ReferenceKernel<KernelFormat<
+      KernelSideFormat<CellFormat<3, 4, CellOrder::DepthMajor>, 2>,
+      KernelSideFormat<CellFormat<5, 4, CellOrder::DepthMajor>, 3>>>>(&context);
 
-  test_gemm_kernel<
-      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<3, 4, CellOrder::WidthMajor>, 2>,
-                                   KernelSideFormat<CellFormat<5, 4, CellOrder::WidthMajor>, 3>>>>(
-      &context);
+  test_gemm_kernel<ReferenceKernel<KernelFormat<
+      KernelSideFormat<CellFormat<3, 4, CellOrder::WidthMajor>, 2>,
+      KernelSideFormat<CellFormat<5, 4, CellOrder::WidthMajor>, 3>>>>(&context);
 
-  test_gemm_kernel<
-      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<5, 2, CellOrder::WidthMajor>, 3>,
-                                   KernelSideFormat<CellFormat<4, 2, CellOrder::DepthMajor>, 2>>>>(
-      &context);
+  test_gemm_kernel<ReferenceKernel<KernelFormat<
+      KernelSideFormat<CellFormat<5, 2, CellOrder::WidthMajor>, 3>,
+      KernelSideFormat<CellFormat<4, 2, CellOrder::DepthMajor>, 2>>>>(&context);
 
-  test_gemm_kernel<
-      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<5, 2, CellOrder::DepthMajor>, 3>,
-                                   KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 2>>>>(
-      &context);
+  test_gemm_kernel<ReferenceKernel<KernelFormat<
+      KernelSideFormat<CellFormat<5, 2, CellOrder::DepthMajor>, 3>,
+      KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 2>>>>(&context);
 
-  test_gemm_kernel<
-      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<8, 8, CellOrder::Diagonal>, 2>,
-                                   KernelSideFormat<CellFormat<3, 8, CellOrder::WidthMajor>, 1>>>>(
-      &context);
+  test_gemm_kernel<ReferenceKernel<KernelFormat<
+      KernelSideFormat<CellFormat<8, 8, CellOrder::Diagonal>, 2>,
+      KernelSideFormat<CellFormat<3, 8, CellOrder::WidthMajor>, 1>>>>(&context);
 
-  test_gemm_kernel<
-      ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<1, 4, CellOrder::DepthMajor>, 1>,
-                                   KernelSideFormat<CellFormat<4, 4, CellOrder::Diagonal>, 1>>>>(
-      &context);
+  test_gemm_kernel<ReferenceKernel<KernelFormat<
+      KernelSideFormat<CellFormat<1, 4, CellOrder::DepthMajor>, 1>,
+      KernelSideFormat<CellFormat<4, 4, CellOrder::Diagonal>, 1>>>>(&context);
 
   // Run against actual data from a network evaluation.
   TestWithRealData(eight_bit_int_gemm::BitDepthSetting::A8B8, 0, 0);

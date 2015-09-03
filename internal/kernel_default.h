@@ -28,18 +28,17 @@ template <BitDepthSetting BitDepth>
 struct DefaultKernelForGemv {};
 }
 
-#define GEMMLOWP_SET_DEFAULT_KERNEL(op, bit_depth, kernel) \
-  namespace gemmlowp { \
-    template <> \
-    struct DefaultKernelFor##op<BitDepthSetting::bit_depth> \
-      : kernel \
-    {}; \
+#define GEMMLOWP_SET_DEFAULT_KERNEL(op, bit_depth, kernel)             \
+  namespace gemmlowp {                                                 \
+  template <>                                                          \
+  struct DefaultKernelFor##op<BitDepthSetting::bit_depth> : kernel {}; \
   }
 
 #if defined GEMMLOWP_NEON32
 #include "kernel_neon.h"
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L8R8, NEON32Kernel12x4Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L7R5, NEON32Kernel12x4Depth2Assuming12BitProducts)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L7R5,
+                            NEON32Kernel12x4Depth2Assuming12BitProducts)
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, L8R8, NEONKernel4Nx1Depth2<3>)
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, L7R5, NEONKernel4Nx1Depth2<3>)
 #elif defined GEMMLOWP_NEON64

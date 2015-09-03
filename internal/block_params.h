@@ -113,8 +113,8 @@ struct BlockParams {
                  (KernelFormat::kRows + KernelFormat::kCols));
       int min_l1_depth_blocks =
           CeilQuotient(depth, max_cache_friendly_l1_depth);
-      l1_depth = RoundUp<kRegisterSize>(
-          CeilQuotient(depth, min_l1_depth_blocks));
+      l1_depth =
+          RoundUp<kRegisterSize>(CeilQuotient(depth, min_l1_depth_blocks));
     }
 
     {

@@ -52,25 +52,20 @@ double time() {
 const double min_accurate_duration = 1e-1;
 const std::size_t min_working_set_size = 16 * 1024 * 1024;
 
-struct gemm_t
-{
+struct gemm_t {
   int rows, depth, cols;
-  gemm_t () : rows(0), depth(0), cols(0) {}
-  gemm_t (int r, int d, int c) : rows(r), depth(d), cols(c) {}
+  gemm_t() : rows(0), depth(0), cols(0) {}
+  gemm_t(int r, int d, int c) : rows(r), depth(d), cols(c) {}
 };
 
 bool operator<(const gemm_t& a, const gemm_t& b) {
-  return a.rows < b.rows || (
-         a.rows <= b.rows && (
-         a.depth < b.depth || (
-         a.depth <= b.depth && (
-         a.cols < b.cols))));      
+  return a.rows < b.rows ||
+         (a.rows <= b.rows &&
+          (a.depth < b.depth || (a.depth <= b.depth && (a.cols < b.cols))));
 }
 
-template <typename LhsType, typename RhsType,
-          typename ResultType>
-double time_for_gemms(GemmContext* context,
-                      const std::vector<gemm_t>& gemms) {
+template <typename LhsType, typename RhsType, typename ResultType>
+double time_for_gemms(GemmContext* context, const std::vector<gemm_t>& gemms) {
   typedef std::uint8_t Scalar;
 
   // set up the matrix pool
@@ -81,11 +76,10 @@ double time_for_gemms(GemmContext* context,
     int depth = gemm.depth;
     int cols = gemm.cols;
     combined_gemm_sizes +=
-      sizeof(Scalar) * (rows * depth + depth * cols + rows * cols);
+        sizeof(Scalar) * (rows * depth + depth * cols + rows * cols);
   }
 
-  const std::size_t pool_size =
-      1 + min_working_set_size / combined_gemm_sizes;
+  const std::size_t pool_size = 1 + min_working_set_size / combined_gemm_sizes;
 
   std::vector<LhsType> lhs(pool_size * gemms.size());
   std::vector<RhsType> rhs(pool_size * gemms.size());
@@ -115,9 +109,8 @@ double time_for_gemms(GemmContext* context,
       for (int j = 0; j < gemms.size(); j++) {
         int k = pool_index * gemms.size() + j;
         Gemm<std::uint8_t, BitDepthSetting::GEMMLOWP_TEST_BIT_DEPTH>(
-          context, lhs[k].const_map(),
-          rhs[k].const_map(), &result[k].map(), -75, -91,
-          74980, 123, 20);
+            context, lhs[k].const_map(), rhs[k].const_map(), &result[k].map(),
+            -75, -91, 74980, 123, 20);
       }
       pool_index++;
       if (pool_index == pool_size) {
@@ -139,13 +132,11 @@ double time_for_gemms(GemmContext* context,
   return time_per_iter;
 }
 
-template <typename LhsType, typename RhsType,
-          typename ResultType>
+template <typename LhsType, typename RhsType, typename ResultType>
 double gflops_for_gemms(GemmContext* context,
                         const std::vector<gemm_t>& gemms) {
   const double time_per_iter =
-      time_for_gemms<LhsType, RhsType, ResultType>(
-          context, gemms);
+      time_for_gemms<LhsType, RhsType, ResultType>(context, gemms);
   double ops = 0;
   for (auto gemm : gemms) {
     ops += 2.0 * gemm.rows * gemm.depth * gemm.cols;
@@ -154,7 +145,6 @@ double gflops_for_gemms(GemmContext* context,
 }
 
 void benchmark(GemmContext* context) {
-
   std::map<gemm_t, std::vector<double>> benchmark_results;
 
   std::vector<gemm_t> benchmark_gemms;
@@ -193,8 +183,7 @@ void benchmark(GemmContext* context) {
       std::vector<gemm_t> unique_gemm;
       unique_gemm.push_back(gemm);
       gflops =
-        gflops_for_gemms<LhsType, RhsType, ResultType>(
-          context, unique_gemm);
+          gflops_for_gemms<LhsType, RhsType, ResultType>(context, unique_gemm);
       if (r > 0) {
         benchmark_results[gemm].emplace_back(gflops);
       }
@@ -212,85 +201,36 @@ void benchmark(GemmContext* context) {
 
   for (auto b : benchmark_results) {
     sort(b.second.begin(), b.second.end());
-    std::cout << b.first.rows << "x" << b.first.depth << "x"
-              << b.first.cols << " : " << b.second.back() << " GFlops/s"
-              << std::endl;
+    std::cout << b.first.rows << "x" << b.first.depth << "x" << b.first.cols
+              << " : " << b.second.back() << " GFlops/s" << std::endl;
   }
   std::cout << std::endl;
 }
 
 void benchmark_googlenet(GemmContext* context) {
-
   // These are the m, n, k sizes for a typical GoogLeNet.
   const int googlenet_gemm_sizes[] = {
-    12544, 64, 147,
-    3136, 64, 64,
-    3136, 192, 576,
-    784, 64, 192,
-    784, 96, 192,
-    784, 128, 864,
-    784, 16, 192,
-    784, 32, 400,
-    784, 32, 192,
-    784, 128, 256,
-    784, 128, 256,
-    784, 192, 1152,
-    784, 32, 256,
-    784, 96, 800,
-    784, 64, 256,
-    196, 192, 480,
-    196, 96, 480,
-    196, 204, 864,
-    196, 16, 480,
-    196, 48, 400,
-    196, 64, 480,
-    196, 160, 508,
-    196, 112, 508,
-    196, 224, 1008,
-    196, 24, 508,
-    196, 64, 600,
-    196, 64, 508,
-    196, 128, 512,
-    196, 128, 512,
-    196, 256, 1152,
-    196, 24, 512,
-    196, 64, 600,
-    196, 64, 512,
-    196, 112, 512,
-    196, 144, 512,
-    196, 288, 1296,
-    196, 32, 512,
-    196, 64, 800,
-    196, 64, 512,
-    196, 256, 528,
-    196, 160, 528,
-    196, 320, 1440,
-    196, 32, 528,
-    196, 128, 800,
-    196, 128, 528,
-    49, 256, 832,
-    49, 160, 832,
-    49, 320, 1440,
-    49, 48, 832,
-    49, 128, 1200,
-    49, 128, 832,
-    49, 384, 832,
-    49, 192, 832,
-    49, 384, 1728,
-    49, 48, 832,
-    49, 128, 1200,
-    49, 128, 832,
-    16, 128, 508,
-    1, 1024, 2048,
-    1, 1008, 1024,
-    16, 128, 528,
-    1, 1024, 2048,
-    1, 1008, 1024,
-    1, 1008, 1024,
+      12544, 64,  147, 3136, 64,   64,   3136, 192,  576,  784, 64,   192,
+      784,   96,  192, 784,  128,  864,  784,  16,   192,  784, 32,   400,
+      784,   32,  192, 784,  128,  256,  784,  128,  256,  784, 192,  1152,
+      784,   32,  256, 784,  96,   800,  784,  64,   256,  196, 192,  480,
+      196,   96,  480, 196,  204,  864,  196,  16,   480,  196, 48,   400,
+      196,   64,  480, 196,  160,  508,  196,  112,  508,  196, 224,  1008,
+      196,   24,  508, 196,  64,   600,  196,  64,   508,  196, 128,  512,
+      196,   128, 512, 196,  256,  1152, 196,  24,   512,  196, 64,   600,
+      196,   64,  512, 196,  112,  512,  196,  144,  512,  196, 288,  1296,
+      196,   32,  512, 196,  64,   800,  196,  64,   512,  196, 256,  528,
+      196,   160, 528, 196,  320,  1440, 196,  32,   528,  196, 128,  800,
+      196,   128, 528, 49,   256,  832,  49,   160,  832,  49,  320,  1440,
+      49,    48,  832, 49,   128,  1200, 49,   128,  832,  49,  384,  832,
+      49,    192, 832, 49,   384,  1728, 49,   48,   832,  49,  128,  1200,
+      49,    128, 832, 16,   128,  508,  1,    1024, 2048, 1,   1008, 1024,
+      16,    128, 528, 1,    1024, 2048, 1,    1008, 1024, 1,   1008, 1024,
   };
-  assert(sizeof(googlenet_gemm_sizes) % (3 * sizeof(googlenet_gemm_sizes[0])) == 0);
+  assert(sizeof(googlenet_gemm_sizes) % (3 * sizeof(googlenet_gemm_sizes[0])) ==
+         0);
   const std::size_t num_googlenet_gemms =
-    sizeof(googlenet_gemm_sizes) / (3 * sizeof(googlenet_gemm_sizes[0]));
+      sizeof(googlenet_gemm_sizes) / (3 * sizeof(googlenet_gemm_sizes[0]));
 
   std::vector<gemm_t> googlenet_gemms(num_googlenet_gemms);
   for (std::size_t i = 0; i < num_googlenet_gemms; i++) {
@@ -314,8 +254,8 @@ void benchmark_googlenet(GemmContext* context) {
 
   double starttime = time();
   while (time() < starttime + mintime) {
-    gemm_times.push_back(time_for_gemms<LhsType, RhsType, ResultType>(
-        context, googlenet_gemms));
+    gemm_times.push_back(
+        time_for_gemms<LhsType, RhsType, ResultType>(context, googlenet_gemms));
   }
 
 #ifdef GEMMLOWP_TEST_PROFILE
@@ -326,7 +266,7 @@ void benchmark_googlenet(GemmContext* context) {
   const std::size_t omit = gemm_times.size() / 4;
   float sum = 0;
   float count = 0;
-  for(std::size_t i = omit; i < gemm_times.size() - omit; i++) {
+  for (std::size_t i = omit; i < gemm_times.size() - omit; i++) {
     sum += gemm_times[i];
     count++;
   }
@@ -339,13 +279,13 @@ void benchmark_googlenet(GemmContext* context) {
 }  // end namespace gemmlowp
 
 int main() {
-  if (1){
+  if (1) {
     gemmlowp::GemmContext context;
     std::cout << "Benchmarking typical GoogLeNet GEMMs..." << std::endl;
     gemmlowp::benchmark_googlenet(&context);
   }
 
-  if (0){
+  if (0) {
     gemmlowp::GemmContext context;
     std::cout << "Benchmarking default mode (typically multi-threaded)..."
               << std::endl;

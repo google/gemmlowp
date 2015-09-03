@@ -22,38 +22,27 @@
 namespace gemmlowp {
 
 template <int tBits>
-struct BitDepth
-{
+struct BitDepth {
   static const int kBits = tBits;
 };
 
 template <BitDepthSetting tBitDepthSetting>
-struct LhsBitDepth
-{};
+struct LhsBitDepth {};
 
 template <BitDepthSetting tBitDepthSetting>
-struct RhsBitDepth
-{};
+struct RhsBitDepth {};
 
 template <>
-struct LhsBitDepth<BitDepthSetting::L8R8>
-  : BitDepth<8>
-{};
+struct LhsBitDepth<BitDepthSetting::L8R8> : BitDepth<8> {};
 
 template <>
-struct RhsBitDepth<BitDepthSetting::L8R8>
-  : BitDepth<8>
-{};
+struct RhsBitDepth<BitDepthSetting::L8R8> : BitDepth<8> {};
 
 template <>
-struct LhsBitDepth<BitDepthSetting::L7R5>
-  : BitDepth<7>
-{};
+struct LhsBitDepth<BitDepthSetting::L7R5> : BitDepth<7> {};
 
 template <>
-struct RhsBitDepth<BitDepthSetting::L7R5>
-  : BitDepth<5>
-{};
+struct RhsBitDepth<BitDepthSetting::L7R5> : BitDepth<5> {};
 
 }  // namespace gemmlowp
 

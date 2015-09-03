@@ -284,14 +284,15 @@ template <typename KernelFormat, typename Scalar, BitDepthSetting BitDepth,
           MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
 struct GemmWithPackedRhsTask : Task {
   typedef PackedSideBlock<typename KernelFormat::Lhs, LhsBitDepth<BitDepth> >
-    PackedLhs;
+      PackedLhs;
   typedef PackedSideBlock<typename KernelFormat::Rhs, RhsBitDepth<BitDepth> >
-    PackedRhs;
-  GemmWithPackedRhsTask(
-      const KernelBase& _kernel, const MatrixMap<const Scalar, LhsOrder>& _lhs,
-      const PackedRhs& _packed_rhs,
-      MatrixMap<Scalar, ResultOrder>* _result, int _lhs_offset, int _rhs_offset,
-      int _result_offset, int _result_mult_int, int _result_shift)
+      PackedRhs;
+  GemmWithPackedRhsTask(const KernelBase& _kernel,
+                        const MatrixMap<const Scalar, LhsOrder>& _lhs,
+                        const PackedRhs& _packed_rhs,
+                        MatrixMap<Scalar, ResultOrder>* _result,
+                        int _lhs_offset, int _rhs_offset, int _result_offset,
+                        int _result_mult_int, int _result_shift)
       : kernel(_kernel),
         lhs(_lhs),
         packed_rhs(_packed_rhs),
@@ -312,8 +313,7 @@ struct GemmWithPackedRhsTask : Task {
     BlockParams block_params;
     block_params.Init<KernelFormat>(rows, cols, depth, 1);
 
-    PackedLhs packed_lhs(
-      Side::Lhs, local_allocator, block_params, rhs_offset);
+    PackedLhs packed_lhs(Side::Lhs, local_allocator, block_params, rhs_offset);
 
     PackedResult<BitDepth> packed_result(local_allocator, block_params);
 
@@ -426,10 +426,8 @@ inline int HowManyWorkers(MultiThreadGemmContext* context, int rows, int cols,
 // The parallelization scheme used here is to have this master function
 // pack a block of RHS and then start worker threads to pack a block of LHS
 // each, and accumulate the corresponding products.
-template <typename KernelFormat,
-          typename Scalar,
-          BitDepthSetting BitDepth, MapOrder LhsOrder,
-          MapOrder RhsOrder, MapOrder ResultOrder>
+template <typename KernelFormat, typename Scalar, BitDepthSetting BitDepth,
+          MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
 void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
                      const MatrixMap<const Scalar, LhsOrder>& lhs,
                      const MatrixMap<const Scalar, RhsOrder>& rhs,
@@ -448,9 +446,8 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
       HowManyWorkers<KernelFormat::kRows>(context, rows, cols, depth);
   if (workers_count == 1) {
     return SingleThreadGemm<KernelFormat, Scalar, BitDepth>(
-      context, kernel, lhs, rhs, result,
-      lhs_offset, rhs_offset, result_offset,
-      result_mult_int, result_shift);
+        context, kernel, lhs, rhs, result, lhs_offset, rhs_offset,
+        result_offset, result_mult_int, result_shift);
   }
   assert(workers_count > 1);
 
@@ -462,9 +459,8 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
   BlockParams block_params;
   block_params.Init<KernelFormat>(rows, cols, depth, workers_count);
 
-  PackedSideBlock<typename KernelFormat::Rhs,
-                  RhsBitDepth<BitDepth> > packed_rhs(
-      Side::Rhs, allocator, block_params, lhs_offset);
+  PackedSideBlock<typename KernelFormat::Rhs, RhsBitDepth<BitDepth> >
+      packed_rhs(Side::Rhs, allocator, block_params, lhs_offset);
   allocator->Commit();
 
   // We loop over large blocks of the RHS.
@@ -485,8 +481,8 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
       int block_rows = next_start_row - start_row;
       auto lhs_block = lhs.block(start_row, 0, block_rows, depth);
       auto result_block = result->block(start_row, c, block_rows, cs);
-      typedef GemmWithPackedRhsTask<KernelFormat, Scalar, BitDepth,
-                                    LhsOrder, RhsOrder, ResultOrder> TaskType;
+      typedef GemmWithPackedRhsTask<KernelFormat, Scalar, BitDepth, LhsOrder,
+                                    RhsOrder, ResultOrder> TaskType;
       auto task = new TaskType(kernel, lhs_block, packed_rhs, &result_block,
                                lhs_offset, rhs_offset, result_offset,
                                result_mult_int, result_shift);

@@ -24,30 +24,30 @@
 namespace gemmlowp {
 
 template <std::uint32_t numerator, std::uint32_t denominator>
-int32x4_t multiply_by_constant_fraction(int32x4_t x)
-{
+int32x4_t multiply_by_constant_fraction(int32x4_t x) {
   static_assert(numerator > 0 && denominator > 0,
-    "only supporting positive num/denom");
+                "only supporting positive num/denom");
 
   if (numerator == denominator) {
     return x;
   }
 
-  static const std::int32_t int_quotient = (numerator + denominator / 2) / denominator;
+  static const std::int32_t int_quotient =
+      (numerator + denominator / 2) / denominator;
   static const std::int32_t remaining_numerator =
-    numerator - int_quotient * denominator;
+      numerator - int_quotient * denominator;
   static const std::int32_t scaled_remaining_numerator =
-    static_cast<std::int32_t>(
-      (static_cast<std::int64_t>(remaining_numerator) << 31) /
-      denominator);
+      static_cast<std::int32_t>(
+          (static_cast<std::int64_t>(remaining_numerator) << 31) / denominator);
   const int32x4_t remaining_product =
-    vqrdmulhq_n_s32(x, scaled_remaining_numerator);
+      vqrdmulhq_n_s32(x, scaled_remaining_numerator);
 
   return vmlaq_n_s32(remaining_product, x, int_quotient);
 }
 
 template <typename PackedResultType>
-struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>, PackedResultType> {
+struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>,
+                        PackedResultType> {
   static const BitDepthSetting BitDepth = PackedResultType::BitDepth;
   typedef MatrixMap<std::uint8_t, MapOrder::ColMajor> ResultBlockType;
   static void Unpack(ResultBlockType* dst, const PackedResultType& src,
@@ -62,7 +62,8 @@ struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>, PackedResul
     const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     auto src_map = src.Map();
-    const std::int32_t term_11 = lhs_offset * rhs_offset * depth + result_offset;
+    const std::int32_t term_11 =
+        lhs_offset * rhs_offset * depth + result_offset;
     const int32x4_t shift_reg = vdupq_n_s32(-result_shift);
     const std::int32_t preshift_offset = 1 << (result_shift - 1);
     const int32x4_t preshift_offset_reg = vdupq_n_s32(preshift_offset);
@@ -89,7 +90,9 @@ struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>, PackedResul
         }
         int32x4_t term_xx[4];
         for (int i = 0; i < 4; i++) {
-          term_xx[i] = multiply_by_constant_fraction<255 * 255, kLhsMax * kRhsMax>(raw_xx[i]);
+          term_xx[i] =
+              multiply_by_constant_fraction<255 * 255, kLhsMax * kRhsMax>(
+                  raw_xx[i]);
         }
         int32x4_t term_x1[4];
         for (int i = 0; i < 4; i++) {
@@ -97,9 +100,8 @@ struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>, PackedResul
         }
         int32x4_t q[4];
         for (int i = 0; i < 4; i++) {
-          q[i] = vaddq_s32(
-            vaddq_s32(term_xx[i], term_x1[i]),
-            vdupq_n_s32(term_1x_plus_term_11));
+          q[i] = vaddq_s32(vaddq_s32(term_xx[i], term_x1[i]),
+                           vdupq_n_s32(term_1x_plus_term_11));
         }
         for (int i = 0; i < 4; i++) {
           q[i] = vmulq_n_s32(q[i], result_mult_int);
@@ -127,13 +129,12 @@ struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>, PackedResul
       for (int r = dst_rows_aligned16; r < dst_rows_aligned4; r += 4) {
         const int32x4_t raw_xx = vld1q_s32(src_ptr);
         const int32x4_t term_xx =
-          multiply_by_constant_fraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
+            multiply_by_constant_fraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
         const int32x4_t raw_x1 = vld1q_s32(rank_one_update_ptr);
         const int32x4_t term_x1 =
-          multiply_by_constant_fraction<255, kLhsMax>(raw_x1);
-        int32x4_t q = vaddq_s32(
-          vaddq_s32(term_xx, term_x1),
-          vdupq_n_s32(term_1x_plus_term_11));
+            multiply_by_constant_fraction<255, kLhsMax>(raw_x1);
+        int32x4_t q = vaddq_s32(vaddq_s32(term_xx, term_x1),
+                                vdupq_n_s32(term_1x_plus_term_11));
         q = vmulq_n_s32(q, result_mult_int);
         q = vshlq_s32(vaddq_s32(q, preshift_offset_reg), shift_reg);
         int16x4_t q16 = vqmovn_s32(q);
@@ -150,12 +151,12 @@ struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>, PackedResul
         std::int32_t raw_xx = src_map(r, c);
         std::int32_t raw_x1 = lhs_rank_one_update[r];
         std::int32_t term_xx =
-          multiply_by_constant_fraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
+            multiply_by_constant_fraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
         std::int32_t term_x1 =
-          multiply_by_constant_fraction<255, kLhsMax>(raw_x1);
+            multiply_by_constant_fraction<255, kLhsMax>(raw_x1);
         std::int32_t sum = term_xx + term_x1 + term_1x_plus_term_11;
         std::int32_t result =
-          (sum * result_mult_int + (1 << (result_shift - 1))) >> result_shift;
+            (sum * result_mult_int + (1 << (result_shift - 1))) >> result_shift;
         (*dst)(r, c) = result > 255 ? 255 : result < 0 ? 0 : result;
       }
     }

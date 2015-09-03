@@ -251,16 +251,20 @@ struct NEON32Kernel12x4Depth2 : KernelBase {
 };
 
 struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
-  typedef KernelFormat<KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 3>,
-                       KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1> > Format;
+  typedef KernelFormat<
+      KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 3>,
+      KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1> > Format;
 
-  const char* Name() const override { return "NEON, 12x4, depth 2, assuming 12-bit products"; }
+  const char* Name() const override {
+    return "NEON, 12x4, depth 2, assuming 12-bit products";
+  }
 
   // TODO(benoitjacob): reorder function arguments so dst comes last
   void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
            const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
            int start_depth, int run_depth) const override {
-    ScopedProfilingLabel label("optimized kernel (NEON 12x4, assuming 12-bit products)");
+    ScopedProfilingLabel label(
+        "optimized kernel (NEON 12x4, assuming 12-bit products)");
     assert(dst_row_stride == 1);
 
     // This kernel is special in that it uses local 16-bit accumulators.
@@ -286,7 +290,9 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "mul %[dst_col_stride], r0\n"
 
         "cmp %[start_depth], #0\n"
-        "bne load_global_accumulators_NEON32Kernel12x4Depth2Assuming12BitProducts_%=\n"
+        "bne "
+        "load_global_accumulators_NEON32Kernel12x4Depth2Assuming12BitProducts_%"
+        "=\n"
 
         // If start_depth==0, we need to clear our global accumulators
         "mov r0, %[global_accumulators]\n"
@@ -301,7 +307,8 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "b loop_NEON32Kernel12x4Depth2Assuming12BitProducts_%=\n"
 
         // If start_depth!=0, we need to load our existing global accumulators
-        "load_global_accumulators_NEON32Kernel12x4Depth2Assuming12BitProducts_%=:\n"
+        "load_global_accumulators_NEON32Kernel12x4Depth2Assuming12BitProducts_%"
+        "=:\n"
         // Load global accumulators from destination matrix, column-major
         "mov r1, %[dst_ptr]\n"
         "mov r0, %[dst_col_stride]\n"
@@ -357,89 +364,89 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "vst4.32 {d9,d11,d13,d15}, [r0]!\n"
         "vst4.32 {d16,d18,d20,d22}, [r0]!\n"
         "vst4.32 {d17,d19,d21,d23}, [r0]!\n"
-        
+
         /* Main loop */
 
         "loop_NEON32Kernel12x4Depth2Assuming12BitProducts_%=:\n"
 
-        // Overview of register layout:
-        //
-        // Registers q4--q16 are the local 16-bit accumulators.
-        // However, each entry in the result matrix is represented
-        // by *two* local 16-bit accumulators: one for even levels
-        // of depth and one for odd levels of depth. These correspond
-        // to the scalars at even and odd indices within each q-register.
-        // Thus we effectively use 32 bits of register space for each
-        // entry in the result matrix. The accumulators register layout
-        // is the same as was described above for the global 32-bit
-        // accumulators (3 cells of size 4x4 in diagonal-major order)
-        // with the only difference that instead of 32bit values we have
-        // pairs of 16bit values.
-        //
-        // A 2x4 cell of Rhs is stored in 8bit in d0.
-        // A 12x2 block of 3 4x2 cells Lhs is stored in 8bit in d1--d3.
-        //
-        //                      +--------+--------+--------+--------+
-        //                      |d0[0]   |d0[2]   |d0[4]   |d0[6]   |
-        //                 Rhs  +--------+--------+--------+--------+
-        //                      |d0[1]   |d0[3]   |d0[5]   |d0[7]   |
-        //                      +--------+--------+--------+--------+
-        //
-        //                      |        |        |        |        |
-        //
-        //    Lhs               |        |        |        |        |
-        //
-        //  +-----+-----+ - - - +--------+--------+--------+--------+
-        //  |d1[0]|d1[1]|       |q4[0,1] |q5[0,1] |q6[0,1] |q7[0,1] |
-        //  |d1[2]|d1[3]|       |q7[2,3] |q4[2,3] |q5[2,3] |q6[2,3] |
-        //  |d1[4]|d1[5]|       |q6[4,5] |q7[4,5] |q4[4,5] |q5[4,5] |
-        //  |d1[6]|d1[7]|       |q5[6,7] |q6[6,7] |q7[6,7] |q4[6,7] |
-        //  +-----+-----+ - - - +--------+--------+--------+--------+
-        //  |d2[0]|d2[1]|       |q8[0,1] |q8[0,1] |q8[0,1] |q8[0,1] |
-        //  |d2[2]|d2[3]|       |q9[2,3] |q9[2,3] |q9[2,3] |q9[2,3] |
-        //  |d2[4]|d2[5]|       |q10[4,5]|q10[4,5]|q10[4,5]|q10[4,5]|
-        //  |d2[6]|d2[7]|       |q11[6,7]|q11[6,7]|q11[6,7]|q11[6,7]|
-        //  +-----+-----+ - - - +--------+--------+--------+--------+
-        //  |d3[0]|d3[1]|       |q12[0,1]|q12[0,1]|q12[0,1]|q12[0,1]|
-        //  |d3[2]|d3[3]|       |q13[2,3]|q13[2,3]|q13[2,3]|q13[2,3]|
-        //  |d3[4]|d3[5]|       |q14[4,5]|q14[4,5]|q14[4,5]|q14[4,5]|
-        //  |d3[6]|d3[7]|       |q15[6,7]|q15[6,7]|q15[6,7]|q15[6,7]|
-        //  +-----+-----+ - - - +--------+--------+--------+--------+
-        //
-        //                            Local 16-bit accumulators
-        //                         Note: 2 scalars per matrix entry
+// Overview of register layout:
+//
+// Registers q4--q16 are the local 16-bit accumulators.
+// However, each entry in the result matrix is represented
+// by *two* local 16-bit accumulators: one for even levels
+// of depth and one for odd levels of depth. These correspond
+// to the scalars at even and odd indices within each q-register.
+// Thus we effectively use 32 bits of register space for each
+// entry in the result matrix. The accumulators register layout
+// is the same as was described above for the global 32-bit
+// accumulators (3 cells of size 4x4 in diagonal-major order)
+// with the only difference that instead of 32bit values we have
+// pairs of 16bit values.
+//
+// A 2x4 cell of Rhs is stored in 8bit in d0.
+// A 12x2 block of 3 4x2 cells Lhs is stored in 8bit in d1--d3.
+//
+//                      +--------+--------+--------+--------+
+//                      |d0[0]   |d0[2]   |d0[4]   |d0[6]   |
+//                 Rhs  +--------+--------+--------+--------+
+//                      |d0[1]   |d0[3]   |d0[5]   |d0[7]   |
+//                      +--------+--------+--------+--------+
+//
+//                      |        |        |        |        |
+//
+//    Lhs               |        |        |        |        |
+//
+//  +-----+-----+ - - - +--------+--------+--------+--------+
+//  |d1[0]|d1[1]|       |q4[0,1] |q5[0,1] |q6[0,1] |q7[0,1] |
+//  |d1[2]|d1[3]|       |q7[2,3] |q4[2,3] |q5[2,3] |q6[2,3] |
+//  |d1[4]|d1[5]|       |q6[4,5] |q7[4,5] |q4[4,5] |q5[4,5] |
+//  |d1[6]|d1[7]|       |q5[6,7] |q6[6,7] |q7[6,7] |q4[6,7] |
+//  +-----+-----+ - - - +--------+--------+--------+--------+
+//  |d2[0]|d2[1]|       |q8[0,1] |q8[0,1] |q8[0,1] |q8[0,1] |
+//  |d2[2]|d2[3]|       |q9[2,3] |q9[2,3] |q9[2,3] |q9[2,3] |
+//  |d2[4]|d2[5]|       |q10[4,5]|q10[4,5]|q10[4,5]|q10[4,5]|
+//  |d2[6]|d2[7]|       |q11[6,7]|q11[6,7]|q11[6,7]|q11[6,7]|
+//  +-----+-----+ - - - +--------+--------+--------+--------+
+//  |d3[0]|d3[1]|       |q12[0,1]|q12[0,1]|q12[0,1]|q12[0,1]|
+//  |d3[2]|d3[3]|       |q13[2,3]|q13[2,3]|q13[2,3]|q13[2,3]|
+//  |d3[4]|d3[5]|       |q14[4,5]|q14[4,5]|q14[4,5]|q14[4,5]|
+//  |d3[6]|d3[7]|       |q15[6,7]|q15[6,7]|q15[6,7]|q15[6,7]|
+//  +-----+-----+ - - - +--------+--------+--------+--------+
+//
+//                            Local 16-bit accumulators
+//                         Note: 2 scalars per matrix entry
 
 #define GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH \
-        /* Load 3 Lhs cells of size 4x2 */ \
-        "vld1.8 {d1,d2,d3}, [%[lhs_ptr]:64]!\n" \
-        \
-        /* Load 1 Rhs cell of size 2x4 */ \
-        "vld1.8 {d0}, [%[rhs_ptr]:64]!\n" \
-        \
-        /* Multiply-accumulate */ \
-        "vmlal.u8 q4, d1, d0\n" \
-        "vmlal.u8 q8, d2, d0\n" \
-        "vmlal.u8 q12, d3, d0\n" \
-        "vext.8 d0, d0, d0, #2\n" \
-        "vmlal.u8 q5, d1, d0\n" \
-        "vmlal.u8 q9, d2, d0\n" \
-        "vmlal.u8 q13, d3, d0\n" \
-        "vext.8 d0, d0, d0, #2\n" \
-        "vmlal.u8 q6, d1, d0\n" \
-        "vmlal.u8 q10, d2, d0\n" \
-        "vmlal.u8 q14, d3, d0\n" \
-        "vext.8 d0, d0, d0, #2\n" \
-        "vmlal.u8 q7, d1, d0\n" \
-        "vmlal.u8 q11, d2, d0\n" \
-        "vmlal.u8 q15, d3, d0\n" \
-        \
-        "sub %[run_depth], #2\n"
+  /* Load 3 Lhs cells of size 4x2 */          \
+  "vld1.8 {d1,d2,d3}, [%[lhs_ptr]:64]!\n"     \
+                                              \
+  /* Load 1 Rhs cell of size 2x4 */           \
+  "vld1.8 {d0}, [%[rhs_ptr]:64]!\n"           \
+                                              \
+  /* Multiply-accumulate */                   \
+  "vmlal.u8 q4, d1, d0\n"                     \
+  "vmlal.u8 q8, d2, d0\n"                     \
+  "vmlal.u8 q12, d3, d0\n"                    \
+  "vext.8 d0, d0, d0, #2\n"                   \
+  "vmlal.u8 q5, d1, d0\n"                     \
+  "vmlal.u8 q9, d2, d0\n"                     \
+  "vmlal.u8 q13, d3, d0\n"                    \
+  "vext.8 d0, d0, d0, #2\n"                   \
+  "vmlal.u8 q6, d1, d0\n"                     \
+  "vmlal.u8 q10, d2, d0\n"                    \
+  "vmlal.u8 q14, d3, d0\n"                    \
+  "vext.8 d0, d0, d0, #2\n"                   \
+  "vmlal.u8 q7, d1, d0\n"                     \
+  "vmlal.u8 q11, d2, d0\n"                    \
+  "vmlal.u8 q15, d3, d0\n"                    \
+                                              \
+  "sub %[run_depth], #2\n"
 
 #define GEMMLOWP_ACCUMULATE_8_LEVELS_OF_DEPTH \
-        GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH \
-        GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH \
-        GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH \
-        GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH
+  GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH       \
+  GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH       \
+  GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH       \
+  GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH
 
         // Clear local 16-bit accumulators
         "vmov.s32 q4, #0\n"
@@ -468,18 +475,13 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "bge label_8\n"
         "b label_2\n"
 
-        "label_32:\n"
-        GEMMLOWP_ACCUMULATE_8_LEVELS_OF_DEPTH
-        "label_24:\n"
-        GEMMLOWP_ACCUMULATE_8_LEVELS_OF_DEPTH
-        "label_16:\n"
-        GEMMLOWP_ACCUMULATE_8_LEVELS_OF_DEPTH
-        "label_8:\n"
-        GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH
-        GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH
-        GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH
-        "label_2:\n"
-        GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH
+        "label_32:\n" GEMMLOWP_ACCUMULATE_8_LEVELS_OF_DEPTH
+        "label_24:\n" GEMMLOWP_ACCUMULATE_8_LEVELS_OF_DEPTH
+        "label_16:\n" GEMMLOWP_ACCUMULATE_8_LEVELS_OF_DEPTH
+        "label_8:\n" GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH
+            GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH
+                GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH
+        "label_2:\n" GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH
 
         // Accumulate the local accumulators into the global accumulators.
         // This is about summing adjacent pairs of 16-bit scalars into
@@ -523,7 +525,8 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
 
         /* end of main loop */
 
-        // Store the global accumulators to the destination matrix (column-major)
+        // Store the global accumulators to the destination matrix
+        // (column-major)
         // This is the reverse of the steps that we followed at the beginning
         // when we load the global accumulators from the destination matrix.
         // The problem is the same: how to convert 4x4 blocks
@@ -584,8 +587,7 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         [dst_ptr] "+r"(dst_ptr),
         [run_depth] "+r"(run_depth)
         :  // inputs
-        [start_depth] "r"(start_depth),
-        [dst_col_stride] "r"(dst_col_stride),
+        [start_depth] "r"(start_depth), [dst_col_stride] "r"(dst_col_stride),
         [global_accumulators] "r"(&global_accumulators[0])
         :  // clobbers
         "cc", "memory", "r0", "r1",
@@ -918,11 +920,10 @@ struct NEON64Kernel12x8Depth2 : KernelBase {
         [start_depth] "r"(start_depth),
         [dst_col_stride] "r"(dst_col_stride)
         :  // clobbers
-        "cc", "memory", "x0", "x1",
-        "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10",
-        "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20",
-        "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30",
-        "v31");
+        "cc", "memory", "x0", "x1", "v0", "v1", "v2", "v3", "v4", "v5", "v6",
+        "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16",
+        "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26",
+        "v27", "v28", "v29", "v30", "v31");
   }
 };
 
@@ -942,9 +943,7 @@ struct NEONKernel4Nx1Depth2 : KernelBase {
   typedef KernelFormat<KernelSideFormat<CellFormat<4, 2>, Cells>,
                        KernelSideFormat<CellFormat<1, 2>, 1> > Format;
 
-  const char* Name() const override {
-    return "NEON intrinsics, 4Nx1, depth 2";
-  }
+  const char* Name() const override { return "NEON intrinsics, 4Nx1, depth 2"; }
 
   void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
            const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
@@ -982,7 +981,8 @@ struct NEONKernel4Nx1Depth2 : KernelBase {
     // If start_depth is nonzero, accumulate with the existing accumulator
     if (start_depth) {
       for (int cell = 0; cell < Cells; cell++) {
-        acc[cell] = vaddq_u32(acc[cell], vreinterpretq_u32_s32(vld1q_s32(dst_ptr + 4 * cell)));
+        acc[cell] = vaddq_u32(
+            acc[cell], vreinterpretq_u32_s32(vld1q_s32(dst_ptr + 4 * cell)));
       }
     }
     // Store the accumulators

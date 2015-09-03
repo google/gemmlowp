@@ -156,8 +156,7 @@ class SideMap {
       : data_(data), width_(width), depth_(depth), stride_(stride) {}
 
   SideMap(Scalar* data, int width, int depth)
-      : data_(data), width_(width), depth_(depth)
-  {
+      : data_(data), width_(width), depth_(depth) {
     stride_ = kOrder == SideMapOrder::WidthMajor ? depth_ : width_;
   }
 
@@ -201,13 +200,9 @@ class SideMap {
 
 // A cheap and reasonably good PRNG producing nonzero uint8's.
 // Its period of 255 seems large enough for us.
-class DefaultPseudoRandomNonzeroBytesGenerator
-{
+class DefaultPseudoRandomNonzeroBytesGenerator {
  public:
-  DefaultPseudoRandomNonzeroBytesGenerator()
-  {
-    x_ = 1;
-  }
+  DefaultPseudoRandomNonzeroBytesGenerator() { x_ = 1; }
 
   std::uint8_t get() {
     // Xorshift8(7,5,3)
@@ -227,10 +222,8 @@ class DefaultPseudoRandomNonzeroBytesGenerator
 // Bias must be avoided. Currently this is achieved
 // by probabilistic rounding.
 template <typename BitDepth>
-std::uint8_t Requantize(
-  std::uint8_t raw_src_val,
-  DefaultPseudoRandomNonzeroBytesGenerator* prng)
-{
+std::uint8_t Requantize(std::uint8_t raw_src_val,
+                        DefaultPseudoRandomNonzeroBytesGenerator* prng) {
   static const int kBits = BitDepth::kBits;
   static const std::uint8_t kMaxVal = (1 << kBits) - 1;
 
@@ -238,8 +231,7 @@ std::uint8_t Requantize(
     return raw_src_val;
   }
 
-  std::uint16_t x =
-    static_cast<std::uint16_t>(raw_src_val) * kMaxVal;
+  std::uint16_t x = static_cast<std::uint16_t>(raw_src_val) * kMaxVal;
   std::uint16_t fx = x / 255;
   std::uint8_t rx = x - 255 * fx;
   std::uint8_t ax = prng->get() <= rx;
@@ -263,8 +255,7 @@ std::uint8_t Requantize(
 //      most critical part, so it's convenient that unaligned boundaries have
 //      already been handled in step 1.
 template <typename SrcMapType, typename PackedSideBlock>
-class PackingRegisterBlockBase
-{
+class PackingRegisterBlockBase {
  public:
   typedef typename PackedSideBlock::BitDepth BitDepth;
   typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
@@ -277,11 +268,10 @@ class PackingRegisterBlockBase
 
   static const SideMapOrder kSrcOrder = SrcMapType::kOrder;
 
-  typedef DefaultPseudoRandomNonzeroBytesGenerator PseudoRandomNonzeroBytesGenerator;
+  typedef DefaultPseudoRandomNonzeroBytesGenerator
+      PseudoRandomNonzeroBytesGenerator;
 
-  PackingRegisterBlockBase()
-    : complete_src_(nullptr, 0, 0, 0)
-  {}
+  PackingRegisterBlockBase() : complete_src_(nullptr, 0, 0, 0) {}
 
  protected:
   // The source data that's ready for packing. May point to
@@ -297,9 +287,7 @@ class PackingRegisterBlockBase
 
  public:
   // Selects a block if in-place source data that's already a complete block
-  void UseCompleteSrcInPlace(const SrcMapType& src) {
-    complete_src_ = src;
-  }
+  void UseCompleteSrcInPlace(const SrcMapType& src) { complete_src_ = src; }
   // Copies an incomplete block of source data into a local temporary
   // complete block by zero-extending it.
   void MakeCompleteSrc(const SrcMapType& src) {
@@ -322,23 +310,26 @@ class PackingRegisterBlockBase
   void Pack(PackedSideBlock* dst, int start_width,
             PseudoRandomNonzeroBytesGenerator* prng) {
     std::uint8_t* dst_ptr = dst->current_data();
-    for (int cell_start_depth = 0; cell_start_depth < kRegisterSize; cell_start_depth += kCellDepth) {
-      for (int cell_start_width = 0; cell_start_width < kKernelWidth; cell_start_width += kCellWidth) {
+    for (int cell_start_depth = 0; cell_start_depth < kRegisterSize;
+         cell_start_depth += kCellDepth) {
+      for (int cell_start_width = 0; cell_start_width < kKernelWidth;
+           cell_start_width += kCellWidth) {
         std::int32_t* cell_rank_one_update_ptr =
-          dst->rank_one_update() + start_width + cell_start_width;
+            dst->rank_one_update() + start_width + cell_start_width;
         const SideMap<const std::uint8_t, kSrcOrder> src_cell_map(
-          complete_src_.block(cell_start_width, cell_start_depth, kCellWidth, kCellDepth));
+            complete_src_.block(cell_start_width, cell_start_depth, kCellWidth,
+                                kCellDepth));
         for (int w = 0; w < kCellWidth; w++) {
           std::int32_t sum = 0;
           for (int d = 0; d < kCellDepth; d++) {
             const std::uint8_t raw_src_val = src_cell_map(w, d);
             const std::uint8_t requantized =
-              Requantize<BitDepth>(raw_src_val, prng);
+                Requantize<BitDepth>(raw_src_val, prng);
             dst_ptr[OffsetIntoCell<CellFormat>(w, d)] = requantized;
             sum += requantized;
           }
-          cell_rank_one_update_ptr[w]
-            += sum * dst->rank_one_update_multiplier();
+          cell_rank_one_update_ptr[w] +=
+              sum * dst->rank_one_update_multiplier();
         }
         dst_ptr += kCellSize;
       }
@@ -349,8 +340,7 @@ class PackingRegisterBlockBase
 
 template <typename SrcMapType, typename PackedSideBlock>
 class PackingRegisterBlock
-  : public PackingRegisterBlockBase<SrcMapType, PackedSideBlock>
-{};
+    : public PackingRegisterBlockBase<SrcMapType, PackedSideBlock> {};
 
 // Base/generic implementation of packing
 template <typename SrcMapType, typename PackedSideBlock>
@@ -363,20 +353,14 @@ class PackSideBlockImplBase {
   static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
 
-  typedef
-    typename PackingRegisterBlock<SrcMapType, PackedSideBlock>::PseudoRandomNonzeroBytesGenerator
-    PseudoRandomNonzeroBytesGenerator;
+  typedef typename PackingRegisterBlock<SrcMapType, PackedSideBlock>::
+      PseudoRandomNonzeroBytesGenerator PseudoRandomNonzeroBytesGenerator;
 
   PackSideBlockImplBase(PackedSideBlock* packed_side_block,
                         const SrcMapType& src_map)
-      : packed_side_block_(packed_side_block)
-      , src_map_(src_map)
-  {
-  }
+      : packed_side_block_(packed_side_block), src_map_(src_map) {}
 
-  PackedSideBlock* packed_side_block() const {
-    return packed_side_block_;
-  }
+  PackedSideBlock* packed_side_block() const { return packed_side_block_; }
 
   const SrcMapType& src_map() const { return src_map_; }
 
@@ -434,21 +418,23 @@ class PackSideBlockImplBase {
       const int register_aligned_depth = RoundDown<kRegisterSize>(depth);
       if (register_aligned_depth) {
         for (int d = 0; d < register_aligned_depth; d += kRegisterSize) {
-          b.UseCompleteSrcInPlace(
-            src_map_.block(start_width, start_depth + d, width, kRegisterSize));
+          b.UseCompleteSrcInPlace(src_map_.block(start_width, start_depth + d,
+                                                 width, kRegisterSize));
           b.Pack(packed_side_block_, start_width, &prng_);
         }
       }
       if (register_aligned_depth < depth) {
-        b.MakeCompleteSrc(src_map_.block(start_width, start_depth + register_aligned_depth,
-                                        width, depth - register_aligned_depth));
+        b.MakeCompleteSrc(
+            src_map_.block(start_width, start_depth + register_aligned_depth,
+                           width, depth - register_aligned_depth));
         b.Pack(packed_side_block_, start_width, &prng_);
       }
     } else {
       assert(width < kKernelWidth);
       for (int d = 0; d < depth; d += kRegisterSize) {
         const int ds = std::min(+kRegisterSize, depth - d);
-        b.MakeCompleteSrc(src_map_.block(start_width, start_depth + d, width, ds));
+        b.MakeCompleteSrc(
+            src_map_.block(start_width, start_depth + d, width, ds));
         b.Pack(packed_side_block_, start_width, &prng_);
       }
     }
@@ -468,21 +454,18 @@ class PackSideBlockImplBase {
 
 template <typename SrcMapType, typename PackedSideBlock>
 class PackSideBlockImpl
-  : public PackSideBlockImplBase<SrcMapType, PackedSideBlock>
-{
+    : public PackSideBlockImplBase<SrcMapType, PackedSideBlock> {
  public:
   typedef PackSideBlockImplBase<SrcMapType, PackedSideBlock> Base;
 
   PackSideBlockImpl(PackedSideBlock* packed_side_block,
                     const SrcMapType& src_map)
-    : Base(packed_side_block, src_map) {}
+      : Base(packed_side_block, src_map) {}
 };
 
 // Packs a block of the input LHS matrix, into a PackedSideBlock
 template <typename PackedSideBlock, typename MatrixMapType>
-void PackLhs(PackedSideBlock* dst,
-             const MatrixMapType& src)
-{
+void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
   ScopedProfilingLabel label("pack LHS");
   static const SideMapOrder kSideMapOrder =
       MatrixMapType::kOrder == MapOrder::RowMajor ? SideMapOrder::WidthMajor
@@ -497,9 +480,7 @@ void PackLhs(PackedSideBlock* dst,
 
 // Packs a block of the input RHS matrix, into a PackedSideBlock
 template <typename PackedSideBlock, typename MatrixMapType>
-void PackRhs(PackedSideBlock* dst,
-             const MatrixMapType& src)
-{
+void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
   ScopedProfilingLabel label("pack RHS");
   static const SideMapOrder kSideMapOrder =
       MatrixMapType::kOrder == MapOrder::ColMajor ? SideMapOrder::WidthMajor

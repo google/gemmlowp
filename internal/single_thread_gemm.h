@@ -61,9 +61,9 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
   block_params.Init<KernelFormat>(rows, cols, depth, 1);
 
   PackedSideBlock<typename KernelFormat::Lhs, LhsBitDepth<BitDepth> >
-    packed_lhs(Side::Lhs, allocator, block_params, rhs_offset);
+      packed_lhs(Side::Lhs, allocator, block_params, rhs_offset);
   PackedSideBlock<typename KernelFormat::Rhs, RhsBitDepth<BitDepth> >
-    packed_rhs(Side::Rhs, allocator, block_params, lhs_offset);
+      packed_rhs(Side::Rhs, allocator, block_params, lhs_offset);
 
   PackedResult<BitDepth> packed_result(allocator, block_params);
 
