@@ -33,10 +33,25 @@ Required for some features:
     * sysconf (for multi-threaded operation to detect number of cores;
                may be bypassed).
 
-Optional optimized code paths:
-At the moment, we only have optimized code paths for ARM NEON SIMD.
+Optional:
+  Architecture-specific code paths use intrinsics or inline assembly.
+  See "Architecture-specific optimized code paths" below.
+
+Architecture-specific optimized code paths
+==========================================
+
+We have some optimized code paths for specific instruction sets.
 Some are written in inline assembly, some are written in C++ using
 intrinsics. Both GCC and Clang are supported.
+
+At the moment, we have a full set of optimized code paths (kernels,
+packing and unpacking paths) only for ARM NEON, supporting both
+ARMv7 (32bit) and ARMv8 (64bit).
+
+We also have a partial set of optimized code paths (only kernels
+at the moment) for Intel SSE. It supports both x86 and x86-64 but
+only targets SSE4. The lack of packing/unpacking code paths means
+that performance isn't optimal yet.
 
 Details of what it takes to make an efficient port of gemmlowp, namely
 writing a suitable GEMM kernel and accompanying packing code, are

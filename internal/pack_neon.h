@@ -79,7 +79,7 @@ uint8x16_t Requantize(uint8x16_t raw_src_data,
   // Get some random values in [1..255] range
   uint8x16_t random_nonzero = prng->get();
 
-  // Compute (source + random)/2.
+  // Compute (random - source)/2.
   // Note: the truncation of the lsb compensates for the fact that the
   // random values are in [1..255] instead of [0..254]... this is to be
   // interpreted as a *rounding* mean with random values in [0..254].
