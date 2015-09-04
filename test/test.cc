@@ -231,17 +231,22 @@ const char* OrderName(MapOrder order) {
 
 struct ResultStats {
   ResultStats()
-      : med_val(0),
+      : count(0),
+        med_val(0),
         mean_signed_diff(0),
         med_signed_diff(0),
         med_unsigned_diff(0),
-        max_unsigned_diff(0) {}
+        max_unsigned_diff(0)
+  {}
 
+  int count;
   int med_val;
   float mean_signed_diff;
   int med_signed_diff;
   int med_unsigned_diff;
   int max_unsigned_diff;
+
+  std::vector<int> count_diff_by_pot_slice;
 };
 
 void GetResultStats(const uint8_t* actual, const uint8_t* expected,
@@ -264,11 +269,24 @@ void GetResultStats(const uint8_t* actual, const uint8_t* expected,
 
   const size_t middle = count / 2;
 
+  stats->count = count;
   stats->med_val = results[middle];
   stats->mean_signed_diff = float(signed_diffs_sum) / count;
   stats->med_signed_diff = signed_diffs[middle];
   stats->med_unsigned_diff = unsigned_diffs[middle];
   stats->max_unsigned_diff = unsigned_diffs.back();
+
+  // Size 9 for 9 different POT values: 2^0, ..., 2^8
+  stats->count_diff_by_pot_slice.resize(9);
+  auto cur = unsigned_diffs.begin();
+  int checksum = 0;
+  for (int exponent = 0; exponent < 9; exponent++) {
+    int pot = 1 << exponent;
+    auto next = std::lower_bound(cur, unsigned_diffs.end(), pot);
+    checksum += stats->count_diff_by_pot_slice[exponent] = next - cur;
+    cur = next;
+  }
+  assert(checksum == count);
 }
 
 struct ResultStatsBounds {
@@ -294,6 +312,7 @@ bool CheckResultStatsBounds(const ResultStats& stats,
 
 void ReportResultStats(const ResultStats& stats,
                        const ResultStatsBounds& bounds) {
+  printf("    number of matrix entries: %d\n", stats.count);
   printf("    median value: %d\n", stats.med_val);
   printf("    median unsigned diff: %d (tolerating %d)\n",
          stats.med_unsigned_diff, bounds.med_unsigned_diff);
@@ -303,6 +322,15 @@ void ReportResultStats(const ResultStats& stats,
          bounds.med_signed_diff);
   printf("    mean signed diff: %.3g (tolerating %.3g)\n",
          stats.mean_signed_diff, bounds.mean_signed_diff);
+
+  printf("No error: %.2f %% of entries\n",
+    100.f * stats.count_diff_by_pot_slice[0] / stats.count);
+  for (int exponent = 1; exponent < 9; exponent++) {
+    printf("Error in %d..%d range: %.2f %% of entries\n",
+      1 << (exponent - 1),
+      (1 << exponent) - 1,
+      100.f * stats.count_diff_by_pot_slice[exponent] / stats.count);
+  }
 }
 
 // Our approach to choosing result_shift values for testing, is bisection.
