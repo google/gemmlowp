@@ -232,10 +232,7 @@ std::uint8_t Requantize(std::uint8_t raw_src_val,
   }
 
   std::uint16_t x = static_cast<std::uint16_t>(raw_src_val) * kMaxVal;
-  std::uint16_t fx = x / 255;
-  std::uint8_t rx = x - 255 * fx;
-  std::uint8_t ax = prng->get() <= rx;
-  return fx + ax;
+  return (x + prng->get() - 1) / 255;
 }
 
 // A PackingRegisterBlock is a small fixed-size block of a matrix being
