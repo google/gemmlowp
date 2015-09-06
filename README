@@ -81,15 +81,61 @@ Public interfaces
     eight_bit_int_gemm/eight_bit_int_gemm.cc.
 
 
+Building
+========
+
+Building by manually invoking your compiler
+-------------------------------------------
+
+Because gemmlowp is so simple, working with it involves only
+single-command-line compiler invokations. Therefore we expect that
+most people working with gemmlowp will either manually invoke their
+compiler, or write their own rules for their own preferred build
+system.
+
+Keep in mind (previous section) that gemmlowp itself is a pure-headers-only
+library so there is nothing to build, and the eight_bit_int_gemm library
+consists of a single eight_bit_int_gemm.cc file to build.
+
+For a Android gemmlowp development workflow, the scripts/ directory
+contains a script to build and run a program on an Android device:
+  scripts/test-android.sh
+
+Building using Bazel
+--------------------
+
+That being said, we also maintain a Bazel BUILD system as part of
+gemmlowp. Its usage is not mandatory at all and is only one
+possible way that gemmlowp libraries and tests may be built. If
+you are interested, Bazel's home page is
+  http://bazel.io/
+And you can get started with using Bazel to build gemmlowp targets
+by first creating an empty WORKSPACE file in a parent directory,
+for instance:
+
+$ cd gemmlowp/..  # change to parent directory containing gemmlowp/
+$ touch WORKSPACE # declare that to be our workspace root
+$ bazel build gemmlowp:all
+
+
 Testing
 =======
+
+Testing by manually building and running tests
+----------------------------------------------
 
 The test/ directory contains unit tests. The primary unit test is
   test/test.cc
 Since it covers also the EightBitIntGemm interface, it needs to be
 linked against
   eight_bit_int_gemm/eight_bit_int_gemm.cc
-There's also realistic data captured from a neural network run in
+It also uses realistic data captured from a neural network run in
+  test/test_data.cc
+
+Thus you'll want to pass the following list of source files to your
+compiler/linker:
+  test/test.cc
+  eight_bit_int_gemm/eight_bit_int_gemm.cc
   test/test_data.cc
 
 The scripts/ directory contains a script to build and run a program
@@ -109,6 +155,16 @@ $ ./scripts/test-android.sh \
 test/test.cc \
 eight_bit_int_gemm/eight_bit_int_gemm.cc \
 test/test_data.cc
+
+
+Testing using Bazel
+-------------------
+
+Alternatively, you can use Bazel to build and run tests. See the Bazel
+instruction in the above section on building. Once your Bazel workspace
+is set up, you can for instance do:
+
+$ bazel test gemmlowp:all
 
 
 Troubleshooting Compilation
@@ -136,12 +192,18 @@ arm-linux-androideabi-g++ that does include NEON.
 Benchmarking
 ============
 
-To see what the performance is like on some typical operations, run
-$ ../scripts/test-android.sh benchmark.cc
+The main benchmark is
+  benchmark.cc
+It doesn't need to be linked to any
+other source file. We recommend building with assertions disabled (-DNDEBUG).
 
-This will compile and run a small benchmark binary, which runs through GEMMs
-with varying input matrix sizes and outputs the performance. The final test
-simulates the sort of GEMM sizes you'd expect for a GoogLeNet-style CNN.
+For example, the benchmark can be built and run on an Android device by doing:
+
+$ ./scripts/test-android.sh test/benchmark.cc -DNDEBUG
+
+If GEMMLOWP_TEST_PROFILE is defined then the benchmark will be built with
+profiling instrumentation (which makes it slower) and will dump profiles.
+See next section on profiling.
 
 
 Profiling
