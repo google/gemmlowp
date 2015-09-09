@@ -26,6 +26,20 @@ struct BitDepth {
   static const int kBits = tBits;
 };
 
+enum class RoundingMode {
+  Nearest,
+  Probabilistic
+};
+
+template <typename BitDepth>
+RoundingMode ChooseRoundingMode(int accumulation_depth) {
+  if (BitDepth::kBits == 8 || accumulation_depth < 256) {
+    return RoundingMode::Nearest;
+  } else {
+    return RoundingMode::Probabilistic;
+  }
+}
+
 template <BitDepthSetting tBitDepthSetting>
 struct LhsBitDepth {};
 

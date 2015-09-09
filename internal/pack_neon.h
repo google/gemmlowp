@@ -59,7 +59,7 @@ class NEONPseudoRandomNonzeroBytesGenerator {
 // to the range specified by BitDepth, [0..((2^bits)-1)].
 // Bias must be avoided. Currently this is achieved
 // by probabilistic rounding.
-template <typename BitDepth>
+template <typename BitDepth, RoundingMode Rounding>
 uint8x16_t Requantize(uint8x16_t raw_src_data,
                       NEONPseudoRandomNonzeroBytesGenerator* prng) {
   static const int kBits = BitDepth::kBits;
@@ -72,37 +72,52 @@ uint8x16_t Requantize(uint8x16_t raw_src_data,
   // We will need to temporarily work in 16 bit precision.
   uint16x8_t x[2];
 
-  // Multiply source values by 2^(kBits-1)
-  x[0] = vshll_n_u8(vget_low_u8(raw_src_data), kBits - 1);
-  x[1] = vshll_n_u8(vget_high_u8(raw_src_data), kBits - 1);
+  // Multiply source values by 2^kBits.
+  x[0] = vshll_n_u8(vget_low_u8(raw_src_data), kBits);
+  x[1] = vshll_n_u8(vget_high_u8(raw_src_data), kBits);
 
-  // Get some random values in [1..255] range
-  uint8x16_t random_nonzero = prng->get();
+  // Subtract source values, so we effectively have them
+  // multiplied by (2^kBits) - 1.
+  x[0] = vsubw_u8(x[0], vget_low_u8(raw_src_data));
+  x[1] = vsubw_u8(x[1], vget_high_u8(raw_src_data));
 
-  // Compute (random - source)/2.
-  // Note: the truncation of the lsb compensates for the fact that the
-  // random values are in [1..255] instead of [0..254]... this is to be
-  // interpreted as a *rounding* mean with random values in [0..254].
-  int8x16_t f = vreinterpretq_s8_u8(vhsubq_u8(random_nonzero, raw_src_data));
+  // Compute the rounding offset.
+  uint8x16_t rounding_offset;
+  switch (Rounding) {
+    case RoundingMode::Nearest:
+      // 127 is the midpoint in [0..254].
+      rounding_offset = vdupq_n_u8(127);
+      break;
+    case RoundingMode::Probabilistic:
+      // Take a nonzero byte in [1..255].
+      // In principle we want a value in [0..254], but:
+      //   1) Below we will be multiplying by 257/256 instead of 256/255,
+      //      which is slightly too low, and this helps compensate for that.
+      //      (One checks this on paper and this also gives better results
+      //      on TestWithRealData).
+      //   1 bis) Note also that this 257/256 != 256/255 helps ensure
+      //      that no overflow can happen, even with offset=255.
+      //   2) Our PRNG, xorshift, inherently wants to generate values
+      //      in [1..255] so this saves a couple of instructions.
+      rounding_offset = prng->get();
+      break;
+    default:
+      assert(false);
+      rounding_offset = vdupq_n_u8(0);
+  }
 
-  // Add. Now we have our source values multiplied by 2^((Bits-1) - 1/2,
-  // (thus a half-integer), with random half-integer values in [0..127] added,
-  // finally rounded upward (see previous step).
-  x[0] = vreinterpretq_u16_s16(
-      vaddw_s8(vreinterpretq_s16_u16(x[0]), vget_low_s8(f)));
-  x[1] = vreinterpretq_u16_s16(
-      vaddw_s8(vreinterpretq_s16_u16(x[1]), vget_high_s8(f)));
+  // Add the rounding offset.
+  x[0] = vaddw_u8(x[0], vget_low_u8(rounding_offset));
+  x[1] = vaddw_u8(x[1], vget_high_u8(rounding_offset));
 
   // Multiply by 257/256, which is close enough to 256/255.
   x[0] = vaddq_u16(x[0], vshrq_n_u16(x[0], 8));
   x[1] = vaddq_u16(x[1], vshrq_n_u16(x[1], 8));
 
   uint8x8_t y[2];
-  // Divide by 128. Why not by 256? Because we have computed *half* of what we
-  // were supposed to, see the above 2^((Bits-1) - 1/2 factor instead of
-  // 2^Bits - 1.
-  y[0] = vshrn_n_u16(x[0], 7);
-  y[1] = vshrn_n_u16(x[1], 7);
+  // Divide again by 256.
+  y[0] = vshrn_n_u16(x[0], 8);
+  y[1] = vshrn_n_u16(x[1], 8);
 
   return vcombine_u8(y[0], y[1]);
 }
@@ -132,7 +147,7 @@ class PackingRegisterBlock<
   typedef NEONPseudoRandomNonzeroBytesGenerator
       PseudoRandomNonzeroBytesGenerator;
 
-  template <typename BitDepth>
+  template <typename BitDepth, RoundingMode Rounding>
   void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width,
             PseudoRandomNonzeroBytesGenerator* prng) {
     static const int kBits = BitDepth::kBits;
@@ -143,7 +158,8 @@ class PackingRegisterBlock<
     // Load and requantize source WidthMajor data
     uint8x16_t src_lines[4 * kCells];
     for (int i = 0; i < 4 * kCells; i++) {
-      src_lines[i] = Requantize<BitDepth>(vld1q_u8(src_ptr + i * stride), prng);
+      src_lines[i] = Requantize<BitDepth, Rounding>(
+        vld1q_u8(src_ptr + i * stride), prng);
     }
     // Reorder the data within registers to make DepthMajor 4x2 cells
     uint8x16x2_t src_lines_intertwined_2x[2 * kCells];
@@ -241,7 +257,7 @@ class PackingRegisterBlock<
   typedef NEONPseudoRandomNonzeroBytesGenerator
       PseudoRandomNonzeroBytesGenerator;
 
-  template <typename BitDepth>
+  template <typename BitDepth, RoundingMode Rounding>
   void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width,
             PseudoRandomNonzeroBytesGenerator* prng) {
     static const int kBits = BitDepth::kBits;
@@ -257,9 +273,10 @@ class PackingRegisterBlock<
 // results in substantially faster code (thanks to better
 // register allocation) on Nexus 5.
 
-#define GEMMLOWP_UNROLLED_LOOP_ITER(k)                                     \
-  src_lines[4 * i + k] =                                                   \
-      vreinterpretq_u16_u8(Requantize<BitDepth>(vld1q_u8(src_ptr), prng)); \
+#define GEMMLOWP_UNROLLED_LOOP_ITER(k)                     \
+  src_lines[4 * i + k] =                                   \
+      vreinterpretq_u16_u8(Requantize<BitDepth, Rounding>( \
+        vld1q_u8(src_ptr), prng));                         \
   src_ptr += stride;
 
       GEMMLOWP_UNROLLED_LOOP_ITER(0)

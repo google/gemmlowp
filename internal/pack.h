@@ -220,7 +220,7 @@ class DefaultPseudoRandomNonzeroBytesGenerator {
 // to the range specified by BitDepth, [0..((2^bits)-1)].
 // Bias must be avoided. Currently this is achieved
 // by probabilistic rounding.
-template <typename BitDepth>
+template <typename BitDepth, RoundingMode Rounding>
 std::uint8_t Requantize(std::uint8_t raw_src_val,
                         DefaultPseudoRandomNonzeroBytesGenerator* prng) {
   static const int kBits = BitDepth::kBits;
@@ -230,9 +230,23 @@ std::uint8_t Requantize(std::uint8_t raw_src_val,
     return raw_src_val;
   }
 
-  std::uint16_t x = static_cast<std::uint16_t>(raw_src_val) * kMaxVal;
+  std::uint16_t scaled = static_cast<std::uint16_t>(raw_src_val) * kMaxVal;
 
-  return (x + prng->get() - 1) / 255;
+  std::uint8_t rounding_offset;
+
+  switch (Rounding) {
+    case RoundingMode::Nearest:
+      rounding_offset = 127;
+      break;
+    case RoundingMode::Probabilistic:
+      rounding_offset = prng->get() - 1;
+      break;
+    default:
+      assert(false);
+      rounding_offset = 0;
+  }
+
+  return (scaled + rounding_offset) / 255;
 }
 
 // A PackingRegisterBlock is a small fixed-size block of a matrix being
@@ -303,7 +317,7 @@ class PackingRegisterBlockBase {
   // Packs a complete block into the destination. This is the most
   // critical part and the part that we most typically want to
   // override in architecture-specific optimized specializations.
-  template <typename BitDepth>
+  template <typename BitDepth, RoundingMode Rounding>
   void Pack(PackedSideBlock* dst, int start_width,
             PseudoRandomNonzeroBytesGenerator* prng) {
     std::uint8_t* dst_ptr = dst->current_data();
@@ -321,7 +335,7 @@ class PackingRegisterBlockBase {
           for (int d = 0; d < kCellDepth; d++) {
             const std::uint8_t raw_src_val = src_cell_map(w, d);
             const std::uint8_t requantized =
-                Requantize<BitDepth>(raw_src_val, prng);
+                Requantize<BitDepth, Rounding>(raw_src_val, prng);
             dst_ptr[OffsetIntoCell<CellFormat>(w, d)] = requantized;
             sum += requantized;
           }
@@ -340,7 +354,8 @@ class PackingRegisterBlock
     : public PackingRegisterBlockBase<SrcMapType, PackedSideBlock> {};
 
 // Large-scale implementation of packing.
-template <typename BitDepth, typename SrcMapType, typename PackedSideBlock>
+template <typename BitDepth,
+          typename SrcMapType, typename PackedSideBlock>
 class PackSideBlockImpl {
  public:
   typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
@@ -355,7 +370,9 @@ class PackSideBlockImpl {
 
   PackSideBlockImpl(PackedSideBlock* packed_side_block,
                     const SrcMapType& src_map)
-      : packed_side_block_(packed_side_block), src_map_(src_map) {}
+      : packed_side_block_(packed_side_block)
+      , src_map_(src_map)
+      , rounding_mode_(ChooseRoundingMode<BitDepth>(src_map.depth())) {}
 
   PackedSideBlock* packed_side_block() const { return packed_side_block_; }
 
@@ -409,6 +426,7 @@ class PackSideBlockImpl {
   }
 
   // PackRun packs only a run i.e. is the inner loop in the depth dimension.
+  template <RoundingMode Rounding>
   void PackRun(int start_width, int width, int start_depth, int depth) {
     PackingRegisterBlock<SrcMapType, PackedSideBlock> b;
     if (width == kKernelWidth) {
@@ -417,14 +435,16 @@ class PackSideBlockImpl {
         for (int d = 0; d < register_aligned_depth; d += kRegisterSize) {
           b.UseCompleteSrcInPlace(src_map_.block(start_width, start_depth + d,
                                                  width, kRegisterSize));
-          b.template Pack<BitDepth>(packed_side_block_, start_width, &prng_);
+          b.template Pack<BitDepth, Rounding>(
+            packed_side_block_, start_width, &prng_);
         }
       }
       if (register_aligned_depth < depth) {
         b.MakeCompleteSrc(
             src_map_.block(start_width, start_depth + register_aligned_depth,
                            width, depth - register_aligned_depth));
-        b.template Pack<BitDepth>(packed_side_block_, start_width, &prng_);
+        b.template Pack<BitDepth, Rounding>(
+          packed_side_block_, start_width, &prng_);
       }
     } else {
       assert(width < kKernelWidth);
@@ -432,8 +452,24 @@ class PackSideBlockImpl {
         const int ds = std::min(+kRegisterSize, depth - d);
         b.MakeCompleteSrc(
             src_map_.block(start_width, start_depth + d, width, ds));
-        b.template Pack<BitDepth>(packed_side_block_, start_width, &prng_);
+        b.template Pack<BitDepth, Rounding>(
+          packed_side_block_, start_width, &prng_);
       }
+    }
+  }
+
+  // Dispatches the runtime rounding mode parameter to compile-time
+  // template instantiations.
+  void PackRun(int start_width, int width, int start_depth, int depth) {
+    switch (rounding_mode_) {
+      case RoundingMode::Nearest:
+        return this->PackRun<RoundingMode::Nearest>(
+          start_width, width, start_depth, depth);
+      case RoundingMode::Probabilistic:
+        return this->PackRun<RoundingMode::Probabilistic>(
+          start_width, width, start_depth, depth);
+      default:
+        assert(false);
     }
   }
 
@@ -443,6 +479,8 @@ class PackSideBlockImpl {
   // A map on the block of the original matrix block being packed,
   // i.e. the 'source'.
   const SrcMapType& src_map_;
+
+  const RoundingMode rounding_mode_;
 
   // Used for probabilistic requantization in the less-than-8-bit case.
   // Otherwise unused.
