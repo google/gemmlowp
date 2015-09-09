@@ -45,10 +45,9 @@ int32x4_t multiply_by_constant_fraction(int32x4_t x) {
   return vmlaq_n_s32(remaining_product, x, int_quotient);
 }
 
-template <typename PackedResultType>
-struct UnpackResultImpl<MatrixMap<std::uint8_t, MapOrder::ColMajor>,
+template <BitDepthSetting BitDepth, typename PackedResultType>
+struct UnpackResultImpl<BitDepth, MatrixMap<std::uint8_t, MapOrder::ColMajor>,
                         PackedResultType> {
-  static const BitDepthSetting BitDepth = PackedResultType::BitDepth;
   typedef MatrixMap<std::uint8_t, MapOrder::ColMajor> ResultBlockType;
   static void Unpack(ResultBlockType* dst, const PackedResultType& src,
                      int depth, const std::int32_t* lhs_rank_one_update,

@@ -113,13 +113,13 @@ typedef SideMap<const std::uint8_t, SideMapOrder::WidthMajor>
 template <int Cells>
 using DepthMajorSideFormatNCells4x2 = KernelSideFormat<CellFormat<4, 2>, Cells>;
 
-template <int Cells, typename BitDepth>
+template <int Cells>
 class PackingRegisterBlock<
     WidthMajorUint8SideMap,
-    PackedSideBlock<DepthMajorSideFormatNCells4x2<Cells>, BitDepth> >
+    PackedSideBlock<DepthMajorSideFormatNCells4x2<Cells> > >
     : public PackingRegisterBlockBase<
           WidthMajorUint8SideMap,
-          PackedSideBlock<DepthMajorSideFormatNCells4x2<Cells>, BitDepth> > {
+          PackedSideBlock<DepthMajorSideFormatNCells4x2<Cells> > > {
  public:
   typedef DepthMajorSideFormatNCells4x2<Cells> KernelSideFormat;
   typedef typename KernelSideFormat::Cell CellFormat;
@@ -128,14 +128,15 @@ class PackingRegisterBlock<
   static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
-  static const int kBits = BitDepth::kBits;
-  static const std::uint16_t kMaxVal = (1 << kBits) - 1;
 
   typedef NEONPseudoRandomNonzeroBytesGenerator
       PseudoRandomNonzeroBytesGenerator;
 
-  void Pack(PackedSideBlock<KernelSideFormat, BitDepth>* dst, int start_width,
+  template <typename BitDepth>
+  void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width,
             PseudoRandomNonzeroBytesGenerator* prng) {
+    static const int kBits = BitDepth::kBits;
+    static const std::uint16_t kMaxVal = (1 << kBits) - 1;
     std::uint8_t* dst_ptr = dst->current_data();
     const std::uint8_t* const src_ptr = this->complete_src_.data();
     const int stride = this->complete_src_.stride();
@@ -221,13 +222,13 @@ template <int Cells>
 using WidthMajorSideFormatNCells4x2 =
     KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, Cells>;
 
-template <int Cells, typename BitDepth>
+template <int Cells>
 class PackingRegisterBlock<
     WidthMajorUint8SideMap,
-    PackedSideBlock<WidthMajorSideFormatNCells4x2<Cells>, BitDepth> >
+    PackedSideBlock<WidthMajorSideFormatNCells4x2<Cells> > >
     : public PackingRegisterBlockBase<
           WidthMajorUint8SideMap,
-          PackedSideBlock<WidthMajorSideFormatNCells4x2<Cells>, BitDepth> > {
+          PackedSideBlock<WidthMajorSideFormatNCells4x2<Cells> > > {
  public:
   typedef WidthMajorSideFormatNCells4x2<Cells> KernelSideFormat;
   typedef typename KernelSideFormat::Cell CellFormat;
@@ -236,14 +237,15 @@ class PackingRegisterBlock<
   static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
-  static const int kBits = BitDepth::kBits;
-  static const std::uint16_t kMaxVal = (1 << kBits) - 1;
 
   typedef NEONPseudoRandomNonzeroBytesGenerator
       PseudoRandomNonzeroBytesGenerator;
 
-  void Pack(PackedSideBlock<KernelSideFormat, BitDepth>* dst, int start_width,
+  template <typename BitDepth>
+  void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width,
             PseudoRandomNonzeroBytesGenerator* prng) {
+    static const int kBits = BitDepth::kBits;
+    static const std::uint16_t kMaxVal = (1 << kBits) - 1;
     std::uint8_t* dst_ptr = dst->current_data();
     const std::uint8_t* src_ptr = this->complete_src_.data();
     const int stride = this->complete_src_.stride();

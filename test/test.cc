@@ -279,7 +279,7 @@ void GetResultStats(const uint8_t* actual, const uint8_t* expected,
   // Size 9 for 9 different POT values: 2^0, ..., 2^8
   stats->count_diff_by_pot_slice.resize(9);
   auto cur = unsigned_diffs.begin();
-  int checksum = 0;
+  size_t checksum = 0;
   for (int exponent = 0; exponent < 9; exponent++) {
     int pot = 1 << exponent;
     auto next = std::lower_bound(cur, unsigned_diffs.end(), pot);

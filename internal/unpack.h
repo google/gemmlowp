@@ -26,11 +26,8 @@
 
 namespace gemmlowp {
 
-template <BitDepthSetting tBitDepth>
 class PackedResult {
  public:
-  static const BitDepthSetting BitDepth = tBitDepth;
-
   PackedResult(Allocator* _allocator, const BlockParams& _block_params)
       : allocator_(_allocator), block_params_(_block_params) {
     matrix_handle_ = allocator_->Reserve<std::int32_t>(block_params_.l2_rows *
@@ -88,7 +85,8 @@ std::int32_t multiply_by_constant_fraction(std::int32_t x) {
   return x * int_quotient + remaining_product;
 }
 
-template <typename ResultBlockType, typename PackedResultType>
+template <BitDepthSetting BitDepth, 
+  typename ResultBlockType, typename PackedResultType>
 struct UnpackResultImplGeneric {
   static void Unpack(ResultBlockType* dst, const PackedResultType& src,
                      int depth, const std::int32_t* lhs_rank_one_update,
@@ -100,7 +98,6 @@ struct UnpackResultImplGeneric {
     auto src_map = src.Map();
     // No top-level blocking in the depth dimension at the moment.
     // Too much loss of precision.
-    const BitDepthSetting BitDepth = PackedResultType::BitDepth;
     const int kLhsBits = LhsBitDepth<BitDepth>::kBits;
     const int kRhsBits = RhsBitDepth<BitDepth>::kBits;
     const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
@@ -125,11 +122,13 @@ struct UnpackResultImplGeneric {
   }
 };
 
-template <typename ResultBlockType, typename PackedResultType>
+template <BitDepthSetting BitDepth, 
+  typename ResultBlockType, typename PackedResultType>
 struct UnpackResultImpl
-    : UnpackResultImplGeneric<ResultBlockType, PackedResultType> {};
+    : UnpackResultImplGeneric<BitDepth, ResultBlockType, PackedResultType> {};
 
-template <typename ResultBlockType, typename PackedResultType>
+template <BitDepthSetting BitDepth, 
+  typename ResultBlockType, typename PackedResultType>
 void UnpackResult(ResultBlockType* dst, const PackedResultType& src, int depth,
                   const std::int32_t* lhs_rank_one_update,
                   const std::int32_t* rhs_rank_one_update,
@@ -137,7 +136,7 @@ void UnpackResult(ResultBlockType* dst, const PackedResultType& src, int depth,
                   std::int32_t result_offset, std::int32_t result_mult_int,
                   std::int32_t result_shift) {
   ScopedProfilingLabel label("unpack");
-  UnpackResultImpl<ResultBlockType, PackedResultType>::Unpack(
+  UnpackResultImpl<BitDepth, ResultBlockType, PackedResultType>::Unpack(
       dst, src, depth, lhs_rank_one_update, rhs_rank_one_update, lhs_offset,
       rhs_offset, result_offset, result_mult_int, result_shift);
 }

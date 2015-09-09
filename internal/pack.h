@@ -44,11 +44,10 @@ namespace gemmlowp {
 // is expected by the specified kernel format. From a block of the input
 // LHS or RHS matrix, one obtains a PackedSideBlock by calling PackLhs()
 // or PackRhs().
-template <typename tKernelSideFormat, typename tBitDepth>
+template <typename tKernelSideFormat>
 class PackedSideBlock {
  public:
   typedef tKernelSideFormat KernelSideFormat;
-  typedef tBitDepth BitDepth;
 
   PackedSideBlock(Side side, Allocator* allocator,
                   const BlockParams& block_params,
@@ -232,6 +231,7 @@ std::uint8_t Requantize(std::uint8_t raw_src_val,
   }
 
   std::uint16_t x = static_cast<std::uint16_t>(raw_src_val) * kMaxVal;
+
   return (x + prng->get() - 1) / 255;
 }
 
@@ -254,7 +254,6 @@ std::uint8_t Requantize(std::uint8_t raw_src_val,
 template <typename SrcMapType, typename PackedSideBlock>
 class PackingRegisterBlockBase {
  public:
-  typedef typename PackedSideBlock::BitDepth BitDepth;
   typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
   typedef typename KernelSideFormat::Cell CellFormat;
   static const int kCells = KernelSideFormat::kCells;
@@ -304,6 +303,7 @@ class PackingRegisterBlockBase {
   // Packs a complete block into the destination. This is the most
   // critical part and the part that we most typically want to
   // override in architecture-specific optimized specializations.
+  template <typename BitDepth>
   void Pack(PackedSideBlock* dst, int start_width,
             PseudoRandomNonzeroBytesGenerator* prng) {
     std::uint8_t* dst_ptr = dst->current_data();
@@ -339,9 +339,9 @@ template <typename SrcMapType, typename PackedSideBlock>
 class PackingRegisterBlock
     : public PackingRegisterBlockBase<SrcMapType, PackedSideBlock> {};
 
-// Base/generic implementation of packing
-template <typename SrcMapType, typename PackedSideBlock>
-class PackSideBlockImplBase {
+// Large-scale implementation of packing.
+template <typename BitDepth, typename SrcMapType, typename PackedSideBlock>
+class PackSideBlockImpl {
  public:
   typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
   typedef typename KernelSideFormat::Cell CellFormat;
@@ -353,8 +353,8 @@ class PackSideBlockImplBase {
   typedef typename PackingRegisterBlock<SrcMapType, PackedSideBlock>::
       PseudoRandomNonzeroBytesGenerator PseudoRandomNonzeroBytesGenerator;
 
-  PackSideBlockImplBase(PackedSideBlock* packed_side_block,
-                        const SrcMapType& src_map)
+  PackSideBlockImpl(PackedSideBlock* packed_side_block,
+                    const SrcMapType& src_map)
       : packed_side_block_(packed_side_block), src_map_(src_map) {}
 
   PackedSideBlock* packed_side_block() const { return packed_side_block_; }
@@ -417,14 +417,14 @@ class PackSideBlockImplBase {
         for (int d = 0; d < register_aligned_depth; d += kRegisterSize) {
           b.UseCompleteSrcInPlace(src_map_.block(start_width, start_depth + d,
                                                  width, kRegisterSize));
-          b.Pack(packed_side_block_, start_width, &prng_);
+          b.template Pack<BitDepth>(packed_side_block_, start_width, &prng_);
         }
       }
       if (register_aligned_depth < depth) {
         b.MakeCompleteSrc(
             src_map_.block(start_width, start_depth + register_aligned_depth,
                            width, depth - register_aligned_depth));
-        b.Pack(packed_side_block_, start_width, &prng_);
+        b.template Pack<BitDepth>(packed_side_block_, start_width, &prng_);
       }
     } else {
       assert(width < kKernelWidth);
@@ -432,7 +432,7 @@ class PackSideBlockImplBase {
         const int ds = std::min(+kRegisterSize, depth - d);
         b.MakeCompleteSrc(
             src_map_.block(start_width, start_depth + d, width, ds));
-        b.Pack(packed_side_block_, start_width, &prng_);
+        b.template Pack<BitDepth>(packed_side_block_, start_width, &prng_);
       }
     }
   }
@@ -449,19 +449,9 @@ class PackSideBlockImplBase {
   PseudoRandomNonzeroBytesGenerator prng_;
 };
 
-template <typename SrcMapType, typename PackedSideBlock>
-class PackSideBlockImpl
-    : public PackSideBlockImplBase<SrcMapType, PackedSideBlock> {
- public:
-  typedef PackSideBlockImplBase<SrcMapType, PackedSideBlock> Base;
-
-  PackSideBlockImpl(PackedSideBlock* packed_side_block,
-                    const SrcMapType& src_map)
-      : Base(packed_side_block, src_map) {}
-};
-
 // Packs a block of the input LHS matrix, into a PackedSideBlock
-template <typename PackedSideBlock, typename MatrixMapType>
+template <BitDepthSetting BitDepth,
+          typename PackedSideBlock, typename MatrixMapType>
 void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
   ScopedProfilingLabel label("pack LHS");
   static const SideMapOrder kSideMapOrder =
@@ -470,13 +460,15 @@ void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
   typedef typename MatrixMapType::Scalar Scalar;
   typedef SideMap<Scalar, kSideMapOrder> SideMapType;
   SideMapType src_side_map(src.data(), src.rows(), src.cols(), src.stride());
-  typedef PackSideBlockImpl<SideMapType, PackedSideBlock> ImplType;
+  typedef PackSideBlockImpl<
+    LhsBitDepth<BitDepth>, SideMapType, PackedSideBlock> ImplType;
   ImplType impl(dst, src_side_map);
   impl.PackL2();
 }
 
 // Packs a block of the input RHS matrix, into a PackedSideBlock
-template <typename PackedSideBlock, typename MatrixMapType>
+template <BitDepthSetting BitDepth,
+          typename PackedSideBlock, typename MatrixMapType>
 void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
   ScopedProfilingLabel label("pack RHS");
   static const SideMapOrder kSideMapOrder =
@@ -485,7 +477,8 @@ void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
   typedef typename MatrixMapType::Scalar Scalar;
   typedef SideMap<Scalar, kSideMapOrder> SideMapType;
   SideMapType src_side_map(src.data(), src.cols(), src.rows(), src.stride());
-  typedef PackSideBlockImpl<SideMapType, PackedSideBlock> ImplType;
+  typedef PackSideBlockImpl<
+    RhsBitDepth<BitDepth>, SideMapType, PackedSideBlock> ImplType;
   ImplType impl(dst, src_side_map);
   impl.PackL2();
 }

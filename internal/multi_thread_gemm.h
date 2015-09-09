@@ -283,9 +283,9 @@ class WorkersPool {
 template <typename KernelFormat, typename Scalar, BitDepthSetting BitDepth,
           MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
 struct GemmWithPackedRhsTask : Task {
-  typedef PackedSideBlock<typename KernelFormat::Lhs, LhsBitDepth<BitDepth> >
+  typedef PackedSideBlock<typename KernelFormat::Lhs>
       PackedLhs;
-  typedef PackedSideBlock<typename KernelFormat::Rhs, RhsBitDepth<BitDepth> >
+  typedef PackedSideBlock<typename KernelFormat::Rhs>
       PackedRhs;
   GemmWithPackedRhsTask(const KernelBase& _kernel,
                         const MatrixMap<const Scalar, LhsOrder>& _lhs,
@@ -315,7 +315,7 @@ struct GemmWithPackedRhsTask : Task {
 
     PackedLhs packed_lhs(Side::Lhs, local_allocator, block_params, rhs_offset);
 
-    PackedResult<BitDepth> packed_result(local_allocator, block_params);
+    PackedResult packed_result(local_allocator, block_params);
 
     local_allocator->Commit();
 
@@ -325,15 +325,16 @@ struct GemmWithPackedRhsTask : Task {
       for (int r = 0; r < rows; r += block_params.l2_rows) {
         int rs = std::min(block_params.l2_rows, rows - r);
 
-        PackLhs(&packed_lhs, lhs.block(r, 0, rs, depth));
+        PackLhs<BitDepth>(&packed_lhs, lhs.block(r, 0, rs, depth));
 
         Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
 
         auto result_block = result.block(r, c, rs, cs);
-        UnpackResult(&result_block, packed_result, depth,
-                     packed_lhs.rank_one_update(), packed_rhs.rank_one_update(),
-                     lhs_offset, rhs_offset, result_offset, result_mult_int,
-                     result_shift);
+        UnpackResult<BitDepth>(
+          &result_block, packed_result, depth,
+          packed_lhs.rank_one_update(), packed_rhs.rank_one_update(),
+          lhs_offset, rhs_offset, result_offset, result_mult_int,
+          result_shift);
       }
     }
 
@@ -459,7 +460,7 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
   BlockParams block_params;
   block_params.Init<KernelFormat>(rows, cols, depth, workers_count);
 
-  PackedSideBlock<typename KernelFormat::Rhs, RhsBitDepth<BitDepth> >
+  PackedSideBlock<typename KernelFormat::Rhs>
       packed_rhs(Side::Rhs, allocator, block_params, lhs_offset);
   allocator->Commit();
 
@@ -468,7 +469,7 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
     int cs = std::min(block_params.l2_cols, cols - c);
 
     // Pack a large block of the RHS.
-    PackRhs(&packed_rhs, rhs.block(0, c, depth, cs));
+    PackRhs<BitDepth>(&packed_rhs, rhs.block(0, c, depth, cs));
 
     // Give work to each worker.
     int next_start_row = 0;
