@@ -15,6 +15,9 @@ results on more than 8 bits, and at the end we keep only some significant
 parameters, which effectively govern how we extract some significant 8 bit
 from our more-than-8bit temporary accumulators.
 
+Gemmlowp supports further reducing precision below 8 bits. That is not
+the subject of this document; for that, refer to doc/less-than-8-bit.txt.
+
 
 The low-precision paradigm
 ==========================

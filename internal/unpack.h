@@ -55,7 +55,7 @@ class PackedResult {
 };
 
 template <std::uint32_t numerator, std::uint32_t denominator>
-std::int32_t multiply_by_constant_fraction(std::int32_t x) {
+std::int32_t MultiplyByConstantFraction(std::int32_t x) {
   if (numerator == denominator) {
     return x;
   }
@@ -108,11 +108,11 @@ struct UnpackResultImplGeneric {
         std::int32_t raw_x1 = lhs_rank_one_update[r];
         std::int32_t raw_1x = rhs_rank_one_update[c];
         std::int32_t term_xx =
-            multiply_by_constant_fraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
+            MultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
         std::int32_t term_x1 =
-            multiply_by_constant_fraction<255, kLhsMax>(raw_x1);
+            MultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         std::int32_t term_1x =
-            multiply_by_constant_fraction<255, kRhsMax>(raw_1x);
+            MultiplyByConstantFraction<255, kRhsMax>(raw_1x);
         std::int32_t sum = term_xx + term_x1 + term_1x + term_11;
         std::int32_t result =
             (sum * result_mult_int + (1 << (result_shift - 1))) >> result_shift;

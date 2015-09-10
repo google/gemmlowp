@@ -201,7 +201,7 @@ Naive, bad requantization, that's plainly biased
 
 Naive and inaccurate ways to achieve this requantization include:
   1. By shifting bits rights by (8-N) bits;
-  2. By multiplying by ((2^N) - 1) / 255.
+  2. By multiplying by ((2^N) - 1) and dividing by 255.
 
 Both of those are biased in some way: 1. has the wrong "derivative", since it
 approximates (((2^N) - 1) / 255) by ((2^N) / 256) ; 2. has bias since it

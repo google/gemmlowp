@@ -71,8 +71,14 @@ destination matrix at once. In this way, we minimize the amount of memory used t
 store int32 values at a given time.
 
 Because of that, besides the "pack" and "kernel" stages outlined above, a third
-stage is needed in gemmlowp, which we call "unpack". The pseudo-code overview of
-gemmlowp thus looks like:
+stage is needed in gemmlowp, which we call "unpack". Thus we arrive at the
+3-stage computation scheme that gemmlowp uses:
+
+  1. Pack lhs/rhs blocks from the input matrices.
+  2. Compute the product of the packed blocks, using the kernel.
+  3. Unpack the result block into the output matrix.
+
+The pseudo-code overview of gemmlowp now looks like:
 
 allocate(some_lhs_L2_block);
 allocate(some_rhs_L2_block);
