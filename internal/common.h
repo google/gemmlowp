@@ -99,16 +99,32 @@ const float kDefaultL2RhsFactor = 0.75f;
 // are consistent with this value.
 const int kRegisterSize = 16;
 
-// The threshold on the depth dimension, at which we switch to
-// probabilistic rounding, instead of rounding-to-nearest, when
+// The threshold on the depth dimension at which we switch to
+// probabilistic rounding instead of rounding-to-nearest when
 // requantizing input data. Indeed, both statistical theory and
 // empirical measurements show that for given input data and bit depth,
 // probabilistic rounding gives more accurate results for large enough
 // depth, while rounding-to-nearest does for smaller depth. This threshold
-// is naively determined from some experiments with GoogLeNet at 7bit/5bit.
+// is naively determined from some experiments with Inception at 7bit/5bit
+// on a set of 10,000 images:
+//
+//   7 bit weights, 5 bit activations, switch at 64:   59.82% top-1 accuracy
+//   7 bit weights, 5 bit activations, switch at 128:  59.58% top-1 accuracy
+//   7 bit weights, 5 bit activations, switch at 192:  63.37% top-1 accuracy
+//   7 bit weights, 5 bit activations, switch at 256:  63.47% top-1 accuracy
+//   7 bit weights, 5 bit activations, switch at 320:  63.71% top-1 accuracy
+//   7 bit weights, 5 bit activations, switch at 384:  63.71% top-1 accuracy
+//   7 bit weights, 5 bit activations, switch at 448:  63.58% top-1 accuracy
+//   7 bit weights, 5 bit activations, switch at 512:  64.10% top-1 accuracy
+//   7 bit weights, 5 bit activations, switch at 640:  62.49% top-1 accuracy
+//   7 bit weights, 5 bit activations, switch at 768:  62.49% top-1 accuracy
+//   7 bit weights, 5 bit activations, switch at 1024: 58.96% top-1 accuracy
+//
+// So here, 384 looks comfortably in the middle of a plateau of good values,
+// and it's a roundish number (3/2 * 256) so let's stick with that for now.
 // It would be nice to work out the theory of this, and understand how this
 // should depend on the distribution of inputs and the bit depth.
-const int kProbabilisticRoundingThreshold = 256;
+const int kProbabilisticRoundingThreshold = 384;
 
 // Hints the CPU to prefetch the cache line containing ptr.
 inline void Prefetch(const void* ptr) {
