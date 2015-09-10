@@ -89,11 +89,26 @@ const int kDefaultL2CacheSize = 384 * 1024;
 // those constant parameters here.
 const float kDefaultL2RhsFactor = 0.75f;
 
-// The number of bytes in a SIMD register. In the non-SIMD generic fallback
-// code, this is just a generic array size, so any size would work there.
-// Different platforms may set this to different values but must ensure
-// that their optimized packing paths are consistent with this value.
+// The number of bytes in a SIMD register. This is used to determine
+// the dimensions of PackingRegisterBlock so that such blocks can
+// be efficiently loaded into registers, so that packing code can
+// work within registers as much as possible.
+// In the non-SIMD generic fallback code, this is just a generic array
+// size, so any size would work there. Different platforms may set this
+// to different values but must ensure that their own optimized packing paths
+// are consistent with this value.
 const int kRegisterSize = 16;
+
+// The threshold on the depth dimension, at which we switch to
+// probabilistic rounding, instead of rounding-to-nearest, when
+// requantizing input data. Indeed, both statistical theory and
+// empirical measurements show that for given input data and bit depth,
+// probabilistic rounding gives more accurate results for large enough
+// depth, while rounding-to-nearest does for smaller depth. This threshold
+// is naively determined from some experiments with GoogLeNet at 7bit/5bit.
+// It would be nice to work out the theory of this, and understand how this
+// should depend on the distribution of inputs and the bit depth.
+const int kProbabilisticRoundingThreshold = 256;
 
 // Hints the CPU to prefetch the cache line containing ptr.
 inline void Prefetch(const void* ptr) {

@@ -18,22 +18,39 @@
 #define GEMMLOWP_INTERNAL_BIT_DEPTH_H_
 
 #include "../public/bit_depth.h"
+#include "common.h"
 
 namespace gemmlowp {
 
+// A specific bit depth to requantize an operand (Lhs or Rhs) to.
+// The case tBits==8 means no requantization, since at the moment
+// we only accept 8-bit input data.
 template <int tBits>
 struct BitDepth {
   static const int kBits = tBits;
+  static_assert(kBits >= 1 && kBits <= 8, "bad bit depth");
 };
 
+// A rounding mode to use when requantizing an operand.
+// The requantizing operation is:
+//   dst = (src * maxval + rounding_offset) / 255;
+// Where dst and src are uint8, maxval is 2^(dstbits)-1,
+// and the intermediate values are computed as uint16s
+// so no overflow occurs.
+// The rounding_offset in the above formula is what is
+// determined by the RoundingMode, as follows:
 enum class RoundingMode {
-  Nearest,
-  Probabilistic
+  Nearest,       // rounding_offset = 127
+  Probabilistic  // rounding_offset = random in [0 ... 254].
 };
 
+// Chooses a rounding mode. See the comment on
+// kProbabilisticRoundingThreshold. This heuristic is overly naive
+// and could be improved with better understanding of the stats here.
 template <typename BitDepth>
 RoundingMode ChooseRoundingMode(int accumulation_depth) {
-  if (BitDepth::kBits == 8 || accumulation_depth < 256) {
+  if (BitDepth::kBits == 8 ||
+      accumulation_depth < kProbabilisticRoundingThreshold) {
     return RoundingMode::Nearest;
   } else {
     return RoundingMode::Probabilistic;

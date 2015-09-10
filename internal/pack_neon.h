@@ -85,11 +85,13 @@ uint8x16_t Requantize(uint8x16_t raw_src_data,
   uint8x16_t rounding_offset;
   switch (Rounding) {
     case RoundingMode::Nearest:
-      // 127 is the midpoint in [0..254].
-      rounding_offset = vdupq_n_u8(127);
+      // 128 is the midpoint in [1..255], and [1..255] is the interval
+      // that we use for offsets here, see the comment below on
+      // the Probabilistic case.
+      rounding_offset = vdupq_n_u8(128);
       break;
     case RoundingMode::Probabilistic:
-      // Take a nonzero byte in [1..255].
+      // Take nonzero bytes in [1..255].
       // In principle we want a value in [0..254], but:
       //   1) Below we will be multiplying by 257/256 instead of 256/255,
       //      which is slightly too low, and this helps compensate for that.
