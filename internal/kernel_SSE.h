@@ -22,9 +22,9 @@
 #define GEMMLOWP_INTERNAL_KERNEL_SSE_H_
 
 #include "kernel.h"
+
 #include <cassert>
 #include <string.h>
-#include <iostream>
 
 namespace gemmlowp {
 

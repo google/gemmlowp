@@ -21,8 +21,8 @@
 #include "allocator.h"
 #include "block_params.h"
 #include "pack.h"
+
 #include <cmath>
-#include <iostream>
 
 namespace gemmlowp {
 
