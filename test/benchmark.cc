@@ -106,7 +106,7 @@ double time_for_gemms(GemmContext* context, const std::vector<gemm_t>& gemms) {
   while (true) {
     double starttime = time();
     for (int i = 0; i < iters_at_a_time; i++) {
-      for (int j = 0; j < gemms.size(); j++) {
+      for (size_t j = 0; j < gemms.size(); j++) {
         int k = pool_index * gemms.size() + j;
         Gemm<std::uint8_t, BitDepthSetting::GEMMLOWP_TEST_BIT_DEPTH>(
             context, lhs[k].const_map(), rhs[k].const_map(), &result[k].map(),
