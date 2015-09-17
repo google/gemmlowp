@@ -28,8 +28,8 @@
 
 namespace gemmlowp {
 
-#ifdef GEMMLOWP_SSE32
-struct SSE32Kernel4x4Depth2 : KernelBase {
+#ifdef GEMMLOWP_SSE4_32
+struct SSE4_32_Kernel4x4Depth2 : KernelBase {
   typedef KernelFormat<
       KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1>,
       KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1> > Format;
@@ -134,8 +134,8 @@ struct SSE32Kernel4x4Depth2 : KernelBase {
   }
 };
 #endif
-#ifdef GEMMLOWP_SSE64
-struct SSE64Kernel12x4Depth2 : KernelBase {
+#ifdef GEMMLOWP_SSE4_64
+struct SSE4_64_Kernel12x4Depth2 : KernelBase {
   typedef KernelFormat<
       KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 3>,
       KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1> > Format;

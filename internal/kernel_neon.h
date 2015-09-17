@@ -28,10 +28,10 @@
 namespace gemmlowp {
 
 // The kernels here are specifically arm 32bit assembly, not arm 64bit.
-#ifdef GEMMLOWP_NEON32
+#ifdef GEMMLOWP_NEON_32
 
 // Our main GEMM kernel.
-struct NEON32Kernel12x4Depth2 : KernelBase {
+struct NEON_32_Kernel12x4Depth2 : KernelBase {
   typedef KernelFormat<KernelSideFormat<CellFormat<4, 2>, 3>,
                        KernelSideFormat<CellFormat<4, 2>, 1> > Format;
 
@@ -250,7 +250,7 @@ struct NEON32Kernel12x4Depth2 : KernelBase {
   }
 };
 
-struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
+struct NEON_32_Kernel12x4Depth2Assuming12BitProducts : KernelBase {
   typedef KernelFormat<
       KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 3>,
       KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1> > Format;
@@ -291,7 +291,7 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
 
         "cmp %[start_depth], #0\n"
         "bne "
-        "load_global_accumulators_NEON32Kernel12x4Depth2Assuming12BitProducts_%"
+        "load_global_accumulators_NEON_32_Kernel12x4Depth2Assuming12BitProducts_%"
         "=\n"
 
         // If start_depth==0, we need to clear our global accumulators
@@ -304,10 +304,10 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "vst1.32 {d16,d17,d18,d19}, [r0]!\n"
         "vst1.32 {d16,d17,d18,d19}, [r0]!\n"
         "vst1.32 {d16,d17,d18,d19}, [r0]!\n"
-        "b loop_NEON32Kernel12x4Depth2Assuming12BitProducts_%=\n"
+        "b loop_NEON_32_Kernel12x4Depth2Assuming12BitProducts_%=\n"
 
         // If start_depth!=0, we need to load our existing global accumulators
-        "load_global_accumulators_NEON32Kernel12x4Depth2Assuming12BitProducts_%"
+        "load_global_accumulators_NEON_32_Kernel12x4Depth2Assuming12BitProducts_%"
         "=:\n"
         // Load global accumulators from destination matrix, column-major
         "mov r1, %[dst_ptr]\n"
@@ -367,7 +367,7 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
 
         /* Main loop */
 
-        "loop_NEON32Kernel12x4Depth2Assuming12BitProducts_%=:\n"
+        "loop_NEON_32_Kernel12x4Depth2Assuming12BitProducts_%=:\n"
 
 // Overview of register layout:
 //
@@ -516,7 +516,7 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         // Loop. Decrement loop index (depth) by 16, since we just handled 16
         // levels of depth (Kernel::kDepth=16).
         "cmp %[run_depth], #0\n"
-        "bne loop_NEON32Kernel12x4Depth2Assuming12BitProducts_%=\n"
+        "bne loop_NEON_32_Kernel12x4Depth2Assuming12BitProducts_%=\n"
 
 #undef GEMMLOWP_CLEAR_LOCAL_ACCUMULATORS
 #undef GEMMLOWP_ACCUMULATE_8_LEVELS_OF_DEPTH
@@ -600,13 +600,13 @@ struct NEON32Kernel12x4Depth2Assuming12BitProducts : KernelBase {
   }
 };
 
-#endif  // GEMMLOWP_NEON32
+#endif  // GEMMLOWP_NEON_32
 
 // The kernels here are specifically arm 64bit assembly, not arm 32bit.
-#ifdef GEMMLOWP_NEON64
+#ifdef GEMMLOWP_NEON_64
 
 // Our main GEMM kernel.
-struct NEON64Kernel12x8Depth2 : KernelBase {
+struct NEON_64_Kernel12x8Depth2 : KernelBase {
   typedef KernelFormat<KernelSideFormat<CellFormat<4, 2>, 3>,
                        KernelSideFormat<CellFormat<4, 2>, 2> > Format;
 
@@ -649,7 +649,7 @@ struct NEON64Kernel12x8Depth2 : KernelBase {
 
         /* Main loop */
 
-        "loop_NEON64Kernel12x8Depth2_%=:\n"
+        "loop_NEON_64_Kernel12x8Depth2_%=:\n"
 
         // Overview of register layout:
         //
@@ -757,7 +757,7 @@ struct NEON64Kernel12x8Depth2 : KernelBase {
         // Loop. Decrement loop index (depth) by 2, since we just handled 2
         // levels of depth (Kernel::kDepth=2).
         "subs %[run_depth], %[run_depth], #2\n"
-        "bne loop_NEON64Kernel12x8Depth2_%=\n"
+        "bne loop_NEON_64_Kernel12x8Depth2_%=\n"
 
         /* end of main loop */
 
@@ -771,7 +771,7 @@ struct NEON64Kernel12x8Depth2 : KernelBase {
         // If start_depth == 0, then there is no preexisting accumulator
         // to accumulate, so we can simply store our result.
         "cmp %[start_depth], #0\n"
-        "beq store_result_NEON64Kernel12x8Depth2_%=\n"
+        "beq store_result_NEON_64_Kernel12x8Depth2_%=\n"
 
         "mov x0, %[dst_ptr]\n"
 
@@ -862,7 +862,7 @@ struct NEON64Kernel12x8Depth2 : KernelBase {
         "add v23.4s, v23.4s, v1.4s\n"
         "add v31.4s, v31.4s, v2.4s\n"
 
-        "store_result_NEON64Kernel12x8Depth2_%=:\n"
+        "store_result_NEON_64_Kernel12x8Depth2_%=:\n"
 
         "mov x0, %[dst_ptr]\n"
         // Store a column
@@ -927,7 +927,7 @@ struct NEON64Kernel12x8Depth2 : KernelBase {
   }
 };
 
-#endif  // GEMMLOWP_NEON64
+#endif  // GEMMLOWP_NEON_64
 
 // Our main GEMV kernel.
 // Because our GEMV performance is low and not dominated by the kernel

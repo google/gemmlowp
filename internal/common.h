@@ -33,26 +33,66 @@
 #include <cstring>
 #endif
 
+// Detect ARM, 32-bit or 64-bit
+#ifdef __arm__
+#define GEMMLOWP_ARM_32
+#endif
+
+#ifdef __aarch64__
+#define GEMMLOWP_ARM_64
+#endif
+
+#if defined(GEMMLOWP_ARM_32) || defined(GEMMLOWP_ARM_64)
+#define GEMMLOWP_ARM
+#endif
+
 // Detect NEON. It's important to check for both tokens.
 #if (defined __ARM_NEON) || (defined __ARM_NEON__)
 #define GEMMLOWP_NEON
-#ifdef __arm__
-#define GEMMLOWP_NEON32
-#endif
-#ifdef __aarch64__
-#define GEMMLOWP_NEON64
-#endif
 #endif
 
-// Detect SSE.
-#if defined __SSE4_2__  // at the moment, our SSE code assumes SSE 4.something
-#define GEMMLOWP_SSE
+// Convenience NEON tokens for 32-bit or 64-bit
+#if defined(GEMMLOWP_NEON) && defined(GEMMLOWP_ARM_32)
+#define GEMMLOWP_NEON_32
+#endif
+
+#if defined(GEMMLOWP_NEON) && defined(GEMMLOWP_ARM_64)
+#define GEMMLOWP_NEON_64
+#endif
+
+// Detect x86, 32-bit or 64-bit
 #if defined(__i386__) || defined(_M_IX86) || defined(_X86_) || defined(__i386)
-#define GEMMLOWP_SSE32
+#define GEMMLOWP_X86_32
 #endif
+
 #if defined(__x86_64__) || defined(_M_X64) || defined(__amd64)
-#define GEMMLOWP_SSE64
+#define GEMMLOWP_X86_64
 #endif
+
+#if defined(GEMMLOWP_X86_32) || defined(GEMMLOWP_X86_64)
+#define GEMMLOWP_X86
+#endif
+
+// Detect SSE4.
+// TODO(benoitjacob): Which exact SSE4.x revision does our SSE4 code require?
+#if defined __SSE4_2__
+#define GEMMLOWP_SSE4
+#endif
+
+// Convenience SSE4 tokens for 32-bit or 64-bit
+#if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_32)
+#define GEMMLOWP_SSE4_32
+#endif
+
+#if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_64)
+#define GEMMLOWP_SSE4_64
+#endif
+
+// Detect Android. Don't conflate with ARM - we care about tuning
+// for non-ARM Android devices too. This can be used in conjunction
+// with x86 to tune differently for mobile x86 CPUs (Atom) vs. desktop x86 CPUs.
+#if defined(__ANDROID__) || defined(ANDROID)
+#define GEMMLOWP_ANDROID
 #endif
 
 namespace gemmlowp {
@@ -64,7 +104,12 @@ namespace gemmlowp {
 // which should be acceptable.
 const int kDefaultCacheLineSize = 64;
 
-// Default L1 and L2 data cache sizes. On x86, we should ideally query this at
+// Default L1 and L2 data cache sizes.
+// The L1 cache size is assumed to be for each core.
+// The L2 cache size is assumed to be shared among all cores. What
+// we call 'L2' here is effectively top-level cache.
+//
+// On x86, we should ideally query this at
 // runtime. On ARM, the instruction to query this is privileged and
 // Android kernels do not expose it to userspace. Fortunately, the majority
 // of ARM devices have roughly comparable values:
@@ -72,21 +117,37 @@ const int kDefaultCacheLineSize = 64;
 //   Android One: L1 32k, L2 512k
 // The following values are equal to or somewhat lower than that, and were
 // found to perform well on both the Nexus 5 and Android One.
-// Of course, they would be too low for typical x86 CPUs where we would want
-// to set the L2 value to (L3 cache size / number of cores) at least.
+// Of course, these values are in principle too low for typical x86 CPUs
+// where we should set the L2 value to (L3 cache size / number of cores) at
+// least.
+#if defined(GEMMLOWP_ARM) || defined(GEMMLOWP_ANDROID)
+// ARM or ARM-like hardware (Android implies ARM-like) so here it's OK
+// to tune for ARM, although on x86 Atom we might be able to query
+// cache sizes at runtime, which would be better.
 const int kDefaultL1CacheSize = 16 * 1024;
 const int kDefaultL2CacheSize = 384 * 1024;
+#elif defined(GEMMLOWP_X86_64)
+// x86-64 and not Android. Therefore, likely desktop-class x86 hardware.
+// Thus we assume larger cache sizes, though we really should query
+// them at runtime.
+const int kDefaultL1CacheSize = 32 * 1024;
+const int kDefaultL2CacheSize = 4 * 1024 * 1024;
+#elif defined(GEMMLOWP_X86_32)
+// x86-32 and not Android. Same as x86-64 but less bullish.
+const int kDefaultL1CacheSize = 32 * 1024;
+const int kDefaultL2CacheSize = 2 * 1024 * 1024;
+#else
+// Less common hardware. Maybe some unusual or older or embedded thing.
+// Assume smaller caches, but don't depart too far from what we do
+// on ARM/Android to avoid accidentally exposing unexpected behavior.
+const int kDefaultL1CacheSize = 16 * 1024;
+const int kDefaultL2CacheSize = 256 * 1024;
+#endif
 
 // The proportion of the cache that we intend to use for storing
 // RHS blocks. This should be between 0 and 1, and typically closer to 1,
 // as we typically want to use most of the L2 cache for storing a large
 // RHS block.
-// Note: with less-than-8-bit depth, requantization makes packing more
-// expensive. We lowered this value from 0.9 to 0.75 with the introduction
-// of expensive requantization; this results in much higher performance
-// for 1000x1000 matrices; the exact reason for that is not understood.
-// Anyway, clearly we will eventually need better heuristics than just
-// those constant parameters here.
 const float kDefaultL2RhsFactor = 0.75f;
 
 // The number of bytes in a SIMD register. This is used to determine
