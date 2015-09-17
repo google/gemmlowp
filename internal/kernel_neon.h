@@ -291,7 +291,8 @@ struct NEON_32_Kernel12x4Depth2Assuming12BitProducts : KernelBase {
 
         "cmp %[start_depth], #0\n"
         "bne "
-        "load_global_accumulators_NEON_32_Kernel12x4Depth2Assuming12BitProducts_%"
+        "load_global_accumulators_NEON_32_"
+        "Kernel12x4Depth2Assuming12BitProducts_%"
         "=\n"
 
         // If start_depth==0, we need to clear our global accumulators
@@ -307,7 +308,8 @@ struct NEON_32_Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "b loop_NEON_32_Kernel12x4Depth2Assuming12BitProducts_%=\n"
 
         // If start_depth!=0, we need to load our existing global accumulators
-        "load_global_accumulators_NEON_32_Kernel12x4Depth2Assuming12BitProducts_%"
+        "load_global_accumulators_NEON_32_"
+        "Kernel12x4Depth2Assuming12BitProducts_%"
         "=:\n"
         // Load global accumulators from destination matrix, column-major
         "mov r1, %[dst_ptr]\n"

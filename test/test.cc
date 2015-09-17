@@ -236,8 +236,7 @@ struct ResultStats {
         mean_signed_diff(0),
         med_signed_diff(0),
         med_unsigned_diff(0),
-        max_unsigned_diff(0)
-  {}
+        max_unsigned_diff(0) {}
 
   int count;
   int med_val;
@@ -324,12 +323,11 @@ void ReportResultStats(const ResultStats& stats,
          stats.mean_signed_diff, bounds.mean_signed_diff);
 
   printf("No error: %.2f %% of entries\n",
-    100.f * stats.count_diff_by_pot_slice[0] / stats.count);
+         100.f * stats.count_diff_by_pot_slice[0] / stats.count);
   for (int exponent = 1; exponent < 9; exponent++) {
-    printf("Error in %d..%d range: %.2f %% of entries\n",
-      1 << (exponent - 1),
-      (1 << exponent) - 1,
-      100.f * stats.count_diff_by_pot_slice[exponent] / stats.count);
+    printf("Error in %d..%d range: %.2f %% of entries\n", 1 << (exponent - 1),
+           (1 << exponent) - 1,
+           100.f * stats.count_diff_by_pot_slice[exponent] / stats.count);
   }
 }
 

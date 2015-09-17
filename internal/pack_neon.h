@@ -160,8 +160,8 @@ class PackingRegisterBlock<
     // Load and requantize source WidthMajor data
     uint8x16_t src_lines[4 * kCells];
     for (int i = 0; i < 4 * kCells; i++) {
-      src_lines[i] = Requantize<BitDepth, Rounding>(
-        vld1q_u8(src_ptr + i * stride), prng);
+      src_lines[i] =
+          Requantize<BitDepth, Rounding>(vld1q_u8(src_ptr + i * stride), prng);
     }
     // Reorder the data within registers to make DepthMajor 4x2 cells
     uint8x16x2_t src_lines_intertwined_2x[2 * kCells];
@@ -275,10 +275,9 @@ class PackingRegisterBlock<
 // results in substantially faster code (thanks to better
 // register allocation) on Nexus 5.
 
-#define GEMMLOWP_UNROLLED_LOOP_ITER(k)                     \
-  src_lines[4 * i + k] =                                   \
-      vreinterpretq_u16_u8(Requantize<BitDepth, Rounding>( \
-        vld1q_u8(src_ptr), prng));                         \
+#define GEMMLOWP_UNROLLED_LOOP_ITER(k)                          \
+  src_lines[4 * i + k] = vreinterpretq_u16_u8(                  \
+      Requantize<BitDepth, Rounding>(vld1q_u8(src_ptr), prng)); \
   src_ptr += stride;
 
       GEMMLOWP_UNROLLED_LOOP_ITER(0)

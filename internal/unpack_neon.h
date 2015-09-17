@@ -89,9 +89,8 @@ struct UnpackResultImpl<BitDepth, MatrixMap<std::uint8_t, MapOrder::ColMajor>,
         }
         int32x4_t term_xx[4];
         for (int i = 0; i < 4; i++) {
-          term_xx[i] =
-              MultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
-                  raw_xx[i]);
+          term_xx[i] = MultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
+              raw_xx[i]);
         }
         int32x4_t term_x1[4];
         for (int i = 0; i < 4; i++) {
@@ -151,8 +150,7 @@ struct UnpackResultImpl<BitDepth, MatrixMap<std::uint8_t, MapOrder::ColMajor>,
         std::int32_t raw_x1 = lhs_rank_one_update[r];
         std::int32_t term_xx =
             MultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
-        std::int32_t term_x1 =
-            MultiplyByConstantFraction<255, kLhsMax>(raw_x1);
+        std::int32_t term_x1 = MultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         std::int32_t sum = term_xx + term_x1 + term_1x_plus_term_11;
         std::int32_t result =
             (sum * result_mult_int + (1 << (result_shift - 1))) >> result_shift;

@@ -290,17 +290,18 @@ void benchmark_googlenet(GemmContext* context) {
   const double max_latency = gemm_times.back();
   const double mean_latency = sum_gemm_times / gemm_times.size();
   const double trimmed_mean_latency =
-    sum_gemm_times_trimmed / count_gemm_times_trimmed;
+      sum_gemm_times_trimmed / count_gemm_times_trimmed;
   const double best_mean_latency = sum_gemm_times_best / count_gemm_times_best;
 
-  std::cout << "Graph latency (over " << gemm_times.size() << " iterations):" << std::endl;
+  std::cout << "Graph latency (over " << gemm_times.size()
+            << " iterations):" << std::endl;
   std::cout << "  Best:             " << min_latency << "s" << std::endl;
   std::cout << "  Worst:            " << max_latency << "s" << std::endl;
   std::cout << "  Mean:             " << mean_latency << "s" << std::endl;
-  std::cout << "  " << 100 * trim_ratio << "% trimmed mean: "
-            << trimmed_mean_latency << "s" << std::endl;
-  std::cout << "  Mean of " << 100 * best_ratio << "% best: "
-            << best_mean_latency << "s" << std::endl;
+  std::cout << "  " << 100 * trim_ratio
+            << "% trimmed mean: " << trimmed_mean_latency << "s" << std::endl;
+  std::cout << "  Mean of " << 100 * best_ratio
+            << "% best: " << best_mean_latency << "s" << std::endl;
 }
 
 }  // end namespace gemmlowp

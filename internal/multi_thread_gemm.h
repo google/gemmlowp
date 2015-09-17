@@ -67,12 +67,8 @@ inline int Do256NOPs() {
 // so as to avoid permanently spinning.
 //
 template <typename T>
-T WaitForVariableChange(
-  volatile T* var,
-  T initial_value,
-  pthread_cond_t* cond,
-  pthread_mutex_t* mutex)
-{
+T WaitForVariableChange(volatile T* var, T initial_value, pthread_cond_t* cond,
+                        pthread_mutex_t* mutex) {
   const int kMaxBusyWaitNOPs = 32 * 1000 * 1000;
   int nops = 0;
   // First, trivial case where the variable already changed value.
@@ -232,7 +228,7 @@ class Worker {
       // In the 'Ready' state, we have nothing to do but to wait until
       // we switch to another state.
       State state_to_act_upon = WaitForVariableChange(
-        &state_, State::Ready, &state_cond_, &state_mutex_);
+          &state_, State::Ready, &state_cond_, &state_mutex_);
 
       // We now have a state to act on, so act.
       switch (state_to_act_upon) {
@@ -347,10 +343,8 @@ class WorkersPool {
 template <typename KernelFormat, typename Scalar, BitDepthSetting BitDepth,
           MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
 struct GemmWithPackedRhsTask : Task {
-  typedef PackedSideBlock<typename KernelFormat::Lhs>
-      PackedLhs;
-  typedef PackedSideBlock<typename KernelFormat::Rhs>
-      PackedRhs;
+  typedef PackedSideBlock<typename KernelFormat::Lhs> PackedLhs;
+  typedef PackedSideBlock<typename KernelFormat::Rhs> PackedRhs;
   GemmWithPackedRhsTask(const KernelBase& _kernel,
                         const MatrixMap<const Scalar, LhsOrder>& _lhs,
                         const PackedRhs& _packed_rhs,
@@ -395,10 +389,9 @@ struct GemmWithPackedRhsTask : Task {
 
         auto result_block = result.block(r, c, rs, cs);
         UnpackResult<BitDepth>(
-          &result_block, packed_result, depth,
-          packed_lhs.rank_one_update(), packed_rhs.rank_one_update(),
-          lhs_offset, rhs_offset, result_offset, result_mult_int,
-          result_shift);
+            &result_block, packed_result, depth, packed_lhs.rank_one_update(),
+            packed_rhs.rank_one_update(), lhs_offset, rhs_offset, result_offset,
+            result_mult_int, result_shift);
       }
     }
 
@@ -426,7 +419,9 @@ class MultiThreadGemmContext : public SingleThreadGemmContext {
 
   WorkersPool* workers_pool() { return &workers_pool_; }
 
-  Allocator* main_thread_task_allocator() { return &main_thread_task_allocator_; }
+  Allocator* main_thread_task_allocator() {
+    return &main_thread_task_allocator_;
+  }
 
  protected:
   // The workers pool used by MultiThreadGemm. Making
@@ -483,10 +478,10 @@ inline int HowManyThreads(MultiThreadGemmContext* context, int rows, int cols,
 
     // We can only multiply two out of three sizes without risking overflow
     const std::uint64_t cubic_size =
-      std::uint64_t(rows) * std::uint64_t(cols) * std::uint64_t(depth);
+        std::uint64_t(rows) * std::uint64_t(cols) * std::uint64_t(depth);
 
-    thread_count = std::min<int>(
-      thread_count, cubic_size / min_cubic_size_per_thread);
+    thread_count =
+        std::min<int>(thread_count, cubic_size / min_cubic_size_per_thread);
 
     if (thread_count < 1) {
       thread_count = 1;
@@ -545,8 +540,8 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
   BlockParams block_params;
   block_params.Init<KernelFormat>(rows, cols, depth, workers_count);
 
-  PackedSideBlock<typename KernelFormat::Rhs>
-      packed_rhs(Side::Rhs, allocator, block_params, lhs_offset);
+  PackedSideBlock<typename KernelFormat::Rhs> packed_rhs(
+      Side::Rhs, allocator, block_params, lhs_offset);
   allocator->Commit();
 
   // We loop over large blocks of the RHS.
@@ -561,8 +556,8 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
     workers_pool->counter_to_decrement_when_ready().Reset(workers_count);
     for (int thread = 0; thread < thread_count; thread++) {
       int start_row = next_start_row;
-      next_start_row = std::min(
-          rows, RoundUp<KernelFormat::kRows>(rows * (thread + 1) / thread_count));
+      next_start_row = std::min(rows, RoundUp<KernelFormat::kRows>(
+                                          rows * (thread + 1) / thread_count));
 
       int block_rows = next_start_row - start_row;
       auto lhs_block = lhs.block(start_row, 0, block_rows, depth);

@@ -85,8 +85,8 @@ std::int32_t MultiplyByConstantFraction(std::int32_t x) {
   return x * int_quotient + remaining_product;
 }
 
-template <BitDepthSetting BitDepth, 
-  typename ResultBlockType, typename PackedResultType>
+template <BitDepthSetting BitDepth, typename ResultBlockType,
+          typename PackedResultType>
 struct UnpackResultImplGeneric {
   static void Unpack(ResultBlockType* dst, const PackedResultType& src,
                      int depth, const std::int32_t* lhs_rank_one_update,
@@ -109,10 +109,8 @@ struct UnpackResultImplGeneric {
         std::int32_t raw_1x = rhs_rank_one_update[c];
         std::int32_t term_xx =
             MultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
-        std::int32_t term_x1 =
-            MultiplyByConstantFraction<255, kLhsMax>(raw_x1);
-        std::int32_t term_1x =
-            MultiplyByConstantFraction<255, kRhsMax>(raw_1x);
+        std::int32_t term_x1 = MultiplyByConstantFraction<255, kLhsMax>(raw_x1);
+        std::int32_t term_1x = MultiplyByConstantFraction<255, kRhsMax>(raw_1x);
         std::int32_t sum = term_xx + term_x1 + term_1x + term_11;
         std::int32_t result =
             (sum * result_mult_int + (1 << (result_shift - 1))) >> result_shift;
@@ -122,13 +120,13 @@ struct UnpackResultImplGeneric {
   }
 };
 
-template <BitDepthSetting BitDepth, 
-  typename ResultBlockType, typename PackedResultType>
+template <BitDepthSetting BitDepth, typename ResultBlockType,
+          typename PackedResultType>
 struct UnpackResultImpl
     : UnpackResultImplGeneric<BitDepth, ResultBlockType, PackedResultType> {};
 
-template <BitDepthSetting BitDepth, 
-  typename ResultBlockType, typename PackedResultType>
+template <BitDepthSetting BitDepth, typename ResultBlockType,
+          typename PackedResultType>
 void UnpackResult(ResultBlockType* dst, const PackedResultType& src, int depth,
                   const std::int32_t* lhs_rank_one_update,
                   const std::int32_t* rhs_rank_one_update,

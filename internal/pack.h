@@ -354,8 +354,7 @@ class PackingRegisterBlock
     : public PackingRegisterBlockBase<SrcMapType, PackedSideBlock> {};
 
 // Large-scale implementation of packing.
-template <typename BitDepth,
-          typename SrcMapType, typename PackedSideBlock>
+template <typename BitDepth, typename SrcMapType, typename PackedSideBlock>
 class PackSideBlockImpl {
  public:
   typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
@@ -370,9 +369,9 @@ class PackSideBlockImpl {
 
   PackSideBlockImpl(PackedSideBlock* packed_side_block,
                     const SrcMapType& src_map)
-      : packed_side_block_(packed_side_block)
-      , src_map_(src_map)
-      , rounding_mode_(ChooseRoundingMode<BitDepth>(src_map.depth())) {}
+      : packed_side_block_(packed_side_block),
+        src_map_(src_map),
+        rounding_mode_(ChooseRoundingMode<BitDepth>(src_map.depth())) {}
 
   PackedSideBlock* packed_side_block() const { return packed_side_block_; }
 
@@ -435,16 +434,16 @@ class PackSideBlockImpl {
         for (int d = 0; d < register_aligned_depth; d += kRegisterSize) {
           b.UseCompleteSrcInPlace(src_map_.block(start_width, start_depth + d,
                                                  width, kRegisterSize));
-          b.template Pack<BitDepth, Rounding>(
-            packed_side_block_, start_width, &prng_);
+          b.template Pack<BitDepth, Rounding>(packed_side_block_, start_width,
+                                              &prng_);
         }
       }
       if (register_aligned_depth < depth) {
         b.MakeCompleteSrc(
             src_map_.block(start_width, start_depth + register_aligned_depth,
                            width, depth - register_aligned_depth));
-        b.template Pack<BitDepth, Rounding>(
-          packed_side_block_, start_width, &prng_);
+        b.template Pack<BitDepth, Rounding>(packed_side_block_, start_width,
+                                            &prng_);
       }
     } else {
       assert(width < kKernelWidth);
@@ -452,8 +451,8 @@ class PackSideBlockImpl {
         const int ds = std::min(+kRegisterSize, depth - d);
         b.MakeCompleteSrc(
             src_map_.block(start_width, start_depth + d, width, ds));
-        b.template Pack<BitDepth, Rounding>(
-          packed_side_block_, start_width, &prng_);
+        b.template Pack<BitDepth, Rounding>(packed_side_block_, start_width,
+                                            &prng_);
       }
     }
   }
@@ -463,11 +462,11 @@ class PackSideBlockImpl {
   void PackRun(int start_width, int width, int start_depth, int depth) {
     switch (rounding_mode_) {
       case RoundingMode::Nearest:
-        return this->PackRun<RoundingMode::Nearest>(
-          start_width, width, start_depth, depth);
+        return this->PackRun<RoundingMode::Nearest>(start_width, width,
+                                                    start_depth, depth);
       case RoundingMode::Probabilistic:
-        return this->PackRun<RoundingMode::Probabilistic>(
-          start_width, width, start_depth, depth);
+        return this->PackRun<RoundingMode::Probabilistic>(start_width, width,
+                                                          start_depth, depth);
       default:
         assert(false);
     }
@@ -488,8 +487,8 @@ class PackSideBlockImpl {
 };
 
 // Packs a block of the input LHS matrix, into a PackedSideBlock
-template <BitDepthSetting BitDepth,
-          typename PackedSideBlock, typename MatrixMapType>
+template <BitDepthSetting BitDepth, typename PackedSideBlock,
+          typename MatrixMapType>
 void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
   ScopedProfilingLabel label("pack LHS");
   static const SideMapOrder kSideMapOrder =
@@ -498,15 +497,15 @@ void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
   typedef typename MatrixMapType::Scalar Scalar;
   typedef SideMap<Scalar, kSideMapOrder> SideMapType;
   SideMapType src_side_map(src.data(), src.rows(), src.cols(), src.stride());
-  typedef PackSideBlockImpl<
-    LhsBitDepth<BitDepth>, SideMapType, PackedSideBlock> ImplType;
+  typedef PackSideBlockImpl<LhsBitDepth<BitDepth>, SideMapType, PackedSideBlock>
+      ImplType;
   ImplType impl(dst, src_side_map);
   impl.PackL2();
 }
 
 // Packs a block of the input RHS matrix, into a PackedSideBlock
-template <BitDepthSetting BitDepth,
-          typename PackedSideBlock, typename MatrixMapType>
+template <BitDepthSetting BitDepth, typename PackedSideBlock,
+          typename MatrixMapType>
 void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
   ScopedProfilingLabel label("pack RHS");
   static const SideMapOrder kSideMapOrder =
@@ -515,8 +514,8 @@ void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
   typedef typename MatrixMapType::Scalar Scalar;
   typedef SideMap<Scalar, kSideMapOrder> SideMapType;
   SideMapType src_side_map(src.data(), src.cols(), src.rows(), src.stride());
-  typedef PackSideBlockImpl<
-    RhsBitDepth<BitDepth>, SideMapType, PackedSideBlock> ImplType;
+  typedef PackSideBlockImpl<RhsBitDepth<BitDepth>, SideMapType, PackedSideBlock>
+      ImplType;
   ImplType impl(dst, src_side_map);
   impl.PackL2();
 }
