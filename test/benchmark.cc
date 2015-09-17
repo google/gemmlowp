@@ -263,17 +263,44 @@ void benchmark_googlenet(GemmContext* context) {
 #endif
 
   std::sort(gemm_times.begin(), gemm_times.end());
-  const std::size_t omit = gemm_times.size() / 4;
-  float sum = 0;
-  float count = 0;
-  for (std::size_t i = omit; i < gemm_times.size() - omit; i++) {
-    sum += gemm_times[i];
-    count++;
+
+  double sum_gemm_times = 0;
+  double sum_gemm_times_trimmed = 0;
+  int count_gemm_times_trimmed = 0;
+  const float trim_ratio = 0.25;
+  const size_t count_trimmed = gemm_times.size() * trim_ratio;
+  double sum_gemm_times_best = 0;
+  int count_gemm_times_best = 0;
+  const float best_ratio = 0.1;
+  const size_t count_best = gemm_times.size() * best_ratio;
+
+  for (size_t i = 0; i < gemm_times.size(); i++) {
+    sum_gemm_times += gemm_times[i];
+    if (i >= count_trimmed && i < gemm_times.size() - count_trimmed) {
+      sum_gemm_times_trimmed += gemm_times[i];
+      count_gemm_times_trimmed++;
+    }
+    if (i < count_best) {
+      sum_gemm_times_best += gemm_times[i];
+      count_gemm_times_best++;
+    }
   }
-  const float avg = sum / count;
-  const float ms_per_network = avg * 1000.0f;
-  std::cout.precision(4);
-  std::cout << "GoogLeNet GEMMs took " << ms_per_network << "ms" << std::endl;
+
+  const double min_latency = gemm_times.front();
+  const double max_latency = gemm_times.back();
+  const double mean_latency = sum_gemm_times / gemm_times.size();
+  const double trimmed_mean_latency =
+    sum_gemm_times_trimmed / count_gemm_times_trimmed;
+  const double best_mean_latency = sum_gemm_times_best / count_gemm_times_best;
+
+  std::cout << "Graph latency (over " << gemm_times.size() << " iterations):" << std::endl;
+  std::cout << "  Best:             " << min_latency << "s" << std::endl;
+  std::cout << "  Worst:            " << max_latency << "s" << std::endl;
+  std::cout << "  Mean:             " << mean_latency << "s" << std::endl;
+  std::cout << "  " << 100 * trim_ratio << "% trimmed mean: "
+            << trimmed_mean_latency << "s" << std::endl;
+  std::cout << "  Mean of " << 100 * best_ratio << "% best: "
+            << best_mean_latency << "s" << std::endl;
 }
 
 }  // end namespace gemmlowp
