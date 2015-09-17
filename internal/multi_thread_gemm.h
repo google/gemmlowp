@@ -27,6 +27,79 @@
 
 namespace gemmlowp {
 
+#define GEMMLOWP_NOP "nop\n"
+#define GEMMLOWP_STRING_CONCAT_4(X) X X X X
+#define GEMMLOWP_NOP4 GEMMLOWP_STRING_CONCAT_4(GEMMLOWP_NOP)
+#define GEMMLOWP_NOP16 GEMMLOWP_STRING_CONCAT_4(GEMMLOWP_NOP4)
+#define GEMMLOWP_NOP64 GEMMLOWP_STRING_CONCAT_4(GEMMLOWP_NOP16)
+#define GEMMLOWP_NOP256 GEMMLOWP_STRING_CONCAT_4(GEMMLOWP_NOP64)
+
+inline int Do256NOPs() {
+  asm volatile(GEMMLOWP_NOP256);
+  return 256;
+}
+
+#undef GEMMLOWP_NOP64
+#undef GEMMLOWP_NOP16
+#undef GEMMLOWP_NOP4
+#undef GEMMLOWP_NOP
+
+// Waits until *var != initial_value.
+//
+// Returns the new value of *var. The guarantee here is that
+// the return value is different from initial_value, and that that
+// new value has been taken by *var at some point during the
+// execution of this function. There is no guarantee that this is
+// still the value of *var when this function returns, since *var is
+// not assumed to be guarded by any lock.
+//
+// First does some busy-waiting for a fixed number of no-op cycles,
+// then falls back to passive waiting for the given condvar, guarded
+// by the given mutex.
+//
+// The idea of doing some initial busy-waiting is to help get
+// better and more consistent multithreading benefits for small GEMM sizes.
+// Busy-waiting help ensuring that if we need to wake up soon after having
+// started waiting, then we can wake up quickly (as opposed to, say,
+// having to wait to be scheduled again by the OS). On the other hand,
+// we must still eventually revert to passive waiting for longer waits
+// (e.g. worker threads having finished a GEMM and waiting until the next GEMM)
+// so as to avoid permanently spinning.
+//
+template <typename T>
+T WaitForVariableChange(
+  volatile T* var,
+  T initial_value,
+  pthread_cond_t* cond,
+  pthread_mutex_t* mutex)
+{
+  const int kMaxBusyWaitNOPs = 32 * 1000 * 1000;
+  int nops = 0;
+  // First, trivial case where the variable already changed value.
+  T new_value = *var;
+  if (new_value != initial_value) {
+    return new_value;
+  }
+  // Then try busy-waiting.
+  while (nops < kMaxBusyWaitNOPs) {
+    nops += Do256NOPs();
+    new_value = *var;
+    if (new_value != initial_value) {
+      return new_value;
+    }
+  }
+  // Finally, do real passive waiting.
+  pthread_mutex_lock(mutex);
+  new_value = *var;
+  if (new_value == initial_value) {
+    pthread_cond_wait(cond, mutex);
+    new_value = *var;
+    assert(new_value != initial_value);
+  }
+  pthread_mutex_unlock(mutex);
+  return new_value;
+}
+
 // A BlockingCounter lets one thread to wait for N events to occur.
 // This is how the master thread waits for all the worker threads
 // to have finished working.
@@ -35,14 +108,16 @@ class BlockingCounter {
   BlockingCounter()
       : cond_(PTHREAD_COND_INITIALIZER),
         mutex_(PTHREAD_MUTEX_INITIALIZER),
-        count_(0) {}
+        count_(0),
+        initial_count_(0) {}
 
   // Sets/resets the counter; initial_count is the number of
   // decrementing events that the Wait() call will be waiting for.
   void Reset(int initial_count) {
     pthread_mutex_lock(&mutex_);
     assert(count_ == 0);
-    count_ = initial_count;
+    initial_count_ = initial_count;
+    count_ = initial_count_;
     pthread_mutex_unlock(&mutex_);
   }
 
@@ -66,17 +141,20 @@ class BlockingCounter {
   // to hit the BlockingCounter.
   void Wait() {
     ScopedProfilingLabel label("BlockingCounter::Wait");
-    pthread_mutex_lock(&mutex_);
     while (count_) {
-      pthread_cond_wait(&cond_, &mutex_);
+      MemoryBarrier();
+      const int count_value = count_;
+      if (count_value) {
+        WaitForVariableChange(&count_, count_value, &cond_, &mutex_);
+      }
     }
-    pthread_mutex_unlock(&mutex_);
   }
 
  private:
   pthread_cond_t cond_;
   pthread_mutex_t mutex_;
   int count_;
+  int initial_count_;
 };
 
 // A workload for a worker.
@@ -151,24 +229,10 @@ class Worker {
     // Thread main loop
     while (true) {
       // Get a state to act on
-      pthread_mutex_lock(&state_mutex_);
-      switch (state_) {
-        case State::ExitAsSoonAsPossible:
-        case State::HasWork:
-          break;
-        case State::Ready:
-          // In the 'Ready' state, we have nothing to do but to wait until
-          // we switch to another state.
-          while (state_ == State::Ready) {
-            ScopedProfilingLabel label("Worker::ThreadFunc waiting");
-            pthread_cond_wait(&state_cond_, &state_mutex_);
-          }
-          break;
-        default:
-          abort();
-      }
-      State state_to_act_upon = state_;
-      pthread_mutex_unlock(&state_mutex_);
+      // In the 'Ready' state, we have nothing to do but to wait until
+      // we switch to another state.
+      State state_to_act_upon = WaitForVariableChange(
+        &state_, State::Ready, &state_cond_, &state_mutex_);
 
       // We now have a state to act on, so act.
       switch (state_to_act_upon) {
@@ -362,6 +426,8 @@ class MultiThreadGemmContext : public SingleThreadGemmContext {
 
   WorkersPool* workers_pool() { return &workers_pool_; }
 
+  Allocator* main_thread_task_allocator() { return &main_thread_task_allocator_; }
+
  protected:
   // The workers pool used by MultiThreadGemm. Making
   // this part of the context allows it to be persistent,
@@ -374,12 +440,20 @@ class MultiThreadGemmContext : public SingleThreadGemmContext {
   // detecting the number of hardware threads. Nonzero values mean
   // skipping and overriding hardware detection.
   int max_num_threads_;
+
+  // For N-threaded operations, we will use only N-1 worker threads
+  // while the last task will be run directly on the main thread.
+  // It will then use this main_thread_task_allocator_; having a
+  // dedicated allocator for that (separate from the base allocator_)
+  // allows to use the same code for all tasks regardless of which
+  // thread they run on.
+  Allocator main_thread_task_allocator_;
 };
 
-// Determines how many worker threads should be used for a given Gemm
+// Determines how many threads should be used for a given Gemm
 // operation.
 template <int KernelRows>
-inline int HowManyWorkers(MultiThreadGemmContext* context, int rows, int cols,
+inline int HowManyThreads(MultiThreadGemmContext* context, int rows, int cols,
                           int depth) {
   // First check if the user set an explicit maximum number of threads.
   int max_count = context->max_num_threads();
@@ -397,29 +471,30 @@ inline int HowManyWorkers(MultiThreadGemmContext* context, int rows, int cols,
 
   // Basic calculation: take into account max pool size, and
   // how many rows we have to feed our kernel.
-  int workers_count = std::min(max_count, CeilQuotient(rows, KernelRows));
+  int thread_count = std::min(max_count, CeilQuotient(rows, KernelRows));
 
-  // At this point for small products we already have workers_count==1 so
+  // At this point for small products we already have thread_count==1 so
   // we can avoid doing more work; otherwise, we still want to check
   // that the cubic size (rows*cols*depth) is big enough to keep
   // workers_ busy.
-  if (workers_count > 1) {
+  if (thread_count > 1) {
     // Empirically determined value.
-    static const int min_cubic_size_per_thread = 256 * 1024;
+    static const std::uint64_t min_cubic_size_per_thread = 256 * 1024;
 
     // We can only multiply two out of three sizes without risking overflow
-    int cols_times_depth = cols * depth;
+    const std::uint64_t cubic_size =
+      std::uint64_t(rows) * std::uint64_t(cols) * std::uint64_t(depth);
 
-    if (cols_times_depth < min_cubic_size_per_thread) {
-      // in that case, we can multiply by rows without risking overflow
-      int cubic_size = rows * cols_times_depth;
-      workers_count = std::min(
-          workers_count, CeilQuotient(cubic_size, min_cubic_size_per_thread));
+    thread_count = std::min<int>(
+      thread_count, cubic_size / min_cubic_size_per_thread);
+
+    if (thread_count < 1) {
+      thread_count = 1;
     }
   }
 
-  assert(workers_count > 0 && workers_count <= max_count);
-  return workers_count;
+  assert(thread_count > 0 && thread_count <= max_count);
+  return thread_count;
 }
 
 // The main multi-threaded Gemm function.
@@ -443,14 +518,24 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
   int cols = result->cols();
   int depth = lhs.cols();
 
-  const int workers_count =
-      HowManyWorkers<KernelFormat::kRows>(context, rows, cols, depth);
-  if (workers_count == 1) {
+  const int thread_count =
+      HowManyThreads<KernelFormat::kRows>(context, rows, cols, depth);
+  if (thread_count == 1) {
     return SingleThreadGemm<KernelFormat, Scalar, BitDepth>(
         context, kernel, lhs, rhs, result, lhs_offset, rhs_offset,
         result_offset, result_mult_int, result_shift);
   }
-  assert(workers_count > 1);
+  assert(thread_count > 1);
+
+  // We choose to use a worker thread for all but one
+  // of the thread workloads. The remaining thread workload will be
+  // executed immediately on the current thread.
+  // In this way, the total number of threads (1 master, N-1 workers)
+  // equals the value returned by HowManyThread. This simple
+  // 1:1 mapping of threads to physical cores, is very important
+  // to getting good multithreaded performance especially for
+  // not-very-large GEMMs, and especially on Android.
+  const int workers_count = thread_count - 1;
 
   Allocator* allocator = context->allocator();
   WorkersPool* workers_pool = context->workers_pool();
@@ -474,10 +559,10 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
     // Give work to each worker.
     int next_start_row = 0;
     workers_pool->counter_to_decrement_when_ready().Reset(workers_count);
-    for (int w = 0; w < workers_count; w++) {
+    for (int thread = 0; thread < thread_count; thread++) {
       int start_row = next_start_row;
       next_start_row = std::min(
-          rows, RoundUp<KernelFormat::kRows>(rows * (w + 1) / workers_count));
+          rows, RoundUp<KernelFormat::kRows>(rows * (thread + 1) / thread_count));
 
       int block_rows = next_start_row - start_row;
       auto lhs_block = lhs.block(start_row, 0, block_rows, depth);
@@ -487,7 +572,14 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
       auto task = new TaskType(kernel, lhs_block, packed_rhs, &result_block,
                                lhs_offset, rhs_offset, result_offset,
                                result_mult_int, result_shift);
-      workers_pool->StartWorker(w, task);
+      if (thread < workers_count) {
+        workers_pool->StartWorker(thread, task);
+      } else {
+        // Execute the remaining workload immediately on the current thread.
+        task->local_allocator = context->main_thread_task_allocator();
+        task->Run();
+        delete task;
+      }
     }
     // Wait for the workers.
     workers_pool->counter_to_decrement_when_ready().Wait();
