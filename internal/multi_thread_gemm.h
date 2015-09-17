@@ -27,7 +27,7 @@
 
 namespace gemmlowp {
 
-#ifdef GEMMLOWP_ANDROID
+#if defined(GEMMLOWP_ANDROID) && defined(GEMMLOWP_NEON_32)
 // Qualcomm Android devices (such as the Nexus 5) have a
 // userspace daemon, 'mpdecision', that overrides the kernel's
 // decisions in turning CPU cores online.
