@@ -32,40 +32,20 @@ namespace gemmlowp {
 // preferably implemented using NOP instructions.
 const int kMaxBusyWaitNOPs = 32 * 1000 * 1000;
 
-#if defined(GEMMLOWP_ANDROID) && defined(GEMMLOWP_NEON_32)
-// Qualcomm Android devices (such as the Nexus 5) have a
-// userspace daemon, 'mpdecision', that overrides the kernel's
-// decisions in turning CPU cores online.
-// When we busy-wait with NOP instructions, mpdecision sees that
-// and decides that we only need one core. So we fool mpdecision
-// by executing a make-believe arithmetic workload instead of
-// NOPs.
-#define GEMMLOWP_NOP4 \
-  "vadd.u8 d0,d0,d0\n" \
-  "vadd.u8 d1,d1,d1\n" \
-  "vadd.u8 d2,d2,d2\n" \
-  "vadd.u8 d3,d3,d3\n"
-#define GEMMLOWP_NOP4_CLOBBER "d0", "d1", "d2", "d3"
-#else
-#define GEMMLOWP_NOP4 \
-  "nop\n" \
-  "nop\n" \
-  "nop\n" \
-  "nop\n"
-#define GEMMLOWP_NOP4_CLOBBER
-#endif
+#define GEMMLOWP_NOP "nop\n"
+
 #define GEMMLOWP_STRING_CONCAT_4(X) X X X X
+#define GEMMLOWP_NOP4 GEMMLOWP_STRING_CONCAT_4(GEMMLOWP_NOP)
 #define GEMMLOWP_NOP16 GEMMLOWP_STRING_CONCAT_4(GEMMLOWP_NOP4)
 #define GEMMLOWP_NOP64 GEMMLOWP_STRING_CONCAT_4(GEMMLOWP_NOP16)
 #define GEMMLOWP_NOP256 GEMMLOWP_STRING_CONCAT_4(GEMMLOWP_NOP64)
 
 inline int Do256NOPs() {
-  asm volatile(GEMMLOWP_NOP256:::GEMMLOWP_NOP4_CLOBBER);
+  asm volatile(GEMMLOWP_NOP256);
   return 256;
 }
 
 #undef GEMMLOWP_STRING_CONCAT_4
-#undef GEMMLOWP_NOP4_CLOBBER
 #undef GEMMLOWP_NOP256
 #undef GEMMLOWP_NOP64
 #undef GEMMLOWP_NOP16
@@ -77,7 +57,7 @@ inline int Do256NOPs() {
 // It is nontrivial to implement a good busy-waiting without
 // using asm; NOP instructions have the least side effects
 // and the lowest power usage; and since the whole busy-waiting
-// storing is an optimization, it's not very interesting anyway
+// story is an optimization, it's not very interesting anyway
 // in places where we're slow anyway due to not being able to
 // use our inline asm kernels.
 
