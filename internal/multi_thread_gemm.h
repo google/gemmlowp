@@ -496,7 +496,7 @@ inline int HowManyThreads(MultiThreadGemmContext* context, int rows, int cols,
   // workers_ busy.
   if (thread_count > 1) {
     // Empirically determined value.
-    static const std::uint64_t min_cubic_size_per_thread = 256 * 1024;
+    static const std::uint64_t min_cubic_size_per_thread = 64 * 1024;
 
     // We can only multiply two out of three sizes without risking overflow
     const std::uint64_t cubic_size =
