@@ -27,6 +27,11 @@
 
 namespace gemmlowp {
 
+#ifdef GEMMLOWP_ALLOW_INLINE_ASM
+// Where inline asm is allowed, we use some busy-waiting,
+// preferably implemented using NOP instructions.
+const int kMaxBusyWaitNOPs = 32 * 1000 * 1000;
+
 #if defined(GEMMLOWP_ANDROID) && defined(GEMMLOWP_NEON_32)
 // Qualcomm Android devices (such as the Nexus 5) have a
 // userspace daemon, 'mpdecision', that overrides the kernel's
@@ -59,11 +64,28 @@ inline int Do256NOPs() {
   return 256;
 }
 
+#undef GEMMLOWP_STRING_CONCAT_4
+#undef GEMMLOWP_NOP4_CLOBBER
 #undef GEMMLOWP_NOP256
 #undef GEMMLOWP_NOP64
 #undef GEMMLOWP_NOP16
 #undef GEMMLOWP_NOP4
 #undef GEMMLOWP_NOP
+
+#else  // not GEMMLOWP_ALLOW_INLINE_ASM
+
+// It is nontrivial to implement a good busy-waiting without
+// using asm; NOP instructions have the least side effects
+// and the lowest power usage; and since the whole busy-waiting
+// storing is an optimization, it's not very interesting anyway
+// in places where we're slow anyway due to not being able to
+// use our inline asm kernels.
+
+const int kMaxBusyWaitNOPs = 0;
+inline int Do256NOPs() { return 0; }
+
+#endif  // not GEMMLOWP_ALLOW_INLINE_ASM
+
 
 // Waits until *var != initial_value.
 //
@@ -90,7 +112,6 @@ inline int Do256NOPs() {
 template <typename T>
 T WaitForVariableChange(volatile T* var, T initial_value, pthread_cond_t* cond,
                         pthread_mutex_t* mutex) {
-  const int kMaxBusyWaitNOPs = 32 * 1000 * 1000;
   int nops = 0;
   // First, trivial case where the variable already changed value.
   T new_value = *var;

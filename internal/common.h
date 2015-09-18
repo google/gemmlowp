@@ -33,6 +33,12 @@
 #include <cstring>
 #endif
 
+// Our inline assembly path assume GCC/Clang syntax.
+// Native Client doesn't seem to support inline assembly(?).
+#if defined(__GNUC__) && !defined(__native_client__)
+#define GEMMLOWP_ALLOW_INLINE_ASM
+#endif
+
 // Detect ARM, 32-bit or 64-bit
 #ifdef __arm__
 #define GEMMLOWP_ARM_32
@@ -45,6 +51,11 @@
 #if defined(GEMMLOWP_ARM_32) || defined(GEMMLOWP_ARM_64)
 #define GEMMLOWP_ARM
 #endif
+
+// Some of our optimized paths use inline assembly and for
+// now we don't bother enabling some other optimized paths using intrinddics
+// where we can't use inline assembly paths.
+#ifdef GEMMLOWP_ALLOW_INLINE_ASM
 
 // Detect NEON. It's important to check for both tokens.
 #if (defined __ARM_NEON) || (defined __ARM_NEON__)
@@ -87,6 +98,8 @@
 #if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_64)
 #define GEMMLOWP_SSE4_64
 #endif
+
+#endif  // GEMMLOWP_ALLOW_INLINE_ASM
 
 // Detect Android. Don't conflate with ARM - we care about tuning
 // for non-ARM Android devices too. This can be used in conjunction
