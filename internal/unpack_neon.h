@@ -24,7 +24,7 @@
 namespace gemmlowp {
 
 template <std::uint32_t numerator, std::uint32_t denominator>
-int32x4_t MultiplyByConstantFraction(int32x4_t x) {
+int32x4_t RoundingMultiplyByConstantFraction(int32x4_t x) {
   static_assert(numerator > 0 && denominator > 0,
                 "only supporting positive num/denom");
 
@@ -39,6 +39,7 @@ int32x4_t MultiplyByConstantFraction(int32x4_t x) {
   static const std::int32_t scaled_remaining_numerator =
       static_cast<std::int32_t>(
           (static_cast<std::int64_t>(remaining_numerator) << 31) / denominator);
+  // Note: vqrdmulh instruction is rounding doubling multiply high.
   const int32x4_t remaining_product =
       vqrdmulhq_n_s32(x, scaled_remaining_numerator);
 
@@ -72,7 +73,7 @@ struct UnpackResultImpl<BitDepth, MatrixMap<std::uint8_t, MapOrder::ColMajor>,
       const std::int32_t* rank_one_update_ptr = lhs_rank_one_update;
       const std::int32_t raw_1x = rhs_rank_one_update[c];
       const std::int32_t term_1x =
-          MultiplyByConstantFraction<255, kRhsMax>(raw_1x);
+          RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
       const std::int32_t term_1x_plus_term_11 = term_1x + term_11;
 
       int dst_rows_aligned16 = RoundDown<16>(dst->rows());
@@ -89,12 +90,12 @@ struct UnpackResultImpl<BitDepth, MatrixMap<std::uint8_t, MapOrder::ColMajor>,
         }
         int32x4_t term_xx[4];
         for (int i = 0; i < 4; i++) {
-          term_xx[i] = MultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
+          term_xx[i] = RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
               raw_xx[i]);
         }
         int32x4_t term_x1[4];
         for (int i = 0; i < 4; i++) {
-          term_x1[i] = MultiplyByConstantFraction<255, kLhsMax>(raw_x1[i]);
+          term_x1[i] = RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1[i]);
         }
         int32x4_t q[4];
         for (int i = 0; i < 4; i++) {
@@ -127,10 +128,10 @@ struct UnpackResultImpl<BitDepth, MatrixMap<std::uint8_t, MapOrder::ColMajor>,
       for (int r = dst_rows_aligned16; r < dst_rows_aligned4; r += 4) {
         const int32x4_t raw_xx = vld1q_s32(src_ptr);
         const int32x4_t term_xx =
-            MultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
+            RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
         const int32x4_t raw_x1 = vld1q_s32(rank_one_update_ptr);
         const int32x4_t term_x1 =
-            MultiplyByConstantFraction<255, kLhsMax>(raw_x1);
+            RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         int32x4_t q = vaddq_s32(vaddq_s32(term_xx, term_x1),
                                 vdupq_n_s32(term_1x_plus_term_11));
         q = vmulq_n_s32(q, result_mult_int);
@@ -149,8 +150,8 @@ struct UnpackResultImpl<BitDepth, MatrixMap<std::uint8_t, MapOrder::ColMajor>,
         std::int32_t raw_xx = src_map(r, c);
         std::int32_t raw_x1 = lhs_rank_one_update[r];
         std::int32_t term_xx =
-            MultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
-        std::int32_t term_x1 = MultiplyByConstantFraction<255, kLhsMax>(raw_x1);
+            RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
+        std::int32_t term_x1 = RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         std::int32_t sum = term_xx + term_x1 + term_1x_plus_term_11;
         std::int32_t result =
             (sum * result_mult_int + (1 << (result_shift - 1))) >> result_shift;
