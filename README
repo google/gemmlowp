@@ -217,6 +217,14 @@ See profiling/instrumentation.h.
 A full example of using this profiler is given in profiling/profiler.h.
 
 
+Contributing
+============
+
+We try to keep a current list of TODO items in the todo/ directory.
+Prospective contributors are welcome to pick one to work on, and submit
+their work as pull requests. Details of the contributing process, including
+legalese, are in CONTRIBUTING.
+
 Performance goals
 =================
 
