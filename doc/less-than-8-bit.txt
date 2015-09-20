@@ -196,8 +196,8 @@ It depends on the bit depth and on a rounding mode, and requantizes an input
 value in [0 ... 255] to the range [0 ... (2^N)-1] specified by the bit depth N.
 
 
-Naive, bad requantization, that's plainly biased
-------------------------------------------------
+Naive, bad rounding, that's plainly biased
+------------------------------------------
 
 Naive and inaccurate ways to achieve this requantization include:
   1. By shifting bits rights by (8-N) bits;
@@ -210,9 +210,8 @@ effectively implements rounding towards 0.
 In practice, both of the above requantization functions give results that are
 too inaccurate in practice for the neural network that we tried (GoogLeNet).
 
-
-Better requantization that's unbiased in principle but not in practice
-----------------------------------------------------------------------
+Round-to-nearest rounding: unbiased in principle but not in practice
+--------------------------------------------------------------------
 
 The simplest fix is to avoid the bias in 2. by rounding-to-nearest instead
 of rounding towards 0. This can be achieved by doing
@@ -247,8 +246,8 @@ This leads to biasing the matrix product entries, resulting in an error that
 grows linearly with the depth dimension of the GEMM.
 
 
-Requantization that's unbiased even on small finite input distributions
------------------------------------------------------------------------
+Probabilistic rounding: unbiased even on small finite input distributions
+-------------------------------------------------------------------------
 
 To address that, we can instead use probabilistic rounding. The idea is that
 for instance if we have to round the value 3.8 to the nearest integer, we can
@@ -289,3 +288,16 @@ It is based on a constant, kProbabilisticRoundingThreshold, defined
 in internal/common.h and empirically determined. See the comment there.
 It would be nice to better understand the statistics here and come up
 with better heuristics for this switching.
+
+
+Choice of pseudorandom number generator
+---------------------------------------
+
+We use a 8-bit Xorshift. It is fast, naturally produces values ranging
+over an interval of width 255, which is what we need here (as opposed
+to an interval of width 256), and turns out, from empirical tests,
+to produce better results than a linear congruential generator (LCG).
+That's unfortunate, as a 8-bit LCG performs better (we confirmed that
+on various ARM devices) but we need as perfect un-biased-ness as we can
+get. More details and results are given in a comment on the default
+PRNG in internal/pack.h.

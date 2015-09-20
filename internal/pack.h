@@ -198,17 +198,43 @@ class SideMap {
 };
 
 // A cheap and reasonably good PRNG producing nonzero uint8's.
-// Its period of 255 seems large enough for us.
+//
+// This uses a 8-bit Xorshift. This choice is motivated by the following
+// two reasons:
+//
+//   1. We want a value uniformly distributed on 255 different values, since
+//      we will be dividing by 255. Xorshift naturally provies a uniform
+//      distribution on [1..255]. By contrast, a LCG would produce a uniform
+//      distribution on [0..255] from which is wouldn't be obvious how to
+//      get exactly what we need.
+//
+//   2. All our attempts to get an unbiased distribution from a 8-bit LCG
+//      resulted in still higher bias than this 8-bit Xorshift on
+//      TestWithRealData. For example, one can null the lsb from the output
+//      of a 8-bit LCG, to get uniform *even* values in [0..254], which
+//      should be good enough and unbiased as far as we are concerned;
+//      however, that still gives these results in TestWithRealData:
+//        median unsigned diff: 2 (tolerating 2)
+//        max unsigned diff: 15 (tolerating 10)
+//        median signed diff: 0 (tolerating 0)
+//        mean signed diff: 0.474 (tolerating 0.2)
+//      By contrast, this Xorshift8 gives us the much better results:
+//        median unsigned diff: 1 (tolerating 2)
+//        max unsigned diff: 9 (tolerating 10)
+//        median signed diff: 0 (tolerating 0)
+//        mean signed diff: 0.00997 (tolerating 0.2)
+//
 class DefaultPseudoRandomNonzeroBytesGenerator {
  public:
-  DefaultPseudoRandomNonzeroBytesGenerator() { x_ = 1; }
+  DefaultPseudoRandomNonzeroBytesGenerator() { x_ = 128; }
 
   std::uint8_t get() {
+    std::uint8_t result = x_;
     // Xorshift8(7,5,3)
     x_ ^= x_ << 7;
     x_ ^= x_ >> 5;
     x_ ^= x_ << 3;
-    return x_;
+    return result;
   }
 
  private:

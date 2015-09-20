@@ -25,10 +25,14 @@ namespace gemmlowp {
 
 // Variant of PseudoRandomNonzeroBytesGenerator that produces
 // random NEON 128-bit vectors.
+//
+// This uses a 8-bit Xorshift. This choice is motivated by
+// precise reasons explained in pack.h on
+// DefaultPseudoRandomNonzeroBytesGenerator.
 class NEONPseudoRandomNonzeroBytesGenerator {
  public:
   NEONPseudoRandomNonzeroBytesGenerator() {
-    uint8_t s = 1;
+    uint8_t s = 128;
     std::uint8_t a[16];
     for (int i = 0; i < 16; i++) {
       a[i] = s;
@@ -43,11 +47,12 @@ class NEONPseudoRandomNonzeroBytesGenerator {
   }
 
   uint8x16_t get() {
+    uint8x16_t result = x_;
     // Xorshift8(7,5,3)
     x_ = veorq_u8(x_, vshlq_n_u8(x_, 7));
     x_ = veorq_u8(x_, vshrq_n_u8(x_, 5));
     x_ = veorq_u8(x_, vshlq_n_u8(x_, 3));
-    return x_;
+    return result;
   }
 
  private:
@@ -69,59 +74,64 @@ uint8x16_t Requantize(uint8x16_t raw_src_data,
     return raw_src_data;
   }
 
-  // We will need to temporarily work in 16 bit precision.
-  uint16x8_t x[2];
-
-  // Multiply source values by 2^kBits.
-  x[0] = vshll_n_u8(vget_low_u8(raw_src_data), kBits);
-  x[1] = vshll_n_u8(vget_high_u8(raw_src_data), kBits);
-
-  // Subtract source values, so we effectively have them
-  // multiplied by (2^kBits) - 1.
-  x[0] = vsubw_u8(x[0], vget_low_u8(raw_src_data));
-  x[1] = vsubw_u8(x[1], vget_high_u8(raw_src_data));
-
-  // Compute the rounding offset.
-  uint8x16_t rounding_offset;
+  // Compute the rounding offset plus one. This saves
+  // one subtraction, as our PRNG returns nonzero bytes, and
+  // technically our rounding offset is a value in [0..254].
+  uint8x16_t rounding_offset_plus_one;
   switch (Rounding) {
     case RoundingMode::Nearest:
-      // 128 is the midpoint in [1..255], and [1..255] is the interval
-      // that we use for offsets here, see the comment below on
-      // the Probabilistic case.
-      rounding_offset = vdupq_n_u8(128);
+      rounding_offset_plus_one = vdupq_n_u8(128);
       break;
     case RoundingMode::Probabilistic:
-      // Take nonzero bytes in [1..255].
-      // In principle we want a value in [0..254], but:
-      //   1) Below we will be multiplying by 257/256 instead of 256/255,
-      //      which is slightly too low, and this helps compensate for that.
-      //      (One checks this on paper and this also gives better results
-      //      on TestWithRealData).
-      //   1 bis) Note also that this 257/256 != 256/255 helps ensure
-      //      that no overflow can happen, even with offset=255.
-      //   2) Our PRNG, xorshift, inherently wants to generate values
-      //      in [1..255] so this saves a couple of instructions.
-      rounding_offset = prng->get();
+      rounding_offset_plus_one = prng->get();
       break;
     default:
       assert(false);
-      rounding_offset = vdupq_n_u8(0);
+      rounding_offset_plus_one = vdupq_n_u8(1);
   }
 
-  // Add the rounding offset.
-  x[0] = vaddw_u8(x[0], vget_low_u8(rounding_offset));
-  x[1] = vaddw_u8(x[1], vget_high_u8(rounding_offset));
+  // Compute:
+  //   x = maxval * src + rounding_offset_plus_one
+  uint16x8_t x[2];
+  const uint8x8_t maxval_dup = vdup_n_u8(kMaxVal);
+  x[0] = vmlal_u8(
+           vmovl_u8(vget_low_u8(rounding_offset_plus_one)),
+           maxval_dup,
+           vget_low_u8(raw_src_data));
+  x[1] = vmlal_u8(
+           vmovl_u8(vget_high_u8(rounding_offset_plus_one)),
+           maxval_dup,
+           vget_high_u8(raw_src_data));
 
-  // Multiply by 257/256, which is close enough to 256/255.
-  x[0] = vaddq_u16(x[0], vshrq_n_u16(x[0], 8));
-  x[1] = vaddq_u16(x[1], vshrq_n_u16(x[1], 8));
+  // Subtract one and divide by 255 (truncating).
+  // Subtracting one compensates for having added
+  // rounding_offset_plus_one instead of rounding_offset above.
+  // So we'll be computing
+  //   ((maxval * src + rounding_offset_plus_one) - 1) / 255
+  // which is the same as
+  //   (maxval * src + rounding_offset) / 255
+  // which is what we want to compute.
+  //
+  // Here we use the following formula, valid for all integers y in 0..65534
+  // (which is more than we need since we've already early-returned
+  // if kBits==8).
+  //
+  //     y/255 = (y + 1 + (y >> 8)) >> 8.
+  //
+  // Substituting x = y + 1, we see that for nonzero y,
+  //
+  //     (x - 1) / 255 = (x + ((x - 1) >> 8) >> 8.
+  uint8x8_t result[2];
+  for (int i = 0; i < 2; i++) {
+    result[i] =
+      vshrn_n_u16(
+        vaddq_u16(
+          x[i],
+          vshrq_n_u16(vsubq_u16(x[i], vdupq_n_u16(1)), 8)),
+        8);
+  }
 
-  uint8x8_t y[2];
-  // Divide again by 256.
-  y[0] = vshrn_n_u16(x[0], 8);
-  y[1] = vshrn_n_u16(x[1], 8);
-
-  return vcombine_u8(y[0], y[1]);
+  return vcombine_u8(result[0], result[1]);
 }
 
 typedef SideMap<const std::uint8_t, SideMapOrder::WidthMajor>
