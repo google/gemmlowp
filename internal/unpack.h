@@ -108,9 +108,12 @@ struct UnpackResultImplGeneric {
         std::int32_t raw_x1 = lhs_rank_one_update[r];
         std::int32_t raw_1x = rhs_rank_one_update[c];
         std::int32_t term_xx =
-            RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(raw_xx);
-        std::int32_t term_x1 = RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
-        std::int32_t term_1x = RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
+            RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
+                raw_xx);
+        std::int32_t term_x1 =
+            RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
+        std::int32_t term_1x =
+            RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
         std::int32_t sum = term_xx + term_x1 + term_1x + term_11;
         std::int32_t result =
             (sum * result_mult_int + (1 << (result_shift - 1))) >> result_shift;

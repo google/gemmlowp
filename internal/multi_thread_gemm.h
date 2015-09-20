@@ -66,7 +66,6 @@ inline int Do256NOPs() { return 0; }
 
 #endif  // not GEMMLOWP_ALLOW_INLINE_ASM
 
-
 // Waits until *var != initial_value.
 //
 // Returns the new value of *var. The guarantee here is that

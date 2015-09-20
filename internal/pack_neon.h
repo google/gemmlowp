@@ -94,14 +94,10 @@ uint8x16_t Requantize(uint8x16_t raw_src_data,
   //   x = maxval * src + rounding_offset_plus_one
   uint16x8_t x[2];
   const uint8x8_t maxval_dup = vdup_n_u8(kMaxVal);
-  x[0] = vmlal_u8(
-           vmovl_u8(vget_low_u8(rounding_offset_plus_one)),
-           maxval_dup,
-           vget_low_u8(raw_src_data));
-  x[1] = vmlal_u8(
-           vmovl_u8(vget_high_u8(rounding_offset_plus_one)),
-           maxval_dup,
-           vget_high_u8(raw_src_data));
+  x[0] = vmlal_u8(vmovl_u8(vget_low_u8(rounding_offset_plus_one)), maxval_dup,
+                  vget_low_u8(raw_src_data));
+  x[1] = vmlal_u8(vmovl_u8(vget_high_u8(rounding_offset_plus_one)), maxval_dup,
+                  vget_high_u8(raw_src_data));
 
   // Subtract one and divide by 255 (truncating).
   // Subtracting one compensates for having added
@@ -123,12 +119,8 @@ uint8x16_t Requantize(uint8x16_t raw_src_data,
   //     (x - 1) / 255 = (x + ((x - 1) >> 8) >> 8.
   uint8x8_t result[2];
   for (int i = 0; i < 2; i++) {
-    result[i] =
-      vshrn_n_u16(
-        vaddq_u16(
-          x[i],
-          vshrq_n_u16(vsubq_u16(x[i], vdupq_n_u16(1)), 8)),
-        8);
+    result[i] = vshrn_n_u16(
+        vaddq_u16(x[i], vshrq_n_u16(vsubq_u16(x[i], vdupq_n_u16(1)), 8)), 8);
   }
 
   return vcombine_u8(result[0], result[1]);
