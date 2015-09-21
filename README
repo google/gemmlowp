@@ -18,6 +18,15 @@ This is not an official Google product (experimental or otherwise), it is just
 code that happens to be owned by Google.
 
 
+Mailing list
+============
+
+gemmlowp-related discussion, about either development or usage, is welcome
+on this Google Group (mailing list / forum):
+
+  https://groups.google.com/forum/#!forum/gemmlowp
+
+
 Portability, target platforms/architectures
 ===========================================
 
@@ -220,10 +229,14 @@ A full example of using this profiler is given in profiling/profiler.h.
 Contributing
 ============
 
+Contribution-related discussion is always welcome on the gemmlowp
+mailing list (see above).
+
 We try to keep a current list of TODO items in the todo/ directory.
-Prospective contributors are welcome to pick one to work on, and submit
-their work as pull requests. Details of the contributing process, including
-legalese, are in CONTRIBUTING.
+Prospective contributors are welcome to pick one to work on, and
+communicate about it on the gemmlowp mailing list.
+
+Details of the contributing process, including legalese, are in CONTRIBUTING.
 
 Performance goals
 =================

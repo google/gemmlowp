@@ -22,12 +22,19 @@ possibly guide you. Coordinating up front makes it much easier to avoid
 frustration later on.
 
 
+Getting in touch with the gemmlowp community
+============================================
+
+The central point of communication around gemmlowp is the mailing list,
+  https://groups.google.com/forum/#!forum/gemmlowp
+
+
 TODO items and projects
 =======================
 
 We try to keep a current list of TODO items in the todo/ directory.
 Please feel free to pick one to work on, and to ask current maintainers for
-guidance.
+guidance. The gemmlowp mailing list is a good place for that.
 
 
 Code reviews
