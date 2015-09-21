@@ -19,7 +19,7 @@
 
 #if defined ANDROID || defined __ANDROID__
 #include <android/api-level.h>
-#if __ANDROID_API__ < 21
+#if __ANDROID_API__ < 22
 #define GEMMLOWP_USE_OLD_ANDROID_SDK
 #endif
 #endif
