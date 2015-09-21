@@ -17,14 +17,7 @@
 #ifndef GEMMLOWP_EIGHT_BIT_INT_GEMM_EIGHT_BIT_INT_GEMM_H_
 #define GEMMLOWP_EIGHT_BIT_INT_GEMM_EIGHT_BIT_INT_GEMM_H_
 
-#if defined ANDROID || defined __ANDROID__
-#include <android/api-level.h>
-#if __ANDROID_API__ < 21
-#define GEMMLOWP_USE_OLD_ANDROID_SDK
-#endif
-#endif
-
-#ifndef GEMMLOWP_USE_OLD_ANDROID_SDK
+#ifndef GEMMLOWP_USE_STLPORT
 #include <cstdint>
 #else
 #include <stdint.h>
