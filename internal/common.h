@@ -27,12 +27,6 @@
 
 #include "../profiling/instrumentation.h"
 
-#ifdef GEMMLOWP_PROFILING
-#include <set>
-#include <cstdio>
-#include <cstring>
-#endif
-
 // Our inline assembly path assume GCC/Clang syntax.
 // Native Client doesn't seem to support inline assembly(?).
 #if defined(__GNUC__) && !defined(__native_client__)
