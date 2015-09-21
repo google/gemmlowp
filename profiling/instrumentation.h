@@ -27,6 +27,13 @@
 #include <pthread.h>
 #include <cstdio>
 
+#if defined ANDROID || defined __ANDROID__
+#include <android/api-level.h>
+#if __ANDROID_API__ < 21
+#define GEMMLOWP_USE_OLD_ANDROID_SDK
+#endif
+#endif
+
 #ifndef GEMMLOWP_USE_OLD_ANDROID_SDK
 #include <cstdint>
 #else
