@@ -515,8 +515,7 @@ struct NEON_32_Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         "vst1.32 {d0,d1,d2,d3}, [r1]!\n"
         "vst1.32 {d4,d5,d6,d7}, [r1]!\n"
 
-        // Loop. Decrement loop index (depth) by 16, since we just handled 16
-        // levels of depth (Kernel::kDepth=16).
+        // Loop.
         "cmp %[run_depth], #0\n"
         "bne loop_NEON_32_Kernel12x4Depth2Assuming12BitProducts_%=\n"
 
