@@ -716,12 +716,9 @@ void TestWithRealData(eight_bit_int_gemm::BitDepthSetting BitDepth,
   Check(good);
 }
 
-void test() {
-#ifdef GEMMLOWP_TEST_PROFILE
-  RegisterCurrentThreadForProfiling();
-  StartProfiling();
-#endif
-
+#ifndef GEMMLOWP_SKIP_EXHAUSTIVE_TESTS
+void TestExhaustively()
+{
   GemmContext context;
 
   // Test the internal GEMM interfaces
@@ -811,6 +808,18 @@ void test() {
   test_gemm_kernel<ReferenceKernel<KernelFormat<
       KernelSideFormat<CellFormat<1, 4, CellOrder::DepthMajor>, 1>,
       KernelSideFormat<CellFormat<4, 4, CellOrder::Diagonal>, 1>>>>(&context);
+}
+#endif  // not GEMMLOWP_SKIP_EXHAUSTIVE_TESTS
+
+void test() {
+#ifdef GEMMLOWP_TEST_PROFILE
+  RegisterCurrentThreadForProfiling();
+  StartProfiling();
+#endif
+
+#ifndef GEMMLOWP_SKIP_EXHAUSTIVE_TESTS
+  TestExhaustively();
+#endif
 
   // Run against actual data from a network evaluation.
   TestWithRealData(eight_bit_int_gemm::BitDepthSetting::A8B8, 0, 0);
