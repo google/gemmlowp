@@ -1,0 +1,53 @@
+TODO: Implement a full set of packing/unpacking paths for x86
+
+Platforms: x86, different variants: SSE*/AVX* etc.
+
+Coding time: L
+Experimentation time: M
+Skill required: L
+
+Prerequisite reading:
+  doc/kernels.txt
+  doc/packing.txt
+  doc/less-than-8-bit.txt (For the BitDepthSetting::L7R5 part).
+
+Model to follow/adapt:
+  internal/pack_neon.h
+  internal/unpack_neon.h
+
+Once we have x86 kernels, the next step in ensuring optimal performance
+on x86 is going to be implementing packing/unpacking paths.
+
+Contrary to kernels, packing/unpacking paths are generally written in C++
+using intrinsics. This is partly because they are less tight on registers,
+and partly because they are less critical. This means that here, there
+should be no need for separate 32bit vs 64bit paths. On the other hand,
+ideally we should still have separate SSE*/AVX* paths, although there too,
+since packing is less critical, we might need to target fewer variants.
+
+Since each kernel requires its own LHS/RHS formats, we will need separate
+packing paths for each of these. Sometimes, it is possible to have multiple
+kernels share the same formats, reducing the number of required different
+packing paths. In any case, the most important and also the simplest case
+to support here will be the case of BitDepthSetting::L8R8 GEMM kernels.
+
+Besides the kernel format, packing paths also depend on the storage order
+of the source, which can be WidthMajor or DepthMajor. Both are very important
+to support efficiently, although if one has to choose one to start from,
+it shoudl be WidthMajor, as it is particularly important to Neural Network
+applications, and is also simpler to implement as it allows to
+load whole vector registers at once.
+
+As part of this work, one may want to adjust the value of kRegisterSize
+to fit actual vector register size, e.g. set it to 32 on AVX. This is fine
+as long as all the packing paths used on that architecture are consistent
+with this value.
+
+Once the L8R8 case is fully implemented, the next step is to support
+less-than-8-bit cases such as L7R5. This should not require wholly separate
+new paths, but instead should involve implementing requantization, see the
+Requantize function in internal/pack_neon.h. Our hope is that this can be
+implemented efficiently without any compromise on accuracy and especially
+on bias, similarly to how it is done in internal/pack_neon.h. The
+relevant test here is the TestWithRealData part of test.cc, which outputs
+detailed accuracy and bias statistics.

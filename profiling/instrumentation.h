@@ -27,7 +27,7 @@
 #include <pthread.h>
 #include <cstdio>
 
-#ifndef GEMMLOWP_USE_OLD_ANDROID_SDK
+#ifndef GEMMLOWP_USE_STLPORT
 #include <cstdint>
 #else
 #include <stdint.h>

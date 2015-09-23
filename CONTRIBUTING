@@ -1,5 +1,6 @@
 Want to contribute? Great! First, read this page (including the small print at the end).
 
+
 Before you contribute
 =====================
 
@@ -20,6 +21,22 @@ us first through the issue tracker with your idea so that we can help out and
 possibly guide you. Coordinating up front makes it much easier to avoid
 frustration later on.
 
+
+Getting in touch with the gemmlowp community
+============================================
+
+The central point of communication around gemmlowp is the mailing list,
+  https://groups.google.com/forum/#!forum/gemmlowp
+
+
+TODO items and projects
+=======================
+
+We try to keep a current list of TODO items in the todo/ directory.
+Please feel free to pick one to work on, and to ask current maintainers for
+guidance. The gemmlowp mailing list is a good place for that.
+
+
 Code reviews
 ============
 
@@ -27,6 +44,7 @@ All submissions, including submissions by project members, require review.
 For this purpose, we use Github pull requests against this repository:
 
   https://github.com/google/gemmlowp
+
 
 The small print
 ===============
