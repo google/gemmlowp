@@ -755,18 +755,16 @@ void TestExhaustively()
 
   // Test other bit depths
   // L7R5
-  for (int foo = 0; foo < 4; foo++) {
-    test_gemm<
-        SingleThreadGemmWrapper<DefaultKernelForGemm<BitDepthSetting::L7R5>,
-                                std::uint8_t, BitDepthSetting::L7R5>>(&context);
+  test_gemm<
+      SingleThreadGemmWrapper<DefaultKernelForGemm<BitDepthSetting::L7R5>,
+                              std::uint8_t, BitDepthSetting::L7R5>>(&context);
 
-    test_gemv<
-        SingleThreadGemmWrapper<DefaultKernelForGemv<BitDepthSetting::L7R5>,
-                                std::uint8_t, BitDepthSetting::L7R5>>(&context);
+  test_gemv<
+      SingleThreadGemmWrapper<DefaultKernelForGemv<BitDepthSetting::L7R5>,
+                              std::uint8_t, BitDepthSetting::L7R5>>(&context);
 
-    test_gemm<EightBitIntGemmWrapper<
-        std::uint8_t, eight_bit_int_gemm::BitDepthSetting::A5B7>>(&context);
-  }
+  test_gemm<EightBitIntGemmWrapper<
+      std::uint8_t, eight_bit_int_gemm::BitDepthSetting::A5B7>>(&context);
 
   // Test specific kernels with various different formats,
   // to exercises corner cases especially in the packing code.
