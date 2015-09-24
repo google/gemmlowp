@@ -46,6 +46,19 @@
 #define GEMMLOWP_ARM
 #endif
 
+// Detect x86, 32-bit or 64-bit
+#if defined(__i386__) || defined(_M_IX86) || defined(_X86_) || defined(__i386)
+#define GEMMLOWP_X86_32
+#endif
+
+#if defined(__x86_64__) || defined(_M_X64) || defined(__amd64)
+#define GEMMLOWP_X86_64
+#endif
+
+#if defined(GEMMLOWP_X86_32) || defined(GEMMLOWP_X86_64)
+#define GEMMLOWP_X86
+#endif
+
 // Some of our optimized paths use inline assembly and for
 // now we don't bother enabling some other optimized paths using intrinddics
 // where we can't use inline assembly paths.
@@ -63,19 +76,6 @@
 
 #if defined(GEMMLOWP_NEON) && defined(GEMMLOWP_ARM_64)
 #define GEMMLOWP_NEON_64
-#endif
-
-// Detect x86, 32-bit or 64-bit
-#if defined(__i386__) || defined(_M_IX86) || defined(_X86_) || defined(__i386)
-#define GEMMLOWP_X86_32
-#endif
-
-#if defined(__x86_64__) || defined(_M_X64) || defined(__amd64)
-#define GEMMLOWP_X86_64
-#endif
-
-#if defined(GEMMLOWP_X86_32) || defined(GEMMLOWP_X86_64)
-#define GEMMLOWP_X86
 #endif
 
 // Detect SSE4.
