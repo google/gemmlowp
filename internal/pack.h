@@ -197,39 +197,39 @@ class SideMap {
   int width_, depth_, stride_;
 };
 
-// A cheap and reasonably good PRNG producing nonzero uint8's.
-//
-// This uses a 8-bit Xorshift. This choice is motivated by the following
-// two reasons:
-//
-//   1. We want a value uniformly distributed on 255 different values, since
-//      we will be dividing by 255. Xorshift naturally provies a uniform
-//      distribution on [1..255]. By contrast, a LCG would produce a uniform
-//      distribution on [0..255] from which is wouldn't be obvious how to
-//      get exactly what we need.
-//
-//   2. All our attempts to get an unbiased distribution from a 8-bit LCG
-//      resulted in still higher bias than this 8-bit Xorshift on
-//      TestWithRealData. For example, one can null the lsb from the output
-//      of a 8-bit LCG, to get uniform *even* values in [0..254], which
-//      should be good enough and unbiased as far as we are concerned;
-//      however, that still gives these results in TestWithRealData:
-//        median unsigned diff: 2 (tolerating 2)
-//        max unsigned diff: 15 (tolerating 10)
-//        median signed diff: 0 (tolerating 0)
-//        mean signed diff: 0.474 (tolerating 0.2)
-//      By contrast, this Xorshift8 gives us the much better results:
-//        median unsigned diff: 1 (tolerating 2)
-//        max unsigned diff: 9 (tolerating 10)
-//        median signed diff: 0 (tolerating 0)
-//        mean signed diff: 0.00997 (tolerating 0.2)
-//
-class DefaultPseudoRandomNonzeroBytesGenerator {
+template <RoundingMode tRoundingMode>
+class ScalarRoundingOffsetGenerator
+{
  public:
-  DefaultPseudoRandomNonzeroBytesGenerator() { x_ = 128; }
+  std::uint8_t get() {
+    assert(false);  // This generic path should never be called.
+    return 0;
+  }
+};
+
+// A RoundingOffsetGenerator for rounding-to-nearest, always returning
+// the midpoint value 127.
+template <>
+class ScalarRoundingOffsetGenerator<RoundingMode::Nearest>
+{
+ public:
+  std::uint8_t get() {
+    return 127;
+  }
+};
+
+// A RoundingOffsetGenerator based on a 8-bit Xorshift.
+// This gives good results as Xorshift naturally generates
+// uniform random *nonzero* bytes i.e. 255 different values,
+// so it only remains for us to subtract one.
+template <>
+class ScalarRoundingOffsetGenerator<RoundingMode::ProbabilisticXorshift>
+{
+ public:
+  ScalarRoundingOffsetGenerator() { x_ = 128; }
 
   std::uint8_t get() {
-    std::uint8_t result = x_;
+    std::uint8_t result = x_ - 1;
     // Xorshift8(7,5,3)
     x_ ^= x_ << 7;
     x_ ^= x_ >> 5;
@@ -248,7 +248,7 @@ class DefaultPseudoRandomNonzeroBytesGenerator {
 // by probabilistic rounding.
 template <typename QuantizationParams>
 std::uint8_t Requantize(std::uint8_t raw_src_val,
-                        DefaultPseudoRandomNonzeroBytesGenerator* prng) {
+    ScalarRoundingOffsetGenerator<QuantizationParams::kRoundingMode>* rounding_offset_generator) {
   static const int kBits = QuantizationParams::BitDepth::kBits;
   static const std::uint8_t kMaxVal = (1 << kBits) - 1;
 
@@ -257,21 +257,7 @@ std::uint8_t Requantize(std::uint8_t raw_src_val,
   }
 
   std::uint16_t scaled = static_cast<std::uint16_t>(raw_src_val) * kMaxVal;
-
-  std::uint8_t rounding_offset;
-
-  switch (QuantizationParams::kRoundingMode) {
-    case RoundingMode::Nearest:
-      rounding_offset = 127;
-      break;
-    case RoundingMode::ProbabilisticXorshift:
-      rounding_offset = prng->get() - 1;
-      break;
-    default:
-      assert(false);
-      rounding_offset = 0;
-  }
-
+  std::uint8_t rounding_offset = rounding_offset_generator->get();
   return (scaled + rounding_offset) / 255;
 }
 
@@ -291,7 +277,7 @@ std::uint8_t Requantize(std::uint8_t raw_src_val,
 //   2. Packing a complete block into the destination, see Pack. This is the
 //      most critical part, so it's convenient that unaligned boundaries have
 //      already been handled in step 1.
-template <typename SrcMapType, typename PackedSideBlock>
+template <typename QuantizationParams, typename SrcMapType, typename PackedSideBlock>
 class PackingRegisterBlockBase {
  public:
   typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
@@ -301,11 +287,10 @@ class PackingRegisterBlockBase {
   static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
-
   static const SideMapOrder kSrcOrder = SrcMapType::kOrder;
 
-  typedef DefaultPseudoRandomNonzeroBytesGenerator
-      PseudoRandomNonzeroBytesGenerator;
+  typedef ScalarRoundingOffsetGenerator<QuantizationParams::kRoundingMode>
+    RoundingOffsetGenerator;
 
   PackingRegisterBlockBase() : complete_src_(nullptr, 0, 0, 0) {}
 
@@ -343,9 +328,8 @@ class PackingRegisterBlockBase {
   // Packs a complete block into the destination. This is the most
   // critical part and the part that we most typically want to
   // override in architecture-specific optimized specializations.
-  template <typename QuantizationParams>
   void Pack(PackedSideBlock* dst, int start_width,
-            PseudoRandomNonzeroBytesGenerator* prng) {
+            RoundingOffsetGenerator* rounding_offset_generator) {
     std::uint8_t* dst_ptr = dst->current_data();
     for (int cell_start_depth = 0; cell_start_depth < kRegisterSize;
          cell_start_depth += kCellDepth) {
@@ -361,7 +345,7 @@ class PackingRegisterBlockBase {
           for (int d = 0; d < kCellDepth; d++) {
             const std::uint8_t raw_src_val = src_cell_map(w, d);
             const std::uint8_t requantized =
-                Requantize<QuantizationParams>(raw_src_val, prng);
+                Requantize<QuantizationParams>(raw_src_val, rounding_offset_generator);
             dst_ptr[OffsetIntoCell<CellFormat>(w, d)] = requantized;
             sum += requantized;
           }
@@ -375,9 +359,9 @@ class PackingRegisterBlockBase {
   }
 };
 
-template <typename SrcMapType, typename PackedSideBlock>
+template <typename QuantizationParams, typename SrcMapType, typename PackedSideBlock>
 class PackingRegisterBlock
-    : public PackingRegisterBlockBase<SrcMapType, PackedSideBlock> {};
+    : public PackingRegisterBlockBase<QuantizationParams, SrcMapType, PackedSideBlock> {};
 
 // Large-scale implementation of packing.
 template <typename QuantizationParams, typename SrcMapType, typename PackedSideBlock>
@@ -390,8 +374,10 @@ class PackSideBlockImpl {
   static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
 
-  typedef typename PackingRegisterBlock<SrcMapType, PackedSideBlock>::
-      PseudoRandomNonzeroBytesGenerator PseudoRandomNonzeroBytesGenerator;
+  typedef PackingRegisterBlock<QuantizationParams, SrcMapType, PackedSideBlock>
+    PackingRegisterBlockType;
+  typedef typename PackingRegisterBlockType::RoundingOffsetGenerator
+    RoundingOffsetGenerator;
 
   PackSideBlockImpl(PackedSideBlock* packed_side_block,
                     const SrcMapType& src_map)
@@ -451,23 +437,21 @@ class PackSideBlockImpl {
 
   // PackRun packs only a run i.e. is the inner loop in the depth dimension.
   void PackRun(int start_width, int width, int start_depth, int depth) {
-    PackingRegisterBlock<SrcMapType, PackedSideBlock> b;
+    PackingRegisterBlockType b;
     if (width == kKernelWidth) {
       const int register_aligned_depth = RoundDown<kRegisterSize>(depth);
       if (register_aligned_depth) {
         for (int d = 0; d < register_aligned_depth; d += kRegisterSize) {
           b.UseCompleteSrcInPlace(src_map_.block(start_width, start_depth + d,
                                                  width, kRegisterSize));
-          b.template Pack<QuantizationParams>(packed_side_block_, start_width,
-                                              &prng_);
+          b.Pack(packed_side_block_, start_width, &rounding_offset_generator_);
         }
       }
       if (register_aligned_depth < depth) {
         b.MakeCompleteSrc(
             src_map_.block(start_width, start_depth + register_aligned_depth,
                            width, depth - register_aligned_depth));
-        b.template Pack<QuantizationParams>(packed_side_block_, start_width,
-                                            &prng_);
+        b.Pack(packed_side_block_, start_width, &rounding_offset_generator_);
       }
     } else {
       assert(width < kKernelWidth);
@@ -475,8 +459,7 @@ class PackSideBlockImpl {
         const int ds = std::min(+kRegisterSize, depth - d);
         b.MakeCompleteSrc(
             src_map_.block(start_width, start_depth + d, width, ds));
-        b.template Pack<QuantizationParams>(packed_side_block_, start_width,
-                                            &prng_);
+        b.Pack(packed_side_block_, start_width, &rounding_offset_generator_);
       }
     }
   }
@@ -488,9 +471,9 @@ class PackSideBlockImpl {
   // i.e. the 'source'.
   const SrcMapType& src_map_;
 
-  // Used for probabilistic requantization in the less-than-8-bit case.
+  // Used for requantization in the less-than-8-bit case.
   // Otherwise unused.
-  PseudoRandomNonzeroBytesGenerator prng_;
+  RoundingOffsetGenerator rounding_offset_generator_;
 };
 
 // Quantization parameters for the side (LHS or RHS) being packed,

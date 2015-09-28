@@ -23,15 +23,34 @@
 
 namespace gemmlowp {
 
-// Variant of PseudoRandomNonzeroBytesGenerator that produces
-// random NEON 128-bit vectors.
-//
-// This uses a 8-bit Xorshift. This choice is motivated by
-// precise reasons explained in pack.h on
-// DefaultPseudoRandomNonzeroBytesGenerator.
-class NEONPseudoRandomNonzeroBytesGenerator {
+template <RoundingMode tRoundingMode>
+class NEONRoundingOffsetGenerator
+{
  public:
-  NEONPseudoRandomNonzeroBytesGenerator() {
+  uint8x16_t get() {
+    assert(false);  // This generic path should never be called.
+    return vdupq_n_u8(0);
+  }
+};
+
+// A RoundingOffsetGenerator for rounding-to-nearest, always returning
+// the midpoint value 127.
+template <>
+class NEONRoundingOffsetGenerator<RoundingMode::Nearest>
+{
+ public:
+  uint8x16_t get() {
+    return vdupq_n_u8(127);
+  }
+};
+
+// Variant of NEONRoundingOffsetGenerator that produces
+// random NEON 128-bit vectors using a 8-bit Xorshift.
+template <>
+class NEONRoundingOffsetGenerator<RoundingMode::ProbabilisticXorshift>
+{
+ public:
+  NEONRoundingOffsetGenerator() {
     uint8_t s = 128;
     std::uint8_t a[16];
     for (int i = 0; i < 16; i++) {
@@ -47,7 +66,8 @@ class NEONPseudoRandomNonzeroBytesGenerator {
   }
 
   uint8x16_t get() {
-    uint8x16_t result = x_;
+    // Xorshift produces values in [1..255], we want [0..254].
+    uint8x16_t result = vsubq_u8(x_, vdupq_n_u8(1));
     // Xorshift8(7,5,3)
     x_ = veorq_u8(x_, vshlq_n_u8(x_, 7));
     x_ = veorq_u8(x_, vshrq_n_u8(x_, 5));
@@ -66,7 +86,7 @@ class NEONPseudoRandomNonzeroBytesGenerator {
 // by probabilistic rounding.
 template <typename QuantizationParams>
 uint8x16_t Requantize(uint8x16_t raw_src_data,
-                      NEONPseudoRandomNonzeroBytesGenerator* prng) {
+    NEONRoundingOffsetGenerator<QuantizationParams::kRoundingMode>* rounding_offset_generator) {
   static const int kBits = QuantizationParams::BitDepth::kBits;
   static const std::uint8_t kMaxVal = (1 << kBits) - 1;
 
@@ -74,53 +94,28 @@ uint8x16_t Requantize(uint8x16_t raw_src_data,
     return raw_src_data;
   }
 
-  // Compute the rounding offset plus one. This saves
-  // one subtraction, as our PRNG returns nonzero bytes, and
-  // technically our rounding offset is a value in [0..254].
-  uint8x16_t rounding_offset_plus_one;
-  switch (QuantizationParams::kRoundingMode) {
-    case RoundingMode::Nearest:
-      rounding_offset_plus_one = vdupq_n_u8(128);
-      break;
-    case RoundingMode::ProbabilisticXorshift:
-      rounding_offset_plus_one = prng->get();
-      break;
-    default:
-      assert(false);
-      rounding_offset_plus_one = vdupq_n_u8(1);
-  }
+  uint8x16_t rounding_offset = rounding_offset_generator->get();
 
   // Compute:
-  //   x = maxval * src + rounding_offset_plus_one
+  //   x = maxval * src + rounding_offset
   uint16x8_t x[2];
   const uint8x8_t maxval_dup = vdup_n_u8(kMaxVal);
-  x[0] = vmlal_u8(vmovl_u8(vget_low_u8(rounding_offset_plus_one)), maxval_dup,
+  x[0] = vmlal_u8(vmovl_u8(vget_low_u8(rounding_offset)), maxval_dup,
                   vget_low_u8(raw_src_data));
-  x[1] = vmlal_u8(vmovl_u8(vget_high_u8(rounding_offset_plus_one)), maxval_dup,
+  x[1] = vmlal_u8(vmovl_u8(vget_high_u8(rounding_offset)), maxval_dup,
                   vget_high_u8(raw_src_data));
 
-  // Subtract one and divide by 255 (truncating).
-  // Subtracting one compensates for having added
-  // rounding_offset_plus_one instead of rounding_offset above.
-  // So we'll be computing
-  //   ((maxval * src + rounding_offset_plus_one) - 1) / 255
-  // which is the same as
-  //   (maxval * src + rounding_offset) / 255
-  // which is what we want to compute.
+  // Divide by 255 (truncating).
   //
   // Here we use the following formula, valid for all integers y in 0..65534
   // (which is more than we need since we've already early-returned
   // if kBits==8).
   //
   //     y/255 = (y + 1 + (y >> 8)) >> 8.
-  //
-  // Substituting x = y + 1, we see that for nonzero y,
-  //
-  //     (x - 1) / 255 = (x + ((x - 1) >> 8) >> 8.
   uint8x8_t result[2];
   for (int i = 0; i < 2; i++) {
     result[i] = vshrn_n_u16(
-        vaddq_u16(x[i], vshrq_n_u16(vsubq_u16(x[i], vdupq_n_u16(1)), 8)), 8);
+        vaddq_u16(vaddq_u16(x[i], vdupq_n_u16(1)), vshrq_n_u16(x[i], 8)), 8);
   }
 
   return vcombine_u8(result[0], result[1]);
@@ -132,11 +127,13 @@ typedef SideMap<const std::uint8_t, SideMapOrder::WidthMajor>
 template <int Cells>
 using DepthMajorSideFormatNCells4x2 = KernelSideFormat<CellFormat<4, 2>, Cells>;
 
-template <int Cells>
+template <typename QuantizationParams, int Cells>
 class PackingRegisterBlock<
+    QuantizationParams,
     WidthMajorUint8SideMap,
     PackedSideBlock<DepthMajorSideFormatNCells4x2<Cells> > >
     : public PackingRegisterBlockBase<
+          QuantizationParams,
           WidthMajorUint8SideMap,
           PackedSideBlock<DepthMajorSideFormatNCells4x2<Cells> > > {
  public:
@@ -148,12 +145,11 @@ class PackingRegisterBlock<
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
 
-  typedef NEONPseudoRandomNonzeroBytesGenerator
-      PseudoRandomNonzeroBytesGenerator;
+  typedef NEONRoundingOffsetGenerator<QuantizationParams::kRoundingMode>
+    RoundingOffsetGenerator;
 
-  template <typename QuantizationParams>
   void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width,
-            PseudoRandomNonzeroBytesGenerator* prng) {
+            RoundingOffsetGenerator* rounding_offset_generator) {
     std::uint8_t* dst_ptr = dst->current_data();
     const std::uint8_t* const src_ptr = this->complete_src_.data();
     const int stride = this->complete_src_.stride();
@@ -161,7 +157,7 @@ class PackingRegisterBlock<
     uint8x16_t src_lines[4 * kCells];
     for (int i = 0; i < 4 * kCells; i++) {
       src_lines[i] =
-          Requantize<QuantizationParams>(vld1q_u8(src_ptr + i * stride), prng);
+          Requantize<QuantizationParams>(vld1q_u8(src_ptr + i * stride), rounding_offset_generator);
     }
     // Reorder the data within registers to make DepthMajor 4x2 cells
     uint8x16x2_t src_lines_intertwined_2x[2 * kCells];
@@ -240,11 +236,13 @@ template <int Cells>
 using WidthMajorSideFormatNCells4x2 =
     KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, Cells>;
 
-template <int Cells>
+template <typename QuantizationParams, int Cells>
 class PackingRegisterBlock<
+    QuantizationParams,
     WidthMajorUint8SideMap,
     PackedSideBlock<WidthMajorSideFormatNCells4x2<Cells> > >
     : public PackingRegisterBlockBase<
+          QuantizationParams,
           WidthMajorUint8SideMap,
           PackedSideBlock<WidthMajorSideFormatNCells4x2<Cells> > > {
  public:
@@ -256,12 +254,11 @@ class PackingRegisterBlock<
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
 
-  typedef NEONPseudoRandomNonzeroBytesGenerator
-      PseudoRandomNonzeroBytesGenerator;
+  typedef NEONRoundingOffsetGenerator<QuantizationParams::kRoundingMode>
+    RoundingOffsetGenerator;
 
-  template <typename QuantizationParams>
   void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width,
-            PseudoRandomNonzeroBytesGenerator* prng) {
+            RoundingOffsetGenerator* rounding_offset_generator) {
     std::uint8_t* dst_ptr = dst->current_data();
     const std::uint8_t* src_ptr = this->complete_src_.data();
     const int stride = this->complete_src_.stride();
@@ -275,7 +272,7 @@ class PackingRegisterBlock<
 
 #define GEMMLOWP_UNROLLED_LOOP_ITER(k)                          \
   src_lines[4 * i + k] = vreinterpretq_u16_u8(                  \
-      Requantize<QuantizationParams>(vld1q_u8(src_ptr), prng)); \
+      Requantize<QuantizationParams>(vld1q_u8(src_ptr), rounding_offset_generator)); \
   src_ptr += stride;
 
       GEMMLOWP_UNROLLED_LOOP_ITER(0)
