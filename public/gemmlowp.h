@@ -37,16 +37,32 @@ void Gemm(GemmContext* context, const MatrixMap<const Scalar, LhsOrder>& lhs,
           MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
           int rhs_offset, int result_offset, int result_mult_int,
           int result_shift) {
+  assert(lhs.cols() == rhs.rows());
+  const int depth = lhs.cols();
   if (rhs.cols() == 1) {
-    typedef DefaultKernel<KernelFamily::Gemv, BitDepthParams> Kernel;
-    MultiThreadGemm<typename Kernel::Format, std::uint8_t, BitDepthParams>(
-        context, Kernel(), lhs, rhs, result, lhs_offset,
-        rhs_offset, result_offset, result_mult_int, result_shift);
+    if (depth >= kMinimumSizeForRequantization) {
+      typedef DefaultKernel<KernelFamily::Gemv, BitDepthParams> Kernel;
+      MultiThreadGemm<typename Kernel::Format, std::uint8_t, BitDepthParams>(
+          context, Kernel(), lhs, rhs, result, lhs_offset,
+          rhs_offset, result_offset, result_mult_int, result_shift);
+    } else {
+      typedef DefaultKernel<KernelFamily::Gemv, DefaultL8R8BitDepthParams> Kernel;
+      MultiThreadGemm<typename Kernel::Format, std::uint8_t, DefaultL8R8BitDepthParams>(
+          context, Kernel(), lhs, rhs, result, lhs_offset,
+          rhs_offset, result_offset, result_mult_int, result_shift);
+    }
   } else {
-    typedef  DefaultKernel<KernelFamily::Gemm, BitDepthParams> Kernel;
-    MultiThreadGemm<typename Kernel::Format, std::uint8_t, BitDepthParams>(
-        context, Kernel(), lhs, rhs, result, lhs_offset,
-        rhs_offset, result_offset, result_mult_int, result_shift);
+    if (depth >= kMinimumSizeForRequantization) {
+      typedef  DefaultKernel<KernelFamily::Gemm, BitDepthParams> Kernel;
+      MultiThreadGemm<typename Kernel::Format, std::uint8_t, BitDepthParams>(
+          context, Kernel(), lhs, rhs, result, lhs_offset,
+          rhs_offset, result_offset, result_mult_int, result_shift);
+    } else {
+      typedef  DefaultKernel<KernelFamily::Gemm, DefaultL8R8BitDepthParams> Kernel;
+      MultiThreadGemm<typename Kernel::Format, std::uint8_t, DefaultL8R8BitDepthParams>(
+          context, Kernel(), lhs, rhs, result, lhs_offset,
+          rhs_offset, result_offset, result_mult_int, result_shift);
+    }
   }
 }
 
