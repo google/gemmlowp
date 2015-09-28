@@ -126,7 +126,8 @@ struct UnpackResultImplGeneric {
 template <typename BitDepthParams, typename ResultBlockType,
           typename PackedResultType>
 struct UnpackResultImpl
-    : UnpackResultImplGeneric<BitDepthParams, ResultBlockType, PackedResultType> {};
+    : UnpackResultImplGeneric<BitDepthParams, ResultBlockType,
+                              PackedResultType> {};
 
 template <typename BitDepthParams, typename ResultBlockType,
           typename PackedResultType>

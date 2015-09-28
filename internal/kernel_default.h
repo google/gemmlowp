@@ -23,31 +23,24 @@
 
 namespace gemmlowp {
 
-enum class KernelFamily {
-  Gemm,
-  Gemv
-};
+enum class KernelFamily { Gemm, Gemv };
 
 template <KernelFamily Family, int ProductBits>
-struct DefaultKernelImpl
-  : DefaultKernelImpl<Family, ProductBits + 1>
-{
+struct DefaultKernelImpl : DefaultKernelImpl<Family, ProductBits + 1> {
   static_assert(ProductBits <= 16, "Bit depth too large");
 };
 
 template <KernelFamily Family, typename BitDepthParams>
 struct DefaultKernel
-  : DefaultKernelImpl<Family,
-      BitDepthParams::LhsBitDepth::kBits + BitDepthParams::RhsBitDepth::kBits>
-{};
+    : DefaultKernelImpl<Family, BitDepthParams::LhsBitDepth::kBits +
+                                    BitDepthParams::RhsBitDepth::kBits> {};
 
 }  // end namespace gemmlowp
 
-#define GEMMLOWP_SET_DEFAULT_KERNEL(op, max_product_bits, kernel) \
-  namespace gemmlowp {                                            \
-  template <>                                                     \
-  struct DefaultKernelImpl<KernelFamily::op, max_product_bits>    \
-    : kernel {};                                                  \
+#define GEMMLOWP_SET_DEFAULT_KERNEL(op, max_product_bits, kernel)           \
+  namespace gemmlowp {                                                      \
+  template <>                                                               \
+  struct DefaultKernelImpl<KernelFamily::op, max_product_bits> : kernel {}; \
   }
 
 #if defined GEMMLOWP_NEON_32

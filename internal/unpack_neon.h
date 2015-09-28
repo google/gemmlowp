@@ -47,7 +47,8 @@ int32x4_t RoundingMultiplyByConstantFraction(int32x4_t x) {
 }
 
 template <typename BitDepthParams, typename PackedResultType>
-struct UnpackResultImpl<BitDepthParams, MatrixMap<std::uint8_t, MapOrder::ColMajor>,
+struct UnpackResultImpl<BitDepthParams,
+                        MatrixMap<std::uint8_t, MapOrder::ColMajor>,
                         PackedResultType> {
   typedef MatrixMap<std::uint8_t, MapOrder::ColMajor> ResultBlockType;
   static void Unpack(ResultBlockType* dst, const PackedResultType& src,

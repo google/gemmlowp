@@ -24,8 +24,7 @@
 namespace gemmlowp {
 
 template <RoundingMode tRoundingMode>
-class NEONRoundingOffsetGenerator
-{
+class NEONRoundingOffsetGenerator {
  public:
   uint8x16_t get() {
     assert(false);  // This generic path should never be called.
@@ -36,19 +35,15 @@ class NEONRoundingOffsetGenerator
 // A RoundingOffsetGenerator for rounding-to-nearest, always returning
 // the midpoint value 127.
 template <>
-class NEONRoundingOffsetGenerator<RoundingMode::Nearest>
-{
+class NEONRoundingOffsetGenerator<RoundingMode::Nearest> {
  public:
-  uint8x16_t get() {
-    return vdupq_n_u8(127);
-  }
+  uint8x16_t get() { return vdupq_n_u8(127); }
 };
 
 // Variant of NEONRoundingOffsetGenerator that produces
 // random NEON 128-bit vectors using a 8-bit Xorshift.
 template <>
-class NEONRoundingOffsetGenerator<RoundingMode::ProbabilisticXorshift>
-{
+class NEONRoundingOffsetGenerator<RoundingMode::ProbabilisticXorshift> {
  public:
   NEONRoundingOffsetGenerator() {
     uint8_t s = 128;
@@ -85,8 +80,10 @@ class NEONRoundingOffsetGenerator<RoundingMode::ProbabilisticXorshift>
 // Bias must be avoided. Currently this is achieved
 // by probabilistic rounding.
 template <typename QuantizationParams>
-uint8x16_t Requantize(uint8x16_t raw_src_data,
-    NEONRoundingOffsetGenerator<QuantizationParams::kRoundingMode>* rounding_offset_generator) {
+uint8x16_t Requantize(
+    uint8x16_t raw_src_data,
+    NEONRoundingOffsetGenerator<QuantizationParams::kRoundingMode>*
+        rounding_offset_generator) {
   static const int kBits = QuantizationParams::BitDepth::kBits;
   static const std::uint8_t kMaxVal = (1 << kBits) - 1;
 
@@ -129,12 +126,10 @@ using DepthMajorSideFormatNCells4x2 = KernelSideFormat<CellFormat<4, 2>, Cells>;
 
 template <typename QuantizationParams, int Cells>
 class PackingRegisterBlock<
-    QuantizationParams,
-    WidthMajorUint8SideMap,
+    QuantizationParams, WidthMajorUint8SideMap,
     PackedSideBlock<DepthMajorSideFormatNCells4x2<Cells> > >
     : public PackingRegisterBlockBase<
-          QuantizationParams,
-          WidthMajorUint8SideMap,
+          QuantizationParams, WidthMajorUint8SideMap,
           PackedSideBlock<DepthMajorSideFormatNCells4x2<Cells> > > {
  public:
   typedef DepthMajorSideFormatNCells4x2<Cells> KernelSideFormat;
@@ -146,7 +141,7 @@ class PackingRegisterBlock<
   static const int kCellSize = CellFormat::kSize;
 
   typedef NEONRoundingOffsetGenerator<QuantizationParams::kRoundingMode>
-    RoundingOffsetGenerator;
+      RoundingOffsetGenerator;
 
   void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width,
             RoundingOffsetGenerator* rounding_offset_generator) {
@@ -156,8 +151,8 @@ class PackingRegisterBlock<
     // Load and requantize source WidthMajor data
     uint8x16_t src_lines[4 * kCells];
     for (int i = 0; i < 4 * kCells; i++) {
-      src_lines[i] =
-          Requantize<QuantizationParams>(vld1q_u8(src_ptr + i * stride), rounding_offset_generator);
+      src_lines[i] = Requantize<QuantizationParams>(
+          vld1q_u8(src_ptr + i * stride), rounding_offset_generator);
     }
     // Reorder the data within registers to make DepthMajor 4x2 cells
     uint8x16x2_t src_lines_intertwined_2x[2 * kCells];
@@ -238,12 +233,10 @@ using WidthMajorSideFormatNCells4x2 =
 
 template <typename QuantizationParams, int Cells>
 class PackingRegisterBlock<
-    QuantizationParams,
-    WidthMajorUint8SideMap,
+    QuantizationParams, WidthMajorUint8SideMap,
     PackedSideBlock<WidthMajorSideFormatNCells4x2<Cells> > >
     : public PackingRegisterBlockBase<
-          QuantizationParams,
-          WidthMajorUint8SideMap,
+          QuantizationParams, WidthMajorUint8SideMap,
           PackedSideBlock<WidthMajorSideFormatNCells4x2<Cells> > > {
  public:
   typedef WidthMajorSideFormatNCells4x2<Cells> KernelSideFormat;
@@ -255,7 +248,7 @@ class PackingRegisterBlock<
   static const int kCellSize = CellFormat::kSize;
 
   typedef NEONRoundingOffsetGenerator<QuantizationParams::kRoundingMode>
-    RoundingOffsetGenerator;
+      RoundingOffsetGenerator;
 
   void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width,
             RoundingOffsetGenerator* rounding_offset_generator) {
@@ -270,9 +263,9 @@ class PackingRegisterBlock<
 // results in substantially faster code (thanks to better
 // register allocation) on Nexus 5.
 
-#define GEMMLOWP_UNROLLED_LOOP_ITER(k)                          \
-  src_lines[4 * i + k] = vreinterpretq_u16_u8(                  \
-      Requantize<QuantizationParams>(vld1q_u8(src_ptr), rounding_offset_generator)); \
+#define GEMMLOWP_UNROLLED_LOOP_ITER(k)                                        \
+  src_lines[4 * i + k] = vreinterpretq_u16_u8(Requantize<QuantizationParams>( \
+      vld1q_u8(src_ptr), rounding_offset_generator));                         \
   src_ptr += stride;
 
       GEMMLOWP_UNROLLED_LOOP_ITER(0)

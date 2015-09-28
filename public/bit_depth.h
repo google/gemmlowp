@@ -37,17 +37,16 @@ struct BitDepth {
 // The rounding_offset in the above formula is a value
 // in [0..254] determined by the RoundingMode as follows:
 enum class RoundingMode {
-  Exact,                  // No rounding, do nothing. Use with bit_depth == 8.
-  Nearest,                // rounding_offset = 127
-  ProbabilisticXorshift   // rounding_offset given by 8-bit Xorshift PRNG
+  Exact,                 // No rounding, do nothing. Use with bit_depth == 8.
+  Nearest,               // rounding_offset = 127
+  ProbabilisticXorshift  // rounding_offset given by 8-bit Xorshift PRNG
 };
 
 // A rounding strategy is a heuristic for choosing a rounding mode.
 // When the bit depth is 8 bit like the source, there is no
 // quantization to be done, so this is moot. In this case, we use
-// the following "no-op" "strategy", 
-struct ExactRoundingStrategyFor8Bit
-{
+// the following "no-op" "strategy",
+struct ExactRoundingStrategyFor8Bit {
   static const RoundingMode kRoundingModeForSmallSizes = RoundingMode::Exact;
   static const RoundingMode kRoundingModeForLargeSizes = RoundingMode::Exact;
   static const int kRoundingModeSizeThreshold = 0;
@@ -59,10 +58,10 @@ struct ExactRoundingStrategyFor8Bit
 // the word "depth" here as it gets confusing with "bit depth").
 // Some flavor of probabilistic tends to perform better for larger sizes.
 // See doc/less-than-8-bit.txt for details.
-struct DefaultRoundingStrategyForLessThan8Bit
-{
+struct DefaultRoundingStrategyForLessThan8Bit {
   static const RoundingMode kRoundingModeForSmallSizes = RoundingMode::Nearest;
-  static const RoundingMode kRoundingModeForLargeSizes = RoundingMode::ProbabilisticXorshift;
+  static const RoundingMode kRoundingModeForLargeSizes =
+      RoundingMode::ProbabilisticXorshift;
 
   // The threshold on the depth dimension at which we switch to
   // probabilistic rounding instead of rounding-to-nearest when
@@ -95,15 +94,13 @@ struct DefaultRoundingStrategyForLessThan8Bit
   static const int kRoundingModeSizeThreshold = 384;
 };
 
-struct DefaultL8R8BitDepthParams
-{
+struct DefaultL8R8BitDepthParams {
   typedef BitDepth<8> LhsBitDepth;
   typedef BitDepth<8> RhsBitDepth;
   typedef ExactRoundingStrategyFor8Bit RoundingStrategy;
 };
 
-struct DefaultL7R5BitDepthParams
-{
+struct DefaultL7R5BitDepthParams {
   typedef BitDepth<7> LhsBitDepth;
   typedef BitDepth<5> RhsBitDepth;
   typedef DefaultRoundingStrategyForLessThan8Bit RoundingStrategy;

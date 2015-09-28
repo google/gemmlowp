@@ -583,8 +583,8 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
       int block_rows = next_start_row - start_row;
       auto lhs_block = lhs.block(start_row, 0, block_rows, depth);
       auto result_block = result->block(start_row, c, block_rows, cs);
-      typedef GemmWithPackedRhsTask<KernelFormat, Scalar, BitDepthParams, LhsOrder,
-                                    RhsOrder, ResultOrder> TaskType;
+      typedef GemmWithPackedRhsTask<KernelFormat, Scalar, BitDepthParams,
+                                    LhsOrder, RhsOrder, ResultOrder> TaskType;
       auto task = new TaskType(kernel, lhs_block, packed_rhs, &result_block,
                                lhs_offset, rhs_offset, result_offset,
                                result_mult_int, result_shift);
