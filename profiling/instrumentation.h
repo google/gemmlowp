@@ -49,7 +49,6 @@ using ::uintptr_t;
 
 #ifdef GEMMLOWP_PROFILING
 #include <set>
-#include <cstdio>
 #include <cstring>
 #endif
 
