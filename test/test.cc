@@ -70,6 +70,8 @@ void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
   }
   int i, j, l;
 
+  const std::int32_t kRoundingTerm = (c_shift < 1) ? 0 : (1 << (c_shift - 1));
+
   for (j = 0; j < n; j++) {
     for (i = 0; i < m; i++) {
       int32_t total = 0;
@@ -84,7 +86,7 @@ void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
         total += mult_as_int;
       }
       int32_t output =
-          (((total + c_offset) * c_mult_int) + (1 << (c_shift - 1))) >> c_shift;
+          (((total + c_offset) * c_mult_int) + kRoundingTerm) >> c_shift;
       if (output > 255) {
         output = 255;
       }
@@ -693,6 +695,65 @@ const char* GetBitDepthName(eight_bit_int_gemm::BitDepthSetting b) {
   }
 }
 
+// Runs a small set of hand-calculated data through the implementation.
+void TestWithSmallData() {
+  const int m = 2;
+  const int n = 4;
+  const int k = 3;
+  // Matrix A is:
+  // |  1 |  3 |  5 |
+  // |  2 |  4 |  6 |
+  const uint8_t a_data[] = {1, 2, 3, 4, 5, 6};
+  // Matrix B is:
+  // |  7 | 10 | 13 | 16 |
+  // |  8 | 11 | 14 | 17 |
+  // |  9 | 12 | 15 | 18 |
+  const uint8_t b_data[] = {7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18};
+  // Here are the results we expect, from hand calculations:
+  // (1 * 7) + (3 * 8) + (5 * 9) = 76
+  // (2 * 7) + (4 * 8) + (6 * 9) = 100
+  // (1 * 10) + (3 * 11) + (5 * 12) = 103
+  // (2 * 10) + (4 * 11) + (6 * 12) = 136
+  // (1 * 13) + (3 * 14) + (5 * 15) = 130
+  // (2 * 13) + (4 * 14) + (6 * 15) = 172
+  // (1 * 16) + (3 * 17) + (5 * 18) = 157
+  // (2 * 16) + (4 * 17) + (6 * 18) = 208
+  // That means matrix C should be:
+  // |  76 | 103 | 130 | 157 |
+  // | 100 | 136 | 172 | 208 |
+  const uint8_t expected_data[] = {76, 100, 103, 136, 130, 172, 157, 208};
+
+  const int c_count = m * n;
+  std::unique_ptr<uint8_t[]> output_data(new uint8_t[c_count]);
+
+  const bool is_a_transposed = false;
+  const bool is_b_transposed = false;
+  const bool is_c_transposed = false;
+  const int lda = m;
+  const int ldb = k;
+  const int ldc = m;
+
+  const int a_offset = 0;
+  const int b_offset = 0;
+  const int c_offset = 0;
+  const int c_mult = 1;
+  const int c_shift = 0;
+
+  gemmlowp::eight_bit_int_gemm::EightBitIntGemm(
+      is_a_transposed, is_b_transposed, is_c_transposed, m, n, k, a_data,
+      a_offset, lda, b_data, b_offset, ldb, output_data.get(), c_offset,
+      c_mult, c_shift, ldc, eight_bit_int_gemm::BitDepthSetting::A8B8);
+
+  ResultStats stats;
+  GetResultStats(output_data.get(), expected_data, c_count, &stats);
+
+  ResultStatsBounds bounds;
+  const bool good = CheckResultStatsBounds(stats, bounds);
+  printf("TestWithSmallData: %s\n", good ? "PASS" : "FAIL");
+  ReportResultStats(stats, bounds);
+  Check(good);
+}
+
 // This is the most realistic test of how we'll be using the low-precision GEMM
 // function in applications. It takes in large input matrices that have been
 // captured from an actual neural network run.
@@ -823,6 +884,9 @@ void test() {
   RegisterCurrentThreadForProfiling();
   StartProfiling();
 #endif
+
+  // Run a first quick test against hand-calculated data.
+  TestWithSmallData();
 
 #ifndef GEMMLOWP_SKIP_EXHAUSTIVE_TESTS
   TestExhaustively();

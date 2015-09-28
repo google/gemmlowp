@@ -102,6 +102,8 @@ struct UnpackResultImplGeneric {
     const int kRhsBits = BitDepthParams::RhsBitDepth::kBits;
     const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
+    const std::int32_t kRoundingTerm =
+        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
     for (int c = 0; c < dst->cols(); c++) {
       for (int r = 0; r < dst->rows(); r++) {
         std::int32_t raw_xx = src_map(r, c);
@@ -116,7 +118,7 @@ struct UnpackResultImplGeneric {
             RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
         std::int32_t sum = term_xx + term_x1 + term_1x + term_11;
         std::int32_t result =
-            (sum * result_mult_int + (1 << (result_shift - 1))) >> result_shift;
+            (sum * result_mult_int + kRoundingTerm) >> result_shift;
         (*dst)(r, c) = result > 255 ? 255 : result < 0 ? 0 : result;
       }
     }
