@@ -30,7 +30,7 @@ class GemmContext : public MultiThreadGemmContext {};
 // The meaning of the offsets, result_mult_int and result_shift
 // parameters is the same as in the standard EightBitIntGemm interface
 // (which is also implemented in the eight_bit_int_gemm directory).
-template <typename Scalar, BitDepthSetting BitDepth, MapOrder LhsOrder,
+template <typename Scalar, typename BitDepthParams, MapOrder LhsOrder,
           MapOrder RhsOrder, MapOrder ResultOrder>
 void Gemm(GemmContext* context, const MatrixMap<const Scalar, LhsOrder>& lhs,
           const MatrixMap<const Scalar, RhsOrder>& rhs,
@@ -38,14 +38,14 @@ void Gemm(GemmContext* context, const MatrixMap<const Scalar, LhsOrder>& lhs,
           int rhs_offset, int result_offset, int result_mult_int,
           int result_shift) {
   if (rhs.cols() == 1) {
-    MultiThreadGemm<typename DefaultKernelForGemv<BitDepth>::Format,
-                    std::uint8_t, BitDepth>(
-        context, DefaultKernelForGemv<BitDepth>(), lhs, rhs, result, lhs_offset,
+    typedef DefaultKernel<KernelFamily::Gemv, BitDepthParams> Kernel;
+    MultiThreadGemm<typename Kernel::Format, std::uint8_t, BitDepthParams>(
+        context, Kernel(), lhs, rhs, result, lhs_offset,
         rhs_offset, result_offset, result_mult_int, result_shift);
   } else {
-    MultiThreadGemm<typename DefaultKernelForGemm<BitDepth>::Format,
-                    std::uint8_t, BitDepth>(
-        context, DefaultKernelForGemm<BitDepth>(), lhs, rhs, result, lhs_offset,
+    typedef  DefaultKernel<KernelFamily::Gemm, BitDepthParams> Kernel;
+    MultiThreadGemm<typename Kernel::Format, std::uint8_t, BitDepthParams>(
+        context, Kernel(), lhs, rhs, result, lhs_offset,
         rhs_offset, result_offset, result_mult_int, result_shift);
   }
 }

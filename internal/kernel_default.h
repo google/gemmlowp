@@ -22,43 +22,52 @@
 #include "../public/bit_depth.h"
 
 namespace gemmlowp {
-template <BitDepthSetting BitDepth>
-struct DefaultKernelForGemm {};
-template <BitDepthSetting BitDepth>
-struct DefaultKernelForGemv {};
-}
 
-#define GEMMLOWP_SET_DEFAULT_KERNEL(op, bit_depth, kernel)             \
-  namespace gemmlowp {                                                 \
-  template <>                                                          \
-  struct DefaultKernelFor##op<BitDepthSetting::bit_depth> : kernel {}; \
+enum class KernelFamily {
+  Gemm,
+  Gemv
+};
+
+template <KernelFamily Family, int ProductBits>
+struct DefaultKernelImpl
+  : DefaultKernelImpl<Family, ProductBits + 1>
+{
+  static_assert(ProductBits <= 16, "Bit depth too large");
+};
+
+template <KernelFamily Family, typename BitDepthParams>
+struct DefaultKernel
+  : DefaultKernelImpl<Family,
+      BitDepthParams::LhsBitDepth::kBits + BitDepthParams::RhsBitDepth::kBits>
+{};
+
+}  // end namespace gemmlowp
+
+#define GEMMLOWP_SET_DEFAULT_KERNEL(op, max_product_bits, kernel) \
+  namespace gemmlowp {                                            \
+  template <>                                                     \
+  struct DefaultKernelImpl<KernelFamily::op, max_product_bits>    \
+    : kernel {};                                                  \
   }
 
 #if defined GEMMLOWP_NEON_32
 #include "kernel_neon.h"
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L8R8, NEON_32_Kernel12x4Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L7R5,
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, NEON_32_Kernel12x4Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 12,
                             NEON_32_Kernel12x4Depth2Assuming12BitProducts)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, L8R8, NEONKernel4Nx1Depth2<3>)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, L7R5, NEONKernel4Nx1Depth2<3>)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, NEONKernel4Nx1Depth2<3>)
 #elif defined GEMMLOWP_NEON_64
 #include "kernel_neon.h"
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L8R8, NEON_64_Kernel12x8Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L7R5, NEON_64_Kernel12x8Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, L8R8, NEONKernel4Nx1Depth2<3>)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, L7R5, NEONKernel4Nx1Depth2<3>)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, NEON_64_Kernel12x8Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, NEONKernel4Nx1Depth2<3>)
 #elif defined GEMMLOWP_SSE4_32
 #include "kernel_SSE.h"
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L8R8, SSE4_32_Kernel4x4Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L7R5, SSE4_32_Kernel4x4Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, L8R8, SSE4_32_Kernel4x4Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, L7R5, SSE4_32_Kernel4x4Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, SSE4_32_Kernel4x4Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, SSE4_32_Kernel4x4Depth2)
 #elif defined GEMMLOWP_SSE4_64
 #include "kernel_SSE.h"
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L8R8, SSE4_64_Kernel12x4Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L7R5, SSE4_64_Kernel12x4Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, L8R8, SSE4_64_Kernel12x4Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, L7R5, SSE4_64_Kernel12x4Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, SSE4_64_Kernel12x4Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, SSE4_64_Kernel12x4Depth2)
 #else
 #include "kernel_reference.h"
 namespace gemmlowp {
@@ -66,10 +75,8 @@ typedef ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<4, 4>, 2>,
                                      KernelSideFormat<CellFormat<4, 4>, 2> > >
     DefaultReferenceKernel;
 }
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L8R8, DefaultReferenceKernel)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, L7R5, DefaultReferenceKernel)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, L8R8, DefaultReferenceKernel)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, L7R5, DefaultReferenceKernel)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, DefaultReferenceKernel)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, DefaultReferenceKernel)
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_KERNEL_DEFAULT_H_

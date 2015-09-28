@@ -27,8 +27,8 @@
 #include "test.h"
 #include "../public/gemmlowp.h"
 
-#ifndef GEMMLOWP_TEST_BIT_DEPTH
-#define GEMMLOWP_TEST_BIT_DEPTH L8R8
+#ifndef GEMMLOWP_TEST_BIT_DEPTH_PARAMS
+#define GEMMLOWP_TEST_BIT_DEPTH_PARAMS DefaultL8R8BitDepthParams
 #endif
 
 #if defined(__arm__) && !defined(GEMMLOWP_NEON)
@@ -108,7 +108,7 @@ double time_for_gemms(GemmContext* context, const std::vector<gemm_t>& gemms) {
     for (int i = 0; i < iters_at_a_time; i++) {
       for (size_t j = 0; j < gemms.size(); j++) {
         int k = pool_index * gemms.size() + j;
-        Gemm<std::uint8_t, BitDepthSetting::GEMMLOWP_TEST_BIT_DEPTH>(
+        Gemm<std::uint8_t, GEMMLOWP_TEST_BIT_DEPTH_PARAMS>(
             context, lhs[k].const_map(), rhs[k].const_map(), &result[k].map(),
             -75, -91, 74980, 123, 20);
       }

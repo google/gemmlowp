@@ -64,10 +64,10 @@ class NEONPseudoRandomNonzeroBytesGenerator {
 // to the range specified by BitDepth, [0..((2^bits)-1)].
 // Bias must be avoided. Currently this is achieved
 // by probabilistic rounding.
-template <typename BitDepth, RoundingMode Rounding>
+template <typename QuantizationParams>
 uint8x16_t Requantize(uint8x16_t raw_src_data,
                       NEONPseudoRandomNonzeroBytesGenerator* prng) {
-  static const int kBits = BitDepth::kBits;
+  static const int kBits = QuantizationParams::BitDepth::kBits;
   static const std::uint8_t kMaxVal = (1 << kBits) - 1;
 
   if (kBits == 8) {
@@ -78,11 +78,11 @@ uint8x16_t Requantize(uint8x16_t raw_src_data,
   // one subtraction, as our PRNG returns nonzero bytes, and
   // technically our rounding offset is a value in [0..254].
   uint8x16_t rounding_offset_plus_one;
-  switch (Rounding) {
+  switch (QuantizationParams::kRoundingMode) {
     case RoundingMode::Nearest:
       rounding_offset_plus_one = vdupq_n_u8(128);
       break;
-    case RoundingMode::Probabilistic:
+    case RoundingMode::ProbabilisticXorshift:
       rounding_offset_plus_one = prng->get();
       break;
     default:
@@ -151,11 +151,9 @@ class PackingRegisterBlock<
   typedef NEONPseudoRandomNonzeroBytesGenerator
       PseudoRandomNonzeroBytesGenerator;
 
-  template <typename BitDepth, RoundingMode Rounding>
+  template <typename QuantizationParams>
   void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width,
             PseudoRandomNonzeroBytesGenerator* prng) {
-    static const int kBits = BitDepth::kBits;
-    static const std::uint16_t kMaxVal = (1 << kBits) - 1;
     std::uint8_t* dst_ptr = dst->current_data();
     const std::uint8_t* const src_ptr = this->complete_src_.data();
     const int stride = this->complete_src_.stride();
@@ -163,7 +161,7 @@ class PackingRegisterBlock<
     uint8x16_t src_lines[4 * kCells];
     for (int i = 0; i < 4 * kCells; i++) {
       src_lines[i] =
-          Requantize<BitDepth, Rounding>(vld1q_u8(src_ptr + i * stride), prng);
+          Requantize<QuantizationParams>(vld1q_u8(src_ptr + i * stride), prng);
     }
     // Reorder the data within registers to make DepthMajor 4x2 cells
     uint8x16x2_t src_lines_intertwined_2x[2 * kCells];
@@ -261,11 +259,9 @@ class PackingRegisterBlock<
   typedef NEONPseudoRandomNonzeroBytesGenerator
       PseudoRandomNonzeroBytesGenerator;
 
-  template <typename BitDepth, RoundingMode Rounding>
+  template <typename QuantizationParams>
   void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width,
             PseudoRandomNonzeroBytesGenerator* prng) {
-    static const int kBits = BitDepth::kBits;
-    static const std::uint16_t kMaxVal = (1 << kBits) - 1;
     std::uint8_t* dst_ptr = dst->current_data();
     const std::uint8_t* src_ptr = this->complete_src_.data();
     const int stride = this->complete_src_.stride();
@@ -279,7 +275,7 @@ class PackingRegisterBlock<
 
 #define GEMMLOWP_UNROLLED_LOOP_ITER(k)                          \
   src_lines[4 * i + k] = vreinterpretq_u16_u8(                  \
-      Requantize<BitDepth, Rounding>(vld1q_u8(src_ptr), prng)); \
+      Requantize<QuantizationParams>(vld1q_u8(src_ptr), prng)); \
   src_ptr += stride;
 
       GEMMLOWP_UNROLLED_LOOP_ITER(0)

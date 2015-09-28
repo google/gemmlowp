@@ -85,7 +85,7 @@ std::int32_t RoundingMultiplyByConstantFraction(std::int32_t x) {
   return x * int_quotient + remaining_product;
 }
 
-template <BitDepthSetting BitDepth, typename ResultBlockType,
+template <typename BitDepthParams, typename ResultBlockType,
           typename PackedResultType>
 struct UnpackResultImplGeneric {
   static void Unpack(ResultBlockType* dst, const PackedResultType& src,
@@ -98,8 +98,8 @@ struct UnpackResultImplGeneric {
     auto src_map = src.Map();
     // No top-level blocking in the depth dimension at the moment.
     // Too much loss of precision.
-    const int kLhsBits = LhsBitDepth<BitDepth>::kBits;
-    const int kRhsBits = RhsBitDepth<BitDepth>::kBits;
+    const int kLhsBits = BitDepthParams::LhsBitDepth::kBits;
+    const int kRhsBits = BitDepthParams::RhsBitDepth::kBits;
     const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     for (int c = 0; c < dst->cols(); c++) {
@@ -123,12 +123,12 @@ struct UnpackResultImplGeneric {
   }
 };
 
-template <BitDepthSetting BitDepth, typename ResultBlockType,
+template <typename BitDepthParams, typename ResultBlockType,
           typename PackedResultType>
 struct UnpackResultImpl
-    : UnpackResultImplGeneric<BitDepth, ResultBlockType, PackedResultType> {};
+    : UnpackResultImplGeneric<BitDepthParams, ResultBlockType, PackedResultType> {};
 
-template <BitDepthSetting BitDepth, typename ResultBlockType,
+template <typename BitDepthParams, typename ResultBlockType,
           typename PackedResultType>
 void UnpackResult(ResultBlockType* dst, const PackedResultType& src, int depth,
                   const std::int32_t* lhs_rank_one_update,
@@ -137,7 +137,7 @@ void UnpackResult(ResultBlockType* dst, const PackedResultType& src, int depth,
                   std::int32_t result_offset, std::int32_t result_mult_int,
                   std::int32_t result_shift) {
   ScopedProfilingLabel label("unpack");
-  UnpackResultImpl<BitDepth, ResultBlockType, PackedResultType>::Unpack(
+  UnpackResultImpl<BitDepthParams, ResultBlockType, PackedResultType>::Unpack(
       dst, src, depth, lhs_rank_one_update, rhs_rank_one_update, lhs_offset,
       rhs_offset, result_offset, result_mult_int, result_shift);
 }

@@ -361,7 +361,7 @@ class WorkersPool {
 // RHS has been packed by the master thread; each worker thread
 // then has to pack a block of the LHS and accumulate the Gemm of these
 // packed LHS and RHS blocks.
-template <typename KernelFormat, typename Scalar, BitDepthSetting BitDepth,
+template <typename KernelFormat, typename Scalar, typename BitDepthParams,
           MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
 struct GemmWithPackedRhsTask : Task {
   typedef PackedSideBlock<typename KernelFormat::Lhs> PackedLhs;
@@ -404,12 +404,12 @@ struct GemmWithPackedRhsTask : Task {
       for (int r = 0; r < rows; r += block_params.l2_rows) {
         int rs = std::min(block_params.l2_rows, rows - r);
 
-        PackLhs<BitDepth>(&packed_lhs, lhs.block(r, 0, rs, depth));
+        PackLhs<BitDepthParams>(&packed_lhs, lhs.block(r, 0, rs, depth));
 
         Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
 
         auto result_block = result.block(r, c, rs, cs);
-        UnpackResult<BitDepth>(
+        UnpackResult<BitDepthParams>(
             &result_block, packed_result, depth, packed_lhs.rank_one_update(),
             packed_rhs.rank_one_update(), lhs_offset, rhs_offset, result_offset,
             result_mult_int, result_shift);
@@ -518,7 +518,7 @@ inline int HowManyThreads(MultiThreadGemmContext* context, int rows, int cols,
 // The parallelization scheme used here is to have this master function
 // pack a block of RHS and then start worker threads to pack a block of LHS
 // each, and accumulate the corresponding products.
-template <typename KernelFormat, typename Scalar, BitDepthSetting BitDepth,
+template <typename KernelFormat, typename Scalar, typename BitDepthParams,
           MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
 void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
                      const MatrixMap<const Scalar, LhsOrder>& lhs,
@@ -537,7 +537,7 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
   const int thread_count =
       HowManyThreads<KernelFormat::kRows>(context, rows, cols, depth);
   if (thread_count == 1) {
-    return SingleThreadGemm<KernelFormat, Scalar, BitDepth>(
+    return SingleThreadGemm<KernelFormat, Scalar, BitDepthParams>(
         context, kernel, lhs, rhs, result, lhs_offset, rhs_offset,
         result_offset, result_mult_int, result_shift);
   }
@@ -570,7 +570,7 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
     int cs = std::min(block_params.l2_cols, cols - c);
 
     // Pack a large block of the RHS.
-    PackRhs<BitDepth>(&packed_rhs, rhs.block(0, c, depth, cs));
+    PackRhs<BitDepthParams>(&packed_rhs, rhs.block(0, c, depth, cs));
 
     // Give work to each worker.
     int next_start_row = 0;
@@ -583,7 +583,7 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
       int block_rows = next_start_row - start_row;
       auto lhs_block = lhs.block(start_row, 0, block_rows, depth);
       auto result_block = result->block(start_row, c, block_rows, cs);
-      typedef GemmWithPackedRhsTask<KernelFormat, Scalar, BitDepth, LhsOrder,
+      typedef GemmWithPackedRhsTask<KernelFormat, Scalar, BitDepthParams, LhsOrder,
                                     RhsOrder, ResultOrder> TaskType;
       auto task = new TaskType(kernel, lhs_block, packed_rhs, &result_block,
                                lhs_offset, rhs_offset, result_offset,

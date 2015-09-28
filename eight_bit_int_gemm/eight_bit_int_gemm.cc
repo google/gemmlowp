@@ -72,14 +72,14 @@ void EightBitIntGemmImpl(GemmContext* context, int m, int n, int k,
   MatrixMap<std::uint8_t, ResultOrder> result(c, n, m, ldc);
 
   switch (bit_depth) {
-#define GEMMLOWP_HANDLE_BIT_DEPTH(AnBn, LnRn)                              \
-  case BitDepthSetting::AnBn:                                              \
-    Gemm<std::uint8_t, gemmlowp::BitDepthSetting::LnRn>(                   \
+#define GEMMLOWP_HANDLE_BIT_DEPTH(BIT_DEPTH_SETTING, BIT_DEPTH_PARAMS)     \
+  case BitDepthSetting::BIT_DEPTH_SETTING:                                 \
+    Gemm<std::uint8_t, BIT_DEPTH_PARAMS>(                                  \
         context, lhs, rhs, &result, lhs_offset, rhs_offset, result_offset, \
         result_mult_int, result_shift);                                    \
     return;
-    GEMMLOWP_HANDLE_BIT_DEPTH(A8B8, L8R8)
-    GEMMLOWP_HANDLE_BIT_DEPTH(A5B7, L7R5)
+    GEMMLOWP_HANDLE_BIT_DEPTH(A8B8, DefaultL8R8BitDepthParams)
+    GEMMLOWP_HANDLE_BIT_DEPTH(A5B7, DefaultL7R5BitDepthParams)
     default:
       abort();
 #undef GEMMLOWP_HANDLE_BIT_DEPTH

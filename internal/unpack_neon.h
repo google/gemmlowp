@@ -46,8 +46,8 @@ int32x4_t RoundingMultiplyByConstantFraction(int32x4_t x) {
   return vmlaq_n_s32(remaining_product, x, int_quotient);
 }
 
-template <BitDepthSetting BitDepth, typename PackedResultType>
-struct UnpackResultImpl<BitDepth, MatrixMap<std::uint8_t, MapOrder::ColMajor>,
+template <typename BitDepthParams, typename PackedResultType>
+struct UnpackResultImpl<BitDepthParams, MatrixMap<std::uint8_t, MapOrder::ColMajor>,
                         PackedResultType> {
   typedef MatrixMap<std::uint8_t, MapOrder::ColMajor> ResultBlockType;
   static void Unpack(ResultBlockType* dst, const PackedResultType& src,
@@ -57,8 +57,8 @@ struct UnpackResultImpl<BitDepth, MatrixMap<std::uint8_t, MapOrder::ColMajor>,
                      std::int32_t result_offset, std::int32_t result_mult_int,
                      std::int32_t result_shift) {
     ScopedProfilingLabel label("optimized path (NEON)");
-    const int kLhsBits = LhsBitDepth<BitDepth>::kBits;
-    const int kRhsBits = RhsBitDepth<BitDepth>::kBits;
+    const int kLhsBits = BitDepthParams::LhsBitDepth::kBits;
+    const int kRhsBits = BitDepthParams::RhsBitDepth::kBits;
     const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     auto src_map = src.Map();

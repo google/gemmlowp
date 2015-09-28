@@ -19,61 +19,44 @@ Public interface
 ================
 
 
-The BitDepthSetting parameter
------------------------------
+The BitDepthSetting parameter in the EightBitIntGemm interface
+--------------------------------------------------------------
 
-The public interface to accessing less-than-8-bit computation is very
-simple: public GEMM entry points take a BitDepthSetting enum
+Accessing less-than-8-bit computation via the EightBitIntGemm is very
+simple: EightBitIntGemm takes a BitDepthSetting enum
 which allows to choose among a fixed set of supported bit-depth
 combinations.
 
-For exemple, talking of the public/gemmlowp.h entry points (as opposed to
-eight_bit_int_gemm), they refer to the BitDepthSetting enum defined in
-public/bit_depth.h; at the moment, it is:
 
-enum class BitDepthSetting {
-  L8R8,  // 8-bit Lhs, 8-bit Rhs
-  L7R5   // 7-bit Lhs, 5-bit Rhs
-};
+The BitDepthParams parameter in the public/gemmlowp.h interface
+---------------------------------------------------------------
 
-The L8R8 enum value corresponds to the standard case as described in
-doc/low-precision.txt.
-
-The L7R5 is the one that interests us here.
-
-
-Why only a finite list of enum values?
---------------------------------------
-
-Gemmlowp's code is generic in Lhs/Rhs bit depths independently, so
-one could at any time allow the user to use any bit depths combination.
-This can be experimented with by tweaking the values for LhsBitDepth
-and RhsBitDepth in internal/bit_depth_util.h.
-
-The only reason why we only expose a finite list of predefined combinations
-as enum values, is to keep our API surface low and, in particular, ensure
-that we have it extensively covered by unit tests.
-
-Also, the whole less-than-8-bit thing is still an early experiment and
-we're still learning the basics of what works there, so for now it makes
-sense to keep tight control of exposure to users.
+The public/gemmlowp.h interface exposes more extensive control over
+quantization, by means of a BitDepthParams template parameter,
+which is a type parameter, carrying information about:
+  1. The LHS and RHS bit depth, which can be set arbitrarily and
+     independently;
+  2. The 'RoundingStrategy', which is the heuristic used to choose
+     a rounding mode, based on the accumulation size (a.k.a. the
+     "depth" dimension of the Gemm).
+Details can be seen in public/bit_depth.h.
 
 
-How does the BitDepthSetting affect input/output uint8 matrix data?
+How does BitDepth{Setting,Params} affect input/output uint8 matrix data?
 -------------------------------------------------------------------
 
 Input/output matrix data is all uint8's, ranging from 0 to 255, regardless of
-the BitDepthSetting.
+the BitDepth{Setting,Params}.
 
-So the BitDepthSetting is only an internal detail. It only means to allow
-gemmlowp to use lower precision internally, but the input/output data format
-is unaffected.
+So the BitDepth{Setting,Params} is only an internal detail. It only means to
+allow gemmlowp to use lower precision internally, but the input/output data
+format is unaffected.
 
-As far as the API contract goes, the only thing that the BitDepthSetting does
-is to relax the accuracy requirement. With standard 8bit/8bit computation,
-gemmlowp is required to return the exact result as specified in
-doc/low-precision.txt. With lower bit depths, gemmlowp is no longer required
-to return an exact result.
+As far as the API contract goes, the only thing that the
+BitDepth{Setting,Params} does is to relax the accuracy requirement.
+With standard 8bit/8bit computation, gemmlowp is required to return the exact
+result as specified in doc/low-precision.txt. With lower bit depths, gemmlowp
+is no longer required to return an exact result.
 
 
 Implementation
@@ -97,11 +80,11 @@ Let us go into more detail for each of those stages:
 Packing stage
 -------------
 
-The packing stage is where most of the work specific to a BitDepthSetting
+The packing stage is where most of the work specific to the BitDepthParams
 takes place.
 
 Here, we have to scale input matrix values from their original range of
-[0 ... 255] to the range specified by the BitDepthSetting, which is
+[0 ... 255] to the range specified by the BitDepthParams, which is
 [0 ... (2^N)-1] where N is the number of bits for the matrix at hand
 (Lhs or Rhs). For example, for a bit depth of 5 bits, we need to scale
 down to [0 ... 31].

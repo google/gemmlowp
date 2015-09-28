@@ -38,7 +38,7 @@ class SingleThreadGemmContext {
   Allocator allocator_;
 };
 
-template <typename KernelFormat, typename Scalar, BitDepthSetting BitDepth,
+template <typename KernelFormat, typename Scalar, typename BitDepthParams,
           MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
 void SingleThreadGemm(SingleThreadGemmContext* context,
                       const KernelBase& kernel,
@@ -72,25 +72,25 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
   const bool pack_rhs_once = block_params.l2_cols == cols;
 
   if (pack_rhs_once) {
-    PackRhs<BitDepth>(&packed_rhs, rhs);
+    PackRhs<BitDepthParams>(&packed_rhs, rhs);
   }
 
   for (int r = 0; r < rows; r += block_params.l2_rows) {
     int rs = std::min(block_params.l2_rows, rows - r);
 
-    PackLhs<BitDepth>(&packed_lhs, lhs.block(r, 0, rs, depth));
+    PackLhs<BitDepthParams>(&packed_lhs, lhs.block(r, 0, rs, depth));
 
     for (int c = 0; c < cols; c += block_params.l2_cols) {
       int cs = std::min(block_params.l2_cols, cols - c);
 
       if (!pack_rhs_once) {
-        PackRhs<BitDepth>(&packed_rhs, rhs.block(0, c, depth, cs));
+        PackRhs<BitDepthParams>(&packed_rhs, rhs.block(0, c, depth, cs));
       }
 
       Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
 
       auto result_block = result->block(r, c, rs, cs);
-      UnpackResult<BitDepth>(
+      UnpackResult<BitDepthParams>(
           &result_block, packed_result, depth, packed_lhs.rank_one_update(),
           packed_rhs.rank_one_update(), lhs_offset, rhs_offset, result_offset,
           result_mult_int, result_shift);
