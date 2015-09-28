@@ -66,7 +66,7 @@ struct UnpackResultImpl<BitDepthParams,
     const std::int32_t term_11 =
         lhs_offset * rhs_offset * depth + result_offset;
     const int32x4_t shift_reg = vdupq_n_s32(-result_shift);
-    const std::int32_t preshift_offset = 1 << (result_shift - 1);
+    const std::int32_t preshift_offset = 1 << std::max(0, (result_shift - 1));
     const int32x4_t preshift_offset_reg = vdupq_n_s32(preshift_offset);
     for (int c = 0; c < dst->cols(); c++) {
       std::uint8_t* dst_ptr = dst->data(0, c);
@@ -160,7 +160,7 @@ struct UnpackResultImpl<BitDepthParams,
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         std::int32_t sum = term_xx + term_x1 + term_1x_plus_term_11;
         std::int32_t result =
-            (sum * result_mult_int + (1 << (result_shift - 1))) >> result_shift;
+            (sum * result_mult_int + preshift_offset) >> result_shift;
         (*dst)(r, c) = result > 255 ? 255 : result < 0 ? 0 : result;
       }
     }
