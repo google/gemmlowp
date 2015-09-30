@@ -251,8 +251,9 @@ class ScalarRoundingOffsetGenerator<RoundingMode::ProbabilisticAddmod> {
   ScalarRoundingOffsetGenerator() { x_ = 1; } // Start must be non-zero
 
   std::uint8_t get() {
-    // The +'d boolean term causes the increment to skip 255 (and be
-    // incremented by 1 more for any jump that would go past 255).
+    // The +'d boolean term causes the increment to skip over 255,
+    // (recalling that 255+1 = 256 = 0 for an 8 bit uint), 
+    // thus implementing %255
     x_ += (AddConst + (x_ >= (255-AddConst)));
     return x_;
   }
