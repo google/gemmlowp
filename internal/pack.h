@@ -237,6 +237,32 @@ class ScalarRoundingOffsetGenerator<RoundingMode::ProbabilisticXorshift> {
   std::uint8_t x_;
 };
 
+// A RoundingOffsetGenerator based on an 8-bit add/mod
+// low-discrepancy sequence.  See less-than-8-bit.txt for
+// an explanation (the constant 97 is important - it must
+// be both relatively prime to 255, in order for the sequence
+// to be full-period, and c/255 should be close to 0.38 to
+// obtain low discrepancy).  Uses a small bit hack to avoid
+// expensive % operations.
+template <>
+class ScalarRoundingOffsetGenerator<RoundingMode::ProbabilisticAddmod> {
+  static const uint8_t AddConst = 97;
+ public:
+  ScalarRoundingOffsetGenerator() { x_ = 1; } // Start must be non-zero
+
+  std::uint8_t get() {
+    // The +'d boolean term causes the increment to skip over 255,
+    // (recalling that 255+1 = 256 = 0 for an 8 bit uint), 
+    // thus implementing %255
+    x_ += (AddConst + (x_ >= (255-AddConst)));
+    return x_;
+  }
+
+ private:
+  // State
+  std::uint8_t x_;
+};
+
 // Requantizes a source uint8 value in [0..255] range
 // to the range specified by BitDepth, [0..((2^bits)-1)].
 // Bias must be avoided. Currently this is achieved

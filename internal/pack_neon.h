@@ -75,6 +75,44 @@ class NEONRoundingOffsetGenerator<RoundingMode::ProbabilisticXorshift> {
   uint8x16_t x_;
 };
 
+// Variant of NEONRoundingOffsetGenerator that produces
+// rounding vectors using an 8-bit add/mod low-discrepancy sequence.
+template <>
+class NEONRoundingOffsetGenerator<RoundingMode::ProbabilisticAddmod> {
+ public:
+  NEONRoundingOffsetGenerator() {
+    uint8_t s = 128;
+    std::uint8_t a[16];
+    // The initial offset is set by offsetting each lane to one
+    // more iteration of the sequence (s0...s15)  Then, upon iteration,
+    // each lane moves ahead by 16.
+    for (int i = 0; i < 16; i++) {
+      a[i] = s;
+      s += (97 + (s >= 158));
+    }
+    x_ = vld1q_u8(a);
+  }
+
+  uint8x16_t get() {
+    // Get moves the lane ahead by 16 iterations of the sequence
+    // x_ = (x + (16*97)) % 255.  (16*97)%255 = 22.  255-22=233,
+    // so x_ += (22 + (x >= 233)).
+    // There's an excessively opaque bit hack here:
+    // A "true" compare on NEON produces an all-1s result (0xff).
+    // So instead of adding in the comparison result, we subtract it
+    // to get the same effect as adding 1.
+    uint8x16_t extra_one = vcgeq_u8(x_, vdupq_n_u8(233));
+    x_ = vaddq_u8(x_, vdupq_n_u8(22));
+    x_ = vsubq_u8(x_, extra_one);
+    return x_;
+  }
+
+ private:
+  // State
+  uint8x16_t x_;
+};
+
+
 // Requantizes source uint8 values in [0..255] range
 // to the range specified by BitDepth, [0..((2^bits)-1)].
 // Bias must be avoided. Currently this is achieved

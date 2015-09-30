@@ -275,12 +275,31 @@ with better heuristics for this switching.
 
 Choice of pseudorandom number generator
 ---------------------------------------
-
-We use a 8-bit Xorshift. It is fast, naturally produces values ranging
+We provide two PRNGs.  The first is an 8-bit Xorshift.
+It is fast, naturally produces values ranging
 over an interval of width 255, which is what we need here (as opposed
 to an interval of width 256), and turns out, from empirical tests,
 to produce better results than a linear congruential generator (LCG).
 That's unfortunate, as a 8-bit LCG performs better (we confirmed that
 on various ARM devices) but we need as perfect un-biased-ness as we can
-get. More details and results are given in a comment on the default
-PRNG in internal/pack.h.
+get. 
+
+The second is an "add-mod" sequence generator, which generates
+non-random values in the sequence x = (x + 97) % 255.  This
+generates a low-discrepancy sequence that minimizes the "clumpiness"
+of the random offsets (Thus, for example, quantizing a 3x3 matrix will
+have a maximum additive error of about 200 from the random offsets).
+While not random, this sequence performs well empirically for many
+quantizations.  (For information about why 97 is a good value, see
+https://en.wikipedia.org/wiki/Low-discrepancy_sequence#Additive_recurrence
+and http://mollwollfumble.blogspot.com/2011/03/subrandom-numbers.html
+97/255 = 0.38;  0.382 is the best choice.  For discrete numbers,
+the choice must be relatively prime to the modulus.  97 is prime,
+so it is safely relatively prime to 255.  107 is another near-optimal
+choice.
+
+The low-discrepancy sequence generator is the default.
+
+More details and results are given in a comment on the default
+PRNG in internal/pack.h.  Interested users can change the
+PRNG used by setting DefaultRoundingGenerator in bit_depth_util.h.

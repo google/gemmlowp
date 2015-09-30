@@ -37,9 +37,10 @@ struct BitDepth {
 // The rounding_offset in the above formula is a value
 // in [0..254] determined by the RoundingMode as follows:
 enum class RoundingMode {
-  Exact,                 // No rounding, do nothing. Use with bit_depth == 8.
-  Nearest,               // rounding_offset = 127
-  ProbabilisticXorshift  // rounding_offset given by 8-bit Xorshift PRNG
+  Exact,                  // No rounding, do nothing. Use with bit_depth == 8.
+  Nearest,                // rounding_offset = 127
+  ProbabilisticXorshift,  // rounding_offset given by 8-bit Xorshift PRNG
+  ProbabilisticAddmod     // rounding_offset given by 8-bit add/mod LDSG
 };
 
 // A rounding strategy is a heuristic for choosing a rounding mode.
@@ -61,7 +62,7 @@ struct ExactRoundingStrategyFor8Bit {
 struct DefaultRoundingStrategyForLessThan8Bit {
   static const RoundingMode kRoundingModeForSmallSizes = RoundingMode::Nearest;
   static const RoundingMode kRoundingModeForLargeSizes =
-      RoundingMode::ProbabilisticXorshift;
+      RoundingMode::ProbabilisticAddmod;
 
   // The threshold on the depth dimension at which we switch to
   // probabilistic rounding instead of rounding-to-nearest when
