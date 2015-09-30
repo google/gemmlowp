@@ -90,8 +90,21 @@ struct DefaultRoundingStrategyForLessThan8Bit {
   // It would be nice to work out the theory of this, and understand how this
   // should depend on the distribution of inputs and the bit depth.
   //
-  // This value may need to be updated if and when we switch to another
-  // random number generator than Xorshift.
+  // Repeating the same evaluation with AddMod:
+  //   7 bit weights, 5 bit activations, switch at 64:   62.65% top-1 accuracy
+  //   7 bit weights, 5 bit activations, switch at 128:  62.65% top-1 accuracy
+  //   7 bit weights, 5 bit activations, switch at 192:  63.81% top-1 accuracy
+  //   7 bit weights, 5 bit activations, switch at 256:  64.23% top-1 accuracy
+  //   7 bit weights, 5 bit activations, switch at 320:  64.16% top-1 accuracy
+  //   7 bit weights, 5 bit activations, switch at 384:  64.16% top-1 accuracy
+  //   7 bit weights, 5 bit activations, switch at 448:  64.16% top-1 accuracy
+  //   7 bit weights, 5 bit activations, switch at 512:  64.52% top-1 accuracy
+  //   7 bit weights, 5 bit activations, switch at 640:  62.74% top-1 accuracy
+  //   7 bit weights, 5 bit activations, switch at 768:  62.74% top-1 accuracy
+  //   7 bit weights, 5 bit activations, switch at 1024: 59.74% top-1 accuracy
+  //
+  // The behavior is similar, so 384 remains a good choice.
+
   static const int kRoundingModeSizeThreshold = 384;
 };
 
