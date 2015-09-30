@@ -246,15 +246,14 @@ class ScalarRoundingOffsetGenerator<RoundingMode::ProbabilisticXorshift> {
 // expensive % operations.
 template <>
 class ScalarRoundingOffsetGenerator<RoundingMode::ProbabilisticAddmod> {
-  const uint8_t AddConst = 97;
+  static const uint8_t AddConst = 97;
  public:
   ScalarRoundingOffsetGenerator() { x_ = 1; } // Start must be non-zero
 
   std::uint8_t get() {
-    // The third term causes the increment to skip zero
-    // (158 + 97 == 255;  159 + 97 + 1 == 1), thus implementing
-    // %255 with the entire quantity +1, matching the behavior of Xorshift.
-    x_ += (AddConst + (x_ >= (255-AddConst+1)));
+    // The +'d boolean term causes the increment to skip 255 (and be
+    // incremented by 1 more for any jump that would go past 255).
+    x_ += (AddConst + (x_ >= (255-AddConst)));
     return x_;
   }
 
