@@ -304,22 +304,20 @@ void benchmark_googlenet(GemmContext* context) {
             << "% best: " << best_mean_latency << "s" << std::endl;
 }
 
-}  // end namespace gemmlowp
-
-int main() {
+void benchmark_all() {
   {
     gemmlowp::GemmContext context;
     std::cout << "Benchmarking typical GoogLeNet GEMMs..." << std::endl;
     gemmlowp::benchmark_googlenet(&context);
   }
-
+  
   {
     gemmlowp::GemmContext context;
     std::cout << "Benchmarking default mode (typically multi-threaded)..."
-              << std::endl;
+    << std::endl;
     gemmlowp::benchmark(&context);
   }
-
+  
   {
     gemmlowp::GemmContext context;
     context.set_max_num_threads(1);
@@ -327,3 +325,10 @@ int main() {
     gemmlowp::benchmark(&context);
   }
 }
+
+}  // end namespace gemmlowp
+
+// For iOS, we need to define our own main(), so skip it here.
+#if !defined(__APPLE__)
+int main() { gemmlowp::benchmark_all(); }
+#endif  // __APPLE__

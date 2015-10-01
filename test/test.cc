@@ -910,4 +910,8 @@ void test() {
 
 }  // end namespace gemmlowp
 
+// For iOS, we need to define our own main(), so skip it here.
+#if !defined(__APPLE__)
 int main() { gemmlowp::test(); }
+#endif  // __APPLE__
+
