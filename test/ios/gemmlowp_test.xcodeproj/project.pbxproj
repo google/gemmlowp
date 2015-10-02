@@ -23,7 +23,6 @@
 		59D2E30B1BB9E95F007BFF4C /* low-precision.txt in Resources */ = {isa = PBXBuildFile; fileRef = 59D2E2CE1BB9E95F007BFF4C /* low-precision.txt */; };
 		59D2E30C1BB9E95F007BFF4C /* packing.txt in Resources */ = {isa = PBXBuildFile; fileRef = 59D2E2CF1BB9E95F007BFF4C /* packing.txt */; };
 		59D2E30D1BB9E95F007BFF4C /* eight_bit_int_gemm.cc in Sources */ = {isa = PBXBuildFile; fileRef = 59D2E2D11BB9E95F007BFF4C /* eight_bit_int_gemm.cc */; };
-		59D2E30E1BB9E95F007BFF4C /* gemmlowp-android-binary in Resources */ = {isa = PBXBuildFile; fileRef = 59D2E2D31BB9E95F007BFF4C /* gemmlowp-android-binary */; };
 		59D2E30F1BB9E95F007BFF4C /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 59D2E2E41BB9E95F007BFF4C /* LICENSE */; };
 		59D2E3101BB9E95F007BFF4C /* log-gemmlowp-android-binary in Resources */ = {isa = PBXBuildFile; fileRef = 59D2E2E51BB9E95F007BFF4C /* log-gemmlowp-android-binary */; };
 		59D2E3111BB9E95F007BFF4C /* README in Resources */ = {isa = PBXBuildFile; fileRef = 59D2E2ED1BB9E95F007BFF4C /* README */; };
@@ -63,7 +62,6 @@
 		59D2E2CF1BB9E95F007BFF4C /* packing.txt */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = packing.txt; sourceTree = "<group>"; };
 		59D2E2D11BB9E95F007BFF4C /* eight_bit_int_gemm.cc */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = eight_bit_int_gemm.cc; sourceTree = "<group>"; };
 		59D2E2D21BB9E95F007BFF4C /* eight_bit_int_gemm.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = eight_bit_int_gemm.h; sourceTree = "<group>"; };
-		59D2E2D31BB9E95F007BFF4C /* gemmlowp-android-binary */ = {isa = PBXFileReference; lastKnownFileType = text; path = "gemmlowp-android-binary"; sourceTree = "<group>"; };
 		59D2E2D51BB9E95F007BFF4C /* allocator.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = allocator.h; sourceTree = "<group>"; };
 		59D2E2D61BB9E95F007BFF4C /* block_params.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = block_params.h; sourceTree = "<group>"; };
 		59D2E2D71BB9E95F007BFF4C /* common.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = common.h; sourceTree = "<group>"; };
@@ -164,7 +162,6 @@
 				59D2E2C91BB9E95F007BFF4C /* CONTRIBUTORS */,
 				59D2E2CA1BB9E95F007BFF4C /* doc */,
 				59D2E2D01BB9E95F007BFF4C /* eight_bit_int_gemm */,
-				59D2E2D31BB9E95F007BFF4C /* gemmlowp-android-binary */,
 				59D2E2D41BB9E95F007BFF4C /* internal */,
 				59D2E2E41BB9E95F007BFF4C /* LICENSE */,
 				59D2E2E51BB9E95F007BFF4C /* log-gemmlowp-android-binary */,
@@ -343,7 +340,6 @@
 				59D2E30B1BB9E95F007BFF4C /* low-precision.txt in Resources */,
 				59D2E3091BB9E95F007BFF4C /* kernels.txt in Resources */,
 				59D2E30C1BB9E95F007BFF4C /* packing.txt in Resources */,
-				59D2E30E1BB9E95F007BFF4C /* gemmlowp-android-binary in Resources */,
 				59D2E31B1BB9E95F007BFF4C /* fast-gemv.txt in Resources */,
 				59D2E3051BB9E95F007BFF4C /* BUILD in Resources */,
 				59D2E3201BB9E95F007BFF4C /* x86-packing-unpacking-paths.txt in Resources */,
