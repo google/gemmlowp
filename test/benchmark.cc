@@ -315,9 +315,6 @@ void benchmark_small_model(GemmContext* context) {
     29232, 16, 25,
     7308, 6, 400,
     203, 3002, 216,
-    144, 16, 25,
-    36, 6, 400,
-    1, 3002, 216,
   };
   assert(sizeof(small_model_gemm_sizes) %
         (3 * sizeof(small_model_gemm_sizes[0])) == 0);
