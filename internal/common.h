@@ -155,7 +155,11 @@ const int kDefaultL2CacheSize = 256 * 1024;
 // RHS blocks. This should be between 0 and 1, and typically closer to 1,
 // as we typically want to use most of the L2 cache for storing a large
 // RHS block.
+#if defined(GEMMLOWP_X86_64) || defined(GEMMLOWP_X86_32)
+const float kDefaultL2RhsFactor = 1.00f;
+#else
 const float kDefaultL2RhsFactor = 0.75f;
+#endif
 
 // The number of bytes in a SIMD register. This is used to determine
 // the dimensions of PackingRegisterBlock so that such blocks can

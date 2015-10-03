@@ -75,7 +75,10 @@ struct BlockParams {
           RoundUp<KernelFormat::kCols>(CeilQuotient(cols, min_l2_cols_blocks));
     }
 
-    {
+    // No L2 blocking in the rows dimension if l2_rhs_factor is 1.0
+    if (l2_rhs_factor == 1.0f) {
+      l2_rows = RoundUp<KernelFormat::kRows>(rows);
+    } else {
       int max_cache_friendly_l2_rows =
           std::max(1, (l2_bytes_to_use - l2_depth * l2_cols) /
                           (num_threads * (l2_depth + 4 * l2_cols)));
