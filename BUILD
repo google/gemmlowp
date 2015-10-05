@@ -67,6 +67,7 @@ cc_library(
     hdrs = [
         ":gemmlowp_public_headers",
     ],
+    includes = ["."],
     # Blaze warning:
     # "setting 'linkstatic=1' is recommended if there are no object files."
     linkstatic = 1,
@@ -81,6 +82,7 @@ cc_library(
     hdrs = [
         ":eight_bit_int_gemm_public_headers",
     ],
+    includes = ["."],
     visibility = [
         "//visibility:public",
     ],
