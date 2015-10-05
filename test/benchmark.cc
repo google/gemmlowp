@@ -363,6 +363,6 @@ void benchmark_all() {
 }  // end namespace gemmlowp
 
 // For iOS, we need to define our own main(), so skip it here.
-#if !defined(__APPLE__)
+#if !(defined(__APPLE__) && defined(TARGET_OS_IPHONE))
 int main() { gemmlowp::benchmark_all(); }
-#endif  // __APPLE__
+#endif
