@@ -48,7 +48,7 @@ class ComputeImpl {
         packed_lhs_(_packed_lhs),
         packed_rhs_(_packed_rhs) {}
 
-  void Compute()  __attribute__((noinline)) {
+  void Compute() {
     for (int d = 0; d < block_params_.l2_depth; d += block_params_.l1_depth) {
       int ds = std::min(block_params_.l1_depth, block_params_.l2_depth - d);
 
@@ -61,7 +61,7 @@ class ComputeImpl {
   }
 
  private:
-  void ComputeRun(int start_row, int start_col, int start_depth, int depth)  __attribute__((noinline))  {
+  void ComputeRun(int start_row, int start_col, int start_depth, int depth)  GEMMLOWP_NOINLINE {
     packed_lhs_.seek_run(start_row, start_depth);
     packed_rhs_.seek_run(start_col, start_depth);
     auto packed_result_block = packed_result_->Map().block(
@@ -72,7 +72,7 @@ class ComputeImpl {
   }
 
   void ComputeL1(int start_row, int rows, int start_col, int cols,
-                 int start_depth, int depth)  __attribute__((noinline)) {
+                 int start_depth, int depth) {
     assert(rows % Format::kRows == 0);
     assert(cols % Format::kCols == 0);
     assert(depth % Format::kDepth == 0);
