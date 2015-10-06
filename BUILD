@@ -67,7 +67,7 @@ cc_library(
     hdrs = [
         ":gemmlowp_public_headers",
     ],
-    linkopts = ["-pthread"],
+    linkopts = ["-lpthread"],
     # Blaze warning:
     # "setting 'linkstatic=1' is recommended if there are no object files."
     linkstatic = 1,
@@ -82,7 +82,7 @@ cc_library(
     hdrs = [
         ":eight_bit_int_gemm_public_headers",
     ],
-    linkopts = ["-pthread"],
+    linkopts = ["-lpthread"],
     visibility = [
         "//visibility:public",
     ],
@@ -126,7 +126,7 @@ cc_test(
         "test/test_blocking_counter.cc",
         ":gemmlowp_test_headers",
     ],
-    linkopts = ["-pthread"],
+    linkopts = ["-lpthread"],
 )
 
 # Allocator test
@@ -150,7 +150,7 @@ cc_binary(
         "-O3",
         "-DNDEBUG",
     ],
-    linkopts = ["-pthread"],
+    linkopts = ["-lpthread"],
 )
 
 # Benchmark
@@ -165,5 +165,5 @@ cc_binary(
         "-DNDEBUG",
         "-DGEMMLOWP_TEST_PROFILE",
     ],
-    linkopts = ["-pthread"],
+    linkopts = ["-lpthread"],
 )
