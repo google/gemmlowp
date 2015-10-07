@@ -16,7 +16,7 @@
 // Check in kernel_default.h which one(s) are actually used by default.
 // Others are mere experiments; they are still covered by tests
 // in case they might be useful some day.
-// Writen by: Sagi Marcovich, mail: sagi.marcovich@intel.com
+//
 
 #ifndef GEMMLOWP_INTERNAL_KERNEL_SSE_H_
 #define GEMMLOWP_INTERNAL_KERNEL_SSE_H_
@@ -188,7 +188,12 @@ struct SSE4_64_Kernel12x4Depth2 : KernelBase {
 
     asm volatile(
 
-        // set accumulators to zero.
+        // Set registers for destination 
+        "movq  %[dst_col_stride_q], %%r12\n\t"
+        "shlq $2, %%r12\n\t"
+        "leaq (%%r12,%%r12,0x2), %%r13\n\t"
+
+        // Set accumulators to zero.
         "pxor %%xmm4  , %%xmm4 \n\t"
         "pxor %%xmm5  , %%xmm5 \n\t"
         "pxor %%xmm6  , %%xmm6 \n\t"
@@ -202,7 +207,135 @@ struct SSE4_64_Kernel12x4Depth2 : KernelBase {
         "pxor %%xmm14 , %%xmm14\n\t"
         "pxor %%xmm15 , %%xmm15\n\t"
 
-        "outerLoop%=:\n\t"
+        "movq  %[run_depth_cells], %%r14\n\t"
+        "subq $2, %%r14\n\t"
+        "js outerLoop1%=\n\t"
+
+        // Loop for K unrolled by 4
+        "outerLoop2%=:\n\t"
+
+        // K = 1,2
+        // RHS cell to xmm1
+
+        "pmovzxbw (%[rhs_ptr]), %%xmm1\n\t"
+
+        // LHS cell
+        "pmovzxbw 0x00(%[lhs_ptr]), %%xmm0\n\t"
+        "pshufd $0x00,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm4           \n\t"
+        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm5           \n\t"
+
+        "prefetcht0 0x80(%[lhs_ptr]) \n\t"
+
+        "pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm6           \n\t"
+        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm7           \n\t"
+
+        // next LHS cell
+        "pmovzxbw 0x08(%[lhs_ptr]), %%xmm0\n\t"
+        "pshufd $0x00,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm8           \n\t"
+        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm9           \n\t"
+
+        "prefetcht0 0x80(%[rhs_ptr]) \n\t"
+
+        "pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm10          \n\t"
+        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm11          \n\t"
+
+        // next LHS cell
+        "pmovzxbw 0x10(%[lhs_ptr]), %%xmm0\n\t"
+        "pshufd $0x00,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm12          \n\t"
+        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm13          \n\t"
+
+
+        "pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm14          \n\t"
+        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm15          \n\t"
+
+        // K = 3,4
+        // RHS cell to xmm1
+        "pmovzxbw 0x08(%[rhs_ptr]), %%xmm1\n\t"
+
+        // LHS cell
+        "pmovzxbw 0x18(%[lhs_ptr]), %%xmm0\n\t"
+        "pshufd $0x00,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm4           \n\t"
+        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm5           \n\t"
+
+        "pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm6           \n\t"
+        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm7           \n\t"
+
+        // next LHS cell
+        "pmovzxbw 0x20(%[lhs_ptr]), %%xmm0\n\t"
+        "pshufd $0x00,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm8           \n\t"
+        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm9           \n\t"
+
+        "pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm10          \n\t"
+        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm11          \n\t"
+
+        // next LHS cell
+        "pmovzxbw 0x28(%[lhs_ptr]), %%xmm0\n\t"
+        "pshufd $0x00,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm12          \n\t"
+        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm13          \n\t"
+
+        "pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm14          \n\t"
+        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm15          \n\t"
+
+        "addq $0x30, %[lhs_ptr]\n\t"
+        "addq $0x10, %[rhs_ptr]\n\t"
+
+        "subq $2, %[run_depth_cells]\n\t"
+        "jnz outerLoop2%=\n\t"
+
+        "movq %[run_depth_cells], %%r14\n\t"
+        "decq %%r14\n\t"
+        "js finish%=\n\t"
+
+        // Loop for K unrolled by 2 
+        "outerLoop1%=:\n\t"
 
         // RHS cell to xmm1
         "pmovzxbw (%[rhs_ptr]), %%xmm1\n\t"
@@ -210,56 +343,56 @@ struct SSE4_64_Kernel12x4Depth2 : KernelBase {
         // LHS cell
         "pmovzxbw 0x00(%[lhs_ptr]), %%xmm0\n\t"
         "pshufd $0x00,%%xmm1,%%xmm2     \n\t"
-        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
         "pmaddwd %%xmm0, %%xmm2         \n\t"
-        "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm2, %%xmm4           \n\t"
+        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm3, %%xmm5           \n\t"
         "pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
-        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
         "pmaddwd %%xmm0, %%xmm2         \n\t"
-        "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm2, %%xmm6           \n\t"
+        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm3, %%xmm7           \n\t"
 
         // next LHS cell
         "pmovzxbw 0x08(%[lhs_ptr]), %%xmm0\n\t"
         "pshufd $0x00,%%xmm1,%%xmm2     \n\t"
-        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
         "pmaddwd %%xmm0, %%xmm2         \n\t"
-        "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm2, %%xmm8           \n\t"
+        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm3, %%xmm9           \n\t"
         "pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
-        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
         "pmaddwd %%xmm0, %%xmm2         \n\t"
-        "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm2, %%xmm10          \n\t"
+        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm3, %%xmm11          \n\t"
 
         // next LHS cell
         "pmovzxbw 0x10(%[lhs_ptr]), %%xmm0\n\t"
         "pshufd $0x00,%%xmm1,%%xmm2     \n\t"
-        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
         "pmaddwd %%xmm0, %%xmm2         \n\t"
-        "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm2, %%xmm12          \n\t"
+        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm3, %%xmm13          \n\t"
         "pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
-        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
         "pmaddwd %%xmm0, %%xmm2         \n\t"
-        "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm2, %%xmm14          \n\t"
+        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm3, %%xmm15          \n\t"
 
         "addq $0x18, %[lhs_ptr]\n\t"
         "addq $0x08, %[rhs_ptr]\n\t"
-        "decq %[run_depth_cells]\n\t"
-        "jnz outerLoop%=\n\t"
 
-        "movq  %[dst_col_stride_q], %%r12\n\t"
-        "shlq $2, %%r12\n\t"
-        "leaq (%%r12,%%r12,0x2), %%r13\n\t"
+        "decq %[run_depth_cells]\n\t"
+        "jnz outerLoop1%=\n\t"
+
+        "finish%=:\n\t"
+
         "test %[start_depth], %[start_depth]\n\t"
         "jz storeDst%=\n\t"
 
@@ -300,8 +433,10 @@ struct SSE4_64_Kernel12x4Depth2 : KernelBase {
         [run_depth_cells] "r"(run_depth_cells)
         :  // clobbers
         "cc", "memory", "%xmm0", "%xmm1", "%xmm3", "%xmm2", "%xmm4", "%xmm5",
-        "%xmm6", "%xmm7", "%xmm8", "%xmm9", "%xmm10", "%r12", "%r13", "%xmm11",
+        "%xmm6", "%xmm7", "%xmm8", "%xmm9", "%xmm10", "%r12", "%r13", "%r14", "%xmm11",
         "%xmm12", "%xmm13", "%xmm14", "%xmm15");
+
+    
   }
 };
 #endif
