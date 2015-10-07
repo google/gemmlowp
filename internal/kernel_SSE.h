@@ -16,7 +16,7 @@
 // Check in kernel_default.h which one(s) are actually used by default.
 // Others are mere experiments; they are still covered by tests
 // in case they might be useful some day.
-// Writen by: Sagi Marcovich, mail: sagi.marcovich@intel.com
+//
 
 #ifndef GEMMLOWP_INTERNAL_KERNEL_SSE_H_
 #define GEMMLOWP_INTERNAL_KERNEL_SSE_H_
