@@ -22,6 +22,9 @@
 #include <cstdlib>
 #include <memory>
 #include <string>
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
 
 #include "../public/gemmlowp.h"
 #include "../internal/kernel_reference.h"
@@ -911,7 +914,8 @@ void test() {
 }  // end namespace gemmlowp
 
 // For iOS, we need to define our own main(), so skip it here.
-#if !(defined(__APPLE__) && defined(TARGET_OS_IPHONE))
+#if !(defined(__APPLE__) && (defined(TARGET_OS_IPHONE) || \
+defined(TARGET_IPHONE_SIMULATOR)))
 int main() { gemmlowp::test(); }
 #endif
 
