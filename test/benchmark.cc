@@ -23,6 +23,9 @@
 #include <vector>
 #include <map>
 #include <cstdlib>
+#ifdef __APPLE__
+#include <TargetConditionals.h>
+#endif
 
 #include "test.h"
 #include "../public/gemmlowp.h"
@@ -363,6 +366,7 @@ void benchmark_all() {
 }  // end namespace gemmlowp
 
 // For iOS, we need to define our own main(), so skip it here.
-#if !(defined(__APPLE__) && defined(TARGET_OS_IPHONE))
+#if !(defined(__APPLE__) && (defined(TARGET_OS_IPHONE) || \
+defined(TARGET_IPHONE_SIMULATOR)))
 int main() { gemmlowp::benchmark_all(); }
 #endif
