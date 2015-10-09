@@ -77,8 +77,12 @@ struct UnpackResultImpl<BitDepthParams,
           RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
       const std::int32_t term_1x_plus_term_11 = term_1x + term_11;
 
+      // Handle 16 values at once for higher performance
       int dst_rows_aligned16 = RoundDown<16>(dst->rows());
       for (int r = 0; r < dst_rows_aligned16; r += 16) {
+        // Compute the sum of the 4 terms,
+        //   q = term_xx + term_x1 + term_1x_plus_term_11
+        // Refer to the generic code in unpack.h.
         int32x4_t raw_xx[4];
         for (int i = 0; i < 4; i++) {
           raw_xx[i] = vld1q_s32(src_ptr);
@@ -105,30 +109,31 @@ struct UnpackResultImpl<BitDepthParams,
           q[i] = vaddq_s32(vaddq_s32(term_xx[i], term_x1[i]),
                            vdupq_n_s32(term_1x_plus_term_11));
         }
+        // Multiply by result_mult_int / (2^result_shift)
         for (int i = 0; i < 4; i++) {
           q[i] = vmulq_n_s32(q[i], result_mult_int);
         }
         for (int i = 0; i < 4; i++) {
           q[i] = vshlq_s32(vaddq_s32(q[i], preshift_offset_reg), shift_reg);
         }
-        int16x4_t q16[4];
-        for (int i = 0; i < 4; i++) {
-          q16[i] = vqmovn_s32(q[i]);
+        // Clamp to [0..255] and cast to uint8. Here we use saturating cast
+        // instructions vqmovn (signed to signed) and vqmovun (signed to unsigned).
+        int16x8_t q16[2];
+        for (int i = 0; i < 2; i++) {
+          q16[i] = vcombine_s16(vqmovn_s32(q[2 * i]), vqmovn_s32(q[2 * i + 1]));
         }
-        uint8x8_t q8[4];
-        for (int i = 0; i < 4; i++) {
-          q8[i] = vqmovun_s16(vcombine_s16(q16[i], q16[i]));
-        }
-        for (int i = 0; i < 4; i++) {
-          vst1_lane_u32(reinterpret_cast<std::uint32_t*>(dst_ptr),
-                        vreinterpret_u32_u8(q8[i]), 0);
-          dst_ptr += 4;
-        }
+        uint8x16_t q8 = vcombine_u8(vqmovun_s16(q16[0]), vqmovun_s16(q16[1]));
+        // Store to destination matrix.
+        vst1q_u8(dst_ptr, q8);
+        dst_ptr += 16;
       }
       // We have finished handling groups of 16 entries at once; now
       // try to handle 4 entries at once.
       int dst_rows_aligned4 = RoundDown<4>(dst->rows());
       for (int r = dst_rows_aligned16; r < dst_rows_aligned4; r += 4) {
+        // Compute the sum of the 4 terms,
+        //   q = term_xx + term_x1 + term_1x_plus_term_11
+        // Refer to the generic code in unpack.h.
         const int32x4_t raw_xx = vld1q_s32(src_ptr);
         const int32x4_t term_xx =
             RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
@@ -138,18 +143,25 @@ struct UnpackResultImpl<BitDepthParams,
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         int32x4_t q = vaddq_s32(vaddq_s32(term_xx, term_x1),
                                 vdupq_n_s32(term_1x_plus_term_11));
+        // Multiply by result_mult_int / (2^result_shift)
         q = vmulq_n_s32(q, result_mult_int);
         q = vshlq_s32(vaddq_s32(q, preshift_offset_reg), shift_reg);
-        int16x4_t q16 = vqmovn_s32(q);
-        uint8x8_t q8 = vqmovun_s16(vcombine_s16(q16, q16));
-        vst1_lane_u32(reinterpret_cast<std::uint32_t*>(dst_ptr),
-                      vreinterpret_u32_u8(q8), 0);
-        dst_ptr += 4;
+        // Clamp to [0..255] and cast to uint8. Here we use saturating cast
+        // instructions vqmovn (signed to signed) and vqmovun (signed to unsigned).
+        int16x8_t q16 = vcombine_s16(vqmovn_s32(q), vdup_n_s16(0));
+        uint8x8_t q8 = vqmovun_s16(q16);
+        // Store 4 bytes to destination matrix. Note: resist the urge to use a single
+        // uint32 store, because compilers may then implement this with an alignment
+        // specifier, causing crashes when the pointer isn't actually aligned.
+        for (int i = 0; i < 4; i++) {
+          vst1_lane_u8(dst_ptr++, q8, i);
+        }
         src_ptr += 4;
         rank_one_update_ptr += 4;
       }
       // We have finished handling 4 entries at once; now handle
-      // remaining entries one by one.
+      // remaining entries one by one. This scalar code is similar
+      // to the code in unpack.h, see comments there.
       for (int r = dst_rows_aligned4; r < dst->rows(); r++) {
         std::int32_t raw_xx = src_map(r, c);
         std::int32_t raw_x1 = lhs_rank_one_update[r];
