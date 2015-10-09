@@ -153,9 +153,13 @@ struct UnpackResultImpl<BitDepthParams,
         // Store 4 bytes to destination matrix. Note: resist the urge to use a single
         // uint32 store, because compilers may then implement this with an alignment
         // specifier, causing crashes when the pointer isn't actually aligned.
-        for (int i = 0; i < 4; i++) {
-          vst1_lane_u8(dst_ptr++, q8, i);
-        }
+        // Note - We can't use a loop here, because the iOS compiler complains
+        // "argument to '__builtin_neon_vst1_lane_v' must be a constant integer"
+        // Even a C const doesn't work, so we've explicitly unrolled this.
+        vst1_lane_u8(dst_ptr++, q8, 0);
+        vst1_lane_u8(dst_ptr++, q8, 1);
+        vst1_lane_u8(dst_ptr++, q8, 2);
+        vst1_lane_u8(dst_ptr++, q8, 3);
         src_ptr += 4;
         rank_one_update_ptr += 4;
       }
