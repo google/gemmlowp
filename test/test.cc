@@ -44,9 +44,14 @@ void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
   assert(a != nullptr);
   assert(b != nullptr);
   assert(c != nullptr);
+
+  // We're actually implementing C = B * A, for historical reasons. This means
+  // that the transpose flag handling is flipped compared to what you might
+  // expect, since the order of the arguments is flipped. The C transpose is
+  // still handled as you might expect though.
   int a_i_stride;
   int a_l_stride;
-  if (transpose_a == transpose_c) {
+  if (transpose_a) {
     a_i_stride = 1;
     a_l_stride = lda;
   } else {
@@ -55,7 +60,7 @@ void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
   }
   int b_j_stride;
   int b_l_stride;
-  if (transpose_b == transpose_c) {
+  if (transpose_b) {
     b_j_stride = ldb;
     b_l_stride = 1;
   } else {
@@ -65,11 +70,11 @@ void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
   int c_i_stride;
   int c_j_stride;
   if (transpose_c) {
-    c_i_stride = ldc;
-    c_j_stride = 1;
-  } else {
     c_i_stride = 1;
     c_j_stride = ldc;
+  } else {
+    c_i_stride = ldc;
+    c_j_stride = 1;
   }
   int i, j, l;
 
@@ -203,12 +208,9 @@ struct EightBitIntGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    const bool transpose_c = ResultOrder == MapOrder::ColMajor;
-    const bool transpose_a =
-        RhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
-    const bool transpose_b =
-        LhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
-
+    const bool transpose_c = ResultOrder == MapOrder::RowMajor;
+    const bool transpose_a = RhsOrder == MapOrder::RowMajor;
+    const bool transpose_b = LhsOrder == MapOrder::RowMajor;
     eight_bit_int_gemm::EightBitIntGemm(
         transpose_a, transpose_b, transpose_c, rhs.cols(), lhs.rows(),
         lhs.cols(), rhs.data(), rhs_offset, rhs.stride(), lhs.data(),
@@ -375,11 +377,9 @@ void test_gemm_impl(typename GemmWrapper::Context* context, const LhsType& lhs,
   static const MapOrder kRhsOrder = RhsType::kOrder;
   static const MapOrder kResultOrder = ResultType::kOrder;
   ResultType ref_result(rows, cols);
-  const bool transpose_c = kResultOrder == MapOrder::ColMajor;
-  const bool transpose_a =
-      kRhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
-  const bool transpose_b =
-      kLhsOrder == MapOrder::RowMajor ? transpose_c : !transpose_c;
+  const bool transpose_c = kResultOrder == MapOrder::RowMajor;
+  const bool transpose_a = kRhsOrder == MapOrder::RowMajor;
+  const bool transpose_b = kLhsOrder == MapOrder::RowMajor;
   ReferenceEightBitIntGemmWrapper<Scalar>::Gemm(
       transpose_a, transpose_b, transpose_c, lhs.const_map(), rhs.const_map(),
       &ref_result.map(), lhs_offset, rhs_offset, result_offset, result_mult_int,
@@ -703,11 +703,11 @@ void TestWithSmallData() {
   const int m = 2;
   const int n = 4;
   const int k = 3;
-  // Matrix A is:
+  // Matrix A (RHS) is:
   // |  1 |  3 |  5 |
   // |  2 |  4 |  6 |
   const uint8_t a_data[] = {1, 2, 3, 4, 5, 6};
-  // Matrix B is:
+  // Matrix B (LHS) is:
   // |  7 | 10 | 13 | 16 |
   // |  8 | 11 | 14 | 17 |
   // |  9 | 12 | 15 | 18 |
@@ -729,9 +729,9 @@ void TestWithSmallData() {
   const int c_count = m * n;
   std::unique_ptr<uint8_t[]> output_data(new uint8_t[c_count]);
 
-  const bool is_a_transposed = false;
-  const bool is_b_transposed = false;
-  const bool is_c_transposed = false;
+  const bool is_a_transposed = true;
+  const bool is_b_transposed = true;
+  const bool is_c_transposed = true;
   const int lda = m;
   const int ldb = k;
   const int ldc = m;
@@ -918,4 +918,3 @@ void test() {
 defined(TARGET_IPHONE_SIMULATOR)))
 int main() { gemmlowp::test(); }
 #endif
-
