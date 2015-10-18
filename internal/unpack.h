@@ -106,6 +106,12 @@ struct UnpackResultImplGeneric {
         (result_shift < 1) ? 0 : (1 << (result_shift - 1));
     for (int c = 0; c < dst->cols(); c++) {
       for (int r = 0; r < dst->rows(); r++) {
+        // To understand this code, read
+        //   doc/low-precision.txt
+        //   doc/less-than-8-bit.txt
+        // We have 4 terms to sum: xx, x1, 1x, 11.
+        // In case of requantization, we first need to scale them back
+        // to the original scale, using RoundingMultiplyByConstantFraction.
         std::int32_t raw_xx = src_map(r, c);
         std::int32_t raw_x1 = lhs_rank_one_update[r];
         std::int32_t raw_1x = rhs_rank_one_update[c];
@@ -116,9 +122,12 @@ struct UnpackResultImplGeneric {
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         std::int32_t term_1x =
             RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
+        // Sum the 4 terms.
         std::int32_t sum = term_xx + term_x1 + term_1x + term_11;
+        // Multiply by result_mult_int / (2^result_shift)
         std::int32_t result =
             (sum * result_mult_int + kRoundingTerm) >> result_shift;
+        // Clamp to [0..255] and store to destination.
         (*dst)(r, c) = result > 255 ? 255 : result < 0 ? 0 : result;
       }
     }

@@ -24,7 +24,6 @@
 		59D2E30C1BB9E95F007BFF4C /* packing.txt in Resources */ = {isa = PBXBuildFile; fileRef = 59D2E2CF1BB9E95F007BFF4C /* packing.txt */; };
 		59D2E30D1BB9E95F007BFF4C /* eight_bit_int_gemm.cc in Sources */ = {isa = PBXBuildFile; fileRef = 59D2E2D11BB9E95F007BFF4C /* eight_bit_int_gemm.cc */; };
 		59D2E30F1BB9E95F007BFF4C /* LICENSE in Resources */ = {isa = PBXBuildFile; fileRef = 59D2E2E41BB9E95F007BFF4C /* LICENSE */; };
-		59D2E3101BB9E95F007BFF4C /* log-gemmlowp-android-binary in Resources */ = {isa = PBXBuildFile; fileRef = 59D2E2E51BB9E95F007BFF4C /* log-gemmlowp-android-binary */; };
 		59D2E3111BB9E95F007BFF4C /* README in Resources */ = {isa = PBXBuildFile; fileRef = 59D2E2ED1BB9E95F007BFF4C /* README */; };
 		59D2E3121BB9E95F007BFF4C /* test-android.sh in Resources */ = {isa = PBXBuildFile; fileRef = 59D2E2EF1BB9E95F007BFF4C /* test-android.sh */; };
 		59D2E3131BB9E95F007BFF4C /* benchmark.cc in Sources */ = {isa = PBXBuildFile; fileRef = 59D2E2F11BB9E95F007BFF4C /* benchmark.cc */; };
@@ -78,7 +77,6 @@
 		59D2E2E21BB9E95F007BFF4C /* unpack.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = unpack.h; sourceTree = "<group>"; };
 		59D2E2E31BB9E95F007BFF4C /* unpack_neon.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = unpack_neon.h; sourceTree = "<group>"; };
 		59D2E2E41BB9E95F007BFF4C /* LICENSE */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = LICENSE; sourceTree = "<group>"; };
-		59D2E2E51BB9E95F007BFF4C /* log-gemmlowp-android-binary */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = text; path = "log-gemmlowp-android-binary"; sourceTree = "<group>"; };
 		59D2E2E71BB9E95F007BFF4C /* instrumentation.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = instrumentation.h; sourceTree = "<group>"; };
 		59D2E2E81BB9E95F007BFF4C /* profiler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = profiler.h; sourceTree = "<group>"; };
 		59D2E2EA1BB9E95F007BFF4C /* bit_depth.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = bit_depth.h; sourceTree = "<group>"; };
@@ -164,7 +162,6 @@
 				59D2E2D01BB9E95F007BFF4C /* eight_bit_int_gemm */,
 				59D2E2D41BB9E95F007BFF4C /* internal */,
 				59D2E2E41BB9E95F007BFF4C /* LICENSE */,
-				59D2E2E51BB9E95F007BFF4C /* log-gemmlowp-android-binary */,
 				59D2E2E61BB9E95F007BFF4C /* profiling */,
 				59D2E2E91BB9E95F007BFF4C /* public */,
 				59D2E2ED1BB9E95F007BFF4C /* README */,
@@ -348,7 +345,6 @@
 				59D2E3191BB9E95F007BFF4C /* armv8-64bit-kernel-for-less-than-8-bit.txt in Resources */,
 				59D2E30F1BB9E95F007BFF4C /* LICENSE in Resources */,
 				59D2E3061BB9E95F007BFF4C /* CONTRIBUTING in Resources */,
-				59D2E3101BB9E95F007BFF4C /* log-gemmlowp-android-binary in Resources */,
 				59D2E3041BB9E95F007BFF4C /* AUTHORS in Resources */,
 				59D2E3071BB9E95F007BFF4C /* CONTRIBUTORS in Resources */,
 				59D2E3121BB9E95F007BFF4C /* test-android.sh in Resources */,
