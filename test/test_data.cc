@@ -4,7 +4,7 @@ namespace test_data {
 
 extern const bool is_a_transposed = false;
 extern const bool is_b_transposed = true;
-extern const bool is_c_transposed = true;
+extern const bool is_c_transposed = false;
 extern const int m = 256;
 extern const int n = 192;
 extern const int k = 1152;

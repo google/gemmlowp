@@ -70,102 +70,103 @@ struct UnpackResultImpl<BitDepthParams,
     const int32x4_t preshift_offset_reg = vdupq_n_s32(preshift_offset);
     for (int c = 0; c < dst->cols(); c++) {
       std::uint8_t* dst_ptr = dst->data(0, c);
-      // On an iPhone 4S, unaligned stores cause an exception, and according to
-      // https://brewx.qualcomm.com/bws/content/gi/common/appseng/en/\
-      // knowledgebase/docs/kb95.html unaligned accesses are slower on all
-      // ARM chips, so only use the batched write path if all accesses are on
-      // four byte boundaries.
-      // TODO(petewarden) - We should be able to optimize the unaligned path
-      // better by writing a prolog that deals with the odd start bytes rather
-      // than giving up on batching writes entirely.
-      const bool use_fast_path =
-        (reinterpret_cast<uintptr_t>(dst_ptr) % 4) == 0;
       const std::int32_t* src_ptr = src_map.data(0, c);
       const std::int32_t* rank_one_update_ptr = lhs_rank_one_update;
       const std::int32_t raw_1x = rhs_rank_one_update[c];
       const std::int32_t term_1x =
           RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
       const std::int32_t term_1x_plus_term_11 = term_1x + term_11;
-      int remaining_r_start;
-      if (use_fast_path) {
-        int dst_rows_aligned16 = RoundDown<16>(dst->rows());
-        for (int r = 0; r < dst_rows_aligned16; r += 16) {
-          int32x4_t raw_xx[4];
-          for (int i = 0; i < 4; i++) {
-            raw_xx[i] = vld1q_s32(src_ptr);
-            src_ptr += 4;
-          }
-          int32x4_t raw_x1[4];
-          for (int i = 0; i < 4; i++) {
-            raw_x1[i] = vld1q_s32(rank_one_update_ptr);
-            rank_one_update_ptr += 4;
-          }
-          int32x4_t term_xx[4];
-          for (int i = 0; i < 4; i++) {
-            term_xx[i] =
-                RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
-                    raw_xx[i]);
-          }
-          int32x4_t term_x1[4];
-          for (int i = 0; i < 4; i++) {
-            term_x1[i] =
-                RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1[i]);
-          }
-          int32x4_t q[4];
-          for (int i = 0; i < 4; i++) {
-            q[i] = vaddq_s32(vaddq_s32(term_xx[i], term_x1[i]),
-                             vdupq_n_s32(term_1x_plus_term_11));
-          }
-          for (int i = 0; i < 4; i++) {
-            q[i] = vmulq_n_s32(q[i], result_mult_int);
-          }
-          for (int i = 0; i < 4; i++) {
-            q[i] = vshlq_s32(vaddq_s32(q[i], preshift_offset_reg), shift_reg);
-          }
-          int16x4_t q16[4];
-          for (int i = 0; i < 4; i++) {
-            q16[i] = vqmovn_s32(q[i]);
-          }
-          uint8x8_t q8[4];
-          for (int i = 0; i < 4; i++) {
-            q8[i] = vqmovun_s16(vcombine_s16(q16[i], q16[i]));
-          }
-          for (int i = 0; i < 4; i++) {
-            vst1_lane_u32(reinterpret_cast<std::uint32_t*>(dst_ptr),
-                          vreinterpret_u32_u8(q8[i]), 0);
-            dst_ptr += 4;
-          }
-        }
-        // We have finished handling groups of 16 entries at once; now
-        // try to handle 4 entries at once.
-        int dst_rows_aligned4 = RoundDown<4>(dst->rows());
-        for (int r = dst_rows_aligned16; r < dst_rows_aligned4; r += 4) {
-          const int32x4_t raw_xx = vld1q_s32(src_ptr);
-          const int32x4_t term_xx =
-              RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
-                  raw_xx);
-          const int32x4_t raw_x1 = vld1q_s32(rank_one_update_ptr);
-          const int32x4_t term_x1 =
-              RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
-          int32x4_t q = vaddq_s32(vaddq_s32(term_xx, term_x1),
-                                  vdupq_n_s32(term_1x_plus_term_11));
-          q = vmulq_n_s32(q, result_mult_int);
-          q = vshlq_s32(vaddq_s32(q, preshift_offset_reg), shift_reg);
-          int16x4_t q16 = vqmovn_s32(q);
-          uint8x8_t q8 = vqmovun_s16(vcombine_s16(q16, q16));
-          vst1_lane_u32(reinterpret_cast<std::uint32_t*>(dst_ptr),
-                        vreinterpret_u32_u8(q8), 0);
-          dst_ptr += 4;
+
+      // Handle 16 values at once for higher performance
+      int dst_rows_aligned16 = RoundDown<16>(dst->rows());
+      for (int r = 0; r < dst_rows_aligned16; r += 16) {
+        // Compute the sum of the 4 terms,
+        //   q = term_xx + term_x1 + term_1x_plus_term_11
+        // Refer to the generic code in unpack.h.
+        int32x4_t raw_xx[4];
+        for (int i = 0; i < 4; i++) {
+          raw_xx[i] = vld1q_s32(src_ptr);
           src_ptr += 4;
+        }
+        int32x4_t raw_x1[4];
+        for (int i = 0; i < 4; i++) {
+          raw_x1[i] = vld1q_s32(rank_one_update_ptr);
           rank_one_update_ptr += 4;
         }
-        remaining_r_start = dst_rows_aligned4;
-      } else {
-        remaining_r_start = 0;
+        int32x4_t term_xx[4];
+        for (int i = 0; i < 4; i++) {
+          term_xx[i] =
+              RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
+                  raw_xx[i]);
+        }
+        int32x4_t term_x1[4];
+        for (int i = 0; i < 4; i++) {
+          term_x1[i] =
+              RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1[i]);
+        }
+        int32x4_t q[4];
+        for (int i = 0; i < 4; i++) {
+          q[i] = vaddq_s32(vaddq_s32(term_xx[i], term_x1[i]),
+                           vdupq_n_s32(term_1x_plus_term_11));
+        }
+        // Multiply by result_mult_int / (2^result_shift)
+        for (int i = 0; i < 4; i++) {
+          q[i] = vmulq_n_s32(q[i], result_mult_int);
+        }
+        for (int i = 0; i < 4; i++) {
+          q[i] = vshlq_s32(vaddq_s32(q[i], preshift_offset_reg), shift_reg);
+        }
+        // Clamp to [0..255] and cast to uint8. Here we use saturating cast
+        // instructions vqmovn (signed to signed) and vqmovun (signed to unsigned).
+        int16x8_t q16[2];
+        for (int i = 0; i < 2; i++) {
+          q16[i] = vcombine_s16(vqmovn_s32(q[2 * i]), vqmovn_s32(q[2 * i + 1]));
+        }
+        uint8x16_t q8 = vcombine_u8(vqmovun_s16(q16[0]), vqmovun_s16(q16[1]));
+        // Store to destination matrix.
+        vst1q_u8(dst_ptr, q8);
+        dst_ptr += 16;
+      }
+      // We have finished handling groups of 16 entries at once; now
+      // try to handle 4 entries at once.
+      int dst_rows_aligned4 = RoundDown<4>(dst->rows());
+      for (int r = dst_rows_aligned16; r < dst_rows_aligned4; r += 4) {
+        // Compute the sum of the 4 terms,
+        //   q = term_xx + term_x1 + term_1x_plus_term_11
+        // Refer to the generic code in unpack.h.
+        const int32x4_t raw_xx = vld1q_s32(src_ptr);
+        const int32x4_t term_xx =
+            RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
+                raw_xx);
+        const int32x4_t raw_x1 = vld1q_s32(rank_one_update_ptr);
+        const int32x4_t term_x1 =
+            RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
+        int32x4_t q = vaddq_s32(vaddq_s32(term_xx, term_x1),
+                                vdupq_n_s32(term_1x_plus_term_11));
+        // Multiply by result_mult_int / (2^result_shift)
+        q = vmulq_n_s32(q, result_mult_int);
+        q = vshlq_s32(vaddq_s32(q, preshift_offset_reg), shift_reg);
+        // Clamp to [0..255] and cast to uint8. Here we use saturating cast
+        // instructions vqmovn (signed to signed) and vqmovun (signed to unsigned).
+        int16x8_t q16 = vcombine_s16(vqmovn_s32(q), vdup_n_s16(0));
+        uint8x8_t q8 = vqmovun_s16(q16);
+        // Store 4 bytes to destination matrix. Note: resist the urge to use a single
+        // uint32 store, because compilers may then implement this with an alignment
+        // specifier, causing crashes when the pointer isn't actually aligned.
+        // Note - We can't use a loop here, because the iOS compiler complains
+        // "argument to '__builtin_neon_vst1_lane_v' must be a constant integer"
+        // Even a C const doesn't work, so we've explicitly unrolled this.
+        vst1_lane_u8(dst_ptr++, q8, 0);
+        vst1_lane_u8(dst_ptr++, q8, 1);
+        vst1_lane_u8(dst_ptr++, q8, 2);
+        vst1_lane_u8(dst_ptr++, q8, 3);
+        src_ptr += 4;
+        rank_one_update_ptr += 4;
       }
       // We have finished handling 4 entries at once; now handle
-      // remaining entries one by one.
-      for (int r = remaining_r_start; r < dst->rows(); r++) {
+      // remaining entries one by one. This scalar code is similar
+      // to the code in unpack.h, see comments there.
+      for (int r = dst_rows_aligned4; r < dst->rows(); r++) {
         std::int32_t raw_xx = src_map(r, c);
         std::int32_t raw_x1 = lhs_rank_one_update[r];
         std::int32_t term_xx =
