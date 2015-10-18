@@ -75,7 +75,12 @@ struct BlockParams {
           RoundUp<KernelFormat::kCols>(CeilQuotient(cols, min_l2_cols_blocks));
     }
 
-    {
+    // No L2 blocking in the row dimension if l2_rhs_factor is 1.0 as the row
+    // dimension concerns only the LHS. Blocking only RHS matrix for L2 enhances
+    // the performance on x86.
+    if (l2_rhs_factor == 1.0f) {
+      l2_rows = RoundUp<KernelFormat::kRows>(rows);
+    } else {
       int max_cache_friendly_l2_rows =
           std::max(1, (l2_bytes_to_use - l2_depth * l2_cols) /
                           (num_threads * (l2_depth + 4 * l2_cols)));
