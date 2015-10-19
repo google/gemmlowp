@@ -54,8 +54,8 @@ void EightBitIntGemmImpl(GemmContext* context, int m, int n, int k,
                          std::uint8_t* c, std::int32_t c_offset,
                          std::int32_t c_mult_int, std::int32_t c_shift, int ldc,
                          BitDepthSetting bit_depth) {
-  const int lhs_offset = b_offset;
-  const int rhs_offset = a_offset;
+  const int lhs_offset = a_offset;
+  const int rhs_offset = b_offset;
   const int result_offset = c_offset;
   const int result_mult_int = c_mult_int;
   const int result_shift = c_shift;
@@ -63,13 +63,13 @@ void EightBitIntGemmImpl(GemmContext* context, int m, int n, int k,
   static const MapOrder ResultOrder =
       transpose_c ? MapOrder::RowMajor : MapOrder::ColMajor;
   static const MapOrder LhsOrder =
-      transpose_b ? MapOrder::RowMajor : MapOrder::ColMajor;
-  static const MapOrder RhsOrder =
       transpose_a ? MapOrder::RowMajor : MapOrder::ColMajor;
+  static const MapOrder RhsOrder =
+      transpose_b ? MapOrder::RowMajor : MapOrder::ColMajor;
 
-  MatrixMap<const std::uint8_t, LhsOrder> lhs(b, n, k, ldb);
-  MatrixMap<const std::uint8_t, RhsOrder> rhs(a, k, m, lda);
-  MatrixMap<std::uint8_t, ResultOrder> result(c, n, m, ldc);
+  MatrixMap<const std::uint8_t, LhsOrder> lhs(a, m, k, lda);
+  MatrixMap<const std::uint8_t, RhsOrder> rhs(b, k, n, ldb);
+  MatrixMap<std::uint8_t, ResultOrder> result(c, m, n, ldc);
 
   switch (bit_depth) {
 #define GEMMLOWP_HANDLE_BIT_DEPTH(BIT_DEPTH_SETTING, BIT_DEPTH_PARAMS)     \
