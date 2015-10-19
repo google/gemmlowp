@@ -52,29 +52,29 @@ void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
   int a_i_stride;
   int a_l_stride;
   if (transpose_a) {
-    a_i_stride = 1;
-    a_l_stride = lda;
-  } else {
     a_i_stride = lda;
     a_l_stride = 1;
+  } else {
+    a_i_stride = 1;
+    a_l_stride = lda;
   }
   int b_j_stride;
   int b_l_stride;
   if (transpose_b) {
-    b_j_stride = ldb;
-    b_l_stride = 1;
-  } else {
     b_j_stride = 1;
     b_l_stride = ldb;
+  } else {
+    b_j_stride = ldb;
+    b_l_stride = 1;
   }
   int c_i_stride;
   int c_j_stride;
   if (transpose_c) {
-    c_i_stride = 1;
-    c_j_stride = ldc;
-  } else {
     c_i_stride = ldc;
     c_j_stride = 1;
+  } else {
+    c_i_stride = 1;
+    c_j_stride = ldc;
   }
   int i, j, l;
 
@@ -209,12 +209,12 @@ struct EightBitIntGemmWrapper {
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
     const bool transpose_c = ResultOrder == MapOrder::RowMajor;
-    const bool transpose_a = RhsOrder == MapOrder::RowMajor;
-    const bool transpose_b = LhsOrder == MapOrder::RowMajor;
+    const bool transpose_a = LhsOrder == MapOrder::RowMajor;
+    const bool transpose_b = RhsOrder == MapOrder::RowMajor;
     eight_bit_int_gemm::EightBitIntGemm(
-        transpose_a, transpose_b, transpose_c, rhs.cols(), lhs.rows(),
-        lhs.cols(), rhs.data(), rhs_offset, rhs.stride(), lhs.data(),
-        lhs_offset, lhs.stride(), result->data(), result_offset,
+        transpose_a, transpose_b, transpose_c, lhs.rows(), rhs.cols(),
+        lhs.cols(), lhs.data(), lhs_offset, lhs.stride(), rhs.data(),
+        rhs_offset, rhs.stride(), result->data(), result_offset,
         result_mult_int, result_shift, result->stride(), BitDepth);
   }
 };
@@ -232,9 +232,9 @@ struct ReferenceEightBitIntGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    ReferenceEightBitIntGemm(transpose_a, transpose_b, transpose_c, rhs.cols(),
-                             lhs.rows(), lhs.cols(), rhs.data(), rhs_offset,
-                             rhs.stride(), lhs.data(), lhs_offset, lhs.stride(),
+    ReferenceEightBitIntGemm(transpose_a, transpose_b, transpose_c, lhs.rows(),
+                             rhs.cols(), lhs.cols(), lhs.data(), lhs_offset,
+                             lhs.stride(), rhs.data(), rhs_offset, rhs.stride(),
                              result->data(), result_offset, result_mult_int,
                              result_shift, result->stride());
   }
@@ -378,8 +378,8 @@ void test_gemm_impl(typename GemmWrapper::Context* context, const LhsType& lhs,
   static const MapOrder kResultOrder = ResultType::kOrder;
   ResultType ref_result(rows, cols);
   const bool transpose_c = kResultOrder == MapOrder::RowMajor;
-  const bool transpose_a = kRhsOrder == MapOrder::RowMajor;
-  const bool transpose_b = kLhsOrder == MapOrder::RowMajor;
+  const bool transpose_a = kLhsOrder == MapOrder::RowMajor;
+  const bool transpose_b = kRhsOrder == MapOrder::RowMajor;
   ReferenceEightBitIntGemmWrapper<Scalar>::Gemm(
       transpose_a, transpose_b, transpose_c, lhs.const_map(), rhs.const_map(),
       &ref_result.map(), lhs_offset, rhs_offset, result_offset, result_mult_int,
@@ -700,18 +700,18 @@ const char* GetBitDepthName(eight_bit_int_gemm::BitDepthSetting b) {
 
 // Runs a small set of hand-calculated data through the implementation.
 void TestWithSmallData() {
-  const int m = 2;
-  const int n = 4;
+  const int m = 4;
+  const int n = 2;
   const int k = 3;
-  // Matrix A (RHS) is:
-  // |  1 |  3 |  5 |
-  // |  2 |  4 |  6 |
-  const uint8_t a_data[] = {1, 2, 3, 4, 5, 6};
-  // Matrix B (LHS) is:
+  // Matrix A (LHS) is:
   // |  7 | 10 | 13 | 16 |
   // |  8 | 11 | 14 | 17 |
   // |  9 | 12 | 15 | 18 |
-  const uint8_t b_data[] = {7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18};
+  const uint8_t a_data[] = {7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18};
+  // Matrix B (RHS) is:
+  // |  1 |  3 |  5 |
+  // |  2 |  4 |  6 |
+  const uint8_t b_data[] = {1, 2, 3, 4, 5, 6};
   // Here are the results we expect, from hand calculations:
   // (1 * 7) + (3 * 8) + (5 * 9) = 76
   // (2 * 7) + (4 * 8) + (6 * 9) = 100
@@ -732,9 +732,9 @@ void TestWithSmallData() {
   const bool is_a_transposed = true;
   const bool is_b_transposed = true;
   const bool is_c_transposed = true;
-  const int lda = m;
-  const int ldb = k;
-  const int ldc = m;
+  const int lda = k;
+  const int ldb = n;
+  const int ldc = n;
 
   const int a_offset = 0;
   const int b_offset = 0;
@@ -768,7 +768,7 @@ void TestWithRealData(eight_bit_int_gemm::BitDepthSetting BitDepth,
       test_data::is_c_transposed, test_data::m, test_data::n, test_data::k,
       test_data::a_data, test_data::a_offset, test_data::k, test_data::b_data,
       test_data::b_offset, test_data::k, output_data.get(), test_data::c_offset,
-      test_data::c_mult_int, test_data::c_shift, test_data::n, BitDepth);
+      test_data::c_mult_int, test_data::c_shift, test_data::m, BitDepth);
 
   ResultStats stats;
   GetResultStats(output_data.get(), test_data::expected_c_data,
