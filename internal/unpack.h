@@ -70,7 +70,8 @@ std::int32_t RoundingMultiplyByConstantFraction(std::int32_t x) {
       numerator - int_quotient * denominator;
   static const std::int32_t scaled_remaining_numerator =
       static_cast<std::int32_t>(
-          (static_cast<std::int64_t>(remaining_numerator) << 31) / denominator);
+          (static_cast<std::int64_t>(remaining_numerator) *
+              (1ll << 31)) / denominator);
 
   const std::int64_t scaled_remaining_product =
       static_cast<std::int64_t>(x) *
