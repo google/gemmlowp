@@ -88,6 +88,9 @@ Public interfaces
     eight_bit_int_gemm/eight_bit_int_gemm.h
   This is *NOT* a headers-only library, users need to link to
     eight_bit_int_gemm/eight_bit_int_gemm.cc.
+  The API is similar to the standard BLAS GEMM interface, and implements
+  C = A * B. If the transpose flags for a matrix argument are false, its memory
+  order is treated as column major, and row major if its true.
 
 
 Building
