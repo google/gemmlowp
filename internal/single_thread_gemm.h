@@ -55,6 +55,10 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
   int cols = result->cols();
   int depth = lhs.cols();
 
+  assert(rows > 0);
+  assert(cols > 0);
+  assert(depth > 0);
+
   Allocator* allocator = context->allocator();
 
   BlockParams block_params;

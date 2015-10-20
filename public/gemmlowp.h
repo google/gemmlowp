@@ -37,9 +37,20 @@ void Gemm(GemmContext* context, const MatrixMap<const Scalar, LhsOrder>& lhs,
           MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
           int rhs_offset, int result_offset, int result_mult_int,
           int result_shift) {
+
   assert(lhs.cols() == rhs.rows());
-  const int depth = lhs.cols();
-  if (rhs.cols() == 1) {
+
+  int rows = result->rows();
+  int cols = result->cols();
+  int depth = lhs.cols();
+
+  if (rows == 0 || cols == 0 || depth == 0) {
+    // Vacuous GEMM, return early to avoid having to deal with
+    // zero sizes below.
+    return;
+  }
+
+  if (cols == 1) {
     if (depth >= kMinimumSizeForRequantization) {
       typedef DefaultKernel<KernelFamily::Gemv, BitDepthParams> Kernel;
       MultiThreadGemm<typename Kernel::Format, std::uint8_t, BitDepthParams>(
