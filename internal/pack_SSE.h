@@ -298,39 +298,6 @@ class PackingRegisterBlock<
               src_data[1+i*width_stride], rounding_offset_generator);
         }
 
-//        scratch_pad.data[0] = Requantize<QuantizationParams>(
-//                src_data[0], rounding_offset_generator);
-//        scratch_pad.data[1] = Requantize<QuantizationParams>(
-//                src_data[1], rounding_offset_generator);
-//        scratch_pad.data[2] = Requantize<QuantizationParams>(
-//                src_data[0+1*width_stride], rounding_offset_generator);
-//        scratch_pad.data[3] = Requantize<QuantizationParams>(
-//                src_data[1+1*width_stride], rounding_offset_generator);
-//        scratch_pad.data[4] = Requantize<QuantizationParams>(
-//                src_data[0+2*width_stride], rounding_offset_generator);
-//        scratch_pad.data[5] = Requantize<QuantizationParams>(
-//                src_data[1+2*width_stride], rounding_offset_generator);
-//        scratch_pad.data[6] = Requantize<QuantizationParams>(
-//                src_data[0+3*width_stride], rounding_offset_generator);
-//        scratch_pad.data[7] = Requantize<QuantizationParams>(
-//                src_data[1+3*width_stride], rounding_offset_generator);
-//        scratch_pad.data[8] = Requantize<QuantizationParams>(
-//                src_data[0+4*width_stride], rounding_offset_generator);
-//        scratch_pad.data[9] = Requantize<QuantizationParams>(
-//                src_data[1+4*width_stride], rounding_offset_generator);
-//        scratch_pad.data[10] = Requantize<QuantizationParams>(
-//                src_data[0+5*width_stride], rounding_offset_generator);
-//        scratch_pad.data[11] = Requantize<QuantizationParams>(
-//                src_data[1+5*width_stride], rounding_offset_generator);
-//        scratch_pad.data[12] = Requantize<QuantizationParams>(
-//                src_data[0+6*width_stride], rounding_offset_generator);
-//        scratch_pad.data[13] = Requantize<QuantizationParams>(
-//                src_data[1+6*width_stride], rounding_offset_generator);
-//        scratch_pad.data[14] = Requantize<QuantizationParams>(
-//                src_data[0+7*width_stride], rounding_offset_generator);
-//        scratch_pad.data[15] = Requantize<QuantizationParams>(
-//                src_data[1+7*width_stride], rounding_offset_generator);
-//
 #if 1
         __m128i src_8bit_xmm = _mm_load_si128((__m128i*) &scratch_pad.data[0]);
         _mm_storeu_si128((__m128i*) dst_ptr, src_8bit_xmm);
@@ -402,24 +369,23 @@ class PackingRegisterBlock<
         const std::uint8_t* src_data = this->complete_src_.data(cell_start_width, cell_start_depth);
 
         scratch_type scratch_pad;
-        scratch_pad.data[0] = Requantize<QuantizationParams>(
-                src_data[0], rounding_offset_generator);
-        scratch_pad.data[1] = Requantize<QuantizationParams>(
-                src_data[1], rounding_offset_generator);
-        scratch_pad.data[2] = Requantize<QuantizationParams>(
-                src_data[0+width_stride], rounding_offset_generator);
-        scratch_pad.data[3] = Requantize<QuantizationParams>(
-                src_data[1+width_stride], rounding_offset_generator);
-        scratch_pad.data[4] = Requantize<QuantizationParams>(
-                src_data[0+2*width_stride], rounding_offset_generator);
-        scratch_pad.data[5] = Requantize<QuantizationParams>(
-                src_data[1+2*width_stride], rounding_offset_generator);
-        scratch_pad.data[6] = Requantize<QuantizationParams>(
-                src_data[0+3*width_stride], rounding_offset_generator);
-        scratch_pad.data[7] = Requantize<QuantizationParams>(
-                src_data[1+3*width_stride], rounding_offset_generator);
+        for (int i = 0; i < 8; ++i) {
+          scratch_pad.data[2*i]   = Requantize<QuantizationParams>(
+              src_data[i*width_stride], rounding_offset_generator);
+          scratch_pad.data[2*i+1] = Requantize<QuantizationParams>(
+              src_data[1+i*width_stride], rounding_offset_generator);
+        }
 
-        __m128i xmm0 = _mm_load_si128((__m128i*) &scratch_pad.data[0]);
+#if 1
+        __m128i src_8bit_xmm = _mm_loadl_epi64((__m128i*) &scratch_pad.data[0]);
+        _mm_storel_epi64((__m128i*) dst_ptr, src_8bit_xmm);
+
+        __m128i src_16bit_xmm0 = _mm_cvtepu8_epi16(src_8bit_xmm);
+        __m128i rank_one_update_xmm0 = _mm_madd_epi16(src_16bit_xmm0, mult_lo_xmm);
+        __m128i rank_one_update_xmm2 = _mm_loadu_si128((__m128i*) &cell_rank_one_update_ptr[0]);
+        rank_one_update_xmm0 = _mm_add_epi32(rank_one_update_xmm0, rank_one_update_xmm2);
+        _mm_storeu_si128((__m128i*) &cell_rank_one_update_ptr[0], rank_one_update_xmm0);
+#else
         dst_ptr[0] = scratch_pad.data[0];
         dst_ptr[1] = scratch_pad.data[1];
         dst_ptr[2] = scratch_pad.data[2];
@@ -437,6 +403,7 @@ class PackingRegisterBlock<
               (scratch_pad.data[4] + scratch_pad.data[5]) * dst->rank_one_update_multiplier();
         cell_rank_one_update_ptr[3] +=
               (scratch_pad.data[6] + scratch_pad.data[7]) * dst->rank_one_update_multiplier();
+#endif
         dst_ptr += kCellSize;
       }
     }
