@@ -19,102 +19,22 @@
 
 #include "pack.h"
 #include <xmmintrin.h>
-// TODO: Delete below
-#include <iostream>
 
 namespace gemmlowp {
 
-template <RoundingMode tRoundingMode>
-class SSERoundingOffsetGenerator {
- public:
-  std::uint8_t get() {
-      assert(false);
-      return 0;
-#if 0
-    assert(false);  // This generic path should never be called.
-    return vdupq_n_u8(0);
-#endif
-  }
-};
-
-// A RoundingOffsetGenerator for rounding-to-nearest, always returning
-// the midpoint value 127.
-template <>
-class SSERoundingOffsetGenerator<RoundingMode::Nearest> {
- public:
-  std::uint8_t get() { 
-      return 127;
-  }
-};
-
-// Variant of SSERoundingOffsetGenerator that produces
-// random SSE 128-bit vectors using a 8-bit Xorshift.
-template <>
-class SSERoundingOffsetGenerator<RoundingMode::ProbabilisticXorshift> {
- public:
-  SSERoundingOffsetGenerator() {
-    x_ = 128;
-  }
-
-  std::uint8_t get() {
-
-    std::uint8_t result = x_ - 1;
-    // Xorshift8(7,5,3)
-    x_ ^= x_ << 7;
-    x_ ^= x_ >> 5;
-    x_ ^= x_ << 3;
-    return result;
-  }
-
- private:
-  std::uint8_t x_;
-};
-
-// Variant of SSERoundingOffsetGenerator that produces
-// rounding vectors using an 8-bit add/mod low-discrepancy sequence.
-template <>
-class SSERoundingOffsetGenerator<RoundingMode::ProbabilisticAddmod> {
-  static const std::uint8_t AddConst = 97;
- public:
-  SSERoundingOffsetGenerator() {
-    x_ = 1;
-  }
-
-  std::uint8_t get() {
-    x_ += (AddConst + (x_ >= (255-AddConst)));
-    return x_;
-  }
-
- private:
-  // State
-  std::uint8_t x_;
-};
-
-
-// Requantizes source uint8 values in [0..255] range
+// Requantizes source values pointed by raw_src_ptr in [0..255] range
 // to the range specified by BitDepth, [0..((2^bits)-1)].
-// Bias must be avoided. Currently this is achieved
-// by probabilistic rounding.
-template <typename QuantizationParams>
-std::uint8_t Requantize(
-    std::uint8_t raw_src_val,
-    SSERoundingOffsetGenerator<QuantizationParams::kRoundingMode>*
-        rounding_offset_generator) {
-  static const int kBits = QuantizationParams::BitDepth::kBits;
-  static const std::uint8_t kMaxVal = (1 << kBits) - 1;
-  if (kBits == 8) {
-    return raw_src_val;
-  }
-
-  std::uint16_t scaled = static_cast<std::uint16_t>(raw_src_val) * kMaxVal;
-  std::uint8_t rounding_offset = rounding_offset_generator->get();
-  return (scaled + rounding_offset) / 255;
-}
-
+// This is in-place requantization, where the input is 
+// not modified if 8bit integers are used. SSE does not
+// have less than 8bit kernels currently. Altought SSE registers
+// hold 16 uint8_t elements, only first 8 uint8_t elements are 
+// requantized. The packing only use first 8 uint8_t elements 
+// of the SSE registers. Therefore, requantizing all 16 uint8_t 
+// elements will be wasteful computation.
 template <typename QuantizationParams>
 void SSERequantize(
     __m128i* raw_src_ptr,
-    SSERoundingOffsetGenerator<QuantizationParams::kRoundingMode>*
+    ScalarRoundingOffsetGenerator<QuantizationParams::kRoundingMode>*
         rounding_offset_generator) {
   static const int kBits = QuantizationParams::BitDepth::kBits;
   static const std::uint8_t kMaxVal = (1 << kBits) - 1;
@@ -124,6 +44,7 @@ void SSERequantize(
 
   std::uint8_t* raw_src_ui8_ptr = (std::uint8_t*) &raw_src_ptr[0];
 
+  // modify only first 8 elements in the register (see note above)
   for (int i = 0; i < 8; ++i) {
     std::uint16_t scaled = static_cast<std::uint16_t>(raw_src_ui8_ptr[i]) * kMaxVal;
     std::uint8_t rounding_offset = rounding_offset_generator->get();
@@ -131,7 +52,7 @@ void SSERequantize(
   }
 }
 
-
+// TODO: Add DepthMajorUint8SideMap
 
 typedef SideMap<const std::uint8_t, SideMapOrder::WidthMajor>
     WidthMajorUint8SideMap;
@@ -157,16 +78,11 @@ class PackingRegisterBlock<
   static const int kCellSize = CellFormat::kSize;
   static const int kKernelWidth2 = (kKernelWidth / kCellWidth / 2) * kCellWidth;
 
-  typedef SSERoundingOffsetGenerator<QuantizationParams::kRoundingMode>
+  typedef ScalarRoundingOffsetGenerator<QuantizationParams::kRoundingMode>
       RoundingOffsetGenerator;
 
   void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width,
             RoundingOffsetGenerator* rounding_offset_generator) {
-    // std::cout<< "Efe is here\n" << std::endl;
-    union scratch_type { 
-        std::uint8_t data[16];
-        std::aligned_storage<sizeof(std::uint8_t)*16, 64> alignment_dummy;
-    };
     int rank_one_mult = dst->rank_one_update_multiplier();
     int16_t rank_one_mult_lo = (rank_one_mult << 16) >> 16;
     int16_t rank_one_mult_hi = rank_one_mult >> 16;
@@ -194,7 +110,6 @@ class PackingRegisterBlock<
           dst->rank_one_update() + start_width + cell_start_width;
         const std::uint8_t* src_data = this->complete_src_.data(cell_start_width, cell_start_depth);
 
-#if 1
         __m128i xmm1 = _mm_loadl_epi64((__m128i*) &src_data[0]);
         __m128i xmm2 = _mm_loadl_epi64((__m128i*) &src_data[1*width_stride]);
         __m128i xmm3 = _mm_loadl_epi64((__m128i*) &src_data[2*width_stride]);
@@ -242,25 +157,6 @@ class PackingRegisterBlock<
         rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
 
         _mm_storeu_si128((__m128i*) &cell_rank_one_update_ptr[0], rank_one_update_xmm);
-
-#else
-        scratch_type scratch_pad;
-        for (int i = 0; i < 8; ++i) {
-          scratch_pad.data[2*i]   = Requantize<QuantizationParams>(
-              src_data[i*width_stride], rounding_offset_generator);
-          scratch_pad.data[2*i+1] = Requantize<QuantizationParams>(
-              src_data[1+i*width_stride], rounding_offset_generator);
-        }
-
-        __m128i src_8bit_xmm = _mm_loadl_epi64((__m128i*) &scratch_pad.data[0]);
-        _mm_storel_epi64((__m128i*) dst_ptr, src_8bit_xmm);
-
-        __m128i src_16bit_xmm0 = _mm_cvtepu8_epi16(src_8bit_xmm);
-        __m128i rank_one_update_xmm0 = _mm_madd_epi16(src_16bit_xmm0, mult_lo_xmm);
-        __m128i rank_one_update_xmm2 = _mm_loadu_si128((__m128i*) &cell_rank_one_update_ptr[0]);
-        rank_one_update_xmm0 = _mm_add_epi32(rank_one_update_xmm0, rank_one_update_xmm2);
-        _mm_storeu_si128((__m128i*) &cell_rank_one_update_ptr[0], rank_one_update_xmm0);
-#endif
         dst_ptr += kCellSize;
       }
       dst_ptr += 3*kCellSize*kCells;
