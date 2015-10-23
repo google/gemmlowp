@@ -111,6 +111,28 @@ std::uint8_t Requantize(
   return (scaled + rounding_offset) / 255;
 }
 
+template <typename QuantizationParams>
+void SSERequantize(
+    __m128i* raw_src_ptr,
+    SSERoundingOffsetGenerator<QuantizationParams::kRoundingMode>*
+        rounding_offset_generator) {
+  static const int kBits = QuantizationParams::BitDepth::kBits;
+  static const std::uint8_t kMaxVal = (1 << kBits) - 1;
+  if (kBits == 8) {
+    return;
+  }
+
+  std::uint8_t* raw_src_ui8_ptr = (std::uint8_t*) &raw_src_ptr[0];
+
+  for (int i = 0; i < 8; ++i) {
+    std::uint16_t scaled = static_cast<std::uint16_t>(raw_src_ui8_ptr[i]) * kMaxVal;
+    std::uint8_t rounding_offset = rounding_offset_generator->get();
+    raw_src_ui8_ptr[i] = (scaled + rounding_offset) / 255;
+  }
+}
+
+
+
 typedef SideMap<const std::uint8_t, SideMapOrder::WidthMajor>
     WidthMajorUint8SideMap;
 
@@ -161,7 +183,8 @@ class PackingRegisterBlock<
 
 
     std::uint8_t* dst_ptr = dst->current_data();
-    int depth_step = 2;
+    int depth_step = 8;
+    const int width_stride = this->complete_src_.width_stride();
     for (int cell_start_depth = 0; cell_start_depth < kRegisterSize;
          cell_start_depth += depth_step) {
 
@@ -169,10 +192,58 @@ class PackingRegisterBlock<
            cell_start_width += kCellWidth) {
         std::int32_t* cell_rank_one_update_ptr =
           dst->rank_one_update() + start_width + cell_start_width;
-
-        const int width_stride = this->complete_src_.width_stride();
         const std::uint8_t* src_data = this->complete_src_.data(cell_start_width, cell_start_depth);
 
+#if 1
+        __m128i xmm1 = _mm_loadl_epi64((__m128i*) &src_data[0]);
+        __m128i xmm2 = _mm_loadl_epi64((__m128i*) &src_data[1*width_stride]);
+        __m128i xmm3 = _mm_loadl_epi64((__m128i*) &src_data[2*width_stride]);
+        __m128i xmm4 = _mm_loadl_epi64((__m128i*) &src_data[3*width_stride]);
+
+        __m128i xmm5 = _mm_unpacklo_epi16(xmm1, xmm2);
+        __m128i xmm8 = _mm_shuffle_epi32 (xmm5, 0x31);
+
+        __m128i xmm6 = _mm_unpacklo_epi16(xmm3, xmm4);
+        __m128i xmm7 = _mm_shuffle_epi32 (xmm6, 0x80);
+
+        __m128i xmm9  = _mm_blend_epi16(xmm5, xmm7, 0xcc);
+        SSERequantize<QuantizationParams>(&xmm9, rounding_offset_generator);
+
+        __m128i xmm10 = _mm_blend_epi16(xmm8, xmm6, 0xcc);
+        SSERequantize<QuantizationParams>(&xmm10, rounding_offset_generator);
+
+        _mm_storel_epi64((__m128i*) &dst_ptr[0], xmm9);
+        _mm_storel_epi64((__m128i*) &dst_ptr[kCellSize*kCells], xmm10);
+
+        __m128i xmm11 = _mm_shuffle_epi32(xmm9 , 0xee);
+        SSERequantize<QuantizationParams>(&xmm11, rounding_offset_generator);
+
+        __m128i xmm12 = _mm_shuffle_epi32(xmm10, 0xee);
+        SSERequantize<QuantizationParams>(&xmm12, rounding_offset_generator);
+
+        _mm_storel_epi64((__m128i*) &dst_ptr[2*kCellSize*kCells] , xmm11);
+        _mm_storel_epi64((__m128i*) &dst_ptr[3*kCellSize*kCells], xmm12);
+
+        xmm1 = _mm_cvtepu8_epi16(xmm9);
+        xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
+        __m128i rank_one_update_xmm = _mm_loadu_si128((__m128i*) &cell_rank_one_update_ptr[0]);
+        rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
+
+        xmm1 = _mm_cvtepu8_epi16(xmm10);
+        xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
+        rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
+
+        xmm1 = _mm_cvtepu8_epi16(xmm11);
+        xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
+        rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
+
+        xmm1 = _mm_cvtepu8_epi16(xmm12);
+        xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
+        rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
+
+        _mm_storeu_si128((__m128i*) &cell_rank_one_update_ptr[0], rank_one_update_xmm);
+
+#else
         scratch_type scratch_pad;
         for (int i = 0; i < 8; ++i) {
           scratch_pad.data[2*i]   = Requantize<QuantizationParams>(
@@ -189,11 +260,12 @@ class PackingRegisterBlock<
         __m128i rank_one_update_xmm2 = _mm_loadu_si128((__m128i*) &cell_rank_one_update_ptr[0]);
         rank_one_update_xmm0 = _mm_add_epi32(rank_one_update_xmm0, rank_one_update_xmm2);
         _mm_storeu_si128((__m128i*) &cell_rank_one_update_ptr[0], rank_one_update_xmm0);
-
+#endif
         dst_ptr += kCellSize;
       }
+      dst_ptr += 3*kCellSize*kCells;
     }
-    dst->seek_forward_n_cells(kCells * kRegisterSize / depth_step);
+    dst->seek_forward_n_cells(kCells * kRegisterSize / kCellDepth);
   }
 };
 
