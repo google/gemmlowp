@@ -20,6 +20,19 @@
 // safer to hardcode it here with some #pragma's.
 #include "../public/gemmlowp.h"
 
+// Define GEMMLOWP_USE_META_FASTPATH in order to use the fastpath ARM/NEON
+// code. This code path consists of a number of meta-programmed, automatically
+// generated GEMM kernels that are suitable for some sizes of input matrices.
+// Due to the fact that the generated code relies heavily on loop unrolling,
+// inling and currying of runtime parameters the size of the generated binary
+// is quite significant (approx. 200kb) which might be prohibitive in
+// low-memory situations.
+
+#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
+#include <memory>
+#include "../meta/multi_thread_gemm.h"
+#endif
+
 namespace gemmlowp {
 
 namespace eight_bit_int_gemm {
@@ -86,6 +99,69 @@ void EightBitIntGemmImpl(GemmContext* context, int m, int n, int k,
   }
 }
 
+#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
+class Scratch {
+ public:
+  Scratch() : buffer_(), size_(0) {}
+
+  void AssureSize(std::int32_t required_size) {
+    if (size_ >= required_size) {
+      return;
+    }
+    buffer_.reset(new std::uint8_t[required_size]);
+    size_ = required_size;
+  }
+
+  void Clear() {
+    buffer_.reset(nullptr);
+    size_ = 0;
+  }
+
+  std::uint8_t* buffer() { return buffer_.get(); }
+
+ private:
+  std::unique_ptr<std::uint8_t[]> buffer_;
+  std::int32_t size_;
+};
+
+Scratch* global_scratch = nullptr;
+
+Scratch* GetOrCreateGlobalScratch() {
+  if (global_scratch == nullptr) {
+    global_scratch = new Scratch();
+  }
+  return global_scratch;
+}
+
+void DestroyGlobalScratch() {
+  delete global_scratch;
+  global_scratch = nullptr;
+}
+
+// Fast path only handles Row x Col -> Row layout and depths up to 2048.
+bool CanHandleMetaFastpath(bool transpose_a, bool transpose_b, bool transpose_c,
+                           int n, int m, int k, int lda, int ldb, int ldc,
+                           BitDepthSetting depth_setting) {
+  return k <= 2048 && transpose_a && !transpose_b && transpose_c && lda == k &&
+         ldb == k && ldc == m && depth_setting == BitDepthSetting::A8B8;
+}
+
+// Assure enough scratch memory is allocated and run the fast path gemm.
+void MetaGemm(GemmContext* context, const std::uint8_t* lhs,
+              const std::uint8_t* rhs, int n, int m, int k,
+              std::int32_t lhs_offset, std::int32_t rhs_offset,
+              std::int32_t sum_offset, std::int32_t multiplicative_offset,
+              std::int32_t shift, std::uint8_t* result) {
+  Scratch* scratch = GetOrCreateGlobalScratch();
+  scratch->AssureSize(
+      meta::RequiredScratch(n, m, k, context->max_num_threads()));
+  meta::multi_thread_gemm(context->workers_pool(), context->max_num_threads(),
+                          scratch->buffer(), lhs, rhs, n, m, k, lhs_offset,
+                          rhs_offset, sum_offset, multiplicative_offset, shift,
+                          result);
+}
+#endif
+
 }  // end anonymous namespace
 
 // Public interface entry points
@@ -98,6 +174,16 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
                      std::int32_t c_shift, int ldc, BitDepthSetting bit_depth) {
   AutoGlobalLock<EightBitIntGemmLockId> lock;
   GemmContext* context = GetOrCreateGlobalContext();
+
+#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
+  // Fast path produces RowMajor result, need to switch a with b.
+  if (CanHandleMetaFastpath(!transpose_b, !transpose_a, !transpose_c, n, m, k,
+                            ldb, lda, ldc, bit_depth)) {
+    MetaGemm(context, b, a, n, m, k, b_offset, a_offset, c_offset, c_mult_int,
+             c_shift, c);
+    return;
+  }
+#endif
 
 #define GEMMLOWP_HANDLE_CASE(ta, tb, tc)                                    \
   if (transpose_a == ta && transpose_b == tb && transpose_c == tc) {        \
@@ -127,6 +213,9 @@ void SetMaxNumThreads(int n) {
 void FreePersistentResources() {
   AutoGlobalLock<EightBitIntGemmLockId> lock;
   DestroyGlobalContext();
+#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
+  DestroyGlobalScratch();
+#endif
 }
 
 }  // namespace eight_bit_int_gemm

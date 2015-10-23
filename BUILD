@@ -20,6 +20,7 @@ filegroup(
 
 gemmlowp_headers = glob([
     "internal/*.h",
+    "meta/*.h",
 ]) + gemmlowp_public_headers
 
 filegroup(
