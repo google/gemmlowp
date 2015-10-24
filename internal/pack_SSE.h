@@ -95,7 +95,7 @@ class PackingRegisterBlock<
     const int width_stride = this->complete_src_.width_stride();
     int depth_step = 8;
 
-    // If the multiplier cannot be represented by int16_t, then we need to do exra 
+    // If the multiplier cannot be represented by int16_t, then we need to do extra 
     // work for integer multiplication. Hopefully, this is not the case most
     // of the time since this involves more computations.
     //
@@ -174,7 +174,7 @@ class PackingRegisterBlock<
           xmm3 = _mm_madd_epi16(xmm1, mult_hi_xmm);
           xmm3 = _mm_sll_epi32(xmm3, mult_shift_xmm);
           xmm2 = _mm_add_epi32(xmm3, xmm2);
-          // branch-free code for handlig 15th-bit (treated as sign bit)
+          // branch-free code for handling 15th-bit (treated as sign bit)
           xmm4 = _mm_madd_epi16(xmm1, bit15_mult);
           xmm4 = _mm_or_si128(bit15_sign, xmm4);
           xmm2 = _mm_add_epi32(xmm2, xmm4);
@@ -189,7 +189,7 @@ class PackingRegisterBlock<
           xmm3 = _mm_madd_epi16(xmm1, mult_hi_xmm);
           xmm3 = _mm_sll_epi32(xmm3, mult_shift_xmm);
           xmm2 = _mm_add_epi32(xmm3, xmm2);
-          // branch-free code for handlig 15th-bit (treated as sign bit)
+          // branch-free code for handling 15th-bit (treated as sign bit)
           xmm4 = _mm_madd_epi16(xmm1, bit15_mult);
           xmm4 = _mm_or_si128(bit15_sign, xmm4);
           xmm2 = _mm_add_epi32(xmm2, xmm4);
@@ -203,7 +203,7 @@ class PackingRegisterBlock<
           xmm3 = _mm_madd_epi16(xmm1, mult_hi_xmm);
           xmm3 = _mm_sll_epi32(xmm3, mult_shift_xmm);
           xmm2 = _mm_add_epi32(xmm3, xmm2);
-          // branch-free code for handlig 15th-bit (treated as sign bit)
+          // branch-free code for handling 15th-bit (treated as sign bit)
           xmm4 = _mm_madd_epi16(xmm1, bit15_mult);
           xmm4 = _mm_or_si128(bit15_sign, xmm4);
           xmm2 = _mm_add_epi32(xmm2, xmm4);
@@ -217,7 +217,7 @@ class PackingRegisterBlock<
           xmm3 = _mm_madd_epi16(xmm1, mult_hi_xmm);
           xmm3 = _mm_sll_epi32(xmm3, mult_shift_xmm);
           xmm2 = _mm_add_epi32(xmm3, xmm2);
-          // branch-free code for handlig 15th-bit (treated as sign bit)
+          // branch-free code for handling 15th-bit (treated as sign bit)
           xmm4 = _mm_madd_epi16(xmm1, bit15_mult);
           xmm4 = _mm_or_si128(bit15_sign, xmm4);
           xmm2 = _mm_add_epi32(xmm2, xmm4);
