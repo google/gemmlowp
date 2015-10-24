@@ -42,7 +42,6 @@ struct SSE4_32_Kernel4x4Depth2 : KernelBase {
     ScopedProfilingLabel label("optimized kernel");
     assert(dst_row_stride == 1);
     std::int32_t run_depth_cells = run_depth / Format::kDepth;
-
     /* Main loop */
 
     // A 2x4 cell of Rhs is stored in 16bit in xmm1 .
@@ -75,8 +74,70 @@ struct SSE4_32_Kernel4x4Depth2 : KernelBase {
         "pxor %%xmm5  , %%xmm5 \n\t"
         "pxor %%xmm6  , %%xmm6 \n\t"
         "pxor %%xmm7  , %%xmm7 \n\t"
+
         "movl  %[run_depth_cells], %%eax\n\t"
-        "outerLoop%=:\n\t"
+        "subl $2, %%eax\n\t"
+        "js outerLoop1%=\n\t"
+
+        // Loop for K unrolled by 4
+        "outerLoop2%=:\n\t"
+
+        // K = 1,2
+        // RHS cell to xmm1
+        "pmovzxbw (%[rhs_ptr]), %%xmm1\n\t"
+
+        // LHS cell
+        "pmovzxbw 0x00(%[lhs_ptr]), %%xmm0\n\t"
+        "pshufd $0x00,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm4           \n\t"
+        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm5           \n\t"
+
+        "prefetcht0 0x80(%[lhs_ptr]) \n\t"
+
+        "pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm6           \n\t"
+        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm7           \n\t"
+
+        "prefetcht0 0x80(%[rhs_ptr]) \n\t"
+
+        // K = 3,4
+        // RHS cell to xmm1
+        "pmovzxbw 0x08(%[rhs_ptr]), %%xmm1\n\t"
+
+        // LHS cell
+        "pmovzxbw 0x08(%[lhs_ptr]), %%xmm0\n\t"
+        "pshufd $0x00,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm4           \n\t"
+        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm5           \n\t"
+
+        "pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "paddd %%xmm2, %%xmm6           \n\t"
+        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm7           \n\t"
+
+        "addl $0x10, %[lhs_ptr]\n\t"
+        "addl $0x10, %[rhs_ptr]\n\t"
+
+        "subl $2, %[run_depth_cells]\n\t"
+        "jnz outerLoop2%=\n\t"
+
+        "movl %[run_depth_cells], %%eax\n\t"
+        "decl %%eax\n\t"
+        "js finish%=\n\t"
+
+        // Loop for K unrolled by 2
+        "outerLoop1%=:\n\t"
 
         // RHS cell to xmm1
         "pmovzxbw (%[rhs_ptr]), %%xmm1\n\t"
@@ -84,22 +145,26 @@ struct SSE4_32_Kernel4x4Depth2 : KernelBase {
         // LHS cell
         "pmovzxbw 0x00(%[lhs_ptr]), %%xmm0\n\t"
         "pshufd $0x00,%%xmm1,%%xmm2     \n\t"
-        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
         "pmaddwd %%xmm0, %%xmm2         \n\t"
-        "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm2, %%xmm4           \n\t"
-        "paddd %%xmm3, %%xmm5           \n\t"
-        "pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
-        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
-        "pmaddwd %%xmm0, %%xmm2         \n\t"
+        "pshufd $0x55,%%xmm1,%%xmm3     \n\t"
         "pmaddwd %%xmm0, %%xmm3         \n\t"
+        "paddd %%xmm3, %%xmm5           \n\t"
+
+        "pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
+        "pmaddwd %%xmm0, %%xmm2         \n\t"
         "paddd %%xmm2, %%xmm6           \n\t"
+        "pshufd $0xff,%%xmm1,%%xmm3     \n\t"
+        "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm3, %%xmm7           \n\t"
 
         "addl $0x08, %[lhs_ptr]\n\t"
         "addl $0x08, %[rhs_ptr]\n\t"
-        "decl %%eax\n\t"
-        "jnz outerLoop%=\n\t"
+
+        "decl %[run_depth_cells]\n\t"
+        "jnz outerLoop1%=\n\t"
+
+        "finish%=:\n\t"
 
         "movl  %[dst_col_stride], %%eax\n\t"
         "shll $2, %%eax\n\t"
