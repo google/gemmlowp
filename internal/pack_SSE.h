@@ -84,23 +84,50 @@ class PackingRegisterBlock<
   void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width,
       RoundingOffsetGenerator* rounding_offset_generator) {
     int rank_one_mult = dst->rank_one_update_multiplier();
-    int rank_one_mult_abs = rank_one_mult < 0 ? -rank_one_mult : rank_one_mult;
+    int is_mult_lt_zero = rank_one_mult < 0;
+    int rank_one_mult_abs = is_mult_lt_zero ? -rank_one_mult : rank_one_mult;
     // extract high and low parts of the multiplier
     int16_t rank_one_mult_lo = (rank_one_mult_abs << 16) >> 16;
     int16_t rank_one_mult_hi = rank_one_mult_abs >> 16;
-    rank_one_mult_lo = rank_one_mult < 0 ?  -rank_one_mult_lo : rank_one_mult_lo;
-    __m128i mult_lo_xmm = _mm_set1_epi16(rank_one_mult_lo);
+    int is_bit15_set = (rank_one_mult_lo & 0x8000);
 
     std::uint8_t* dst_ptr = dst->current_data();
     const int width_stride = this->complete_src_.width_stride();
     int depth_step = 8;
 
-    // if high 16bits of the multiplier is set, then we need to do exra 
-    // work for integer multiplication
-    if (rank_one_mult_hi) {
-      rank_one_mult_hi = rank_one_mult < 0 ?  -rank_one_mult_hi : rank_one_mult_hi;
-      __m128i mult_shift_xmm = _mm_set_epi32(0, 0, 0, 16);
+    // If the multiplier cannot be represented by int16_t, then we need to do exra 
+    // work for integer multiplication. Hopefully, this is not the case most
+    // of the time since this involves more computations.
+    //
+    // Splits (ab)x(c) integer multiplication into two parts:
+    //
+    // a|b
+    //  |c
+    // ----
+    // (a*c)<<16 + c*b
+    //
+    // where, a,b are 16bit parts of 32bit integer and c is a 16bit integer.
+    //
+    // Here, special care is required if sign bit location of b is set. 
+    // The code protected with is_bit15_set handles this case.
+    if (rank_one_mult_hi || is_bit15_set) {
+      // erase the sign bit if it is set
+      rank_one_mult_lo &= (~0x8000);
+      rank_one_mult_lo = is_mult_lt_zero ? -rank_one_mult_lo : rank_one_mult_lo;
+      rank_one_mult_hi = is_mult_lt_zero ? -rank_one_mult_hi : rank_one_mult_hi;
+      __m128i mult_lo_xmm = _mm_set1_epi16(rank_one_mult_lo);
       __m128i mult_hi_xmm = _mm_set1_epi16(rank_one_mult_hi);
+
+      __m128i mult_shift_xmm = _mm_set_epi32(0, 0, 0, 16);
+      __m128i bit15_mult = _mm_set1_epi16(0);
+      __m128i bit15_sign = _mm_set1_epi32(0);
+
+      if (is_bit15_set) {
+        bit15_mult = _mm_set1_epi16(0x4000);
+        if (is_mult_lt_zero) {
+          bit15_sign = _mm_set1_epi32(0x80000000);
+        }
+      }
 
       for (int cell_start_depth = 0; cell_start_depth < kRegisterSize;
           cell_start_depth += depth_step) {
@@ -141,44 +168,71 @@ class PackingRegisterBlock<
           _mm_storel_epi64(reinterpret_cast<__m128i*>(&dst_ptr[3*kCellSize*kCells]), xmm12);
 
           xmm1 = _mm_cvtepu8_epi16(xmm9);
+          // low-16bits multiplication
           xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
           // high-16bits multiplication
           xmm3 = _mm_madd_epi16(xmm1, mult_hi_xmm);
           xmm3 = _mm_sll_epi32(xmm3, mult_shift_xmm);
           xmm2 = _mm_add_epi32(xmm3, xmm2);
+          // branch-free code for handlig 15th-bit (treated as sign bit)
+          xmm4 = _mm_madd_epi16(xmm1, bit15_mult);
+          xmm4 = _mm_or_si128(bit15_sign, xmm4);
+          xmm2 = _mm_add_epi32(xmm2, xmm4);
+          xmm2 = _mm_add_epi32(xmm2, xmm4);
           __m128i rank_one_update_xmm = _mm_loadu_si128(reinterpret_cast<const __m128i*>(&cell_rank_one_update_ptr[0]));
           rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
 
           xmm1 = _mm_cvtepu8_epi16(xmm10);
+          // low-16bits multiplication
           xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
           // high-16bits multiplication
           xmm3 = _mm_madd_epi16(xmm1, mult_hi_xmm);
           xmm3 = _mm_sll_epi32(xmm3, mult_shift_xmm);
           xmm2 = _mm_add_epi32(xmm3, xmm2);
+          // branch-free code for handlig 15th-bit (treated as sign bit)
+          xmm4 = _mm_madd_epi16(xmm1, bit15_mult);
+          xmm4 = _mm_or_si128(bit15_sign, xmm4);
+          xmm2 = _mm_add_epi32(xmm2, xmm4);
+          xmm2 = _mm_add_epi32(xmm2, xmm4);
           rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
 
           xmm1 = _mm_cvtepu8_epi16(xmm11);
+          // low-16bits multiplication
           xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
           // high-16bits multiplication
           xmm3 = _mm_madd_epi16(xmm1, mult_hi_xmm);
           xmm3 = _mm_sll_epi32(xmm3, mult_shift_xmm);
           xmm2 = _mm_add_epi32(xmm3, xmm2);
+          // branch-free code for handlig 15th-bit (treated as sign bit)
+          xmm4 = _mm_madd_epi16(xmm1, bit15_mult);
+          xmm4 = _mm_or_si128(bit15_sign, xmm4);
+          xmm2 = _mm_add_epi32(xmm2, xmm4);
+          xmm2 = _mm_add_epi32(xmm2, xmm4);
           rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
 
           xmm1 = _mm_cvtepu8_epi16(xmm12);
+          // low-16bits multiplication
           xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
           // high-16bits multiplication
           xmm3 = _mm_madd_epi16(xmm1, mult_hi_xmm);
           xmm3 = _mm_sll_epi32(xmm3, mult_shift_xmm);
           xmm2 = _mm_add_epi32(xmm3, xmm2);
+          // branch-free code for handlig 15th-bit (treated as sign bit)
+          xmm4 = _mm_madd_epi16(xmm1, bit15_mult);
+          xmm4 = _mm_or_si128(bit15_sign, xmm4);
+          xmm2 = _mm_add_epi32(xmm2, xmm4);
+          xmm2 = _mm_add_epi32(xmm2, xmm4);
           rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
-
           _mm_storeu_si128(reinterpret_cast<__m128i*>(&cell_rank_one_update_ptr[0]), rank_one_update_xmm);
+
           dst_ptr += kCellSize;
         }
         dst_ptr += 3*kCellSize*kCells;
       }
     } else {
+      // safe to use only low 16 bit part of the multiplier
+      rank_one_mult_lo = is_mult_lt_zero ?  -rank_one_mult_lo : rank_one_mult_lo;
+      __m128i mult_lo_xmm = _mm_set1_epi16(rank_one_mult_lo);
       for (int cell_start_depth = 0; cell_start_depth < kRegisterSize;
           cell_start_depth += depth_step) {
 
