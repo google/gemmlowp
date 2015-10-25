@@ -45,10 +45,6 @@ void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
   assert(b != nullptr);
   assert(c != nullptr);
 
-  // We're actually implementing C = B * A, for historical reasons. This means
-  // that the transpose flag handling is flipped compared to what you might
-  // expect, since the order of the arguments is flipped. The C transpose is
-  // still handled as you might expect though.
   int a_i_stride;
   int a_l_stride;
   if (transpose_a) {
