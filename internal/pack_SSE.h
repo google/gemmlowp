@@ -76,7 +76,6 @@ class PackingRegisterBlock<
   static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
-  static const int kKernelWidth2 = (kKernelWidth / kCellWidth / 2) * kCellWidth;
 
   typedef ScalarRoundingOffsetGenerator<QuantizationParams::kRoundingMode>
       RoundingOffsetGenerator;
