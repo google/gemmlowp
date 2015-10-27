@@ -87,8 +87,7 @@
 #endif
 
 // Detect SSE4.
-// TODO(benoitjacob): Which exact SSE4.x revision does our SSE4 code require?
-#if defined __SSE4_2__
+#if defined __SSE4_1__
 #define GEMMLOWP_SSE4
 #endif
 
