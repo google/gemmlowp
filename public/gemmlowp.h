@@ -24,6 +24,14 @@
 
 namespace gemmlowp {
 
+inline bool IsRequantizationWorthIt(int rows, int cols)
+{
+  // We pack depth*(rows+cols) and compute depth*rows*cols.
+  // Thus the ratio of compute/packing cost is rows*cols/(rows+cols)
+  // In the square case rows==cols==N, it becomes N/2.
+  return 2 * rows * cols >= (rows + cols) * kMinimumWidthForRequantization;
+}
+
 class GemmContext : public MultiThreadGemmContext {};
 
 // Computes a general matrix product ("GEMM").
@@ -51,7 +59,7 @@ void Gemm(GemmContext* context, const MatrixMap<const Scalar, LhsOrder>& lhs,
   }
 
   if (cols == 1) {
-    if (depth >= kMinimumSizeForRequantization) {
+    if (IsRequantizationWorthIt(rows, cols)) {
       typedef DefaultKernel<KernelFamily::Gemv, BitDepthParams> Kernel;
       MultiThreadGemm<typename Kernel::Format, std::uint8_t, BitDepthParams>(
           context, Kernel(), lhs, rhs, result, lhs_offset, rhs_offset,
@@ -65,7 +73,7 @@ void Gemm(GemmContext* context, const MatrixMap<const Scalar, LhsOrder>& lhs,
           result_offset, result_mult_int, result_shift);
     }
   } else {
-    if (depth >= kMinimumSizeForRequantization) {
+    if (IsRequantizationWorthIt(rows, cols)) {
       typedef DefaultKernel<KernelFamily::Gemm, BitDepthParams> Kernel;
       MultiThreadGemm<typename Kernel::Format, std::uint8_t, BitDepthParams>(
           context, Kernel(), lhs, rhs, result, lhs_offset, rhs_offset,

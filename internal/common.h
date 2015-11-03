@@ -181,8 +181,8 @@ const float kDefaultL2RhsFactor = 0.75f;
 const int kRegisterSize = 16;
 
 // Requantization to less-than-8-bit is costly, so it only worth
-// doing if the GEMM depth dimension is large enough
-const int kMinimumSizeForRequantization = 128;
+// doing if the GEMM width is large enough
+const int kMinimumWidthForRequantization = 100;
 
 // Hints the CPU to prefetch the cache line containing ptr.
 inline void Prefetch(const void* ptr) {
