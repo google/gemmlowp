@@ -38,7 +38,7 @@
 #if defined(__GNUC__)
 #define GEMMLOWP_NOINLINE __attribute__((noinline))
 #else
-#define GEMMLOWP_NOINLINE 
+#define GEMMLOWP_NOINLINE
 #endif
 
 // Detect ARM, 32-bit or 64-bit
@@ -164,7 +164,7 @@ const int kDefaultL2CacheSize = 256 * 1024;
 // RHS block.
 #if defined(GEMMLOWP_X86)
 // For IA, use the entire L2 cache for the RHS matrix. LHS matrix is not blocked
-// for L2 cache. 
+// for L2 cache.
 const float kDefaultL2RhsFactor = 1.00f;
 #else
 const float kDefaultL2RhsFactor = 0.75f;

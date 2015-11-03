@@ -740,8 +740,8 @@ void TestWithSmallData() {
 
   gemmlowp::eight_bit_int_gemm::EightBitIntGemm(
       is_a_transposed, is_b_transposed, is_c_transposed, m, n, k, a_data,
-      a_offset, lda, b_data, b_offset, ldb, output_data.get(), c_offset,
-      c_mult, c_shift, ldc, eight_bit_int_gemm::BitDepthSetting::A8B8);
+      a_offset, lda, b_data, b_offset, ldb, output_data.get(), c_offset, c_mult,
+      c_shift, ldc, eight_bit_int_gemm::BitDepthSetting::A8B8);
 
   ResultStats stats;
   GetResultStats(output_data.get(), expected_data, c_count, &stats);

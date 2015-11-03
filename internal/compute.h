@@ -61,7 +61,8 @@ class ComputeImpl {
   }
 
  private:
-  void ComputeRun(int start_row, int start_col, int start_depth, int depth)  GEMMLOWP_NOINLINE {
+  void ComputeRun(int start_row, int start_col, int start_depth,
+                  int depth) GEMMLOWP_NOINLINE {
     packed_lhs_.seek_run(start_row, start_depth);
     packed_rhs_.seek_run(start_col, start_depth);
     auto packed_result_block = packed_result_->Map().block(

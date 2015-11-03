@@ -247,14 +247,15 @@ class ScalarRoundingOffsetGenerator<RoundingMode::ProbabilisticXorshift> {
 template <>
 class ScalarRoundingOffsetGenerator<RoundingMode::ProbabilisticAddmod> {
   static const uint8_t AddConst = 97;
+
  public:
-  ScalarRoundingOffsetGenerator() { x_ = 1; } // Start must be non-zero
+  ScalarRoundingOffsetGenerator() { x_ = 1; }  // Start must be non-zero
 
   std::uint8_t get() {
     // The +'d boolean term causes the increment to skip over 255,
-    // (recalling that 255+1 = 256 = 0 for an 8 bit uint), 
+    // (recalling that 255+1 = 256 = 0 for an 8 bit uint),
     // thus implementing %255
-    x_ += (AddConst + (x_ >= (255-AddConst)));
+    x_ += (AddConst + (x_ >= (255 - AddConst)));
     return x_;
   }
 
@@ -573,7 +574,7 @@ void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
 
 #ifdef GEMMLOWP_NEON
 #include "pack_neon.h"
-#elif defined (GEMMLOWP_SSE4)
+#elif defined(GEMMLOWP_SSE4)
 #include "pack_SSE.h"
 #endif
 

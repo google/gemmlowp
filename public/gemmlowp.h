@@ -24,8 +24,7 @@
 
 namespace gemmlowp {
 
-inline bool IsRequantizationWorthIt(int rows, int cols)
-{
+inline bool IsRequantizationWorthIt(int rows, int cols) {
   // We pack depth*(rows+cols) and compute depth*rows*cols.
   // Thus the ratio of compute/packing cost is rows*cols/(rows+cols)
   // In the square case rows==cols==N, it becomes N/2.
@@ -45,7 +44,6 @@ void Gemm(GemmContext* context, const MatrixMap<const Scalar, LhsOrder>& lhs,
           MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
           int rhs_offset, int result_offset, int result_mult_int,
           int result_shift) {
-
   assert(lhs.cols() == rhs.rows());
 
   int rows = result->rows();

@@ -253,7 +253,7 @@ struct SSE4_64_Kernel12x4Depth2 : KernelBase {
 
     asm volatile(
 
-        // Set registers for destination 
+        // Set registers for destination
         "movq  %[dst_col_stride_q], %%r12\n\t"
         "shlq $2, %%r12\n\t"
         "leaq (%%r12,%%r12,0x2), %%r13\n\t"
@@ -329,7 +329,6 @@ struct SSE4_64_Kernel12x4Depth2 : KernelBase {
         "pmaddwd %%xmm0, %%xmm3         \n\t"
         "paddd %%xmm3, %%xmm13          \n\t"
 
-
         "pshufd $0xaa,%%xmm1,%%xmm2     \n\t"
         "pmaddwd %%xmm0, %%xmm2         \n\t"
         "paddd %%xmm2, %%xmm14          \n\t"
@@ -399,7 +398,7 @@ struct SSE4_64_Kernel12x4Depth2 : KernelBase {
         "decq %%r14\n\t"
         "js finish%=\n\t"
 
-        // Loop for K unrolled by 2 
+        // Loop for K unrolled by 2
         "outerLoop1%=:\n\t"
 
         // RHS cell to xmm1
@@ -498,10 +497,8 @@ struct SSE4_64_Kernel12x4Depth2 : KernelBase {
         [run_depth_cells] "r"(run_depth_cells)
         :  // clobbers
         "cc", "memory", "%xmm0", "%xmm1", "%xmm3", "%xmm2", "%xmm4", "%xmm5",
-        "%xmm6", "%xmm7", "%xmm8", "%xmm9", "%xmm10", "%r12", "%r13", "%r14", "%xmm11",
-        "%xmm12", "%xmm13", "%xmm14", "%xmm15");
-
-    
+        "%xmm6", "%xmm7", "%xmm8", "%xmm9", "%xmm10", "%r12", "%r13", "%r14",
+        "%xmm11", "%xmm12", "%xmm13", "%xmm14", "%xmm15");
   }
 };
 #endif

@@ -117,7 +117,8 @@ struct UnpackResultImpl<BitDepthParams,
           q[i] = vshlq_s32(vaddq_s32(q[i], preshift_offset_reg), shift_reg);
         }
         // Clamp to [0..255] and cast to uint8. Here we use saturating cast
-        // instructions vqmovn (signed to signed) and vqmovun (signed to unsigned).
+        // instructions vqmovn (signed to signed) and vqmovun (signed to
+        // unsigned).
         int16x8_t q16[2];
         for (int i = 0; i < 2; i++) {
           q16[i] = vcombine_s16(vqmovn_s32(q[2 * i]), vqmovn_s32(q[2 * i + 1]));
@@ -147,11 +148,14 @@ struct UnpackResultImpl<BitDepthParams,
         q = vmulq_n_s32(q, result_mult_int);
         q = vshlq_s32(vaddq_s32(q, preshift_offset_reg), shift_reg);
         // Clamp to [0..255] and cast to uint8. Here we use saturating cast
-        // instructions vqmovn (signed to signed) and vqmovun (signed to unsigned).
+        // instructions vqmovn (signed to signed) and vqmovun (signed to
+        // unsigned).
         int16x8_t q16 = vcombine_s16(vqmovn_s32(q), vdup_n_s16(0));
         uint8x8_t q8 = vqmovun_s16(q16);
-        // Store 4 bytes to destination matrix. Note: resist the urge to use a single
-        // uint32 store, because compilers may then implement this with an alignment
+        // Store 4 bytes to destination matrix. Note: resist the urge to use a
+        // single
+        // uint32 store, because compilers may then implement this with an
+        // alignment
         // specifier, causing crashes when the pointer isn't actually aligned.
         // Note - We can't use a loop here, because the iOS compiler complains
         // "argument to '__builtin_neon_vst1_lane_v' must be a constant integer"
