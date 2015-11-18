@@ -355,7 +355,8 @@ def GenerateQntNx8(emitter, qnt_lanes, leftovers, aligned):
       registers.MapParameter('offsets'))
 
   if leftovers:
-    emitter.EmitSub(count, count, emitter.ImmediateConstant(leftovers))
+    emitter.EmitSubs(count, count, emitter.ImmediateConstant(leftovers))
+    emitter.EmitBeqFront(2)
 
   emitter.EmitNewline()
   emitter.EmitNumericalLabel(1)
@@ -373,6 +374,7 @@ def GenerateQntNx8(emitter, qnt_lanes, leftovers, aligned):
   emitter.EmitBneBack(1)
 
   if leftovers:
+    emitter.EmitNumericalLabel(2)
     GenerateLeftoverLoadQuantizeStore(emitter,
                                       registers,
                                       leftovers,

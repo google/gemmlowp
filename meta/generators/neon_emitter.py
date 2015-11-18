@@ -245,6 +245,12 @@ class NeonEmitter(object):
   def EmitSkip(self, register, skip, stride):
     self.EmitOp3('add', register, register, '#%d' % (skip * stride))
 
+  def EmitBeqBack(self, label):
+    self.EmitOp1('beq', '%db' % label)
+
+  def EmitBeqFront(self, label):
+    self.EmitOp1('beq', '%df' % label)
+
   def EmitBneBack(self, label):
     self.EmitOp1('bne', '%db' % label)
 
