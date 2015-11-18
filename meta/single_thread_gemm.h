@@ -3126,7 +3126,8 @@ void qnt_1x8_1_aligned(const std::int32_t* source, std::int32_t count,
       "vdup.32 q1, %[rounding_offset]\n"
       "vdup.32 q2, %[shift]\n"
       "vld1.32 {d6[], d7[]}, [%[offsets]:32]!\n"
-      "sub %[count], %[count], #1\n"
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3146,6 +3147,7 @@ void qnt_1x8_1_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d12}, [%[destination]:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d8[0]}, [%[source]]\n"
       "vadd.i32 q4, q4, q3\n"
       "vmul.i32 q4, q4, q0\n"
@@ -3176,7 +3178,8 @@ void qnt_1x8_2_aligned(const std::int32_t* source, std::int32_t count,
       "vdup.32 q1, %[rounding_offset]\n"
       "vdup.32 q2, %[shift]\n"
       "vld1.32 {d6[], d7[]}, [%[offsets]:32]!\n"
-      "sub %[count], %[count], #2\n"
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3196,6 +3199,7 @@ void qnt_1x8_2_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d12}, [%[destination]:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d8}, [%[source]:64]\n"
       "vadd.i32 q4, q4, q3\n"
       "vmul.i32 q4, q4, q0\n"
@@ -3226,7 +3230,8 @@ void qnt_1x8_3_aligned(const std::int32_t* source, std::int32_t count,
       "vdup.32 q1, %[rounding_offset]\n"
       "vdup.32 q2, %[shift]\n"
       "vld1.32 {d6[], d7[]}, [%[offsets]:32]!\n"
-      "sub %[count], %[count], #3\n"
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3246,6 +3251,7 @@ void qnt_1x8_3_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d12}, [%[destination]:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d8}, [%[source]:64]!\n"
       "vld1.32 {d9[0]}, [%[source]]\n"
       "vadd.i32 q4, q4, q3\n"
@@ -3278,7 +3284,8 @@ void qnt_1x8_4_aligned(const std::int32_t* source, std::int32_t count,
       "vdup.32 q1, %[rounding_offset]\n"
       "vdup.32 q2, %[shift]\n"
       "vld1.32 {d6[], d7[]}, [%[offsets]:32]!\n"
-      "sub %[count], %[count], #4\n"
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3298,6 +3305,7 @@ void qnt_1x8_4_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d12}, [%[destination]:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d8, d9}, [%[source]:64]\n"
       "vadd.i32 q4, q4, q3\n"
       "vmul.i32 q4, q4, q0\n"
@@ -3328,7 +3336,8 @@ void qnt_1x8_5_aligned(const std::int32_t* source, std::int32_t count,
       "vdup.32 q1, %[rounding_offset]\n"
       "vdup.32 q2, %[shift]\n"
       "vld1.32 {d6[], d7[]}, [%[offsets]:32]!\n"
-      "sub %[count], %[count], #5\n"
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3348,6 +3357,7 @@ void qnt_1x8_5_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d12}, [%[destination]:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d8, d9}, [%[source]:64]!\n"
       "vld1.32 {d10[0]}, [%[source]]\n"
       "vadd.i32 q4, q4, q3\n"
@@ -3385,7 +3395,8 @@ void qnt_1x8_6_aligned(const std::int32_t* source, std::int32_t count,
       "vdup.32 q1, %[rounding_offset]\n"
       "vdup.32 q2, %[shift]\n"
       "vld1.32 {d6[], d7[]}, [%[offsets]:32]!\n"
-      "sub %[count], %[count], #6\n"
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3405,6 +3416,7 @@ void qnt_1x8_6_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d12}, [%[destination]:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d8, d9, d10}, [%[source]:64]\n"
       "vadd.i32 q4, q4, q3\n"
       "vadd.i32 q5, q5, q3\n"
@@ -3441,7 +3453,8 @@ void qnt_1x8_7_aligned(const std::int32_t* source, std::int32_t count,
       "vdup.32 q1, %[rounding_offset]\n"
       "vdup.32 q2, %[shift]\n"
       "vld1.32 {d6[], d7[]}, [%[offsets]:32]!\n"
-      "sub %[count], %[count], #7\n"
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3461,6 +3474,7 @@ void qnt_1x8_7_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d12}, [%[destination]:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d8, d9, d10}, [%[source]:64]!\n"
       "vld1.32 {d11[0]}, [%[source]]\n"
       "vadd.i32 q4, q4, q3\n"
@@ -3560,7 +3574,8 @@ void qnt_2x8_1_aligned(const std::int32_t* source, std::int32_t count,
       "vld1.32 {d8[], d9[]}, [%[offsets]:32]!\n"
       "add r0, %[source], %[stride]\n"
       "add r1, %[destination], %[destination_stride]\n"
-      "sub %[count], %[count], #1\n"
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3594,6 +3609,7 @@ void qnt_2x8_1_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d20}, [r1:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d10[0]}, [%[source]]\n"
       "vld1.32 {d14[0]}, [r0]\n"
       "vadd.i32 q5, q5, q3\n"
@@ -3636,7 +3652,8 @@ void qnt_2x8_2_aligned(const std::int32_t* source, std::int32_t count,
       "vld1.32 {d8[], d9[]}, [%[offsets]:32]!\n"
       "add r0, %[source], %[stride]\n"
       "add r1, %[destination], %[destination_stride]\n"
-      "sub %[count], %[count], #2\n"
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3670,6 +3687,7 @@ void qnt_2x8_2_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d20}, [r1:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d10}, [%[source]:64]\n"
       "vld1.32 {d14}, [r0:64]\n"
       "vadd.i32 q5, q5, q3\n"
@@ -3712,7 +3730,8 @@ void qnt_2x8_3_aligned(const std::int32_t* source, std::int32_t count,
       "vld1.32 {d8[], d9[]}, [%[offsets]:32]!\n"
       "add r0, %[source], %[stride]\n"
       "add r1, %[destination], %[destination_stride]\n"
-      "sub %[count], %[count], #3\n"
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3746,6 +3765,7 @@ void qnt_2x8_3_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d20}, [r1:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d10}, [%[source]:64]!\n"
       "vld1.32 {d14}, [r0:64]!\n"
       "vld1.32 {d11[0]}, [%[source]]\n"
@@ -3792,7 +3812,8 @@ void qnt_2x8_4_aligned(const std::int32_t* source, std::int32_t count,
       "vld1.32 {d8[], d9[]}, [%[offsets]:32]!\n"
       "add r0, %[source], %[stride]\n"
       "add r1, %[destination], %[destination_stride]\n"
-      "sub %[count], %[count], #4\n"
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3826,6 +3847,7 @@ void qnt_2x8_4_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d20}, [r1:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d10, d11}, [%[source]:64]\n"
       "vld1.32 {d14, d15}, [r0:64]\n"
       "vadd.i32 q5, q5, q3\n"
@@ -3868,7 +3890,8 @@ void qnt_2x8_5_aligned(const std::int32_t* source, std::int32_t count,
       "vld1.32 {d8[], d9[]}, [%[offsets]:32]!\n"
       "add r0, %[source], %[stride]\n"
       "add r1, %[destination], %[destination_stride]\n"
-      "sub %[count], %[count], #5\n"
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3902,6 +3925,7 @@ void qnt_2x8_5_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d20}, [r1:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d10, d11}, [%[source]:64]!\n"
       "vld1.32 {d14, d15}, [r0:64]!\n"
       "vld1.32 {d12[0]}, [%[source]]\n"
@@ -3958,7 +3982,8 @@ void qnt_2x8_6_aligned(const std::int32_t* source, std::int32_t count,
       "vld1.32 {d8[], d9[]}, [%[offsets]:32]!\n"
       "add r0, %[source], %[stride]\n"
       "add r1, %[destination], %[destination_stride]\n"
-      "sub %[count], %[count], #6\n"
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3992,6 +4017,7 @@ void qnt_2x8_6_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d20}, [r1:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d10, d11, d12}, [%[source]:64]\n"
       "vld1.32 {d14, d15, d16}, [r0:64]\n"
       "vadd.i32 q5, q5, q3\n"
@@ -4046,7 +4072,8 @@ void qnt_2x8_7_aligned(const std::int32_t* source, std::int32_t count,
       "vld1.32 {d8[], d9[]}, [%[offsets]:32]!\n"
       "add r0, %[source], %[stride]\n"
       "add r1, %[destination], %[destination_stride]\n"
-      "sub %[count], %[count], #7\n"
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4080,6 +4107,7 @@ void qnt_2x8_7_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d20}, [r1:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d10, d11, d12}, [%[source]:64]!\n"
       "vld1.32 {d14, d15, d16}, [r0:64]!\n"
       "vld1.32 {d13[0]}, [%[source]]\n"
@@ -4217,7 +4245,8 @@ void qnt_3x8_1_aligned(const std::int32_t* source, std::int32_t count,
       "add r1, %[destination], %[destination_stride]\n"
       "add r2, r0, %[stride]\n"
       "add r3, r1, %[destination_stride]\n"
-      "sub %[count], %[count], #1\n"
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4265,6 +4294,7 @@ void qnt_3x8_1_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d28}, [r3:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d12[0]}, [%[source]]\n"
       "vld1.32 {d16[0]}, [r0]\n"
       "vld1.32 {d20[0]}, [r2]\n"
@@ -4319,7 +4349,8 @@ void qnt_3x8_2_aligned(const std::int32_t* source, std::int32_t count,
       "add r1, %[destination], %[destination_stride]\n"
       "add r2, r0, %[stride]\n"
       "add r3, r1, %[destination_stride]\n"
-      "sub %[count], %[count], #2\n"
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4367,6 +4398,7 @@ void qnt_3x8_2_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d28}, [r3:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d12}, [%[source]:64]\n"
       "vld1.32 {d16}, [r0:64]\n"
       "vld1.32 {d20}, [r2:64]\n"
@@ -4421,7 +4453,8 @@ void qnt_3x8_3_aligned(const std::int32_t* source, std::int32_t count,
       "add r1, %[destination], %[destination_stride]\n"
       "add r2, r0, %[stride]\n"
       "add r3, r1, %[destination_stride]\n"
-      "sub %[count], %[count], #3\n"
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4469,6 +4502,7 @@ void qnt_3x8_3_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d28}, [r3:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d12}, [%[source]:64]!\n"
       "vld1.32 {d16}, [r0:64]!\n"
       "vld1.32 {d20}, [r2:64]!\n"
@@ -4529,7 +4563,8 @@ void qnt_3x8_4_aligned(const std::int32_t* source, std::int32_t count,
       "add r1, %[destination], %[destination_stride]\n"
       "add r2, r0, %[stride]\n"
       "add r3, r1, %[destination_stride]\n"
-      "sub %[count], %[count], #4\n"
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4577,6 +4612,7 @@ void qnt_3x8_4_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d28}, [r3:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d12, d13}, [%[source]:64]\n"
       "vld1.32 {d16, d17}, [r0:64]\n"
       "vld1.32 {d20, d21}, [r2:64]\n"
@@ -4631,7 +4667,8 @@ void qnt_3x8_5_aligned(const std::int32_t* source, std::int32_t count,
       "add r1, %[destination], %[destination_stride]\n"
       "add r2, r0, %[stride]\n"
       "add r3, r1, %[destination_stride]\n"
-      "sub %[count], %[count], #5\n"
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4679,6 +4716,7 @@ void qnt_3x8_5_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d28}, [r3:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d12, d13}, [%[source]:64]!\n"
       "vld1.32 {d16, d17}, [r0:64]!\n"
       "vld1.32 {d20, d21}, [r2:64]!\n"
@@ -4754,7 +4792,8 @@ void qnt_3x8_6_aligned(const std::int32_t* source, std::int32_t count,
       "add r1, %[destination], %[destination_stride]\n"
       "add r2, r0, %[stride]\n"
       "add r3, r1, %[destination_stride]\n"
-      "sub %[count], %[count], #6\n"
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4802,6 +4841,7 @@ void qnt_3x8_6_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d28}, [r3:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d12, d13, d14}, [%[source]:64]\n"
       "vld1.32 {d16, d17, d18}, [r0:64]\n"
       "vld1.32 {d20, d21, d22}, [r2:64]\n"
@@ -4874,7 +4914,8 @@ void qnt_3x8_7_aligned(const std::int32_t* source, std::int32_t count,
       "add r1, %[destination], %[destination_stride]\n"
       "add r2, r0, %[stride]\n"
       "add r3, r1, %[destination_stride]\n"
-      "sub %[count], %[count], #7\n"
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4922,6 +4963,7 @@ void qnt_3x8_7_aligned(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d28}, [r3:64]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d12, d13, d14}, [%[source]:64]!\n"
       "vld1.32 {d16, d17, d18}, [r0:64]!\n"
       "vld1.32 {d20, d21, d22}, [r2:64]!\n"
@@ -5033,7 +5075,8 @@ void qnt_1x8_1(const std::int32_t* source, std::int32_t count,
       "vdup.32 q1, %[rounding_offset]\n"
       "vdup.32 q2, %[shift]\n"
       "vld1.32 {d6[], d7[]}, [%[offsets]:32]!\n"
-      "sub %[count], %[count], #1\n"
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5053,6 +5096,7 @@ void qnt_1x8_1(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d12}, [%[destination]]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d8[0]}, [%[source]]\n"
       "vadd.i32 q4, q4, q3\n"
       "vmul.i32 q4, q4, q0\n"
@@ -5082,7 +5126,8 @@ void qnt_1x8_2(const std::int32_t* source, std::int32_t count,
       "vdup.32 q1, %[rounding_offset]\n"
       "vdup.32 q2, %[shift]\n"
       "vld1.32 {d6[], d7[]}, [%[offsets]:32]!\n"
-      "sub %[count], %[count], #2\n"
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5102,6 +5147,7 @@ void qnt_1x8_2(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d12}, [%[destination]]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d8}, [%[source]:64]\n"
       "vadd.i32 q4, q4, q3\n"
       "vmul.i32 q4, q4, q0\n"
@@ -5131,7 +5177,8 @@ void qnt_1x8_3(const std::int32_t* source, std::int32_t count,
       "vdup.32 q1, %[rounding_offset]\n"
       "vdup.32 q2, %[shift]\n"
       "vld1.32 {d6[], d7[]}, [%[offsets]:32]!\n"
-      "sub %[count], %[count], #3\n"
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5151,6 +5198,7 @@ void qnt_1x8_3(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d12}, [%[destination]]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d8}, [%[source]:64]!\n"
       "vld1.32 {d9[0]}, [%[source]]\n"
       "vadd.i32 q4, q4, q3\n"
@@ -5182,7 +5230,8 @@ void qnt_1x8_4(const std::int32_t* source, std::int32_t count,
       "vdup.32 q1, %[rounding_offset]\n"
       "vdup.32 q2, %[shift]\n"
       "vld1.32 {d6[], d7[]}, [%[offsets]:32]!\n"
-      "sub %[count], %[count], #4\n"
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5202,6 +5251,7 @@ void qnt_1x8_4(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d12}, [%[destination]]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d8, d9}, [%[source]:64]\n"
       "vadd.i32 q4, q4, q3\n"
       "vmul.i32 q4, q4, q0\n"
@@ -5231,7 +5281,8 @@ void qnt_1x8_5(const std::int32_t* source, std::int32_t count,
       "vdup.32 q1, %[rounding_offset]\n"
       "vdup.32 q2, %[shift]\n"
       "vld1.32 {d6[], d7[]}, [%[offsets]:32]!\n"
-      "sub %[count], %[count], #5\n"
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5251,6 +5302,7 @@ void qnt_1x8_5(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d12}, [%[destination]]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d8, d9}, [%[source]:64]!\n"
       "vld1.32 {d10[0]}, [%[source]]\n"
       "vadd.i32 q4, q4, q3\n"
@@ -5287,7 +5339,8 @@ void qnt_1x8_6(const std::int32_t* source, std::int32_t count,
       "vdup.32 q1, %[rounding_offset]\n"
       "vdup.32 q2, %[shift]\n"
       "vld1.32 {d6[], d7[]}, [%[offsets]:32]!\n"
-      "sub %[count], %[count], #6\n"
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5307,6 +5360,7 @@ void qnt_1x8_6(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d12}, [%[destination]]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d8, d9, d10}, [%[source]:64]\n"
       "vadd.i32 q4, q4, q3\n"
       "vadd.i32 q5, q5, q3\n"
@@ -5342,7 +5396,8 @@ void qnt_1x8_7(const std::int32_t* source, std::int32_t count,
       "vdup.32 q1, %[rounding_offset]\n"
       "vdup.32 q2, %[shift]\n"
       "vld1.32 {d6[], d7[]}, [%[offsets]:32]!\n"
-      "sub %[count], %[count], #7\n"
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5362,6 +5417,7 @@ void qnt_1x8_7(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d12}, [%[destination]]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d8, d9, d10}, [%[source]:64]!\n"
       "vld1.32 {d11[0]}, [%[source]]\n"
       "vadd.i32 q4, q4, q3\n"
@@ -5460,7 +5516,8 @@ void qnt_2x8_1(const std::int32_t* source, std::int32_t count,
       "vld1.32 {d8[], d9[]}, [%[offsets]:32]!\n"
       "add r0, %[source], %[stride]\n"
       "add r1, %[destination], %[destination_stride]\n"
-      "sub %[count], %[count], #1\n"
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5494,6 +5551,7 @@ void qnt_2x8_1(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d20}, [r1]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d10[0]}, [%[source]]\n"
       "vld1.32 {d14[0]}, [r0]\n"
       "vadd.i32 q5, q5, q3\n"
@@ -5535,7 +5593,8 @@ void qnt_2x8_2(const std::int32_t* source, std::int32_t count,
       "vld1.32 {d8[], d9[]}, [%[offsets]:32]!\n"
       "add r0, %[source], %[stride]\n"
       "add r1, %[destination], %[destination_stride]\n"
-      "sub %[count], %[count], #2\n"
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5569,6 +5628,7 @@ void qnt_2x8_2(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d20}, [r1]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d10}, [%[source]:64]\n"
       "vld1.32 {d14}, [r0:64]\n"
       "vadd.i32 q5, q5, q3\n"
@@ -5610,7 +5670,8 @@ void qnt_2x8_3(const std::int32_t* source, std::int32_t count,
       "vld1.32 {d8[], d9[]}, [%[offsets]:32]!\n"
       "add r0, %[source], %[stride]\n"
       "add r1, %[destination], %[destination_stride]\n"
-      "sub %[count], %[count], #3\n"
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5644,6 +5705,7 @@ void qnt_2x8_3(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d20}, [r1]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d10}, [%[source]:64]!\n"
       "vld1.32 {d14}, [r0:64]!\n"
       "vld1.32 {d11[0]}, [%[source]]\n"
@@ -5689,7 +5751,8 @@ void qnt_2x8_4(const std::int32_t* source, std::int32_t count,
       "vld1.32 {d8[], d9[]}, [%[offsets]:32]!\n"
       "add r0, %[source], %[stride]\n"
       "add r1, %[destination], %[destination_stride]\n"
-      "sub %[count], %[count], #4\n"
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5723,6 +5786,7 @@ void qnt_2x8_4(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d20}, [r1]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d10, d11}, [%[source]:64]\n"
       "vld1.32 {d14, d15}, [r0:64]\n"
       "vadd.i32 q5, q5, q3\n"
@@ -5764,7 +5828,8 @@ void qnt_2x8_5(const std::int32_t* source, std::int32_t count,
       "vld1.32 {d8[], d9[]}, [%[offsets]:32]!\n"
       "add r0, %[source], %[stride]\n"
       "add r1, %[destination], %[destination_stride]\n"
-      "sub %[count], %[count], #5\n"
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5798,6 +5863,7 @@ void qnt_2x8_5(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d20}, [r1]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d10, d11}, [%[source]:64]!\n"
       "vld1.32 {d14, d15}, [r0:64]!\n"
       "vld1.32 {d12[0]}, [%[source]]\n"
@@ -5853,7 +5919,8 @@ void qnt_2x8_6(const std::int32_t* source, std::int32_t count,
       "vld1.32 {d8[], d9[]}, [%[offsets]:32]!\n"
       "add r0, %[source], %[stride]\n"
       "add r1, %[destination], %[destination_stride]\n"
-      "sub %[count], %[count], #6\n"
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5887,6 +5954,7 @@ void qnt_2x8_6(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d20}, [r1]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d10, d11, d12}, [%[source]:64]\n"
       "vld1.32 {d14, d15, d16}, [r0:64]\n"
       "vadd.i32 q5, q5, q3\n"
@@ -5940,7 +6008,8 @@ void qnt_2x8_7(const std::int32_t* source, std::int32_t count,
       "vld1.32 {d8[], d9[]}, [%[offsets]:32]!\n"
       "add r0, %[source], %[stride]\n"
       "add r1, %[destination], %[destination_stride]\n"
-      "sub %[count], %[count], #7\n"
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5974,6 +6043,7 @@ void qnt_2x8_7(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d20}, [r1]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d10, d11, d12}, [%[source]:64]!\n"
       "vld1.32 {d14, d15, d16}, [r0:64]!\n"
       "vld1.32 {d13[0]}, [%[source]]\n"
@@ -6110,7 +6180,8 @@ void qnt_3x8_1(const std::int32_t* source, std::int32_t count,
       "add r1, %[destination], %[destination_stride]\n"
       "add r2, r0, %[stride]\n"
       "add r3, r1, %[destination_stride]\n"
-      "sub %[count], %[count], #1\n"
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6158,6 +6229,7 @@ void qnt_3x8_1(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d28}, [r3]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d12[0]}, [%[source]]\n"
       "vld1.32 {d16[0]}, [r0]\n"
       "vld1.32 {d20[0]}, [r2]\n"
@@ -6211,7 +6283,8 @@ void qnt_3x8_2(const std::int32_t* source, std::int32_t count,
       "add r1, %[destination], %[destination_stride]\n"
       "add r2, r0, %[stride]\n"
       "add r3, r1, %[destination_stride]\n"
-      "sub %[count], %[count], #2\n"
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6259,6 +6332,7 @@ void qnt_3x8_2(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d28}, [r3]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d12}, [%[source]:64]\n"
       "vld1.32 {d16}, [r0:64]\n"
       "vld1.32 {d20}, [r2:64]\n"
@@ -6312,7 +6386,8 @@ void qnt_3x8_3(const std::int32_t* source, std::int32_t count,
       "add r1, %[destination], %[destination_stride]\n"
       "add r2, r0, %[stride]\n"
       "add r3, r1, %[destination_stride]\n"
-      "sub %[count], %[count], #3\n"
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6360,6 +6435,7 @@ void qnt_3x8_3(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d28}, [r3]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d12}, [%[source]:64]!\n"
       "vld1.32 {d16}, [r0:64]!\n"
       "vld1.32 {d20}, [r2:64]!\n"
@@ -6419,7 +6495,8 @@ void qnt_3x8_4(const std::int32_t* source, std::int32_t count,
       "add r1, %[destination], %[destination_stride]\n"
       "add r2, r0, %[stride]\n"
       "add r3, r1, %[destination_stride]\n"
-      "sub %[count], %[count], #4\n"
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6467,6 +6544,7 @@ void qnt_3x8_4(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d28}, [r3]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d12, d13}, [%[source]:64]\n"
       "vld1.32 {d16, d17}, [r0:64]\n"
       "vld1.32 {d20, d21}, [r2:64]\n"
@@ -6520,7 +6598,8 @@ void qnt_3x8_5(const std::int32_t* source, std::int32_t count,
       "add r1, %[destination], %[destination_stride]\n"
       "add r2, r0, %[stride]\n"
       "add r3, r1, %[destination_stride]\n"
-      "sub %[count], %[count], #5\n"
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6568,6 +6647,7 @@ void qnt_3x8_5(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d28}, [r3]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d12, d13}, [%[source]:64]!\n"
       "vld1.32 {d16, d17}, [r0:64]!\n"
       "vld1.32 {d20, d21}, [r2:64]!\n"
@@ -6642,7 +6722,8 @@ void qnt_3x8_6(const std::int32_t* source, std::int32_t count,
       "add r1, %[destination], %[destination_stride]\n"
       "add r2, r0, %[stride]\n"
       "add r3, r1, %[destination_stride]\n"
-      "sub %[count], %[count], #6\n"
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6690,6 +6771,7 @@ void qnt_3x8_6(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d28}, [r3]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d12, d13, d14}, [%[source]:64]\n"
       "vld1.32 {d16, d17, d18}, [r0:64]\n"
       "vld1.32 {d20, d21, d22}, [r2:64]\n"
@@ -6761,7 +6843,8 @@ void qnt_3x8_7(const std::int32_t* source, std::int32_t count,
       "add r1, %[destination], %[destination_stride]\n"
       "add r2, r0, %[stride]\n"
       "add r3, r1, %[destination_stride]\n"
-      "sub %[count], %[count], #7\n"
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6809,6 +6892,7 @@ void qnt_3x8_7(const std::int32_t* source, std::int32_t count,
       "vst1.8 {d28}, [r3]!\n"
 
       "bne 1b\n"
+      "2:"
       "vld1.32 {d12, d13, d14}, [%[source]:64]!\n"
       "vld1.32 {d16, d17, d18}, [r0:64]!\n"
       "vld1.32 {d20, d21, d22}, [r2:64]!\n"
