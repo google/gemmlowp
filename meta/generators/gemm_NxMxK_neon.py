@@ -41,7 +41,7 @@ def GenerateTempsCountersAndConsts(emitter, rows):
   emitter.EmitCode(
       'const std::int32_t temp_result_size = 3 * temp_result_stride')
   emitter.EmitCode('const std::int32_t rounding_offset = (1 << (shift - 1))')
-  emitter.EmitCode('const std::int32_t result_chunk_size = m * 3')
+  emitter.EmitCode('const std::int32_t result_chunk_stride = result_stride * 3')
   emitter.EmitNewline()
 
   emitter.EmitCode('std::uint8_t* zipped_lhs = scratch')
@@ -123,8 +123,8 @@ def GenerateMulRows(emitter, aligned, rows, cols, leftover):
 
   emitter.EmitCode(
       ('%s(temp_result, m, temp_result_stride, zipped_lhs_%d_offsets, '
-       'result_chunk, m, multiplicative_offset, rounding_offset, -shift)') % (
-           BuildMultiQuantizeName(aligned, rows), rows))
+       'result_chunk, result_stride, multiplicative_offset, rounding_offset, '
+       '-shift)') % (BuildMultiQuantizeName(aligned, rows), rows))
 
 
 def GenerateMul(emitter, aligned, rows, cols, leftover):
@@ -133,7 +133,7 @@ def GenerateMul(emitter, aligned, rows, cols, leftover):
 
   GenerateMulRows(emitter, aligned, 3, cols, leftover)
   emitter.EmitCode('lhs_chunk += chunk_size')
-  emitter.EmitCode('result_chunk += result_chunk_size')
+  emitter.EmitCode('result_chunk += result_chunk_stride')
 
   emitter.EmitCloseBracket()
   emitter.EmitNewline()
@@ -166,7 +166,8 @@ def GenerateGemm(emitter, aligned, rows, cols, leftover):
                               ['std::int32_t', 'result_offset'],
                               ['std::int32_t', 'multiplicative_offset'],
                               ['std::int32_t', 'shift'],
-                              ['std::uint8_t*', 'result']],
+                              ['std::uint8_t*', 'result'],
+                              ['std::int32_t', 'result_stride']],
                              'void')
   emitter.EmitAssert('n %% 3 == %d' % rows)
   emitter.EmitAssert('m %% 3 == %d' % cols)
@@ -225,8 +226,7 @@ def GenerateGemmSwitch3(emitter, aligned, n_mod, m_mod):
     emitter.PushIndent()
     emitter.EmitCode(
         ('internal::%s(scratch, lhs, rhs, n, m, k, lhs_offset, rhs_offset, '
-         'result_offset, multiplicative_offset, shift, result)') % (
-             BuildName(aligned, n_mod, m_mod, i)))
+         'result_offset, multiplicative_offset, shift, result, result_stride)') % (BuildName(aligned, n_mod, m_mod, i)))
     emitter.EmitBreak()
     emitter.PopIndent()
 
@@ -261,39 +261,55 @@ def GenerateGemmSwitch1(emitter, aligned):
   emitter.EmitSwitchEnd()
 
 
+def GetCommonGemmParameters():
+  return [['std::uint8_t*', 'scratch'],
+          ['const std::uint8_t*', 'lhs'],
+          ['const std::uint8_t*', 'rhs'],
+          ['std::int32_t', 'n'],
+          ['std::int32_t', 'm'],
+          ['std::int32_t', 'k'],
+          ['std::int32_t', 'lhs_offset'],
+          ['std::int32_t', 'rhs_offset'],
+          ['std::int32_t', 'result_offset'],
+          ['std::int32_t', 'multiplicative_offset'],
+          ['std::int32_t', 'shift'],
+          ['std::uint8_t*', 'result']]
+
+
 def GenerateMainGemmFunction(emitter):
   """Emit high level gemm function that switches between optimized versions."""
-  emitter.EmitFunctionBeginA('gemm',
-                             [['std::uint8_t*', 'scratch'],
-                              ['const std::uint8_t*', 'lhs'],
-                              ['const std::uint8_t*', 'rhs'],
-                              ['std::int32_t', 'n'],
-                              ['std::int32_t', 'm'],
-                              ['std::int32_t', 'k'],
-                              ['std::int32_t', 'lhs_offset'],
-                              ['std::int32_t', 'rhs_offset'],
-                              ['std::int32_t', 'result_offset'],
-                              ['std::int32_t', 'multiplicative_offset'],
-                              ['std::int32_t', 'shift'],
-                              ['std::uint8_t*', 'result']],
-                             'void')
+  params = GetCommonGemmParameters()
+  params.append(['std::int32_t', 'result_stride'])
+
+  emitter.EmitFunctionBeginA('gemm_strided', params, 'void')
+
   emitter.EmitCode('const bool lhs_aligned = '
                    '((reinterpret_cast<std::uintptr_t>(lhs) % 8) == 0)')
   emitter.EmitCode('const bool rhs_aligned = '
                    '((reinterpret_cast<std::uintptr_t>(rhs) % 8) == 0)')
   emitter.EmitCode('const bool result_aligned = '
                    '((reinterpret_cast<std::uintptr_t>(result) % 8) == 0)')
-  emitter.EmitCode('const bool m_aligned = ((m % 8) == 0)')
   emitter.EmitCode('const bool k_aligned = ((k % 8) == 0)')
   emitter.EmitCode(
-      'const bool aligned = '
-      'lhs_aligned && rhs_aligned && result_aligned && m_aligned && k_aligned')
+      'const bool result_stride_aligned = ((result_stride % 8) == 0)')
+  emitter.EmitCode(
+      'const bool aligned = lhs_aligned && rhs_aligned && result_aligned && '
+      'k_aligned && result_stride_aligned')
 
   emitter.EmitIf('aligned')
   GenerateGemmSwitch1(emitter, True)
   emitter.EmitElse()
   GenerateGemmSwitch1(emitter, False)
   emitter.EmitEndif()
+  emitter.EmitFunctionEnd()
+
+
+def GenerateWrapperGemmFunctions(emitter):
+  params = GetCommonGemmParameters()
+  emitter.EmitFunctionBeginA('gemm', params, 'void')
+  emitter.EmitCode('gemm_strided(scratch, lhs, rhs, n, m, k, lhs_offset, '
+                   'rhs_offset, result_offset, multiplicative_offset, shift, '
+                   'result, m)')
   emitter.EmitFunctionEnd()
 
 
@@ -345,6 +361,9 @@ def Main():
   emitter.EmitNewline()
 
   GenerateMainGemmFunction(emitter)
+  emitter.EmitNewline()
+
+  GenerateWrapperGemmFunctions(emitter)
   emitter.EmitNewline()
 
   emitter.EmitNamespaceEnd()
