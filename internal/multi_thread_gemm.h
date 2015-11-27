@@ -361,26 +361,25 @@ class WorkersPool {
 // RHS has been packed by the master thread; each worker thread
 // then has to pack a block of the LHS and accumulate the Gemm of these
 // packed LHS and RHS blocks.
-template <typename KernelFormat, typename Scalar, typename BitDepthParams,
-          MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
+template <typename KernelFormat, typename InputScalar, typename OutputScalar,
+          typename BitDepthParams, MapOrder LhsOrder, MapOrder RhsOrder,
+          MapOrder ResultOrder, typename OutputPipelineType>
 struct GemmWithPackedRhsTask : Task {
   typedef PackedSideBlock<typename KernelFormat::Lhs> PackedLhs;
   typedef PackedSideBlock<typename KernelFormat::Rhs> PackedRhs;
   GemmWithPackedRhsTask(const KernelBase& _kernel,
-                        const MatrixMap<const Scalar, LhsOrder>& _lhs,
+                        const MatrixMap<const InputScalar, LhsOrder>& _lhs,
                         const PackedRhs& _packed_rhs,
-                        MatrixMap<Scalar, ResultOrder>* _result,
-                        int _lhs_offset, int _rhs_offset, int _result_offset,
-                        int _result_mult_int, int _result_shift)
+                        MatrixMap<OutputScalar, ResultOrder>* _result,
+                        int _lhs_offset, int _rhs_offset,
+                        const OutputPipelineType& _output_pipeline)
       : kernel(_kernel),
         lhs(_lhs),
         packed_rhs(_packed_rhs),
         result(*_result),
         lhs_offset(_lhs_offset),
         rhs_offset(_rhs_offset),
-        result_offset(_result_offset),
-        result_mult_int(_result_mult_int),
-        result_shift(_result_shift) {}
+        output_pipeline(_output_pipeline) {}
 
   void Run() const override {
     ScopedProfilingLabel label("GemmWithPackedRhsTask");
@@ -409,10 +408,10 @@ struct GemmWithPackedRhsTask : Task {
         Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
 
         auto result_block = result.block(r, c, rs, cs);
-        UnpackResult<BitDepthParams>(
-            &result_block, packed_result, depth, packed_lhs.rank_one_update(),
-            packed_rhs.rank_one_update(), lhs_offset, rhs_offset, result_offset,
-            result_mult_int, result_shift);
+        UnpackResult<BitDepthParams>(&result_block, packed_result, depth,
+                                     packed_lhs.rank_one_update(),
+                                     packed_rhs.rank_one_update(), lhs_offset,
+                                     rhs_offset, output_pipeline);
       }
     }
 
@@ -420,14 +419,12 @@ struct GemmWithPackedRhsTask : Task {
   }
 
   const KernelBase& kernel;
-  const MatrixMap<const Scalar, LhsOrder> lhs;
+  const MatrixMap<const InputScalar, LhsOrder> lhs;
   const PackedRhs packed_rhs;
-  MatrixMap<Scalar, ResultOrder> result;
+  MatrixMap<OutputScalar, ResultOrder> result;
   int lhs_offset;
   int rhs_offset;
-  int result_offset;
-  int result_mult_int;
-  int result_shift;
+  const OutputPipelineType& output_pipeline;
 };
 
 class MultiThreadGemmContext : public SingleThreadGemmContext {
@@ -518,14 +515,15 @@ inline int HowManyThreads(MultiThreadGemmContext* context, int rows, int cols,
 // The parallelization scheme used here is to have this master function
 // pack a block of RHS and then start worker threads to pack a block of LHS
 // each, and accumulate the corresponding products.
-template <typename KernelFormat, typename Scalar, typename BitDepthParams,
-          MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
+template <typename KernelFormat, typename InputScalar, typename OutputScalar,
+          typename BitDepthParams, MapOrder LhsOrder, MapOrder RhsOrder,
+          MapOrder ResultOrder, typename OutputPipelineType>
 void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
-                     const MatrixMap<const Scalar, LhsOrder>& lhs,
-                     const MatrixMap<const Scalar, RhsOrder>& rhs,
-                     MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
-                     int rhs_offset, int result_offset, int result_mult_int,
-                     int result_shift) {
+                     const MatrixMap<const InputScalar, LhsOrder>& lhs,
+                     const MatrixMap<const InputScalar, RhsOrder>& rhs,
+                     MatrixMap<OutputScalar, ResultOrder>* result,
+                     int lhs_offset, int rhs_offset,
+                     const OutputPipelineType& output_pipeline) {
   ScopedProfilingLabel label("gemmlowp::MultiThreadGemm");
 
   assert(lhs.cols() == rhs.rows());
@@ -541,9 +539,10 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
   const int thread_count =
       HowManyThreads<KernelFormat::kRows>(context, rows, cols, depth);
   if (thread_count == 1) {
-    return SingleThreadGemm<KernelFormat, Scalar, BitDepthParams>(
-        context, kernel, lhs, rhs, result, lhs_offset, rhs_offset,
-        result_offset, result_mult_int, result_shift);
+    return SingleThreadGemm<KernelFormat, InputScalar, OutputScalar,
+                            BitDepthParams>(context, kernel, lhs, rhs, result,
+                                            lhs_offset, rhs_offset,
+                                            output_pipeline);
   }
   assert(thread_count > 1);
 
@@ -587,11 +586,12 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
       int block_rows = next_start_row - start_row;
       auto lhs_block = lhs.block(start_row, 0, block_rows, depth);
       auto result_block = result->block(start_row, c, block_rows, cs);
-      typedef GemmWithPackedRhsTask<KernelFormat, Scalar, BitDepthParams,
-                                    LhsOrder, RhsOrder, ResultOrder> TaskType;
+      typedef GemmWithPackedRhsTask<KernelFormat, InputScalar, OutputScalar,
+                                    BitDepthParams, LhsOrder, RhsOrder,
+                                    ResultOrder, OutputPipelineType>
+          TaskType;
       auto task = new TaskType(kernel, lhs_block, packed_rhs, &result_block,
-                               lhs_offset, rhs_offset, result_offset,
-                               result_mult_int, result_shift);
+                               lhs_offset, rhs_offset, output_pipeline);
       if (thread < workers_count) {
         workers_pool->StartWorker(thread, task);
       } else {

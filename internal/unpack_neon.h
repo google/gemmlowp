@@ -46,30 +46,26 @@ int32x4_t RoundingMultiplyByConstantFraction(int32x4_t x) {
   return vmlaq_n_s32(remaining_product, x, int_quotient);
 }
 
-template <typename BitDepthParams, typename PackedResultType>
+template <typename BitDepthParams, typename PackedResultType,
+          typename OutputScalar, typename OutputPipelineType>
 struct UnpackResultImpl<BitDepthParams,
-                        MatrixMap<std::uint8_t, MapOrder::ColMajor>,
-                        PackedResultType> {
-  typedef MatrixMap<std::uint8_t, MapOrder::ColMajor> ResultBlockType;
+                        MatrixMap<OutputScalar, MapOrder::ColMajor>,
+                        PackedResultType, OutputPipelineType> {
+  typedef MatrixMap<OutputScalar, MapOrder::ColMajor> ResultBlockType;
   static void Unpack(ResultBlockType* dst, const PackedResultType& src,
                      int depth, const std::int32_t* lhs_rank_one_update,
                      const std::int32_t* rhs_rank_one_update,
                      std::int32_t lhs_offset, std::int32_t rhs_offset,
-                     std::int32_t result_offset, std::int32_t result_mult_int,
-                     std::int32_t result_shift) {
+                     const OutputPipelineType& output_pipeline) {
     ScopedProfilingLabel label("optimized path (NEON)");
     const int kLhsBits = BitDepthParams::LhsBitDepth::kBits;
     const int kRhsBits = BitDepthParams::RhsBitDepth::kBits;
     const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     auto src_map = src.Map();
-    const std::int32_t term_11 =
-        lhs_offset * rhs_offset * depth + result_offset;
-    const int32x4_t shift_reg = vdupq_n_s32(-result_shift);
-    const std::int32_t preshift_offset = 1 << std::max(0, (result_shift - 1));
-    const int32x4_t preshift_offset_reg = vdupq_n_s32(preshift_offset);
+    const std::int32_t term_11 = lhs_offset * rhs_offset * depth;
     for (int c = 0; c < dst->cols(); c++) {
-      std::uint8_t* dst_ptr = dst->data(0, c);
+      OutputScalar* dst_ptr = dst->data(0, c);
       const std::int32_t* src_ptr = src_map.data(0, c);
       const std::int32_t* rank_one_update_ptr = lhs_rank_one_update;
       const std::int32_t raw_1x = rhs_rank_one_update[c];
@@ -104,29 +100,12 @@ struct UnpackResultImpl<BitDepthParams,
           term_x1[i] =
               RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1[i]);
         }
-        int32x4_t q[4];
+        int32x4x4_t q;
         for (int i = 0; i < 4; i++) {
-          q[i] = vaddq_s32(vaddq_s32(term_xx[i], term_x1[i]),
-                           vdupq_n_s32(term_1x_plus_term_11));
+          q.val[i] = vaddq_s32(vaddq_s32(term_xx[i], term_x1[i]),
+                               vdupq_n_s32(term_1x_plus_term_11));
         }
-        // Multiply by result_mult_int / (2^result_shift)
-        for (int i = 0; i < 4; i++) {
-          q[i] = vmulq_n_s32(q[i], result_mult_int);
-        }
-        for (int i = 0; i < 4; i++) {
-          q[i] = vshlq_s32(vaddq_s32(q[i], preshift_offset_reg), shift_reg);
-        }
-        // Clamp to [0..255] and cast to uint8. Here we use saturating cast
-        // instructions vqmovn (signed to signed) and vqmovun (signed to
-        // unsigned).
-        int16x8_t q16[2];
-        for (int i = 0; i < 2; i++) {
-          q16[i] = vcombine_s16(vqmovn_s32(q[2 * i]), vqmovn_s32(q[2 * i + 1]));
-        }
-        uint8x16_t q8 = vcombine_u8(vqmovun_s16(q16[0]), vqmovun_s16(q16[1]));
-        // Store to destination matrix.
-        vst1q_u8(dst_ptr, q8);
-        dst_ptr += 16;
+        dst_ptr += RunOutputPipeline(output_pipeline, q, dst_ptr);
       }
       // We have finished handling groups of 16 entries at once; now
       // try to handle 4 entries at once.
@@ -136,36 +115,17 @@ struct UnpackResultImpl<BitDepthParams,
         //   q = term_xx + term_x1 + term_1x_plus_term_11
         // Refer to the generic code in unpack.h.
         const int32x4_t raw_xx = vld1q_s32(src_ptr);
+        src_ptr += 4;
         const int32x4_t term_xx =
             RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
                 raw_xx);
         const int32x4_t raw_x1 = vld1q_s32(rank_one_update_ptr);
+        rank_one_update_ptr += 4;
         const int32x4_t term_x1 =
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         int32x4_t q = vaddq_s32(vaddq_s32(term_xx, term_x1),
                                 vdupq_n_s32(term_1x_plus_term_11));
-        // Multiply by result_mult_int / (2^result_shift)
-        q = vmulq_n_s32(q, result_mult_int);
-        q = vshlq_s32(vaddq_s32(q, preshift_offset_reg), shift_reg);
-        // Clamp to [0..255] and cast to uint8. Here we use saturating cast
-        // instructions vqmovn (signed to signed) and vqmovun (signed to
-        // unsigned).
-        int16x8_t q16 = vcombine_s16(vqmovn_s32(q), vdup_n_s16(0));
-        uint8x8_t q8 = vqmovun_s16(q16);
-        // Store 4 bytes to destination matrix. Note: resist the urge to use a
-        // single
-        // uint32 store, because compilers may then implement this with an
-        // alignment
-        // specifier, causing crashes when the pointer isn't actually aligned.
-        // Note - We can't use a loop here, because the iOS compiler complains
-        // "argument to '__builtin_neon_vst1_lane_v' must be a constant integer"
-        // Even a C const doesn't work, so we've explicitly unrolled this.
-        vst1_lane_u8(dst_ptr++, q8, 0);
-        vst1_lane_u8(dst_ptr++, q8, 1);
-        vst1_lane_u8(dst_ptr++, q8, 2);
-        vst1_lane_u8(dst_ptr++, q8, 3);
-        src_ptr += 4;
-        rank_one_update_ptr += 4;
+        dst_ptr += RunOutputPipeline(output_pipeline, q, dst_ptr);
       }
       // We have finished handling 4 entries at once; now handle
       // remaining entries one by one. This scalar code is similar
@@ -179,9 +139,7 @@ struct UnpackResultImpl<BitDepthParams,
         std::int32_t term_x1 =
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         std::int32_t sum = term_xx + term_x1 + term_1x_plus_term_11;
-        std::int32_t result =
-            (sum * result_mult_int + preshift_offset) >> result_shift;
-        (*dst)(r, c) = result > 255 ? 255 : result < 0 ? 0 : result;
+        dst_ptr += RunOutputPipeline(output_pipeline, sum, dst_ptr);
       }
     }
   }
