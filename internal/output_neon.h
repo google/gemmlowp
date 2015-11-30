@@ -29,10 +29,10 @@ namespace gemmlowp {
 // register dependencies. From the perspective of interfacing with the output
 // pipeline, this takes the form of passing int32x4x4_t data. In most cases,
 // such data is handled simply by handling separately its 4 int32x4_t
-// components.
-// This partial specialization handles that for arbitrary output stages
-// implementing
-// a int32x4_t path. Only some output stages below will override this to
+// components. This partial specialization handles that for arbitrary output
+// stages
+// implementing a int32x4_t path. Only some output stages below will override
+// this to
 // use custom code to handle int32x4x4_t data all at once (see
 // OutputStageSaturatingCastToUint8 below).
 template <typename OutputStageType>
@@ -114,15 +114,13 @@ struct EvalOutputStageImpl<OutputStageSaturatingCastToUint8, int32x4x4_t> {
   }
 };
 
-// Specialization of StoreUnpackOutput for pseudo_uint8x4_t.
+// Specialization of StoreFinalOutput for pseudo_uint8x4_t.
 // This is quite inefficient, but we have no choice: instructions storing 32bit
-// at once
-// also assume 32bit alignment. In practice, this slowness is not a problem
-// because
-// we use the int32x4x4_t -> uint8x16_t path for most values.
+// at once also assume 32bit alignment. In practice, this slowness is not a
+// problem
+// because we use the int32x4x4_t -> uint8x16_t path for most values.
 template <>
-inline std::size_t StoreUnpackOutput(pseudo_uint8x4_t value,
-                                     std::uint8_t* dst) {
+inline std::size_t StoreFinalOutput(pseudo_uint8x4_t value, std::uint8_t* dst) {
   vst1_lane_u8(dst++, value.val, 0);
   vst1_lane_u8(dst++, value.val, 1);
   vst1_lane_u8(dst++, value.val, 2);
@@ -130,25 +128,25 @@ inline std::size_t StoreUnpackOutput(pseudo_uint8x4_t value,
   return 4;
 }
 
-// Specialization of StoreUnpackOutput for uint8x16_t.
+// Specialization of StoreFinalOutput for uint8x16_t.
 template <>
-inline std::size_t StoreUnpackOutput(uint8x16_t value, std::uint8_t* dst) {
+inline std::size_t StoreFinalOutput(uint8x16_t value, std::uint8_t* dst) {
   vst1q_u8(dst, value);
   return 16;
 }
 
-// Specialization of StoreUnpackOutput for int32x4_t, storing into a
+// Specialization of StoreFinalOutput for int32x4_t, storing into a
 // int32 destination.
 template <>
-inline std::size_t StoreUnpackOutput(int32x4_t value, std::int32_t* dst) {
+inline std::size_t StoreFinalOutput(int32x4_t value, std::int32_t* dst) {
   vst1q_s32(dst, value);
   return 4;
 }
 
-// Specialization of StoreUnpackOutput for int32x4x4_t, storing into a
+// Specialization of StoreFinalOutput for int32x4x4_t, storing into a
 // int32 destination.
 template <>
-inline std::size_t StoreUnpackOutput(int32x4x4_t value, std::int32_t* dst) {
+inline std::size_t StoreFinalOutput(int32x4x4_t value, std::int32_t* dst) {
   vst1q_s32(dst + 0, value.val[0]);
   vst1q_s32(dst + 4, value.val[1]);
   vst1q_s32(dst + 8, value.val[2]);

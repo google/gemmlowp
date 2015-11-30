@@ -23,8 +23,8 @@
 
 #include "kernel.h"
 
-#include <cassert>
 #include <string.h>
+#include <cassert>
 
 namespace gemmlowp {
 
@@ -32,7 +32,8 @@ namespace gemmlowp {
 struct SSE4_32_Kernel4x4Depth2 : KernelBase {
   typedef KernelFormat<
       KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1>,
-      KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1> > Format;
+      KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1> >
+      Format;
 
   const char* Name() const override { return "SSE, 4x4, depth 2"; }
 
@@ -203,7 +204,8 @@ struct SSE4_32_Kernel4x4Depth2 : KernelBase {
 struct SSE4_64_Kernel12x4Depth2 : KernelBase {
   typedef KernelFormat<
       KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 3>,
-      KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1> > Format;
+      KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1> >
+      Format;
 
   const char* Name() const override { return "SSE, 12x4, depth 2"; }
 

@@ -22,8 +22,8 @@
 
 #include "kernel.h"
 
-#include <cassert>
 #include <arm_neon.h>
+#include <cassert>
 
 namespace gemmlowp {
 
@@ -33,7 +33,8 @@ namespace gemmlowp {
 // Our main GEMM kernel.
 struct NEON_32_Kernel12x4Depth2 : KernelBase {
   typedef KernelFormat<KernelSideFormat<CellFormat<4, 2>, 3>,
-                       KernelSideFormat<CellFormat<4, 2>, 1> > Format;
+                       KernelSideFormat<CellFormat<4, 2>, 1> >
+      Format;
 
   const char* Name() const override { return "NEON, 12x4, depth 2"; }
 
@@ -265,7 +266,8 @@ struct NEON_32_Kernel12x4Depth2 : KernelBase {
 struct NEON_32_Kernel12x4Depth2Assuming12BitProducts : KernelBase {
   typedef KernelFormat<
       KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 3>,
-      KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1> > Format;
+      KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1> >
+      Format;
 
   const char* Name() const override {
     return "NEON, 12x4, depth 2, assuming 12-bit products";
@@ -642,7 +644,8 @@ struct NEON_32_Kernel12x4Depth2Assuming12BitProducts : KernelBase {
 // Our main GEMM kernel.
 struct NEON_64_Kernel12x8Depth2 : KernelBase {
   typedef KernelFormat<KernelSideFormat<CellFormat<4, 2>, 3>,
-                       KernelSideFormat<CellFormat<4, 2>, 2> > Format;
+                       KernelSideFormat<CellFormat<4, 2>, 2> >
+      Format;
 
   const char* Name() const override { return "NEON, 12x8, depth 2"; }
 
@@ -983,7 +986,8 @@ struct NEON_64_Kernel12x8Depth2 : KernelBase {
 template <int Cells>
 struct NEONKernel4Nx1Depth2 : KernelBase {
   typedef KernelFormat<KernelSideFormat<CellFormat<4, 2>, Cells>,
-                       KernelSideFormat<CellFormat<1, 2>, 1> > Format;
+                       KernelSideFormat<CellFormat<1, 2>, 1> >
+      Format;
 
   const char* Name() const override { return "NEON intrinsics, 4Nx1, depth 2"; }
 

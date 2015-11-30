@@ -29,11 +29,11 @@
 
 #include <cstring>
 
-#include "block_params.h"
-#include "kernel.h"
-#include "common.h"
-#include "allocator.h"
 #include "../public/bit_depth.h"
+#include "allocator.h"
+#include "block_params.h"
+#include "common.h"
+#include "kernel.h"
 
 namespace gemmlowp {
 
@@ -527,14 +527,16 @@ void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
   typedef typename BitDepthParams::RoundingStrategy RoundingStrategy;
   const int accumulation_depth = src_side_map.depth();
   if (accumulation_depth < RoundingStrategy::kRoundingModeSizeThreshold) {
-    typedef QuantizationParams<
-        BitDepth, RoundingStrategy::kRoundingModeForSmallSizes> QParams;
+    typedef QuantizationParams<BitDepth,
+                               RoundingStrategy::kRoundingModeForSmallSizes>
+        QParams;
     typedef PackSideBlockImpl<QParams, SideMapType, PackedSideBlock> ImplType;
     ImplType impl(dst, src_side_map);
     impl.PackL2();
   } else {
-    typedef QuantizationParams<
-        BitDepth, RoundingStrategy::kRoundingModeForLargeSizes> QParams;
+    typedef QuantizationParams<BitDepth,
+                               RoundingStrategy::kRoundingModeForLargeSizes>
+        QParams;
     typedef PackSideBlockImpl<QParams, SideMapType, PackedSideBlock> ImplType;
     ImplType impl(dst, src_side_map);
     impl.PackL2();
@@ -556,14 +558,16 @@ void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
   typedef typename BitDepthParams::RoundingStrategy RoundingStrategy;
   const int accumulation_depth = src_side_map.depth();
   if (accumulation_depth < RoundingStrategy::kRoundingModeSizeThreshold) {
-    typedef QuantizationParams<
-        BitDepth, RoundingStrategy::kRoundingModeForSmallSizes> QParams;
+    typedef QuantizationParams<BitDepth,
+                               RoundingStrategy::kRoundingModeForSmallSizes>
+        QParams;
     typedef PackSideBlockImpl<QParams, SideMapType, PackedSideBlock> ImplType;
     ImplType impl(dst, src_side_map);
     impl.PackL2();
   } else {
-    typedef QuantizationParams<
-        BitDepth, RoundingStrategy::kRoundingModeForLargeSizes> QParams;
+    typedef QuantizationParams<BitDepth,
+                               RoundingStrategy::kRoundingModeForLargeSizes>
+        QParams;
     typedef PackSideBlockImpl<QParams, SideMapType, PackedSideBlock> ImplType;
     ImplType impl(dst, src_side_map);
     impl.PackL2();

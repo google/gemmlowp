@@ -98,15 +98,12 @@ struct OutputPipelineOutputType<OutputPipelineType, FirstStage, InputType,
 };
 
 // EvalOutputPipelineFromStageImpl is a helper to implement the evaluation of
-// the whole
-// pipeline. It is a recursive template to implement compile-time unrolling of
-// the loop
-// over all pipeline stages. The 'FirstStage' parameter is how we implement
-// recursion:
-// each specialization implements only evaluation starting at 'FirstStage'.
-// The StopRecursion parameter is just a helper to implement the termination of
-// the
-// recursion as a partial specialization below.
+// the whole pipeline. It is a recursive template to implement compile-time
+// unrolling of the loop over all pipeline stages. The 'FirstStage' parameter is
+// how we implement
+// recursion: each specialization implements only evaluation starting at
+// 'FirstStage'. The StopRecursion parameter is just a helper to implement the
+// termination of the recursion as a partial specialization below.
 template <typename OutputPipelineType, int FirstStage, typename InputType,
           bool StopRecursion =
               FirstStage == std::tuple_size<OutputPipelineType>::value>
@@ -141,24 +138,20 @@ struct EvalOutputPipelineFromStageImpl<OutputPipelineType, FirstStage,
   }
 };
 
-// StoreUnpackOutput takes the final value at the end of the output pipeline and
+// StoreFinalOutput takes the final value at the end of the output pipeline and
 // stores it into the destination matrix. It can be specialized for different
-// data types;
-// the generic implementation here is typically used only for plain old scalar
-// (not SIMD)
-// types.
+// data types; the generic implementation here is typically used only for plain
+// old scalar (not SIMD) types.
 // The return value is the number of entries (of type DstType) written to dst.
 template <typename OutputType, typename DstType>
-std::size_t StoreUnpackOutput(OutputType value, DstType* dst) {
+std::size_t StoreFinalOutput(OutputType value, DstType* dst) {
   *dst = value;
   return 1;
 }
 
 // RunOutputPipeline is the entry point into the output pipeline evaluation
-// code.
-// It should be the only thing that unpack code calls. It takes the result of
-// the
-// unpack stage and stores it into the destination matrix.
+// code. It should be the only thing that unpack code calls. It takes the result
+// of the unpack stage and stores it into the destination matrix.
 // The return value is the number of entries (of type DstType) written to dst.
 template <typename OutputPipelineType, typename InputType, typename DstType>
 std::size_t RunOutputPipeline(const OutputPipelineType& output_pipeline,
@@ -169,7 +162,7 @@ std::size_t RunOutputPipeline(const OutputPipelineType& output_pipeline,
           output_pipeline, input);
   // Store the result into the destination matrix.
   // std::cerr << __PRETTY_FUNCTION__ << std::endl;
-  return StoreUnpackOutput(output, dst);
+  return StoreFinalOutput(output, dst);
 }
 
 }  // namespace gemmlowp

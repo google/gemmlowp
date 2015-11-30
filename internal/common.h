@@ -20,10 +20,10 @@
 
 #include <pthread.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
-#include <algorithm>
 
 #include "../profiling/instrumentation.h"
 

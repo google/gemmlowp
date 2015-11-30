@@ -19,8 +19,8 @@
 #ifndef GEMMLOWP_INTERNAL_COMPUTE_H_
 #define GEMMLOWP_INTERNAL_COMPUTE_H_
 
-#include "kernel.h"
 #include "block_params.h"
+#include "kernel.h"
 #include "pack.h"
 
 namespace gemmlowp {
