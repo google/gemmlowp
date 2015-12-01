@@ -12,8 +12,10 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// output_stages.h: unpacking the result blocks computed by compute.h,
-// storing them into the destination matrix.
+// output_stages.h: public definitions of the output stages that can
+// be assembled into an output pipeline, to control how internal
+// 32-bit accumulators are transformed to obtain the final uint8
+// result matrix entries.
 
 #ifndef GEMMLOWP_PUBLIC_OUTPUT_STAGES_H_
 #define GEMMLOWP_PUBLIC_OUTPUT_STAGES_H_
@@ -45,6 +47,17 @@ struct OutputStageQuantizeDownInt32ToUint8Scale {
 // on the final uint8 scale, but not necessarily in the [0..255] range.
 // It clamps them to the [0..255] range and returns them casted to uint8.
 struct OutputStageSaturatingCastToUint8 {};
+
+// This output stage depends on a "bias vector" that should contain int32
+// entries,and be either a row-vector of the same number of columns as the
+// result matrix, or a column-vector of the same number of rows as the
+// result matrix. This output stage takes int32 values and adds to them
+// the corresponding entry of the bias vector (broadcasted in the other
+// direction to fit the matrix's shape), outputting int32 values.
+template <typename VectorType>
+struct OutputStageBiasAddition {
+  VectorType bias_vector;
+};
 
 // An output pipeline is just a std::tuple of output stage.
 // This function generates a standard output pipeline consisting of two stages:

@@ -17,6 +17,7 @@
 #ifndef GEMMLOWP_INTERNAL_UNPACK_NEON_H_
 #define GEMMLOWP_INTERNAL_UNPACK_NEON_H_
 
+#include "output_neon.h"
 #include "unpack.h"
 
 #include <arm_neon.h>
@@ -65,7 +66,6 @@ struct UnpackResultImpl<BitDepthParams,
     auto src_map = src.Map();
     const std::int32_t term_11 = lhs_offset * rhs_offset * depth;
     for (int c = 0; c < dst->cols(); c++) {
-      OutputScalar* dst_ptr = dst->data(0, c);
       const std::int32_t* src_ptr = src_map.data(0, c);
       const std::int32_t* rank_one_update_ptr = lhs_rank_one_update;
       const std::int32_t raw_1x = rhs_rank_one_update[c];
@@ -105,7 +105,8 @@ struct UnpackResultImpl<BitDepthParams,
           q.val[i] = vaddq_s32(vaddq_s32(term_xx[i], term_x1[i]),
                                vdupq_n_s32(term_1x_plus_term_11));
         }
-        dst_ptr += RunOutputPipeline(output_pipeline, q, dst_ptr);
+        NEONFragmentInt32x16x1 f(q);
+        RunOutputPipeline(output_pipeline, f, dst, r, c);
       }
       // We have finished handling groups of 16 entries at once; now
       // try to handle 4 entries at once.
@@ -125,7 +126,8 @@ struct UnpackResultImpl<BitDepthParams,
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         int32x4_t q = vaddq_s32(vaddq_s32(term_xx, term_x1),
                                 vdupq_n_s32(term_1x_plus_term_11));
-        dst_ptr += RunOutputPipeline(output_pipeline, q, dst_ptr);
+        NEONFragmentInt32x4x1 f(q);
+        RunOutputPipeline(output_pipeline, f, dst, r, c);
       }
       // We have finished handling 4 entries at once; now handle
       // remaining entries one by one. This scalar code is similar
@@ -139,7 +141,7 @@ struct UnpackResultImpl<BitDepthParams,
         std::int32_t term_x1 =
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         std::int32_t sum = term_xx + term_x1 + term_1x_plus_term_11;
-        dst_ptr += RunOutputPipeline(output_pipeline, sum, dst_ptr);
+        RunOutputPipeline(output_pipeline, sum, dst, r, c);
       }
     }
   }

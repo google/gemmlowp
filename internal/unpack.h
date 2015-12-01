@@ -124,7 +124,7 @@ struct UnpackResultImplGeneric {
         // Sum the 4 terms.
         std::int32_t sum = term_xx + term_x1 + term_1x + term_11;
 
-        RunOutputPipeline(output_pipeline, sum, dst->data(r, c));
+        RunOutputPipeline(output_pipeline, sum, dst, r, c);
       }
     }
   }

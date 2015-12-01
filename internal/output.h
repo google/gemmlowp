@@ -19,7 +19,9 @@
 #ifndef GEMMLOWP_INTERNAL_OUTPUT_H_
 #define GEMMLOWP_INTERNAL_OUTPUT_H_
 
-#include <iostream>
+#include <tuple>
+#include <type_traits>
+
 #include "../public/output_stages.h"
 
 namespace gemmlowp {
@@ -36,8 +38,8 @@ namespace gemmlowp {
 //      the unpack stage produces int32 accumulators.
 //   2. For a given scalar data type such as int32, there is still the
 //      possibility of having SIMD vector types such as NEON int32x4_t,
-//      or even struct-like types grouping more scalar values into
-//      bigger vectors. Thus, there can be several EvalOutputStageImpl
+//      typically wrapped as "fragment" types, see struct Fragment.
+//      Thus, there can be several EvalOutputStageImpl
 //      specializations for a single OutputStageType, for different
 //      InputType's.
 template <typename OutputStageType, typename InputType>
@@ -52,7 +54,7 @@ struct EvalOutputStageImpl<OutputStageQuantizeDownInt32ToUint8Scale,
 
   static OutputType Eval(
       const OutputStageQuantizeDownInt32ToUint8Scale& output_stage,
-      InputType input) {
+      InputType input, int, int) {
     std::int32_t result_shift = output_stage.result_shift;
     std::int32_t result_mult_int = output_stage.result_mult_int;
     std::int32_t result_offset = output_stage.result_offset;
@@ -69,9 +71,26 @@ struct EvalOutputStageImpl<OutputStageSaturatingCastToUint8, std::int32_t> {
   typedef std::int32_t InputType;
   typedef std::uint8_t OutputType;
 
-  static OutputType Eval(const OutputStageSaturatingCastToUint8& output_stage,
-                         InputType input) {
+  static OutputType Eval(const OutputStageSaturatingCastToUint8&,
+                         InputType input, int, int) {
     return input > 255 ? 255 : input < 0 ? 0 : input;
+  }
+};
+
+// Implementation of OutputStageBiasAddition for scalar data
+template <typename VectorType>
+struct EvalOutputStageImpl<OutputStageBiasAddition<VectorType>, std::int32_t> {
+  typedef std::int32_t InputType;
+  typedef std::int32_t OutputType;
+  typedef OutputStageBiasAddition<VectorType> OutputStage;
+
+  static OutputType Eval(const OutputStage& output_stage, InputType input,
+                         int row, int col) {
+    if (VectorType::kShape == VectorShape::Row) {
+      return input + output_stage.bias_vector(col);
+    } else {
+      return input + output_stage.bias_vector(row);
+    }
   }
 };
 
@@ -99,11 +118,11 @@ struct OutputPipelineOutputType<OutputPipelineType, FirstStage, InputType,
 
 // EvalOutputPipelineFromStageImpl is a helper to implement the evaluation of
 // the whole pipeline. It is a recursive template to implement compile-time
-// unrolling of the loop over all pipeline stages. The 'FirstStage' parameter is
-// how we implement
-// recursion: each specialization implements only evaluation starting at
-// 'FirstStage'. The StopRecursion parameter is just a helper to implement the
-// termination of the recursion as a partial specialization below.
+// unrolling of the loop over all pipeline stages. The 'FirstStage' parameter
+// is how we implement recursion: each specialization implements only
+// evaluation starting at 'FirstStage'. The StopRecursion parameter is just a
+// helper to implement the termination of the recursion as a partial
+// specialization below.
 template <typename OutputPipelineType, int FirstStage, typename InputType,
           bool StopRecursion =
               FirstStage == std::tuple_size<OutputPipelineType>::value>
@@ -116,15 +135,16 @@ struct EvalOutputPipelineFromStageImpl {
                                             InputType>::Type OutputType;
 
   static OutputType Eval(const OutputPipelineType& output_pipeline,
-                         InputType input) {
+                         InputType input, int row, int col) {
     // Evaluate the first stage.
     FirstStageOutputType first_stage_output =
         EvalOutputStageImpl<FirstStageType, InputType>::Eval(
-            std::get<FirstStage>(output_pipeline), input);
+            std::get<FirstStage>(output_pipeline), input, row, col);
     // Recurse into the remaining stages.
     return EvalOutputPipelineFromStageImpl<
         OutputPipelineType, FirstStage + 1,
-        FirstStageOutputType>::Eval(output_pipeline, first_stage_output);
+        FirstStageOutputType>::Eval(output_pipeline, first_stage_output, row,
+                                    col);
   }
 };
 
@@ -132,7 +152,7 @@ struct EvalOutputPipelineFromStageImpl {
 template <typename OutputPipelineType, int FirstStage, typename InputType>
 struct EvalOutputPipelineFromStageImpl<OutputPipelineType, FirstStage,
                                        InputType, true> {
-  static InputType Eval(const OutputPipelineType&, InputType input) {
+  static InputType Eval(const OutputPipelineType&, InputType input, int, int) {
     // Terminating the recursion.
     return input;
   }
@@ -142,33 +162,68 @@ struct EvalOutputPipelineFromStageImpl<OutputPipelineType, FirstStage,
 // stores it into the destination matrix. It can be specialized for different
 // data types; the generic implementation here is typically used only for plain
 // old scalar (not SIMD) types.
-// The return value is the number of entries (of type DstType) written to dst.
 template <typename OutputType, typename DstType>
-std::size_t StoreFinalOutput(OutputType value, DstType* dst) {
-  *dst = value;
-  return 1;
+void StoreFinalOutput(OutputType value, DstType* dst, int row, int col) {
+  *dst->data(row, col) = value;
 }
 
 // RunOutputPipeline is the entry point into the output pipeline evaluation
 // code. It should be the only thing that unpack code calls. It takes the result
 // of the unpack stage and stores it into the destination matrix.
-// The return value is the number of entries (of type DstType) written to dst.
 template <typename OutputPipelineType, typename InputType, typename DstType>
-std::size_t RunOutputPipeline(const OutputPipelineType& output_pipeline,
-                              InputType input, DstType* dst) {
+void RunOutputPipeline(const OutputPipelineType& output_pipeline,
+                       InputType input, DstType* dst, int row, int col) {
+  // Statically assert that the output pipeline matches the given destination
+  // matrix's scalar type.
+  typedef
+      typename OutputPipelineOutputType<OutputPipelineType, 0,
+                                        std::int32_t>::Type ScalarOutputType;
+  typedef typename DstType::Scalar ScalarDstType;
+  static_assert(std::is_same<ScalarOutputType, ScalarDstType>::value,
+                "mismatched destination scalar type and output pipeline");
+
   // Evaluate the output pipeline.
   auto output =
       EvalOutputPipelineFromStageImpl<OutputPipelineType, 0, InputType>::Eval(
-          output_pipeline, input);
+          output_pipeline, input, row, col);
   // Store the result into the destination matrix.
-  // std::cerr << __PRETTY_FUNCTION__ << std::endl;
-  return StoreFinalOutput(output, dst);
+  return StoreFinalOutput(output, dst, row, col);
 }
 
-}  // namespace gemmlowp
+// A Fragment is a small fixed-size matrix typically stored in one or
+// a few architecture-specific SIMD vectors. Besides plain old scalar types
+// such as int32_t, Fragment types are what can be used as input/output data
+// types for output pipeline stages.
+//
+// More details:
+//
+// In the generic scalar code in this file, we have only implemented
+// evaluation of output stages for scalar inputs (e.g. plain int32_t values).
+// Other files (e.g. output_neon.h) are to provide SIMD paths by implementing
+// evaluation of output stages for SIMD vector types. However, this raises
+// the question of how the different values ("lanes") in a SIMD vector
+// correspond to different values in the whole matrices. For simple entry-wise
+// output stages, this doesn't matter, but for other output stages depending
+// on position within the whole matrix, this does matter. To solve this
+// problem, rather than implementing evaluation of output stages for raw
+// SIMD vector types, we wrap SIMD vector types in "fragment" structs that
+// bring the additional structure of "shape" i.e. mapping SIMD lanes to
+// matrix entries, and we specialize evaluation of output stage for such
+// fragment types. The Fragment template struct here is how we generate
+// all fragment structs. For example, in output_neon.h, it may be specialized
+// with DataType=int32x4_t, Rows=4, Cols=1. MapOrder doesn't matter for
+// vector shapes. While Fragment is only used for SIMD paths, we leave it
+// here in this platform-generic file because this same template should
+// cover the needs of any SIMD architectures.
+template <typename DataType, int Rows, int Cols, MapOrder Order>
+struct Fragment {
+  Fragment() {}
+  Fragment(const DataType& d) : data(d) {}
+  operator DataType() const { return data; }
 
-#ifdef GEMMLOWP_NEON
-#include "output_neon.h"
-#endif
+  DataType data;
+};
+
+}  // namespace gemmlowp
 
 #endif  // GEMMLOWP_INTERNAL_OUTPUT_H_

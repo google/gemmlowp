@@ -870,6 +870,48 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
     }
   }
 
+  // Test a bias-addition with row-vector
+  std::vector<std::int32_t> row_vector_data(cols);
+  for (std::size_t i = 0; i < cols; i++) {
+    row_vector_data[i] = Random();
+  }
+  typedef VectorMap<std::int32_t, VectorShape::Row> RowVectorMap;
+  RowVectorMap row_vector_map(row_vector_data.data(), cols);
+  OutputStageBiasAddition<RowVectorMap> row_bias_addition_stage;
+  row_bias_addition_stage.bias_vector = row_vector_map;
+  auto row_bias_addition_pipeline = std::make_tuple(row_bias_addition_stage);
+  Matrix<std::int32_t, ResultOrder> result_of_row_bias_addition(rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(), &result_of_row_bias_addition,
+      lhs_offset, rhs_offset, row_bias_addition_pipeline);
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t expected = result_raw_int32(r, c) + row_vector_data[c];
+      Check(expected == result_of_row_bias_addition(r, c));
+    }
+  }
+
+  // Test a bias-addition with column-vector
+  std::vector<std::int32_t> col_vector_data(rows);
+  for (std::size_t i = 0; i < rows; i++) {
+    col_vector_data[i] = Random();
+  }
+  typedef VectorMap<std::int32_t, VectorShape::Col> ColVectorMap;
+  ColVectorMap col_vector_map(col_vector_data.data(), rows);
+  OutputStageBiasAddition<ColVectorMap> col_bias_addition_stage;
+  col_bias_addition_stage.bias_vector = col_vector_map;
+  auto col_bias_addition_pipeline = std::make_tuple(col_bias_addition_stage);
+  Matrix<std::int32_t, ResultOrder> result_of_col_bias_addition(rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(), &result_of_col_bias_addition,
+      lhs_offset, rhs_offset, col_bias_addition_pipeline);
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t expected = result_raw_int32(r, c) + col_vector_data[r];
+      Check(expected == result_of_col_bias_addition(r, c));
+    }
+  }
+
   printf("TestOutputStages: PASS with ResultOrder=%s\n",
          OrderName(ResultOrder));
 }
