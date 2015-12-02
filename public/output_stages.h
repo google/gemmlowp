@@ -49,7 +49,7 @@ struct OutputStageQuantizeDownInt32ToUint8Scale {
 struct OutputStageSaturatingCastToUint8 {};
 
 // This output stage depends on a "bias vector" that should contain int32
-// entries,and be either a row-vector of the same number of columns as the
+// entries, and be either a row-vector of the same number of columns as the
 // result matrix, or a column-vector of the same number of rows as the
 // result matrix. This output stage takes int32 values and adds to them
 // the corresponding entry of the bias vector (broadcasted in the other
@@ -59,12 +59,15 @@ struct OutputStageBiasAddition {
   VectorType bias_vector;
 };
 
+// This output stage clamps value between the specified min and max bounds.
+// It can be used to implement "rectified linear unit" activation functions
+// in neural networks.
 struct OutputStageClamp {
   std::int32_t min;
   std::int32_t max;
 };
 
-// An output pipeline is just a std::tuple of output stage.
+// An output pipeline is just a std::tuple of output stages.
 // This function generates a standard output pipeline consisting of two stages:
 // OutputStageQuantizeDownInt32ToUint8Scale, OutputStageSaturatingCastToUint8.
 inline std::tuple<OutputStageQuantizeDownInt32ToUint8Scale,
