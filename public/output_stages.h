@@ -59,6 +59,11 @@ struct OutputStageBiasAddition {
   VectorType bias_vector;
 };
 
+struct OutputStageClamp {
+  std::int32_t min;
+  std::int32_t max;
+};
+
 // An output pipeline is just a std::tuple of output stage.
 // This function generates a standard output pipeline consisting of two stages:
 // OutputStageQuantizeDownInt32ToUint8Scale, OutputStageSaturatingCastToUint8.

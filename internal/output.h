@@ -43,7 +43,14 @@ namespace gemmlowp {
 //      specializations for a single OutputStageType, for different
 //      InputType's.
 template <typename OutputStageType, typename InputType>
-struct EvalOutputStageImpl {};
+struct EvalOutputStageImpl {
+  // This generic template body should never be hit.
+  static_assert(
+      std::is_same<InputType, void>::value,
+      "Unimplemented: missing implementation of this output pipeline stage "
+      "for this data type. This would happen if some architecture-specific "
+      "SIMD back-end (output_$arch.h) were incomplete.");
+};
 
 // Implementation of OutputStageQuantizeDownInt32ToUint8Scale for scalar data
 template <>
@@ -55,9 +62,9 @@ struct EvalOutputStageImpl<OutputStageQuantizeDownInt32ToUint8Scale,
   static OutputType Eval(
       const OutputStageQuantizeDownInt32ToUint8Scale& output_stage,
       InputType input, int, int) {
-    std::int32_t result_shift = output_stage.result_shift;
-    std::int32_t result_mult_int = output_stage.result_mult_int;
-    std::int32_t result_offset = output_stage.result_offset;
+    const std::int32_t result_shift = output_stage.result_shift;
+    const std::int32_t result_mult_int = output_stage.result_mult_int;
+    const std::int32_t result_offset = output_stage.result_offset;
     const std::int32_t kRoundingTerm =
         (result_shift < 1) ? 0 : (1 << (result_shift - 1));
     return ((input + result_offset) * result_mult_int + kRoundingTerm) >>
@@ -91,6 +98,20 @@ struct EvalOutputStageImpl<OutputStageBiasAddition<VectorType>, std::int32_t> {
     } else {
       return input + output_stage.bias_vector(row);
     }
+  }
+};
+
+// Implementation of OutputStageClamp for scalar data
+template <>
+struct EvalOutputStageImpl<OutputStageClamp, std::int32_t> {
+  typedef std::int32_t InputType;
+  typedef std::int32_t OutputType;
+
+  static OutputType Eval(const OutputStageClamp& output_stage, InputType input,
+                         int, int) {
+    const std::int32_t min = output_stage.min;
+    const std::int32_t max = output_stage.max;
+    return std::min(std::max(input, min), max);
   }
 };
 
@@ -187,7 +208,7 @@ void RunOutputPipeline(const OutputPipelineType& output_pipeline,
       EvalOutputPipelineFromStageImpl<OutputPipelineType, 0, InputType>::Eval(
           output_pipeline, input, row, col);
   // Store the result into the destination matrix.
-  return StoreFinalOutput(output, dst, row, col);
+  StoreFinalOutput(output, dst, row, col);
 }
 
 // A Fragment is a small fixed-size matrix typically stored in one or

@@ -136,6 +136,20 @@ struct EvalOutputStageImpl<OutputStageBiasAddition<VectorType>,
   }
 };
 
+// Implementation of OutputStageClamp for NEONFragmentInt32x4x1
+template <>
+struct EvalOutputStageImpl<OutputStageClamp, NEONFragmentInt32x4x1> {
+  typedef NEONFragmentInt32x4x1 InputType;
+  typedef NEONFragmentInt32x4x1 OutputType;
+
+  static OutputType Eval(const OutputStageClamp& output_stage, InputType input,
+                         int, int) {
+    const int32x4_t min = vdupq_n_s32(output_stage.min);
+    const int32x4_t max = vdupq_n_s32(output_stage.max);
+    return vminq_s32(vmaxq_s32(input, min), max);
+  }
+};
+
 // Specialization of StoreFinalOutput for NEONFragmentUint8x4x1.
 // This is quite inefficient, but we have no choice: instructions storing 32bit
 // at once also assume 32bit alignment. In practice, this slowness is not a

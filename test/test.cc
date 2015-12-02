@@ -873,7 +873,7 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
   // Test a bias-addition with row-vector
   std::vector<std::int32_t> row_vector_data(cols);
   for (std::size_t i = 0; i < cols; i++) {
-    row_vector_data[i] = Random();
+    row_vector_data[i] = (Random() % 1000) - 500;
   }
   typedef VectorMap<std::int32_t, VectorShape::Row> RowVectorMap;
   RowVectorMap row_vector_map(row_vector_data.data(), cols);
@@ -894,7 +894,7 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
   // Test a bias-addition with column-vector
   std::vector<std::int32_t> col_vector_data(rows);
   for (std::size_t i = 0; i < rows; i++) {
-    col_vector_data[i] = Random();
+    col_vector_data[i] = (Random() % 1000) - 500;
   }
   typedef VectorMap<std::int32_t, VectorShape::Col> ColVectorMap;
   ColVectorMap col_vector_map(col_vector_data.data(), rows);
@@ -909,6 +909,77 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
     for (int c = 0; c < cols; c++) {
       std::int32_t expected = result_raw_int32(r, c) + col_vector_data[r];
       Check(expected == result_of_col_bias_addition(r, c));
+    }
+  }
+
+  // Test a clamp
+  OutputStageClamp clamp_stage;
+  // Determine min and max of raw int32 accumulators
+  std::int32_t raw_min = std::numeric_limits<std::int32_t>::max();
+  std::int32_t raw_max = std::numeric_limits<std::int32_t>::min();
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      raw_min = std::min(raw_min, result_raw_int32(r, c));
+      raw_max = std::max(raw_max, result_raw_int32(r, c));
+    }
+  }
+  // Pick some interesting clamp min/max bounds
+  clamp_stage.min = static_cast<std::int32_t>(raw_min * 0.7 + raw_max * 0.3);
+  clamp_stage.max = static_cast<std::int32_t>(raw_min * 0.3 + raw_max * 0.7);
+  assert(raw_min <= clamp_stage.min && clamp_stage.min <= clamp_stage.max &&
+         clamp_stage.max <= raw_max);
+  auto clamp_pipeline = std::make_tuple(clamp_stage);
+  Matrix<std::int32_t, ResultOrder> result_clamped(rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(), &result_clamped, lhs_offset,
+      rhs_offset, clamp_pipeline);
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t raw = result_raw_int32(r, c);
+      std::int32_t expected =
+          std::min(std::max(raw, clamp_stage.min), clamp_stage.max);
+      Check(expected == result_clamped(r, c));
+    }
+  }
+
+  // Test a pipeline with bias and clamp
+  auto bias_clamp_pipeline =
+      std::make_tuple(col_bias_addition_stage, clamp_stage);
+  Matrix<std::int32_t, ResultOrder> result_biased_clamped(rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(), &result_biased_clamped,
+      lhs_offset, rhs_offset, bias_clamp_pipeline);
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t raw = result_raw_int32(r, c);
+      std::int32_t biased = raw + col_vector_data[r];
+      std::int32_t expected =
+          std::min(std::max(biased, clamp_stage.min), clamp_stage.max);
+      Check(expected == result_biased_clamped(r, c));
+    }
+  }
+
+  // Test a full pipeline with bias and clamp and quantization down to 8bit
+  // result
+  auto bias_clamp_quantize_cast_pipeline =
+      std::make_tuple(col_bias_addition_stage, clamp_stage, quantize_down_stage,
+                      saturating_cast_stage);
+  Matrix<std::uint8_t, ResultOrder> result_biased_clamped_quantized_casted(
+      rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::uint8_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(),
+      &result_biased_clamped_quantized_casted, lhs_offset, rhs_offset,
+      bias_clamp_quantize_cast_pipeline);
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      const std::int32_t rounding =
+          (result_shift < 1) ? 0 : (1 << (result_shift - 1));
+      std::int32_t quantized =
+          ((result_biased_clamped(r, c) + result_offset) * result_mult_int +
+           rounding) >>
+          result_shift;
+      std::uint8_t expected = std::min(std::max(quantized, 0), 255);
+      Check(expected == result_biased_clamped_quantized_casted(r, c));
     }
   }
 
