@@ -15,20 +15,20 @@
 #include "test.h"
 
 #include <unistd.h>
-#include <iostream>
-#include <ctime>
 #include <cstdint>
-#include <vector>
 #include <cstdlib>
+#include <ctime>
+#include <iostream>
 #include <memory>
 #include <string>
+#include <vector>
 #ifdef __APPLE__
 #include <TargetConditionals.h>
 #endif
 
-#include "../public/gemmlowp.h"
-#include "../internal/kernel_reference.h"
 #include "../eight_bit_int_gemm/eight_bit_int_gemm.h"
+#include "../internal/kernel_reference.h"
+#include "../public/gemmlowp.h"
 #include "test_data.h"
 
 namespace gemmlowp {
@@ -45,10 +45,6 @@ void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
   assert(b != nullptr);
   assert(c != nullptr);
 
-  // We're actually implementing C = B * A, for historical reasons. This means
-  // that the transpose flag handling is flipped compared to what you might
-  // expect, since the order of the arguments is flipped. The C transpose is
-  // still handled as you might expect though.
   int a_i_stride;
   int a_l_stride;
   if (transpose_a) {
@@ -129,10 +125,11 @@ struct SingleThreadGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    SingleThreadGemm<typename Kernel::Format, Scalar, BitDepthParams, LhsOrder,
-                     RhsOrder, ResultOrder>(
+    SingleThreadGemm<typename Kernel::Format, Scalar, Scalar, BitDepthParams,
+                     LhsOrder, RhsOrder, ResultOrder>(
         context, Kernel(), lhs, rhs, result, lhs_offset, rhs_offset,
-        result_offset, result_mult_int, result_shift);
+        MakeStandardOutputPipeline(result_offset, result_mult_int,
+                                   result_shift));
   }
 };
 
@@ -155,10 +152,11 @@ struct MultiThreadGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    MultiThreadGemm<typename Kernel::Format, Scalar, BitDepthParams, LhsOrder,
-                    RhsOrder, ResultOrder>(
+    MultiThreadGemm<typename Kernel::Format, Scalar, Scalar, BitDepthParams,
+                    LhsOrder, RhsOrder, ResultOrder>(
         context, Kernel(), lhs, rhs, result, lhs_offset, rhs_offset,
-        result_offset, result_mult_int, result_shift);
+        MakeStandardOutputPipeline(result_offset, result_mult_int,
+                                   result_shift));
   }
 };
 
@@ -536,7 +534,8 @@ void test_gemm(typename GemmWrapper::Context* context, int rows, int depth,
 template <typename Kernel>
 void test_gemm_kernel(MultiThreadGemmContext* context) {
   typedef MultiThreadGemmWrapper<Kernel, std::uint8_t,
-                                 DefaultL8R8BitDepthParams> GemmWrapper;
+                                 DefaultL8R8BitDepthParams>
+      GemmWrapper;
   test_gemm<GemmWrapper>(context, 1, 1, 1, WhatParamsToTest::OnlyGenericCase,
                          WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 2, 2, 2, WhatParamsToTest::OnlyGenericCase,
@@ -744,8 +743,8 @@ void TestWithSmallData() {
 
   gemmlowp::eight_bit_int_gemm::EightBitIntGemm(
       is_a_transposed, is_b_transposed, is_c_transposed, m, n, k, a_data,
-      a_offset, lda, b_data, b_offset, ldb, output_data.get(), c_offset,
-      c_mult, c_shift, ldc, eight_bit_int_gemm::BitDepthSetting::A8B8);
+      a_offset, lda, b_data, b_offset, ldb, output_data.get(), c_offset, c_mult,
+      c_shift, ldc, eight_bit_int_gemm::BitDepthSetting::A8B8);
 
   ResultStats stats;
   GetResultStats(output_data.get(), expected_data, c_count, &stats);
@@ -787,6 +786,205 @@ void TestWithRealData(eight_bit_int_gemm::BitDepthSetting BitDepth,
          GetBitDepthName(BitDepth));
   ReportResultStats(stats, bounds);
   Check(good);
+}
+
+template <MapOrder ResultOrder>
+void TestOutputStages(int rows, int depth, int cols, int result_offset,
+                      int result_mult_int, int result_shift) {
+  Matrix<std::uint8_t, MapOrder::RowMajor> lhs(rows, depth);
+  Matrix<std::uint8_t, MapOrder::ColMajor> rhs(depth, cols);
+  Matrix<std::int32_t, ResultOrder> result_raw_int32(rows, cols);
+  MakeRandom(&lhs, 8);
+  MakeRandom(&rhs, 8);
+  const int lhs_offset = 12;
+  const int rhs_offset = -34;
+
+  // Test an empty pipeline, i.e. returning raw int32 accumulators.
+  const std::tuple<> empty_pipeline;
+  GemmContext context;
+  GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(), &result_raw_int32, lhs_offset,
+      rhs_offset, empty_pipeline);
+
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t expected = 0;
+      for (int d = 0; d < depth; d++) {
+        std::int32_t lhs_val =
+            static_cast<std::int32_t>(lhs(r, d)) + lhs_offset;
+        std::int32_t rhs_val =
+            static_cast<std::int32_t>(rhs(d, c)) + rhs_offset;
+        expected += lhs_val * rhs_val;
+      }
+      Check(expected == result_raw_int32(r, c));
+    }
+  }
+
+  // Test a pipeline with only the quantize-down stage, still returning
+  // unclamped (but scaled) int32's
+  OutputStageQuantizeDownInt32ToUint8Scale quantize_down_stage;
+  quantize_down_stage.result_offset = result_offset;
+  quantize_down_stage.result_mult_int = result_mult_int;
+  quantize_down_stage.result_shift = result_shift;
+  auto quantize_down_pipeline = std::make_tuple(quantize_down_stage);
+  Matrix<std::int32_t, ResultOrder> result_quantized_down_int32(rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(), &result_quantized_down_int32,
+      lhs_offset, rhs_offset, quantize_down_pipeline);
+
+  std::uint64_t sum = 0;
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t raw = result_raw_int32(r, c);
+      const std::int32_t rounding =
+          (result_shift < 1) ? 0 : (1 << (result_shift - 1));
+      std::int32_t expected =
+          ((raw + result_offset) * result_mult_int + rounding) >> result_shift;
+      Check(expected == result_quantized_down_int32(r, c));
+      sum += expected;
+    }
+  }
+  std::uint64_t avg = sum / (rows * cols);
+  // Test that the average quantized-down value falls reasonably in the
+  // middle of the [0..255] range. Otherwise, the multiplier / shift need to be
+  // adjusted.
+  Check(avg >= 64 && avg <= 192);
+
+  // Test the familiar default pipeline consisting of quantize-down and
+  // clamp-and-cast-to-uint8.
+  OutputStageSaturatingCastToUint8 saturating_cast_stage;
+  auto quantize_down_and_saturating_cast_pipeline =
+      std::make_tuple(quantize_down_stage, saturating_cast_stage);
+  Matrix<std::uint8_t, ResultOrder> result_quantized_down_saturated_uint8(rows,
+                                                                          cols);
+  GemmWithOutputPipeline<std::uint8_t, std::uint8_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(),
+      &result_quantized_down_saturated_uint8, lhs_offset, rhs_offset,
+      quantize_down_and_saturating_cast_pipeline);
+
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t quantized = result_quantized_down_int32(r, c);
+      std::uint8_t expected = std::min(std::max(quantized, 0), 255);
+      Check(expected == result_quantized_down_saturated_uint8(r, c));
+    }
+  }
+
+  // Test a bias-addition with row-vector
+  std::vector<std::int32_t> row_vector_data(cols);
+  for (std::size_t i = 0; i < cols; i++) {
+    row_vector_data[i] = (Random() % 1000) - 500;
+  }
+  typedef VectorMap<std::int32_t, VectorShape::Row> RowVectorMap;
+  RowVectorMap row_vector_map(row_vector_data.data(), cols);
+  OutputStageBiasAddition<RowVectorMap> row_bias_addition_stage;
+  row_bias_addition_stage.bias_vector = row_vector_map;
+  auto row_bias_addition_pipeline = std::make_tuple(row_bias_addition_stage);
+  Matrix<std::int32_t, ResultOrder> result_of_row_bias_addition(rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(), &result_of_row_bias_addition,
+      lhs_offset, rhs_offset, row_bias_addition_pipeline);
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t expected = result_raw_int32(r, c) + row_vector_data[c];
+      Check(expected == result_of_row_bias_addition(r, c));
+    }
+  }
+
+  // Test a bias-addition with column-vector
+  std::vector<std::int32_t> col_vector_data(rows);
+  for (std::size_t i = 0; i < rows; i++) {
+    col_vector_data[i] = (Random() % 1000) - 500;
+  }
+  typedef VectorMap<std::int32_t, VectorShape::Col> ColVectorMap;
+  ColVectorMap col_vector_map(col_vector_data.data(), rows);
+  OutputStageBiasAddition<ColVectorMap> col_bias_addition_stage;
+  col_bias_addition_stage.bias_vector = col_vector_map;
+  auto col_bias_addition_pipeline = std::make_tuple(col_bias_addition_stage);
+  Matrix<std::int32_t, ResultOrder> result_of_col_bias_addition(rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(), &result_of_col_bias_addition,
+      lhs_offset, rhs_offset, col_bias_addition_pipeline);
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t expected = result_raw_int32(r, c) + col_vector_data[r];
+      Check(expected == result_of_col_bias_addition(r, c));
+    }
+  }
+
+  // Test a clamp
+  OutputStageClamp clamp_stage;
+  // Determine min and max of raw int32 accumulators
+  std::int32_t raw_min = std::numeric_limits<std::int32_t>::max();
+  std::int32_t raw_max = std::numeric_limits<std::int32_t>::min();
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      raw_min = std::min(raw_min, result_raw_int32(r, c));
+      raw_max = std::max(raw_max, result_raw_int32(r, c));
+    }
+  }
+  // Pick some interesting clamp min/max bounds
+  clamp_stage.min = static_cast<std::int32_t>(raw_min * 0.7 + raw_max * 0.3);
+  clamp_stage.max = static_cast<std::int32_t>(raw_min * 0.3 + raw_max * 0.7);
+  assert(raw_min <= clamp_stage.min && clamp_stage.min <= clamp_stage.max &&
+         clamp_stage.max <= raw_max);
+  auto clamp_pipeline = std::make_tuple(clamp_stage);
+  Matrix<std::int32_t, ResultOrder> result_clamped(rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(), &result_clamped, lhs_offset,
+      rhs_offset, clamp_pipeline);
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t raw = result_raw_int32(r, c);
+      std::int32_t expected =
+          std::min(std::max(raw, clamp_stage.min), clamp_stage.max);
+      Check(expected == result_clamped(r, c));
+    }
+  }
+
+  // Test a pipeline with bias and clamp
+  auto bias_clamp_pipeline =
+      std::make_tuple(col_bias_addition_stage, clamp_stage);
+  Matrix<std::int32_t, ResultOrder> result_biased_clamped(rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(), &result_biased_clamped,
+      lhs_offset, rhs_offset, bias_clamp_pipeline);
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t raw = result_raw_int32(r, c);
+      std::int32_t biased = raw + col_vector_data[r];
+      std::int32_t expected =
+          std::min(std::max(biased, clamp_stage.min), clamp_stage.max);
+      Check(expected == result_biased_clamped(r, c));
+    }
+  }
+
+  // Test a full pipeline with bias and clamp and quantization down to 8bit
+  // result
+  auto bias_clamp_quantize_cast_pipeline =
+      std::make_tuple(col_bias_addition_stage, clamp_stage, quantize_down_stage,
+                      saturating_cast_stage);
+  Matrix<std::uint8_t, ResultOrder> result_biased_clamped_quantized_casted(
+      rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::uint8_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(),
+      &result_biased_clamped_quantized_casted, lhs_offset, rhs_offset,
+      bias_clamp_quantize_cast_pipeline);
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      const std::int32_t rounding =
+          (result_shift < 1) ? 0 : (1 << (result_shift - 1));
+      std::int32_t quantized =
+          ((result_biased_clamped(r, c) + result_offset) * result_mult_int +
+           rounding) >>
+          result_shift;
+      std::uint8_t expected = std::min(std::max(quantized, 0), 255);
+      Check(expected == result_biased_clamped_quantized_casted(r, c));
+    }
+  }
+
+  printf("TestOutputStages: PASS with ResultOrder=%s\n",
+         OrderName(ResultOrder));
 }
 
 #ifndef GEMMLOWP_SKIP_EXHAUSTIVE_TESTS
@@ -899,6 +1097,10 @@ void test() {
   TestWithRealData(eight_bit_int_gemm::BitDepthSetting::A8B8, 0, 0);
   TestWithRealData(eight_bit_int_gemm::BitDepthSetting::A5B7, 2, 10);
 
+  // Test non-default output pipelines with various combinations of
+  // output stages.
+  TestOutputStages<MapOrder::RowMajor>(63, 10, 127, 5, 17, 14);
+  TestOutputStages<MapOrder::ColMajor>(63, 10, 127, 5, 17, 14);
 #ifdef GEMMLOWP_TEST_PROFILE
   FinishProfiling();
 #endif

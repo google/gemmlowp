@@ -112,7 +112,6 @@ class NEONRoundingOffsetGenerator<RoundingMode::ProbabilisticAddmod> {
   uint8x16_t x_;
 };
 
-
 // Requantizes source uint8 values in [0..255] range
 // to the range specified by BitDepth, [0..((2^bits)-1)].
 // Bias must be avoided. Currently this is achieved

@@ -29,11 +29,11 @@
 
 #include <cstring>
 
-#include "block_params.h"
-#include "kernel.h"
-#include "common.h"
-#include "allocator.h"
 #include "../public/bit_depth.h"
+#include "allocator.h"
+#include "block_params.h"
+#include "common.h"
+#include "kernel.h"
 
 namespace gemmlowp {
 
@@ -247,14 +247,15 @@ class ScalarRoundingOffsetGenerator<RoundingMode::ProbabilisticXorshift> {
 template <>
 class ScalarRoundingOffsetGenerator<RoundingMode::ProbabilisticAddmod> {
   static const uint8_t AddConst = 97;
+
  public:
-  ScalarRoundingOffsetGenerator() { x_ = 1; } // Start must be non-zero
+  ScalarRoundingOffsetGenerator() { x_ = 1; }  // Start must be non-zero
 
   std::uint8_t get() {
     // The +'d boolean term causes the increment to skip over 255,
-    // (recalling that 255+1 = 256 = 0 for an 8 bit uint), 
+    // (recalling that 255+1 = 256 = 0 for an 8 bit uint),
     // thus implementing %255
-    x_ += (AddConst + (x_ >= (255-AddConst)));
+    x_ += (AddConst + (x_ >= (255 - AddConst)));
     return x_;
   }
 
@@ -526,14 +527,16 @@ void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
   typedef typename BitDepthParams::RoundingStrategy RoundingStrategy;
   const int accumulation_depth = src_side_map.depth();
   if (accumulation_depth < RoundingStrategy::kRoundingModeSizeThreshold) {
-    typedef QuantizationParams<
-        BitDepth, RoundingStrategy::kRoundingModeForSmallSizes> QParams;
+    typedef QuantizationParams<BitDepth,
+                               RoundingStrategy::kRoundingModeForSmallSizes>
+        QParams;
     typedef PackSideBlockImpl<QParams, SideMapType, PackedSideBlock> ImplType;
     ImplType impl(dst, src_side_map);
     impl.PackL2();
   } else {
-    typedef QuantizationParams<
-        BitDepth, RoundingStrategy::kRoundingModeForLargeSizes> QParams;
+    typedef QuantizationParams<BitDepth,
+                               RoundingStrategy::kRoundingModeForLargeSizes>
+        QParams;
     typedef PackSideBlockImpl<QParams, SideMapType, PackedSideBlock> ImplType;
     ImplType impl(dst, src_side_map);
     impl.PackL2();
@@ -555,14 +558,16 @@ void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
   typedef typename BitDepthParams::RoundingStrategy RoundingStrategy;
   const int accumulation_depth = src_side_map.depth();
   if (accumulation_depth < RoundingStrategy::kRoundingModeSizeThreshold) {
-    typedef QuantizationParams<
-        BitDepth, RoundingStrategy::kRoundingModeForSmallSizes> QParams;
+    typedef QuantizationParams<BitDepth,
+                               RoundingStrategy::kRoundingModeForSmallSizes>
+        QParams;
     typedef PackSideBlockImpl<QParams, SideMapType, PackedSideBlock> ImplType;
     ImplType impl(dst, src_side_map);
     impl.PackL2();
   } else {
-    typedef QuantizationParams<
-        BitDepth, RoundingStrategy::kRoundingModeForLargeSizes> QParams;
+    typedef QuantizationParams<BitDepth,
+                               RoundingStrategy::kRoundingModeForLargeSizes>
+        QParams;
     typedef PackSideBlockImpl<QParams, SideMapType, PackedSideBlock> ImplType;
     ImplType impl(dst, src_side_map);
     impl.PackL2();
@@ -573,6 +578,8 @@ void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
 
 #ifdef GEMMLOWP_NEON
 #include "pack_neon.h"
+#elif defined(GEMMLOWP_SSE4)
+#include "pack_SSE.h"
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_PACK_H_

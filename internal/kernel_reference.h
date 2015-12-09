@@ -22,8 +22,8 @@
 
 #include "kernel.h"
 
-#include <cstring>
 #include <cstdio>
+#include <cstring>
 
 namespace gemmlowp {
 

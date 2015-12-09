@@ -16,13 +16,21 @@
 
 #ifndef GEMMLOWP_PUBLIC_GEMMLOWP_H_
 #define GEMMLOWP_PUBLIC_GEMMLOWP_H_
-
+#include "../internal/kernel_default.h"
+#include "../internal/multi_thread_gemm.h"
+#include "../internal/unpack.h"
 #include "bit_depth.h"
 #include "map.h"
-#include "../internal/multi_thread_gemm.h"
-#include "../internal/kernel_default.h"
+#include "output_stages.h"
 
 namespace gemmlowp {
+
+inline bool IsRequantizationWorthIt(int rows, int cols) {
+  // We pack depth*(rows+cols) and compute depth*rows*cols.
+  // Thus the ratio of compute/packing cost is rows*cols/(rows+cols)
+  // In the square case rows==cols==N, it becomes N/2.
+  return 2 * rows * cols >= (rows + cols) * kMinimumWidthForRequantization;
+}
 
 class GemmContext : public MultiThreadGemmContext {};
 
@@ -30,14 +38,15 @@ class GemmContext : public MultiThreadGemmContext {};
 // The meaning of the offsets, result_mult_int and result_shift
 // parameters is the same as in the standard EightBitIntGemm interface
 // (which is also implemented in the eight_bit_int_gemm directory).
-template <typename Scalar, typename BitDepthParams, MapOrder LhsOrder,
-          MapOrder RhsOrder, MapOrder ResultOrder>
-void Gemm(GemmContext* context, const MatrixMap<const Scalar, LhsOrder>& lhs,
-          const MatrixMap<const Scalar, RhsOrder>& rhs,
-          MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
-          int rhs_offset, int result_offset, int result_mult_int,
-          int result_shift) {
-
+template <typename InputScalar, typename OutputScalar, typename BitDepthParams,
+          MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder,
+          typename OutputPipelineType>
+void GemmWithOutputPipeline(GemmContext* context,
+                            const MatrixMap<const InputScalar, LhsOrder>& lhs,
+                            const MatrixMap<const InputScalar, RhsOrder>& rhs,
+                            MatrixMap<OutputScalar, ResultOrder>* result,
+                            int lhs_offset, int rhs_offset,
+                            const OutputPipelineType& output_pipeline) {
   assert(lhs.cols() == rhs.rows());
 
   int rows = result->rows();
@@ -51,34 +60,50 @@ void Gemm(GemmContext* context, const MatrixMap<const Scalar, LhsOrder>& lhs,
   }
 
   if (cols == 1) {
-    if (depth >= kMinimumSizeForRequantization) {
+    if (IsRequantizationWorthIt(rows, cols)) {
       typedef DefaultKernel<KernelFamily::Gemv, BitDepthParams> Kernel;
-      MultiThreadGemm<typename Kernel::Format, std::uint8_t, BitDepthParams>(
-          context, Kernel(), lhs, rhs, result, lhs_offset, rhs_offset,
-          result_offset, result_mult_int, result_shift);
+      MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
+                      BitDepthParams>(context, Kernel(), lhs, rhs, result,
+                                      lhs_offset, rhs_offset, output_pipeline);
     } else {
       typedef DefaultKernel<KernelFamily::Gemv, DefaultL8R8BitDepthParams>
           Kernel;
-      MultiThreadGemm<typename Kernel::Format, std::uint8_t,
-                      DefaultL8R8BitDepthParams>(
-          context, Kernel(), lhs, rhs, result, lhs_offset, rhs_offset,
-          result_offset, result_mult_int, result_shift);
+      MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
+                      DefaultL8R8BitDepthParams>(context, Kernel(), lhs, rhs,
+                                                 result, lhs_offset, rhs_offset,
+                                                 output_pipeline);
     }
   } else {
-    if (depth >= kMinimumSizeForRequantization) {
+    if (IsRequantizationWorthIt(rows, cols)) {
       typedef DefaultKernel<KernelFamily::Gemm, BitDepthParams> Kernel;
-      MultiThreadGemm<typename Kernel::Format, std::uint8_t, BitDepthParams>(
-          context, Kernel(), lhs, rhs, result, lhs_offset, rhs_offset,
-          result_offset, result_mult_int, result_shift);
+      MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
+                      BitDepthParams>(context, Kernel(), lhs, rhs, result,
+                                      lhs_offset, rhs_offset, output_pipeline);
     } else {
       typedef DefaultKernel<KernelFamily::Gemm, DefaultL8R8BitDepthParams>
           Kernel;
-      MultiThreadGemm<typename Kernel::Format, std::uint8_t,
-                      DefaultL8R8BitDepthParams>(
-          context, Kernel(), lhs, rhs, result, lhs_offset, rhs_offset,
-          result_offset, result_mult_int, result_shift);
+      MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
+                      DefaultL8R8BitDepthParams>(context, Kernel(), lhs, rhs,
+                                                 result, lhs_offset, rhs_offset,
+                                                 output_pipeline);
     }
   }
+}
+
+// Computes a general matrix product ("GEMM").
+// The meaning of the offsets, result_mult_int and result_shift
+// parameters is the same as in the standard EightBitIntGemm interface
+// (which is also implemented in the eight_bit_int_gemm directory).
+template <typename Scalar, typename BitDepthParams, MapOrder LhsOrder,
+          MapOrder RhsOrder, MapOrder ResultOrder>
+void Gemm(GemmContext* context, const MatrixMap<const Scalar, LhsOrder>& lhs,
+          const MatrixMap<const Scalar, RhsOrder>& rhs,
+          MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
+          int rhs_offset, int result_offset, int result_mult_int,
+          int result_shift) {
+  GemmWithOutputPipeline<Scalar, Scalar, BitDepthParams>(
+      context, lhs, rhs, result, lhs_offset, rhs_offset,
+      MakeStandardOutputPipeline(result_offset, result_mult_int, result_shift));
 }
 
 }  // namespace gemmlowp

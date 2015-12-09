@@ -20,10 +20,10 @@
 
 #include <pthread.h>
 
+#include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
-#include <algorithm>
 
 #include "../profiling/instrumentation.h"
 
@@ -38,7 +38,7 @@
 #if defined(__GNUC__)
 #define GEMMLOWP_NOINLINE __attribute__((noinline))
 #else
-#define GEMMLOWP_NOINLINE 
+#define GEMMLOWP_NOINLINE
 #endif
 
 // Detect ARM, 32-bit or 64-bit
@@ -87,8 +87,7 @@
 #endif
 
 // Detect SSE4.
-// TODO(benoitjacob): Which exact SSE4.x revision does our SSE4 code require?
-#if defined __SSE4_2__
+#if defined __SSE4_1__
 #define GEMMLOWP_SSE4
 #endif
 
@@ -165,7 +164,7 @@ const int kDefaultL2CacheSize = 256 * 1024;
 // RHS block.
 #if defined(GEMMLOWP_X86)
 // For IA, use the entire L2 cache for the RHS matrix. LHS matrix is not blocked
-// for L2 cache. 
+// for L2 cache.
 const float kDefaultL2RhsFactor = 1.00f;
 #else
 const float kDefaultL2RhsFactor = 0.75f;
@@ -182,8 +181,8 @@ const float kDefaultL2RhsFactor = 0.75f;
 const int kRegisterSize = 16;
 
 // Requantization to less-than-8-bit is costly, so it only worth
-// doing if the GEMM depth dimension is large enough
-const int kMinimumSizeForRequantization = 128;
+// doing if the GEMM width is large enough
+const int kMinimumWidthForRequantization = 100;
 
 // Hints the CPU to prefetch the cache line containing ptr.
 inline void Prefetch(const void* ptr) {

@@ -39,9 +39,9 @@ class MatrixMap {
   int rows_, cols_, stride_;
 
  public:
+  MatrixMap() : data_(nullptr), rows_(0), cols_(0), stride_(0) {}
   MatrixMap(Scalar* data, int rows, int cols, int stride)
       : data_(data), rows_(rows), cols_(cols), stride_(stride) {}
-
   MatrixMap(const MatrixMap& other)
       : data_(other.data_),
         rows_(other.rows_),
@@ -57,8 +57,7 @@ class MatrixMap {
   Scalar* data(int row, int col) const {
     return data_ + row * rows_stride() + col * cols_stride();
   }
-  Scalar operator()(int row, int col) const { return *data(row, col); }
-  Scalar& operator()(int row, int col) { return *data(row, col); }
+  Scalar& operator()(int row, int col) const { return *data(row, col); }
 
   MatrixMap block(int start_row, int start_col, int block_rows,
                   int block_cols) const {
@@ -70,6 +69,31 @@ class MatrixMap {
     return MatrixMap(data(start_row, start_col), block_rows, block_cols,
                      stride_);
   }
+};
+
+enum class VectorShape { Col, Row };
+
+// A VectorMap is a view of an existing buffer as a vector. It does not own
+// the buffer.
+template <typename tScalar, VectorShape tShape>
+class VectorMap {
+ public:
+  typedef tScalar Scalar;
+  static const VectorShape kShape = tShape;
+
+ protected:
+  Scalar* data_;  // not owned.
+  int size_;
+
+ public:
+  VectorMap() : data_(nullptr), size_(0) {}
+  VectorMap(Scalar* data, int size) : data_(data), size_(size) {}
+  VectorMap(const VectorMap& other) : data_(other.data_), size_(other.size_) {}
+
+  int size() const { return size_; }
+  Scalar* data() const { return data_; }
+  Scalar* data(int index) const { return data_ + index; }
+  Scalar& operator()(int index) const { return *data(index); }
 };
 
 }  // namespace gemmlowp

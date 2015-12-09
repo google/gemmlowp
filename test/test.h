@@ -22,10 +22,10 @@
 #include "../profiling/profiler.h"
 #endif
 
-#include <iostream>
 #include <cstdlib>
-#include <vector>
 #include <cstring>
+#include <iostream>
+#include <vector>
 
 #include "../public/map.h"
 
@@ -36,7 +36,14 @@ inline int Random() {
   return rand();
 }
 
-inline void Check(bool b) { ReleaseBuildAssertion(b, "test failed"); }
+#define GEMMLOWP_STRINGIFY2(x) #x
+#define GEMMLOWP_STRINGIFY(x) GEMMLOWP_STRINGIFY2(x)
+
+#define Check(b)                                                         \
+  do {                                                                   \
+    ReleaseBuildAssertion(                                               \
+        b, "test failed at " __FILE__ ":" GEMMLOWP_STRINGIFY(__LINE__)); \
+  } while (false)
 
 // gemmlowp itself doesn't have a Matrix class, only a MatrixMap class,
 // since it only maps existing data. In tests though, we need to

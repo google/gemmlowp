@@ -18,8 +18,8 @@
 #ifndef GEMMLOWP_INTERNAL_KERNEL_DEFAULT_H_
 #define GEMMLOWP_INTERNAL_KERNEL_DEFAULT_H_
 
-#include "common.h"
 #include "../public/bit_depth.h"
+#include "common.h"
 
 namespace gemmlowp {
 

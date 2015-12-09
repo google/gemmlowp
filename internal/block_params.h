@@ -70,8 +70,8 @@ struct BlockParams {
     {
       int max_cache_friendly_l2_cols = std::max(
           1, static_cast<int>(l2_rhs_factor * (l2_bytes_to_use / l2_depth)));
-      int min_l2_cols_blocks = std::max(
-          1, CeilQuotient(cols, max_cache_friendly_l2_cols));
+      int min_l2_cols_blocks =
+          std::max(1, CeilQuotient(cols, max_cache_friendly_l2_cols));
       l2_cols =
           RoundUp<KernelFormat::kCols>(CeilQuotient(cols, min_l2_cols_blocks));
     }
@@ -85,8 +85,8 @@ struct BlockParams {
       int max_cache_friendly_l2_rows =
           std::max(1, (l2_bytes_to_use - l2_depth * l2_cols) /
                           (num_threads * (l2_depth + 4 * l2_cols)));
-      int min_l2_rows_blocks = std::max(
-          1, CeilQuotient(rows, max_cache_friendly_l2_rows));
+      int min_l2_rows_blocks =
+          std::max(1, CeilQuotient(rows, max_cache_friendly_l2_rows));
       l2_rows =
           RoundUp<KernelFormat::kRows>(CeilQuotient(rows, min_l2_rows_blocks));
     }
@@ -118,8 +118,8 @@ struct BlockParams {
       int max_cache_friendly_l1_depth = std::max(
           1, (l1_bytes_to_use - 4 * KernelFormat::kRows * KernelFormat::kCols) /
                  (KernelFormat::kRows + KernelFormat::kCols));
-      int min_l1_depth_blocks = std::max(
-          1, CeilQuotient(depth, max_cache_friendly_l1_depth));
+      int min_l1_depth_blocks =
+          std::max(1, CeilQuotient(depth, max_cache_friendly_l1_depth));
       l1_depth =
           RoundUp<kRegisterSize>(CeilQuotient(depth, min_l1_depth_blocks));
     }
@@ -127,8 +127,8 @@ struct BlockParams {
     {
       int max_cache_friendly_l1_rows =
           std::max(1, l1_bytes_to_use / (l1_depth + 4 * l1_cols));
-      int min_l1_rows_blocks = std::max(
-          1, CeilQuotient(rows, max_cache_friendly_l1_rows));
+      int min_l1_rows_blocks =
+          std::max(1, CeilQuotient(rows, max_cache_friendly_l1_rows));
       l1_rows =
           RoundUp<KernelFormat::kRows>(CeilQuotient(rows, min_l1_rows_blocks));
     }

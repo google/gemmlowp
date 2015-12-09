@@ -23,10 +23,10 @@
 
 #include "../public/map.h"
 #include "allocator.h"
-#include "pack.h"
-#include "unpack.h"
 #include "compute.h"
 #include "kernel.h"
+#include "pack.h"
+#include "unpack.h"
 
 namespace gemmlowp {
 
@@ -38,15 +38,16 @@ class SingleThreadGemmContext {
   Allocator allocator_;
 };
 
-template <typename KernelFormat, typename Scalar, typename BitDepthParams,
-          MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
+template <typename KernelFormat, typename InputScalar, typename OutputScalar,
+          typename BitDepthParams, MapOrder LhsOrder, MapOrder RhsOrder,
+          MapOrder ResultOrder, typename OutputPipelineType>
 void SingleThreadGemm(SingleThreadGemmContext* context,
                       const KernelBase& kernel,
-                      const MatrixMap<const Scalar, LhsOrder>& lhs,
-                      const MatrixMap<const Scalar, RhsOrder>& rhs,
-                      MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
-                      int rhs_offset, int result_offset, int result_mult_int,
-                      int result_shift) {
+                      const MatrixMap<const InputScalar, LhsOrder>& lhs,
+                      const MatrixMap<const InputScalar, RhsOrder>& rhs,
+                      MatrixMap<OutputScalar, ResultOrder>* result,
+                      int lhs_offset, int rhs_offset,
+                      const OutputPipelineType& output_pipeline) {
   ScopedProfilingLabel label("gemmlowp::SingleThreadGemm");
 
   assert(lhs.cols() == rhs.rows());
@@ -94,10 +95,10 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
       Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
 
       auto result_block = result->block(r, c, rs, cs);
-      UnpackResult<BitDepthParams>(
-          &result_block, packed_result, depth, packed_lhs.rank_one_update(),
-          packed_rhs.rank_one_update(), lhs_offset, rhs_offset, result_offset,
-          result_mult_int, result_shift);
+      UnpackResult<BitDepthParams>(&result_block, packed_result, depth,
+                                   packed_lhs.rank_one_update(),
+                                   packed_rhs.rank_one_update(), lhs_offset,
+                                   rhs_offset, output_pipeline);
     }
   }
 
