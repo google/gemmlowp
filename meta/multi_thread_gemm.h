@@ -27,7 +27,7 @@ namespace gemmlowp {
 namespace meta {
 namespace internal {
 
-const std::int32_t kMinTaskSize = 100000;
+const std::int32_t kMinTaskSize = 10000;
 const std::int32_t kMinTaskDimension = 6;
 const std::int32_t kMaxCacheFriendlySize = 24 * 1024;
 const std::int32_t kCacheOptimalChunkSize = 24 * 1024;

@@ -138,27 +138,88 @@ void DestroyGlobalScratch() {
   global_scratch = nullptr;
 }
 
-// Fast path only handles Row x Col -> Row layout and depths up to 2048.
+bool IsRowMajorOrVector(bool transpose, int stride, int rows, int cols) {
+  // Is it row major and nicely packed?
+  if (transpose && stride == cols) {
+    return true;
+  }
+
+  // Is it a one row vector? (a vector is both row and column major)
+  if (rows == 1) {
+    return true;
+  }
+
+  return false;
+}
+
+bool IsColumnMajorOrVector(bool transpose, int stride, int rows, int cols) {
+  // Is it column major and nicely packed?
+  if (!transpose && stride == rows) {
+    return true;
+  }
+
+  // Is it a one column vector? (a vector is both row and column major)
+  if (cols == 1) {
+    return true;
+  }
+
+  return false;
+}
+
 bool CanHandleMetaFastpath(bool transpose_a, bool transpose_b, bool transpose_c,
-                           int n, int m, int k, int lda, int ldb, int ldc,
+                           int m, int n, int k, int lda, int ldb, int ldc,
                            BitDepthSetting depth_setting) {
-  return k <= 2048 && transpose_a && !transpose_b && transpose_c && lda == k &&
-         ldb == k && ldc == m && depth_setting == BitDepthSetting::A8B8;
+  // Meta fastpath only supports 8bit x 8bit and k up to 2048.
+  if (depth_setting != BitDepthSetting::A8B8 || k > 2048) {
+    return false;
+  }
+
+  // The first operand needs to be a row major matrix or a vector.
+  if (!IsRowMajorOrVector(transpose_a, lda, m, k)) {
+    return false;
+  }
+
+  // The second operand needs to be a column major matrix or a vector.
+  if (!IsColumnMajorOrVector(transpose_b, ldb, k, n)) {
+    return false;
+  }
+
+  // The result can either be a row major matrix, a column major matrix or
+  // a vector.
+  if (IsRowMajorOrVector(transpose_c, ldc, m, n)) {
+    return true;
+  }
+
+  if (IsColumnMajorOrVector(transpose_c, ldc, m, n)) {
+    return true;
+  }
+
+  return false;
 }
 
 // Assure enough scratch memory is allocated and run the fast path gemm.
 void MetaGemm(GemmContext* context, const std::uint8_t* lhs,
-              const std::uint8_t* rhs, int n, int m, int k,
+              const std::uint8_t* rhs, int m, int n, int k,
               std::int32_t lhs_offset, std::int32_t rhs_offset,
               std::int32_t sum_offset, std::int32_t multiplicative_offset,
-              std::int32_t shift, std::uint8_t* result) {
+              std::int32_t shift, bool result_transpose,
+              std::int32_t result_stride, std::uint8_t* result) {
   Scratch* scratch = GetOrCreateGlobalScratch();
-  scratch->AssureSize(
-      meta::RequiredScratch(n, m, k, context->max_num_threads()));
-  meta::multi_thread_gemm(context->workers_pool(), context->max_num_threads(),
-                          scratch->buffer(), lhs, rhs, n, m, k, lhs_offset,
-                          rhs_offset, sum_offset, multiplicative_offset, shift,
-                          result);
+  if (IsRowMajorOrVector(result_transpose, result_stride, m, n)) {
+   scratch->AssureSize(
+       meta::RequiredScratch(m, n, k, context->max_num_threads()));
+   meta::multi_thread_gemm(context->workers_pool(), context->max_num_threads(),
+                            scratch->buffer(), lhs, rhs, m, n, k, lhs_offset,
+                            rhs_offset, sum_offset, multiplicative_offset,
+                            shift, result);
+  } else {
+    scratch->AssureSize(
+        meta::RequiredScratch(n, m, k, context->max_num_threads()));
+    meta::multi_thread_gemm(context->workers_pool(), context->max_num_threads(),
+                            scratch->buffer(), rhs, lhs, n, m, k, rhs_offset,
+                            lhs_offset, sum_offset, multiplicative_offset,
+                            shift, result);
+  }
 }
 #endif
 
@@ -176,11 +237,10 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
   GemmContext* context = GetOrCreateGlobalContext();
 
 #if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
-  // Fast path produces RowMajor result, need to switch a with b.
-  if (CanHandleMetaFastpath(!transpose_b, !transpose_a, !transpose_c, n, m, k,
-                            ldb, lda, ldc, bit_depth)) {
-    MetaGemm(context, b, a, n, m, k, b_offset, a_offset, c_offset, c_mult_int,
-             c_shift, c);
+  if (CanHandleMetaFastpath(transpose_a, transpose_b, transpose_c, m, n, k,
+                            lda, ldb, ldc, bit_depth)) {
+    MetaGemm(context, a, b, m, n, k, a_offset, b_offset, c_offset, c_mult_int,
+             c_shift, transpose_c, ldc, c);
     return;
   }
 #endif
