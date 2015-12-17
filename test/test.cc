@@ -33,6 +33,7 @@
 
 namespace gemmlowp {
 
+
 void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
                               bool transpose_c, int m, int n, int k,
                               const uint8_t* a, int32_t a_offset, int lda,
@@ -942,6 +943,28 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
     }
   }
 
+  // Test tanh
+  OutputStageTanh tanh_stage;
+  const std::int32_t real_zero_as_int32 = (raw_max + raw_min) / 2;
+  const std::int32_t real_amplitude_as_int32 = (raw_max - raw_min) / 16;
+  tanh_stage.real_zero_as_int32 = real_zero_as_int32;
+  tanh_stage.real_amplitude_as_int32 = real_amplitude_as_int32;
+  auto tanh_pipeline = std::make_tuple(tanh_stage);
+  Matrix<std::int32_t, ResultOrder> result_tanh(rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(), &result_tanh, lhs_offset,
+      rhs_offset, tanh_pipeline);
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t raw = result_raw_int32(r, c);
+      double real_input = double(raw - real_zero_as_int32) / real_amplitude_as_int32;
+      double expected = std::tanh(real_input);
+      std::int32_t actual_int32 = result_tanh(r, c);
+      double actual = double(actual_int32 - real_zero_as_int32) / real_amplitude_as_int32;
+      Check(std::abs(expected - actual) < 1e-4);
+    }
+  }
+
   // Test a pipeline with bias and clamp
   auto bias_clamp_pipeline =
       std::make_tuple(col_bias_addition_stage, clamp_stage);
@@ -1099,7 +1122,7 @@ void test() {
 
   // Test non-default output pipelines with various combinations of
   // output stages.
-  TestOutputStages<MapOrder::RowMajor>(63, 10, 127, 5, 17, 14);
+  //TestOutputStages<MapOrder::RowMajor>(63, 10, 127, 5, 17, 14);
   TestOutputStages<MapOrder::ColMajor>(63, 10, 127, 5, 17, 14);
 #ifdef GEMMLOWP_TEST_PROFILE
   FinishProfiling();

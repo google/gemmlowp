@@ -21,12 +21,14 @@
 
 #include <tuple>
 #include <type_traits>
+#include <cmath>
 
 #include "../public/output_stages.h"
+#include "fixedpoint.h"
 
 namespace gemmlowp {
 
-// EvalOutputStageImpl is the template that we specialize to provide
+// OutputStageEvalImpl is the template that we specialize to provide
 // implementations of each output stage for each type of input data.
 //
 // Each specialization provides a OutputType typedef and an Eval function
@@ -39,29 +41,36 @@ namespace gemmlowp {
 //   2. For a given scalar data type such as int32, there is still the
 //      possibility of having SIMD vector types such as NEON int32x4_t,
 //      typically wrapped as "fragment" types, see struct Fragment.
-//      Thus, there can be several EvalOutputStageImpl
+//      Thus, there can be several OutputStageEvalImpl
 //      specializations for a single OutputStageType, for different
 //      InputType's.
 template <typename OutputStageType, typename InputType>
-struct EvalOutputStageImpl {
+struct OutputStageEvalImpl {
   // This generic template body should never be hit.
   static_assert(
       std::is_same<InputType, void>::value,
       "Unimplemented: missing implementation of this output pipeline stage "
       "for this data type. This would happen if some architecture-specific "
       "SIMD back-end (output_$arch.h) were incomplete.");
+
+
+  OutputStageEvalImpl(const OutputStageType&)
+  {}
 };
 
 // Implementation of OutputStageQuantizeDownInt32ToUint8Scale for scalar data
 template <>
-struct EvalOutputStageImpl<OutputStageQuantizeDownInt32ToUint8Scale,
+struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
                            std::int32_t> {
   typedef std::int32_t InputType;
   typedef std::int32_t OutputType;
+  typedef OutputStageQuantizeDownInt32ToUint8Scale OutputStage;
 
-  static OutputType Eval(
-      const OutputStageQuantizeDownInt32ToUint8Scale& output_stage,
-      InputType input, int, int) {
+  OutputStageEvalImpl(const OutputStage& s)
+    : output_stage(s)
+  {}
+
+  OutputType Eval(InputType input, int, int) const {
     const std::int32_t result_shift = output_stage.result_shift;
     const std::int32_t result_mult_int = output_stage.result_mult_int;
     const std::int32_t result_offset = output_stage.result_offset;
@@ -70,62 +79,142 @@ struct EvalOutputStageImpl<OutputStageQuantizeDownInt32ToUint8Scale,
     return ((input + result_offset) * result_mult_int + kRoundingTerm) >>
            result_shift;
   }
+
+  const OutputStage& output_stage;
 };
 
 // Implementation of OutputStageSaturatingCastToUint8 for scalar data
 template <>
-struct EvalOutputStageImpl<OutputStageSaturatingCastToUint8, std::int32_t> {
+struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8, std::int32_t> {
   typedef std::int32_t InputType;
   typedef std::uint8_t OutputType;
+  typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-  static OutputType Eval(const OutputStageSaturatingCastToUint8&,
-                         InputType input, int, int) {
+  OutputStageEvalImpl(const OutputStage&)
+  {}
+
+  OutputType Eval(InputType input, int, int) const {
     return input > 255 ? 255 : input < 0 ? 0 : input;
   }
 };
 
 // Implementation of OutputStageBiasAddition for scalar data
 template <typename VectorType>
-struct EvalOutputStageImpl<OutputStageBiasAddition<VectorType>, std::int32_t> {
+struct OutputStageEvalImpl<OutputStageBiasAddition<VectorType>, std::int32_t> {
   typedef std::int32_t InputType;
   typedef std::int32_t OutputType;
   typedef OutputStageBiasAddition<VectorType> OutputStage;
 
-  static OutputType Eval(const OutputStage& output_stage, InputType input,
-                         int row, int col) {
+  OutputStageEvalImpl(const OutputStage& s)
+    : output_stage(s)
+  {}
+
+  OutputType Eval(InputType input, int row, int col) const {
     if (VectorType::kShape == VectorShape::Row) {
       return input + output_stage.bias_vector(col);
     } else {
       return input + output_stage.bias_vector(row);
     }
   }
+
+  const OutputStage& output_stage;
 };
 
 // Implementation of OutputStageClamp for scalar data
 template <>
-struct EvalOutputStageImpl<OutputStageClamp, std::int32_t> {
+struct OutputStageEvalImpl<OutputStageClamp, std::int32_t> {
   typedef std::int32_t InputType;
   typedef std::int32_t OutputType;
+  typedef OutputStageClamp OutputStage;
 
-  static OutputType Eval(const OutputStageClamp& output_stage, InputType input,
-                         int, int) {
+  OutputStageEvalImpl(const OutputStage& s)
+    : output_stage(s)
+  {}
+
+  OutputType Eval(InputType input, int, int) const {
     const std::int32_t min = output_stage.min;
     const std::int32_t max = output_stage.max;
     return std::min(std::max(input, min), max);
   }
+
+  const OutputStage& output_stage;
+};
+
+// Implementation of OutputStageTanh for scalar data
+template <>
+struct OutputStageEvalImpl<OutputStageTanh, std::int32_t> {
+  typedef std::int32_t InputType;
+  typedef std::int32_t OutputType;
+  typedef OutputStageTanh OutputStage;
+
+  OutputStageEvalImpl(const OutputStage& s)
+    : output_stage(s)
+  {
+    const std::int32_t real_zero_as_int32 = output_stage.real_zero_as_int32;
+    const std::int32_t real_amplitude_as_int32 = output_stage.real_amplitude_as_int32;
+
+    input_cutoff_min = real_zero_as_int32 - 8 * real_amplitude_as_int32;
+    input_cutoff_max = real_zero_as_int32 + 8 * real_amplitude_as_int32;
+    output_min = real_zero_as_int32 - real_amplitude_as_int32;
+    output_max = real_zero_as_int32 + real_amplitude_as_int32;
+    
+    double inverse_amplitude_normalized_double = 1.0 / real_amplitude_as_int32;
+    inverse_amplitude_neg_exponent = 0;
+    while (inverse_amplitude_normalized_double < 0.5) {
+      inverse_amplitude_normalized_double *= 2;
+      inverse_amplitude_neg_exponent++;
+    }
+    inverse_amplitude_normalized = ToFixedPoint<int32_t, 0>(inverse_amplitude_normalized_double);
+
+    double amplitude_normalized_double = real_amplitude_as_int32;
+    amplitude_exponent = 0;
+    while (amplitude_normalized_double >= 1.0) {
+      amplitude_normalized_double *= 0.5;
+      amplitude_exponent++;
+    }
+    amplitude_normalized = ToFixedPoint<int32_t, 0>(amplitude_normalized_double);
+  }
+
+  OutputType Eval(InputType input, int, int) const {
+    const std::int32_t real_zero_as_int32 = output_stage.real_zero_as_int32;
+
+    typedef FixedPoint<int32_t, 3> F3;
+    typedef FixedPoint<int32_t, 0> F0;
+    
+    // fixed-point affine transformation
+    F3 fixedpoint_input = F3::FromRaw(input - real_zero_as_int32) * inverse_amplitude_normalized;
+    // left shift
+    fixedpoint_input.raw() *= (1 << (28 - inverse_amplitude_neg_exponent));
+    // fixed-point tanh and multiplication
+    F0 fixedpoint_output = tanh(fixedpoint_input) * amplitude_normalized;
+    // right shift
+    int32_t int32_output = fixedpoint_output.raw() / (1 << (31 - amplitude_exponent));
+
+    return input <= input_cutoff_min ? output_min :
+           input >= input_cutoff_max ? output_max :
+           real_zero_as_int32 + int32_output;
+  }
+
+  const OutputStage& output_stage;
+  std::int32_t input_cutoff_min, input_cutoff_max;
+  std::int32_t output_min, output_max;
+  FixedPoint<int32_t, 0> inverse_amplitude_normalized;
+  unsigned inverse_amplitude_neg_exponent;
+  FixedPoint<int32_t, 0> amplitude_normalized;
+  unsigned amplitude_exponent;
 };
 
 // OutputPipelineOutputType is a helper to determine the output data type of a
 // pipeline, for a
 // given input data type. It is a recursive template; see the explanation on
-// EvalOutputPipelineFromStageImpl below.
+// OutputPipelineEvalImpl below.
 template <typename OutputPipelineType, int FirstStage, typename InputType,
           bool StopRecursion =
               FirstStage == std::tuple_size<OutputPipelineType>::value>
 struct OutputPipelineOutputType {
   typedef typename std::tuple_element<FirstStage, OutputPipelineType>::type
       FirstStageType;
-  typedef typename EvalOutputStageImpl<FirstStageType, InputType>::OutputType
+  typedef typename OutputStageEvalImpl<FirstStageType, InputType>::OutputType
       FirstStageOutputType;
   typedef typename OutputPipelineOutputType<OutputPipelineType, FirstStage + 1,
                                             FirstStageOutputType>::Type Type;
@@ -137,7 +226,7 @@ struct OutputPipelineOutputType<OutputPipelineType, FirstStage, InputType,
   typedef InputType Type;
 };
 
-// EvalOutputPipelineFromStageImpl is a helper to implement the evaluation of
+// OutputPipelineEvalImpl is a helper to implement the evaluation of
 // the whole pipeline. It is a recursive template to implement compile-time
 // unrolling of the loop over all pipeline stages. The 'FirstStage' parameter
 // is how we implement recursion: each specialization implements only
@@ -147,33 +236,41 @@ struct OutputPipelineOutputType<OutputPipelineType, FirstStage, InputType,
 template <typename OutputPipelineType, int FirstStage, typename InputType,
           bool StopRecursion =
               FirstStage == std::tuple_size<OutputPipelineType>::value>
-struct EvalOutputPipelineFromStageImpl {
+struct OutputPipelineEvalImpl {
   typedef typename std::tuple_element<FirstStage, OutputPipelineType>::type
       FirstStageType;
-  typedef typename EvalOutputStageImpl<FirstStageType, InputType>::OutputType
+  typedef typename OutputStageEvalImpl<FirstStageType, InputType>::OutputType
       FirstStageOutputType;
   typedef typename OutputPipelineOutputType<OutputPipelineType, FirstStage,
                                             InputType>::Type OutputType;
 
-  static OutputType Eval(const OutputPipelineType& output_pipeline,
-                         InputType input, int row, int col) {
+  OutputPipelineEvalImpl(const OutputPipelineType& output_pipeline)
+      : head_impl(std::get<FirstStage>(output_pipeline))
+      , tail_impl(output_pipeline)
+  {}
+
+  OutputType Eval(InputType input, int row, int col) const {
     // Evaluate the first stage.
     FirstStageOutputType first_stage_output =
-        EvalOutputStageImpl<FirstStageType, InputType>::Eval(
-            std::get<FirstStage>(output_pipeline), input, row, col);
+        head_impl.Eval(input, row, col);
     // Recurse into the remaining stages.
-    return EvalOutputPipelineFromStageImpl<
-        OutputPipelineType, FirstStage + 1,
-        FirstStageOutputType>::Eval(output_pipeline, first_stage_output, row,
-                                    col);
+    return tail_impl.Eval(first_stage_output, row, col);
   }
+
+  const OutputStageEvalImpl<FirstStageType, InputType> head_impl;
+  const OutputPipelineEvalImpl<
+        OutputPipelineType, FirstStage + 1,
+        FirstStageOutputType> tail_impl;
 };
 
 // Specialization on 'StopRecursion' for terminating the recursion.
 template <typename OutputPipelineType, int FirstStage, typename InputType>
-struct EvalOutputPipelineFromStageImpl<OutputPipelineType, FirstStage,
+struct OutputPipelineEvalImpl<OutputPipelineType, FirstStage,
                                        InputType, true> {
-  static InputType Eval(const OutputPipelineType&, InputType input, int, int) {
+  OutputPipelineEvalImpl(const OutputPipelineType&)
+  {}
+
+  InputType Eval(InputType input, int, int) const {
     // Terminating the recursion.
     return input;
   }
@@ -188,28 +285,35 @@ void StoreFinalOutput(OutputType value, DstType* dst, int row, int col) {
   *dst->data(row, col) = value;
 }
 
-// RunOutputPipeline is the entry point into the output pipeline evaluation
-// code. It should be the only thing that unpack code calls. It takes the result
-// of the unpack stage and stores it into the destination matrix.
-template <typename OutputPipelineType, typename InputType, typename DstType>
-void RunOutputPipeline(const OutputPipelineType& output_pipeline,
-                       InputType input, DstType* dst, int row, int col) {
-  // Statically assert that the output pipeline matches the given destination
-  // matrix's scalar type.
-  typedef
-      typename OutputPipelineOutputType<OutputPipelineType, 0,
-                                        std::int32_t>::Type ScalarOutputType;
-  typedef typename DstType::Scalar ScalarDstType;
-  static_assert(std::is_same<ScalarOutputType, ScalarDstType>::value,
-                "mismatched destination scalar type and output pipeline");
+template <typename OutputPipelineType, typename InputType>
+struct OutputPipelineExecutor
+{
+  OutputPipelineExecutor(const OutputPipelineType& output_pipeline)
+      : output_pipeline_eval_impl_(output_pipeline)
+  {}
 
-  // Evaluate the output pipeline.
-  auto output =
-      EvalOutputPipelineFromStageImpl<OutputPipelineType, 0, InputType>::Eval(
-          output_pipeline, input, row, col);
-  // Store the result into the destination matrix.
-  StoreFinalOutput(output, dst, row, col);
-}
+  // RunOutputPipeline is the entry point into the output pipeline evaluation
+  // code. It should be the only thing that unpack code calls. It takes the result
+  // of the unpack stage and stores it into the destination matrix.
+  template <typename DstType>
+  void Execute(InputType input, DstType* dst, int row, int col) {
+    // Statically assert that the output pipeline matches the given destination
+    // matrix's scalar type.
+    typedef
+        typename OutputPipelineOutputType<OutputPipelineType, 0,
+                                          std::int32_t>::Type ScalarOutputType;
+    typedef typename DstType::Scalar ScalarDstType;
+    static_assert(std::is_same<ScalarOutputType, ScalarDstType>::value,
+                  "mismatched destination scalar type and output pipeline");
+
+    // Evaluate the output pipeline.
+    auto output = output_pipeline_eval_impl_.Eval(input, row, col);
+    // Store the result into the destination matrix.
+    StoreFinalOutput(output, dst, row, col);
+  }
+
+  const OutputPipelineEvalImpl<OutputPipelineType, 0, InputType> output_pipeline_eval_impl_;
+};
 
 // A Fragment is a small fixed-size matrix typically stored in one or
 // a few architecture-specific SIMD vectors. Besides plain old scalar types

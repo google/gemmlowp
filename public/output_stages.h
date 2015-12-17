@@ -67,6 +67,11 @@ struct OutputStageClamp {
   std::int32_t max;
 };
 
+struct OutputStageTanh {
+  std::int32_t real_zero_as_int32;
+  std::int32_t real_amplitude_as_int32;
+};
+
 // An output pipeline is just a std::tuple of output stages.
 // This function generates a standard output pipeline consisting of two stages:
 // OutputStageQuantizeDownInt32ToUint8Scale, OutputStageSaturatingCastToUint8.

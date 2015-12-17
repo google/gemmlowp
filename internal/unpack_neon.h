@@ -65,6 +65,13 @@ struct UnpackResultImpl<BitDepthParams,
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     auto src_map = src.Map();
     const std::int32_t term_11 = lhs_offset * rhs_offset * depth;
+    OutputPipelineExecutor<OutputPipelineType, std::int32_t>
+        output_pipeline_executor_int32(output_pipeline);
+    OutputPipelineExecutor<OutputPipelineType, NEONFragmentInt32x4x1>
+        output_pipeline_executor_int32x4x1(output_pipeline);
+    OutputPipelineExecutor<OutputPipelineType, NEONFragmentInt32x16x1>
+        output_pipeline_executor_int32x16x1(output_pipeline);
+
     for (int c = 0; c < dst->cols(); c++) {
       const std::int32_t* src_ptr = src_map.data(0, c);
       const std::int32_t* rank_one_update_ptr = lhs_rank_one_update;
@@ -106,7 +113,7 @@ struct UnpackResultImpl<BitDepthParams,
                                vdupq_n_s32(term_1x_plus_term_11));
         }
         NEONFragmentInt32x16x1 f(q);
-        RunOutputPipeline(output_pipeline, f, dst, r, c);
+        output_pipeline_executor_int32x16x1.Execute(f, dst, r, c);
       }
       // We have finished handling groups of 16 entries at once; now
       // try to handle 4 entries at once.
@@ -127,7 +134,7 @@ struct UnpackResultImpl<BitDepthParams,
         int32x4_t q = vaddq_s32(vaddq_s32(term_xx, term_x1),
                                 vdupq_n_s32(term_1x_plus_term_11));
         NEONFragmentInt32x4x1 f(q);
-        RunOutputPipeline(output_pipeline, f, dst, r, c);
+        output_pipeline_executor_int32x4x1.Execute(f, dst, r, c);
       }
       // We have finished handling 4 entries at once; now handle
       // remaining entries one by one. This scalar code is similar
@@ -141,7 +148,7 @@ struct UnpackResultImpl<BitDepthParams,
         std::int32_t term_x1 =
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         std::int32_t sum = term_xx + term_x1 + term_1x_plus_term_11;
-        RunOutputPipeline(output_pipeline, sum, dst, r, c);
+        output_pipeline_executor_int32.Execute(sum, dst, r, c);
       }
     }
   }
