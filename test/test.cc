@@ -1122,7 +1122,7 @@ void test() {
 
   // Test non-default output pipelines with various combinations of
   // output stages.
-  //TestOutputStages<MapOrder::RowMajor>(63, 10, 127, 5, 17, 14);
+  TestOutputStages<MapOrder::RowMajor>(63, 10, 127, 5, 17, 14);
   TestOutputStages<MapOrder::ColMajor>(63, 10, 127, 5, 17, 14);
 #ifdef GEMMLOWP_TEST_PROFILE
   FinishProfiling();
