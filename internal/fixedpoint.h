@@ -565,7 +565,6 @@ template <typename tRawType, int tIntegerBits>
 FixedPoint<tRawType, 0> tanh(FixedPoint<tRawType, tIntegerBits> a) {
   typedef FixedPoint<tRawType, tIntegerBits> InputF;
   typedef FixedPoint<tRawType, 0> ResultF;
-  FixedPoint<tRawType, 0> result;
   tRawType mask_if_negative = MaskIfLessThan(a, InputF::Zero());
   tRawType mask_if_zero = MaskIfZero(a);
   InputF n = SelectUsingMask(mask_if_negative, a, -a);
