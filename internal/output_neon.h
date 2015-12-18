@@ -255,9 +255,10 @@ struct OutputStageEvalImpl<OutputStageTanh, NEONFragmentInt32x4x1> {
 template <typename DstType>
 inline void StoreFinalOutput(NEONFragmentUint8x4x1 value, DstType* dst, int row,
                              int col) {
-  for (int i = 0; i < 4; i++) {
-    vst1_lane_u8(dst->data(row + i, col), value, i);
-  }
+  vst1_lane_u8(dst->data(row + 0, col), value, 0);
+  vst1_lane_u8(dst->data(row + 1, col), value, 1);
+  vst1_lane_u8(dst->data(row + 2, col), value, 2);
+  vst1_lane_u8(dst->data(row + 3, col), value, 3);
 }
 
 // Specialization of StoreFinalOutput for NEONFragmentUint8x16x1.
