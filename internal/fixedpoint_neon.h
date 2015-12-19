@@ -12,19 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// fixedpoint.h: fixed-point arithmetic, with basic operations and
-// a few math functions such as tanh.
-
-// This is only used in output.h
-// for some specific output pipeline stages (tanh); most of gemmlowp
-// uses only plain integer arithmetic, not fixed-point arithmetic.
-// At the most basic level, we distinguish between plain integer
-// arithmetic and fixed-point arithmetic by the type of multiplication
-// that is used: plain integer arithmetic uses plain (overflowing)
-// integer multiplication, whereas fixed-point arithmetic uses
-// "multiply-high" instructions, which means using only the most
-// significant bits of the product, or equivalently, multiplying
-// fixed-point numbers in the [-1 .. +1] interval.
+// fixedpoint_neon.h: optimized NEON specializations of the templates
+// in fixedpoint.h.
 
 #ifndef GEMMLOWP_INTERNAL_FIXEDPOINT_NEON_H_
 #define GEMMLOWP_INTERNAL_FIXEDPOINT_NEON_H_

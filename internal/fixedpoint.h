@@ -369,31 +369,31 @@ MAKE_FIXEDPOINT_BINARY_FUNC(RoundingHalfSum, RoundingHalfSum)
 #undef MAKE_FIXEDPOINT_UNARY_FUNC
 #undef MAKE_FIXEDPOINT_BINARY_FUNC
 
-#define MAKE_FIXEDPOINT_UNARY_FUNC_RETURNING_RAW(FuncName, ImplFuncName) \
+#define MAKE_FIXEDPOINT_UNARY_FUNC_RETURNING_RAW(FuncName) \
     template <typename tRawType, int tIntegerBits> \
     tRawType \
     FuncName(FixedPoint<tRawType, tIntegerBits> a) \
     { \
-      return ImplFuncName(a.raw()); \
+      return FuncName(a.raw()); \
     }
 
-#define MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW(FuncName, ImplFuncName) \
+#define MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW(FuncName) \
     template <typename tRawType, int tIntegerBits> \
     tRawType \
     FuncName(FixedPoint<tRawType, tIntegerBits> a, \
         FixedPoint<tRawType, tIntegerBits> b) \
     { \
-      return ImplFuncName(a.raw(), b.raw()); \
+      return FuncName(a.raw(), b.raw()); \
     }
 
-MAKE_FIXEDPOINT_UNARY_FUNC_RETURNING_RAW(MaskIfZero, MaskIfZero)
-MAKE_FIXEDPOINT_UNARY_FUNC_RETURNING_RAW(MaskIfNonZero, MaskIfNonZero)
-MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW(MaskIfEqual, MaskIfEqual)
-MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW(MaskIfNotEqual, MaskIfEqual)
-MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW(MaskIfGreaterThan, MaskIfGreaterThan)
-MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW(MaskIfGreaterThanOrEqual, MaskIfGreaterThanOrEqual)
-MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW(MaskIfLessThan, MaskIfLessThan)
-MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW(MaskIfLessThanOrEqual, MaskIfLessThanOrEqual)
+MAKE_FIXEDPOINT_UNARY_FUNC_RETURNING_RAW(MaskIfZero)
+MAKE_FIXEDPOINT_UNARY_FUNC_RETURNING_RAW(MaskIfNonZero)
+MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW(MaskIfEqual)
+MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW(MaskIfNotEqual)
+MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW(MaskIfGreaterThan)
+MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW(MaskIfGreaterThanOrEqual)
+MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW(MaskIfLessThan)
+MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW(MaskIfLessThanOrEqual)
 
 #undef MAKE_FIXEDPOINT_UNARY_FUNC_RETURNING_RAW
 #undef MAKE_FIXEDPOINT_BINARY_FUNC_RETURNING_RAW

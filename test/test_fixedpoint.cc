@@ -154,6 +154,7 @@ void test_tanh(const std::vector<int32_t>& testvals_int32) {
   }
 }
 
+#ifdef GEMMLOWP_NEON
 void test_int32x4(const std::vector<int32_t>& testvals_int32) {
   size_t n = testvals_int32.size();
   size_t n4 = n - (n % 4);
@@ -171,6 +172,7 @@ void test_int32x4(const std::vector<int32_t>& testvals_int32) {
     Check(results_int32[i] == results_int32x4[i]);
   }
 }
+#endif  // GEMMLOWP_NEON
 
 int main() {
   std::vector<int32_t> testvals_int32;
@@ -250,7 +252,9 @@ int main() {
   test_tanh<5>(testvals_int32);
   test_tanh<6>(testvals_int32);
 
+#ifdef GEMMLOWP_NEON
   test_int32x4(testvals_int32);
+#endif  // GEMMLOWP_NEON
 
   std::cerr << "All tests passed." << std::endl;
 }
