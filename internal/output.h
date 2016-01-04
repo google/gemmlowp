@@ -239,12 +239,11 @@ struct OutputStageTanhEvalImpl {
 
     DataType mask_if_below_cutoff_min = MaskIfLessThanOrEqual(input.data, Dup<DataType>(input_cutoff_min));
     DataType mask_if_above_cutoff_max = MaskIfGreaterThanOrEqual(input.data, Dup<DataType>(input_cutoff_max));
-    DataType mask_if_between_cutoffs = BitNot(BitXor(mask_if_below_cutoff_min, mask_if_above_cutoff_max));
-    DataType value_if_below_cutoff_min = BitAnd(mask_if_below_cutoff_min, Dup<DataType>(output_min));
-    DataType value_if_above_cutoff_max = BitAnd(mask_if_above_cutoff_max, Dup<DataType>(output_max));
-    DataType value_if_between_cutoffs = BitAnd(mask_if_between_cutoffs, int32_output);
 
-    return BitOr(value_if_below_cutoff_min, BitOr(value_if_above_cutoff_max, value_if_between_cutoffs));
+    return
+        SelectUsingMask(mask_if_below_cutoff_min, Dup<DataType>(output_min),
+            SelectUsingMask(mask_if_above_cutoff_max, Dup<DataType>(output_max),
+                int32_output));
   }
 
   const OutputStage& output_stage;
