@@ -65,8 +65,8 @@ struct UnpackResultImpl<BitDepthParams,
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     auto src_map = src.Map();
     const std::int32_t term_11 = lhs_offset * rhs_offset * depth;
-    OutputPipelineExecutor<OutputPipelineType, std::int32_t>
-        output_pipeline_executor_int32(output_pipeline);
+    OutputPipelineExecutor<OutputPipelineType, FragmentInt32x1x1>
+        output_pipeline_executor_int32x1x1(output_pipeline);
     OutputPipelineExecutor<OutputPipelineType, NEONFragmentInt32x4x1>
         output_pipeline_executor_int32x4x1(output_pipeline);
     OutputPipelineExecutor<OutputPipelineType, NEONFragmentInt32x16x1>
@@ -147,8 +147,8 @@ struct UnpackResultImpl<BitDepthParams,
                 raw_xx);
         std::int32_t term_x1 =
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
-        std::int32_t sum = term_xx + term_x1 + term_1x_plus_term_11;
-        output_pipeline_executor_int32.Execute(sum, dst, r, c);
+        FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x_plus_term_11;
+        output_pipeline_executor_int32x1x1.Execute(sum, dst, r, c);
       }
     }
   }

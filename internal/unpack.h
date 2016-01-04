@@ -103,7 +103,7 @@ struct UnpackResultImplGeneric {
     const int kRhsBits = BitDepthParams::RhsBitDepth::kBits;
     const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
-    OutputPipelineExecutor<OutputPipelineType, std::int32_t>
+    OutputPipelineExecutor<OutputPipelineType, FragmentInt32x1x1>
         output_pipeline_executor(output_pipeline);
     for (int c = 0; c < dst->cols(); c++) {
       for (int r = 0; r < dst->rows(); r++) {
@@ -124,7 +124,7 @@ struct UnpackResultImplGeneric {
         std::int32_t term_1x =
             RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
         // Sum the 4 terms.
-        std::int32_t sum = term_xx + term_x1 + term_1x + term_11;
+        FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x + term_11;
 
         output_pipeline_executor.Execute(sum, dst, r, c);
       }
