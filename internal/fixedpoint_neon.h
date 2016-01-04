@@ -67,6 +67,18 @@ int32x4_t Neg(int32x4_t a)
 }
 
 template <> inline
+int32x4_t ShiftLeft(int32x4_t a, int offset)
+{
+  return vshlq_s32(a, vdupq_n_s32(offset));
+}
+
+template <> inline
+int32x4_t ShiftRight(int32x4_t a, int offset)
+{
+  return vshlq_s32(a, vdupq_n_s32(-offset));
+}
+
+template <> inline
 int32x4_t SelectUsingMask(int32x4_t if_mask, int32x4_t then_val, int32x4_t else_val)
 {
   return BitXor(BitAnd(if_mask, then_val), BitAnd(BitNot(if_mask), else_val));

@@ -28,6 +28,61 @@
 
 namespace gemmlowp {
 
+// A Fragment is a small fixed-size matrix typically stored in one or
+// a few architecture-specific SIMD vectors. Besides plain old scalar types
+// such as int32_t, Fragment types are what can be used as input/output data
+// types for output pipeline stages.
+//
+// More details:
+//
+// In the generic scalar code in this file, we have only implemented
+// evaluation of output stages for scalar inputs (e.g. plain int32_t values).
+// Other files (e.g. output_neon.h) are to provide SIMD paths by implementing
+// evaluation of output stages for SIMD vector types. However, this raises
+// the question of how the different values ("lanes") in a SIMD vector
+// correspond to different values in the whole matrices. For simple entry-wise
+// output stages, this doesn't matter, but for other output stages depending
+// on position within the whole matrix, this does matter. To solve this
+// problem, rather than implementing evaluation of output stages for raw
+// SIMD vector types, we wrap SIMD vector types in "fragment" structs that
+// bring the additional structure of "shape" i.e. mapping SIMD lanes to
+// matrix entries, and we specialize evaluation of output stage for such
+// fragment types. The Fragment template struct here is how we generate
+// all fragment structs. For example, in output_neon.h, it may be specialized
+// with DataType=int32x4_t, Rows=4, Cols=1. MapOrder doesn't matter for
+// vector shapes. While Fragment is only used for SIMD paths, we leave it
+// here in this platform-generic file because this same template should
+// cover the needs of any SIMD architectures.
+template <typename DataType, int Rows, int Cols, MapOrder Order>
+struct Fragment {
+  Fragment() {}
+  Fragment(const DataType& d) : data(d) {}
+  operator DataType() const { return data; }
+
+  DataType data;
+};
+
+template <typename T>
+T FragmentData(const T& t) {
+  return t;
+}
+
+template <typename DataType, int Rows, int Cols, MapOrder Order>
+DataType FragmentData(const Fragment<DataType, Rows, Cols, Order>& f) {
+  return f.data;
+}
+
+template <typename T>
+struct FragmentDataType {
+  typedef T Type;
+};
+
+template <typename DataType, int Rows, int Cols, MapOrder Order>
+struct FragmentDataType<Fragment<DataType, Rows, Cols, Order>> {
+  typedef DataType Type;
+};
+
+
 // OutputStageEvalImpl is the template that we specialize to provide
 // implementations of each output stage for each type of input data.
 //
@@ -141,13 +196,14 @@ struct OutputStageEvalImpl<OutputStageClamp, std::int32_t> {
 };
 
 // Implementation of OutputStageTanh for scalar data
-template <>
-struct OutputStageEvalImpl<OutputStageTanh, std::int32_t> {
-  typedef std::int32_t InputType;
-  typedef std::int32_t OutputType;
+template <typename tInputType>
+struct OutputStageTanhEvalImpl {
+  typedef tInputType InputType;
+  typedef InputType OutputType;
+  typedef typename FragmentDataType<InputType>::Type DataType;
   typedef OutputStageTanh OutputStage;
 
-  OutputStageEvalImpl(const OutputStage& s)
+  OutputStageTanhEvalImpl(const OutputStage& s)
     : output_stage(s)
   {
     const std::int32_t real_zero_as_int32 = output_stage.real_zero_as_int32;
@@ -164,7 +220,7 @@ struct OutputStageEvalImpl<OutputStageTanh, std::int32_t> {
       inverse_amplitude_normalized_double *= 2;
       inverse_amplitude_neg_exponent++;
     }
-    inverse_amplitude_normalized = ToFixedPoint<int32_t, 0>(inverse_amplitude_normalized_double);
+    inverse_amplitude_normalized = ToFixedPoint<DataType, 0>(inverse_amplitude_normalized_double);
 
     double amplitude_normalized_double = real_amplitude_as_int32;
     amplitude_exponent = 0;
@@ -172,36 +228,54 @@ struct OutputStageEvalImpl<OutputStageTanh, std::int32_t> {
       amplitude_normalized_double *= 0.5;
       amplitude_exponent++;
     }
-    amplitude_normalized = ToFixedPoint<int32_t, 0>(amplitude_normalized_double);
+    amplitude_normalized = ToFixedPoint<DataType, 0>(amplitude_normalized_double);
   }
 
   OutputType Eval(InputType input, int, int) const {
+    DataType input_data = FragmentData(input);
     const std::int32_t real_zero_as_int32 = output_stage.real_zero_as_int32;
 
-    typedef FixedPoint<int32_t, 3> F3;
-    typedef FixedPoint<int32_t, 0> F0;
+    typedef FixedPoint<DataType, 3> F3;
+    typedef FixedPoint<DataType, 0> F0;
     
     // fixed-point affine transformation
-    F3 fixedpoint_input = F3::FromRaw(input - real_zero_as_int32) * inverse_amplitude_normalized;
+    DataType input_centered = Sub(input_data, Dup<DataType>(real_zero_as_int32));
+    F3 fixedpoint_input = F3::FromRaw(input_centered) * inverse_amplitude_normalized;
     // left shift
-    fixedpoint_input.raw() *= (1 << (28 - inverse_amplitude_neg_exponent));
+    fixedpoint_input.raw() = ShiftLeft(fixedpoint_input.raw(), 28 - inverse_amplitude_neg_exponent);
     // fixed-point tanh and multiplication
     F0 fixedpoint_output = tanh(fixedpoint_input) * amplitude_normalized;
     // right shift
-    int32_t int32_output = fixedpoint_output.raw() / (1 << (31 - amplitude_exponent));
+    DataType int32_output = Add(
+        Dup<DataType>(real_zero_as_int32),
+        ShiftRight(fixedpoint_output.raw(), 31 - amplitude_exponent));
 
-    return input <= input_cutoff_min ? output_min :
-           input >= input_cutoff_max ? output_max :
-           real_zero_as_int32 + int32_output;
+    DataType mask_if_below_cutoff_min = MaskIfLessThanOrEqual(input_data, Dup<DataType>(input_cutoff_min));
+    DataType mask_if_above_cutoff_max = MaskIfGreaterThanOrEqual(input_data, Dup<DataType>(input_cutoff_max));
+    DataType mask_if_between_cutoffs = BitNot(BitXor(mask_if_below_cutoff_min, mask_if_above_cutoff_max));
+    DataType value_if_below_cutoff_min = BitAnd(mask_if_below_cutoff_min, Dup<DataType>(output_min));
+    DataType value_if_above_cutoff_max = BitAnd(mask_if_above_cutoff_max, Dup<DataType>(output_max));
+    DataType value_if_between_cutoffs = BitAnd(mask_if_between_cutoffs, int32_output);
+
+    return BitOr(value_if_below_cutoff_min, BitOr(value_if_above_cutoff_max, value_if_between_cutoffs));
   }
 
   const OutputStage& output_stage;
   std::int32_t input_cutoff_min, input_cutoff_max;
   std::int32_t output_min, output_max;
-  FixedPoint<int32_t, 0> inverse_amplitude_normalized;
-  unsigned inverse_amplitude_neg_exponent;
-  FixedPoint<int32_t, 0> amplitude_normalized;
-  unsigned amplitude_exponent;
+  FixedPoint<DataType, 0> inverse_amplitude_normalized;
+  int inverse_amplitude_neg_exponent;
+  FixedPoint<DataType, 0> amplitude_normalized;
+  int amplitude_exponent;
+};
+
+template <>
+struct OutputStageEvalImpl<OutputStageTanh, std::int32_t>
+  : OutputStageTanhEvalImpl<std::int32_t>
+{
+  OutputStageEvalImpl(const OutputStageTanh& output_stage)
+    : OutputStageTanhEvalImpl(output_stage)
+  {}
 };
 
 // OutputPipelineOutputType is a helper to determine the output data type of a
@@ -313,40 +387,6 @@ struct OutputPipelineExecutor
   }
 
   const OutputPipelineEvalImpl<OutputPipelineType, 0, InputType> output_pipeline_eval_impl_;
-};
-
-// A Fragment is a small fixed-size matrix typically stored in one or
-// a few architecture-specific SIMD vectors. Besides plain old scalar types
-// such as int32_t, Fragment types are what can be used as input/output data
-// types for output pipeline stages.
-//
-// More details:
-//
-// In the generic scalar code in this file, we have only implemented
-// evaluation of output stages for scalar inputs (e.g. plain int32_t values).
-// Other files (e.g. output_neon.h) are to provide SIMD paths by implementing
-// evaluation of output stages for SIMD vector types. However, this raises
-// the question of how the different values ("lanes") in a SIMD vector
-// correspond to different values in the whole matrices. For simple entry-wise
-// output stages, this doesn't matter, but for other output stages depending
-// on position within the whole matrix, this does matter. To solve this
-// problem, rather than implementing evaluation of output stages for raw
-// SIMD vector types, we wrap SIMD vector types in "fragment" structs that
-// bring the additional structure of "shape" i.e. mapping SIMD lanes to
-// matrix entries, and we specialize evaluation of output stage for such
-// fragment types. The Fragment template struct here is how we generate
-// all fragment structs. For example, in output_neon.h, it may be specialized
-// with DataType=int32x4_t, Rows=4, Cols=1. MapOrder doesn't matter for
-// vector shapes. While Fragment is only used for SIMD paths, we leave it
-// here in this platform-generic file because this same template should
-// cover the needs of any SIMD architectures.
-template <typename DataType, int Rows, int Cols, MapOrder Order>
-struct Fragment {
-  Fragment() {}
-  Fragment(const DataType& d) : data(d) {}
-  operator DataType() const { return data; }
-
-  DataType data;
 };
 
 }  // namespace gemmlowp

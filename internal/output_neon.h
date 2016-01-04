@@ -180,72 +180,12 @@ struct OutputStageEvalImpl<OutputStageClamp, NEONFragmentInt32x4x1> {
 
 // Implementation of OutputStageTanh for NEONFragmentInt32x4x1
 template <>
-struct OutputStageEvalImpl<OutputStageTanh, NEONFragmentInt32x4x1> {
-  typedef NEONFragmentInt32x4x1 InputType;
-  typedef NEONFragmentInt32x4x1 OutputType;
-  typedef OutputStageTanh OutputStage;
-
-  OutputStageEvalImpl(const OutputStage& s)
-    : output_stage(s)
-  {
-    const std::int32_t real_zero_as_int32 = output_stage.real_zero_as_int32;
-    const std::int32_t real_amplitude_as_int32 = output_stage.real_amplitude_as_int32;
-
-    input_cutoff_min = real_zero_as_int32 - 8 * real_amplitude_as_int32;
-    input_cutoff_max = real_zero_as_int32 + 8 * real_amplitude_as_int32;
-    output_min = real_zero_as_int32 - real_amplitude_as_int32;
-    output_max = real_zero_as_int32 + real_amplitude_as_int32;
-    
-    double inverse_amplitude_normalized_double = 1.0 / real_amplitude_as_int32;
-    inverse_amplitude_neg_exponent = 0;
-    while (inverse_amplitude_normalized_double < 0.5) {
-      inverse_amplitude_normalized_double *= 2;
-      inverse_amplitude_neg_exponent++;
-    }
-    inverse_amplitude_normalized = ToFixedPoint<int32x4_t, 0>(inverse_amplitude_normalized_double);
-
-    double amplitude_normalized_double = real_amplitude_as_int32;
-    amplitude_exponent = 0;
-    while (amplitude_normalized_double >= 1.0) {
-      amplitude_normalized_double *= 0.5;
-      amplitude_exponent++;
-    }
-    amplitude_normalized = ToFixedPoint<int32x4_t, 0>(amplitude_normalized_double);
-  }
-
-  OutputType Eval(InputType input, int, int) const {
-    const std::int32_t real_zero_as_int32 = output_stage.real_zero_as_int32;
-
-    typedef FixedPoint<int32x4_t, 3> F3;
-    typedef FixedPoint<int32x4_t, 0> F0;
-    
-    // fixed-point affine transformation
-    int32x4_t input_centered = vsubq_s32(input, vdupq_n_s32(real_zero_as_int32));
-    F3 fixedpoint_input = F3::FromRaw(input_centered) * inverse_amplitude_normalized;
-    // left shift
-    fixedpoint_input.raw() = vshlq_s32(fixedpoint_input.raw(), vdupq_n_s32(28 - inverse_amplitude_neg_exponent));
-    // fixed-point tanh and multiplication
-    F0 fixedpoint_output = tanh(fixedpoint_input) * amplitude_normalized;
-    // right shift
-    int32x4_t int32_output = vaddq_s32(vdupq_n_s32(real_zero_as_int32), vshlq_s32(fixedpoint_output.raw(), vdupq_n_s32(amplitude_exponent - 31)));
-
-    int32x4_t mask_if_below_cutoff_min = vreinterpretq_s32_u32(vcleq_s32(input, vdupq_n_s32(input_cutoff_min)));
-    int32x4_t mask_if_above_cutoff_max = vreinterpretq_s32_u32(vcgeq_s32(input, vdupq_n_s32(input_cutoff_max)));
-    int32x4_t mask_if_between_cutoffs = veorq_s32(vorrq_s32(mask_if_below_cutoff_min, mask_if_above_cutoff_max), vdupq_n_s32(-1));
-    int32x4_t value_if_below_cutoff_min = vandq_s32(mask_if_below_cutoff_min, vdupq_n_s32(output_min));
-    int32x4_t value_if_above_cutoff_max = vandq_s32(mask_if_above_cutoff_max, vdupq_n_s32(output_max));
-    int32x4_t value_if_between_cutoffs = vandq_s32(mask_if_between_cutoffs, int32_output);
-
-    return vorrq_s32(value_if_below_cutoff_min, vorrq_s32(value_if_above_cutoff_max, value_if_between_cutoffs));
-  }
-
-  const OutputStage& output_stage;
-  std::int32_t input_cutoff_min, input_cutoff_max;
-  std::int32_t output_min, output_max;
-  FixedPoint<int32x4_t, 0> inverse_amplitude_normalized;
-  int inverse_amplitude_neg_exponent;
-  FixedPoint<int32x4_t, 0> amplitude_normalized;
-  int amplitude_exponent;
+struct OutputStageEvalImpl<OutputStageTanh, NEONFragmentInt32x4x1>
+  : OutputStageTanhEvalImpl<NEONFragmentInt32x4x1>
+{
+  OutputStageEvalImpl(const OutputStageTanh& output_stage)
+    : OutputStageTanhEvalImpl(output_stage)
+  {}
 };
 
 // Specialization of StoreFinalOutput for NEONFragmentUint8x4x1.

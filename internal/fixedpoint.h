@@ -78,6 +78,18 @@ tIntegerType Neg(tIntegerType a)
 }
 
 template <typename tIntegerType>
+tIntegerType ShiftLeft(tIntegerType a, int offset)
+{
+  return a * (1 << offset);
+}
+
+template <typename tIntegerType>
+tIntegerType ShiftRight(tIntegerType a, int offset)
+{
+  return a / (1 << offset);
+}
+
+template <typename tIntegerType>
 tIntegerType SelectUsingMask(tIntegerType if_mask, tIntegerType then_val, tIntegerType else_val)
 {
   return BitXor(BitAnd(if_mask, then_val), BitAnd(BitNot(if_mask), else_val));
