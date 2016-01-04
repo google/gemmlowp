@@ -81,7 +81,7 @@ int32x4_t ShiftRight(int32x4_t a, int offset)
 template <> inline
 int32x4_t SelectUsingMask(int32x4_t if_mask, int32x4_t then_val, int32x4_t else_val)
 {
-  return BitXor(BitAnd(if_mask, then_val), BitAnd(BitNot(if_mask), else_val));
+  return vbslq_s32(vreinterpretq_u32_s32(if_mask), then_val, else_val);
 }
 
 template <> inline
@@ -105,7 +105,7 @@ int32x4_t MaskIfZero(int32x4_t a)
 template <> inline
 int32x4_t MaskIfNonZero(int32x4_t a)
 {
-  return BitNot(MaskIfZero(a));
+  return vreinterpretq_s32_u32(vtstq_s32(a, a));
 }
 
 template <> inline
