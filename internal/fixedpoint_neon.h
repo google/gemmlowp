@@ -135,17 +135,17 @@ int32x4_t MaskIfLessThanOrEqual(int32x4_t a, int32x4_t b)
 template <> inline
 bool All(int32x4_t a)
 {
-  int32_t b[4];
-  vst1q_s32(b, a);
-  return b[0] && b[1] && b[2] && b[3];
+  a = vandq_s32(a, vextq_s32(a, a, 1));
+  a = vandq_s32(a, vextq_s32(a, a, 2));
+  return vgetq_lane_s32(a, 0);
 }
 
 template <> inline
 bool Any(int32x4_t a)
 {
-  int32_t b[4];
-  vst1q_s32(b, a);
-  return b[0] || b[1] || b[2] || b[3];
+  a = vorrq_s32(a, vextq_s32(a, a, 1));
+  a = vorrq_s32(a, vextq_s32(a, a, 2));
+  return vgetq_lane_s32(a, 0);
 }
 
 template <> inline
