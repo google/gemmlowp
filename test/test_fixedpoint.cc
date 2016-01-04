@@ -7,8 +7,7 @@
 using namespace gemmlowp;
 
 template <int tIntegerBits>
-void test_convert(FixedPoint<int32_t, tIntegerBits> x)
-{
+void test_convert(FixedPoint<int32_t, tIntegerBits> x) {
   typedef FixedPoint<int32_t, tIntegerBits> F;
   F y = ToFixedPoint<int32_t, tIntegerBits>(ToDouble(x));
   Check(y == x);
@@ -17,7 +16,8 @@ void test_convert(FixedPoint<int32_t, tIntegerBits> x)
 template <int tIntegerBits_a, int tIntegerBits_b>
 void test_Rescale(FixedPoint<int32_t, tIntegerBits_a> a) {
   FixedPoint<int32_t, tIntegerBits_b> actual = Rescale<tIntegerBits_b>(a);
-  FixedPoint<int32_t, tIntegerBits_b> expected = ToFixedPoint<int32_t, tIntegerBits_b>(ToDouble(a));
+  FixedPoint<int32_t, tIntegerBits_b> expected =
+      ToFixedPoint<int32_t, tIntegerBits_b>(ToDouble(a));
   Check(actual == expected);
 }
 
@@ -31,10 +31,8 @@ void test_Rescale(const std::vector<int32_t>& testvals_int32) {
 }
 
 template <int tIntegerBits_a, int tIntegerBits_b>
-void test_mul(
-  FixedPoint<int32_t, tIntegerBits_a> a,
-  FixedPoint<int32_t, tIntegerBits_b> b)
-{
+void test_mul(FixedPoint<int32_t, tIntegerBits_a> a,
+              FixedPoint<int32_t, tIntegerBits_b> b) {
   static const int IntegerBits_ab = tIntegerBits_a + tIntegerBits_b;
   FixedPoint<int32_t, IntegerBits_ab> ab;
   ab = a * b;
@@ -42,7 +40,7 @@ void test_mul(
   double b_double = ToDouble(b);
   double ab_double = a_double * b_double;
   FixedPoint<int32_t, IntegerBits_ab> expected =
-    ToFixedPoint<int32_t, IntegerBits_ab>(ab_double);
+      ToFixedPoint<int32_t, IntegerBits_ab>(ab_double);
   int64_t diff = int64_t(ab.raw()) - int64_t(expected.raw());
   Check(std::abs(diff) <= 1);
 }
@@ -61,8 +59,7 @@ void test_mul(const std::vector<int32_t>& testvals_int32) {
 }
 
 template <int tExponent, int tIntegerBits_a>
-void test_ExactMulByPot(FixedPoint<int32_t, tIntegerBits_a> a)
-{
+void test_ExactMulByPot(FixedPoint<int32_t, tIntegerBits_a> a) {
   double x = ToDouble(a) * std::pow(2.0, tExponent);
   double y = ToDouble(ExactMulByPot<tExponent>(a));
   Check(x == y);
@@ -77,26 +74,28 @@ void test_ExactMulByPot(const std::vector<int32_t>& testvals_int32) {
   }
 }
 
-void test_exp_on_interval_between_negative_one_quarter_and_0_excl(FixedPoint<int32_t, 0> a)
-{
+void test_exp_on_interval_between_negative_one_quarter_and_0_excl(
+    FixedPoint<int32_t, 0> a) {
   double a_double = ToDouble(a);
   double expected = std::exp(a_double);
-  double actual = ToDouble(exp_on_interval_between_negative_one_quarter_and_0_excl(a));
+  double actual =
+      ToDouble(exp_on_interval_between_negative_one_quarter_and_0_excl(a));
   double error = expected - actual;
   Check(std::abs(error) < 3e-7);
 }
 
-void test_exp_on_interval_between_negative_one_quarter_and_0_excl(const std::vector<int32_t>& testvals_int32) {
+void test_exp_on_interval_between_negative_one_quarter_and_0_excl(
+    const std::vector<int32_t>& testvals_int32) {
   for (auto a : testvals_int32) {
     typedef FixedPoint<int32_t, 0> F;
-    F aq = SaturatingRoundingMultiplyByPOT<-3>(F::FromRaw(a)) - F::ConstantPOT<-3>();
+    F aq = SaturatingRoundingMultiplyByPOT<-3>(F::FromRaw(a)) -
+           F::ConstantPOT<-3>();
     test_exp_on_interval_between_negative_one_quarter_and_0_excl(aq);
   }
 }
 
 template <int tIntegerBits>
-void test_exp_on_negative_values(FixedPoint<int32_t, tIntegerBits> a)
-{
+void test_exp_on_negative_values(FixedPoint<int32_t, tIntegerBits> a) {
   double a_double = ToDouble(a);
   double expected = std::exp(a_double);
   double actual = ToDouble(exp_on_negative_values(a));
@@ -115,8 +114,7 @@ void test_exp_on_negative_values(const std::vector<int32_t>& testvals_int32) {
   }
 }
 
-void test_one_minus_x_over_one_plus_x_for_x_in_0_1(FixedPoint<int32_t, 0> a)
-{
+void test_one_minus_x_over_one_plus_x_for_x_in_0_1(FixedPoint<int32_t, 0> a) {
   double a_double = ToDouble(a);
   double expected = (1 - a_double) / (1 + a_double);
   FixedPoint<int32_t, 0> retval = one_minus_x_over_one_plus_x_for_x_in_0_1(a);
@@ -125,7 +123,8 @@ void test_one_minus_x_over_one_plus_x_for_x_in_0_1(FixedPoint<int32_t, 0> a)
   Check(std::abs(error) < 6e-9);
 }
 
-void test_one_minus_x_over_one_plus_x_for_x_in_0_1(const std::vector<int32_t>& testvals_int32) {
+void test_one_minus_x_over_one_plus_x_for_x_in_0_1(
+    const std::vector<int32_t>& testvals_int32) {
   for (auto a : testvals_int32) {
     if (a > 0) {
       FixedPoint<int32_t, 0> aq;
@@ -136,8 +135,7 @@ void test_one_minus_x_over_one_plus_x_for_x_in_0_1(const std::vector<int32_t>& t
 }
 
 template <int tIntegerBits>
-void test_tanh(FixedPoint<int32_t, tIntegerBits> a)
-{
+void test_tanh(FixedPoint<int32_t, tIntegerBits> a) {
   double a_double = ToDouble(a);
   double expected = std::tanh(a_double);
   double actual = ToDouble(tanh(a));
@@ -162,12 +160,16 @@ void test_int32x4(const std::vector<int32_t>& testvals_int32) {
   std::vector<int32_t> results_int32x4(n4);
 
   for (size_t i = 0; i < n4; i++) {
-    results_int32[i] = tanh(FixedPoint<int32_t, 4>::FromRaw(testvals_int32[i])).raw();
+    results_int32[i] =
+        tanh(FixedPoint<int32_t, 4>::FromRaw(testvals_int32[i])).raw();
   }
   for (size_t i = 0; i < n4; i++) {
-    vst1q_s32(&results_int32x4[i], tanh(FixedPoint<int32x4_t, 4>::FromRaw(vld1q_s32(&testvals_int32[i]))).raw());
+    vst1q_s32(
+        &results_int32x4[i],
+        tanh(FixedPoint<int32x4_t, 4>::FromRaw(vld1q_s32(&testvals_int32[i])))
+            .raw());
   }
-  
+
   for (size_t i = 0; i < n4; i++) {
     Check(results_int32[i] == results_int32x4[i]);
   }
@@ -183,11 +185,11 @@ int main() {
     testvals_int32.push_back((1 << i));
     testvals_int32.push_back((1 << i) + 1);
     testvals_int32.push_back((1 << i) + 2);
-    testvals_int32.push_back(- (1 << i) - 2);
-    testvals_int32.push_back(- (1 << i) - 1);
-    testvals_int32.push_back(- (1 << i));
-    testvals_int32.push_back(- (1 << i) + 1);
-    testvals_int32.push_back(- (1 << i) + 2);
+    testvals_int32.push_back(-(1 << i) - 2);
+    testvals_int32.push_back(-(1 << i) - 1);
+    testvals_int32.push_back(-(1 << i));
+    testvals_int32.push_back(-(1 << i) + 1);
+    testvals_int32.push_back(-(1 << i) + 2);
   }
   testvals_int32.push_back(std::numeric_limits<int32_t>::min());
   testvals_int32.push_back(std::numeric_limits<int32_t>::min() + 1);

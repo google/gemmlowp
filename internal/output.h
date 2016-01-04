@@ -19,9 +19,9 @@
 #ifndef GEMMLOWP_INTERNAL_OUTPUT_H_
 #define GEMMLOWP_INTERNAL_OUTPUT_H_
 
+#include <cmath>
 #include <tuple>
 #include <type_traits>
-#include <cmath>
 
 #include "../public/output_stages.h"
 #include "fixedpoint.h"
@@ -59,7 +59,7 @@ struct Fragment {
   static const int kRows = tRows;
   static const int kCols = tCols;
   static const MapOrder kOrder = tOrder;
-  
+
   Fragment() {}
   Fragment(const DataType& d) : data(d) {}
   operator DataType() const { return data; }
@@ -95,9 +95,7 @@ struct OutputStageEvalImpl {
       "for this data type. This would happen if some architecture-specific "
       "SIMD back-end (output_$arch.h) were incomplete.");
 
-
-  OutputStageEvalImpl(const OutputStageType&)
-  {}
+  OutputStageEvalImpl(const OutputStageType&) {}
 };
 
 // Implementation of OutputStageQuantizeDownInt32ToUint8Scale for scalar data
@@ -108,9 +106,7 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
   typedef FragmentInt32x1x1 OutputType;
   typedef OutputStageQuantizeDownInt32ToUint8Scale OutputStage;
 
-  OutputStageEvalImpl(const OutputStage& s)
-    : output_stage(s)
-  {}
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
   OutputType Eval(InputType input, int, int) const {
     const std::int32_t result_shift = output_stage.result_shift;
@@ -127,13 +123,13 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
 
 // Implementation of OutputStageSaturatingCastToUint8 for scalar data
 template <>
-struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8, FragmentInt32x1x1> {
+struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
+                           FragmentInt32x1x1> {
   typedef FragmentInt32x1x1 InputType;
   typedef FragmentUint8x1x1 OutputType;
   typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-  OutputStageEvalImpl(const OutputStage&)
-  {}
+  OutputStageEvalImpl(const OutputStage&) {}
 
   OutputType Eval(InputType input, int, int) const {
     std::int32_t data = input.data;
@@ -143,14 +139,13 @@ struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8, FragmentInt32x1x1> 
 
 // Implementation of OutputStageBiasAddition for scalar data
 template <typename VectorType>
-struct OutputStageEvalImpl<OutputStageBiasAddition<VectorType>, FragmentInt32x1x1> {
+struct OutputStageEvalImpl<OutputStageBiasAddition<VectorType>,
+                           FragmentInt32x1x1> {
   typedef FragmentInt32x1x1 InputType;
   typedef FragmentInt32x1x1 OutputType;
   typedef OutputStageBiasAddition<VectorType> OutputStage;
 
-  OutputStageEvalImpl(const OutputStage& s)
-    : output_stage(s)
-  {}
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
   OutputType Eval(InputType input, int row, int col) const {
     if (VectorType::kShape == VectorShape::Row) {
@@ -170,9 +165,7 @@ struct OutputStageEvalImpl<OutputStageClamp, FragmentInt32x1x1> {
   typedef FragmentInt32x1x1 OutputType;
   typedef OutputStageClamp OutputStage;
 
-  OutputStageEvalImpl(const OutputStage& s)
-    : output_stage(s)
-  {}
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
   OutputType Eval(InputType input, int, int) const {
     const std::int32_t min = output_stage.min;
@@ -191,24 +184,24 @@ struct OutputStageTanhEvalImpl {
   typedef typename InputType::DataType DataType;
   typedef OutputStageTanh OutputStage;
 
-  OutputStageTanhEvalImpl(const OutputStage& s)
-    : output_stage(s)
-  {
+  OutputStageTanhEvalImpl(const OutputStage& s) : output_stage(s) {
     const std::int32_t real_zero_as_int32 = output_stage.real_zero_as_int32;
-    const std::int32_t real_amplitude_as_int32 = output_stage.real_amplitude_as_int32;
+    const std::int32_t real_amplitude_as_int32 =
+        output_stage.real_amplitude_as_int32;
 
     input_cutoff_min = real_zero_as_int32 - 8 * real_amplitude_as_int32;
     input_cutoff_max = real_zero_as_int32 + 8 * real_amplitude_as_int32;
     output_min = real_zero_as_int32 - real_amplitude_as_int32;
     output_max = real_zero_as_int32 + real_amplitude_as_int32;
-    
+
     double inverse_amplitude_normalized_double = 1.0 / real_amplitude_as_int32;
     inverse_amplitude_neg_exponent = 0;
     while (inverse_amplitude_normalized_double < 0.5) {
       inverse_amplitude_normalized_double *= 2;
       inverse_amplitude_neg_exponent++;
     }
-    inverse_amplitude_normalized = ToFixedPoint<DataType, 0>(inverse_amplitude_normalized_double);
+    inverse_amplitude_normalized =
+        ToFixedPoint<DataType, 0>(inverse_amplitude_normalized_double);
 
     double amplitude_normalized_double = real_amplitude_as_int32;
     amplitude_exponent = 0;
@@ -216,7 +209,8 @@ struct OutputStageTanhEvalImpl {
       amplitude_normalized_double *= 0.5;
       amplitude_exponent++;
     }
-    amplitude_normalized = ToFixedPoint<DataType, 0>(amplitude_normalized_double);
+    amplitude_normalized =
+        ToFixedPoint<DataType, 0>(amplitude_normalized_double);
   }
 
   OutputType Eval(InputType input, int, int) const {
@@ -224,26 +218,31 @@ struct OutputStageTanhEvalImpl {
 
     typedef FixedPoint<DataType, 3> F3;
     typedef FixedPoint<DataType, 0> F0;
-    
+
     // fixed-point affine transformation
-    DataType input_centered = Sub(input.data, Dup<DataType>(real_zero_as_int32));
-    F3 fixedpoint_input = F3::FromRaw(input_centered) * inverse_amplitude_normalized;
+    DataType input_centered =
+        Sub(input.data, Dup<DataType>(real_zero_as_int32));
+    F3 fixedpoint_input =
+        F3::FromRaw(input_centered) * inverse_amplitude_normalized;
     // left shift
-    fixedpoint_input.raw() = ShiftLeft(fixedpoint_input.raw(), 28 - inverse_amplitude_neg_exponent);
+    fixedpoint_input.raw() =
+        ShiftLeft(fixedpoint_input.raw(), 28 - inverse_amplitude_neg_exponent);
     // fixed-point tanh and multiplication
     F0 fixedpoint_output = tanh(fixedpoint_input) * amplitude_normalized;
     // right shift
-    DataType int32_output = Add(
-        Dup<DataType>(real_zero_as_int32),
-        ShiftRight(fixedpoint_output.raw(), 31 - amplitude_exponent));
+    DataType int32_output =
+        Add(Dup<DataType>(real_zero_as_int32),
+            ShiftRight(fixedpoint_output.raw(), 31 - amplitude_exponent));
 
-    DataType mask_if_below_cutoff_min = MaskIfLessThanOrEqual(input.data, Dup<DataType>(input_cutoff_min));
-    DataType mask_if_above_cutoff_max = MaskIfGreaterThanOrEqual(input.data, Dup<DataType>(input_cutoff_max));
+    DataType mask_if_below_cutoff_min =
+        MaskIfLessThanOrEqual(input.data, Dup<DataType>(input_cutoff_min));
+    DataType mask_if_above_cutoff_max =
+        MaskIfGreaterThanOrEqual(input.data, Dup<DataType>(input_cutoff_max));
 
-    return
-        SelectUsingMask(mask_if_below_cutoff_min, Dup<DataType>(output_min),
-            SelectUsingMask(mask_if_above_cutoff_max, Dup<DataType>(output_max),
-                int32_output));
+    return SelectUsingMask(
+        mask_if_below_cutoff_min, Dup<DataType>(output_min),
+        SelectUsingMask(mask_if_above_cutoff_max, Dup<DataType>(output_max),
+                        int32_output));
   }
 
   const OutputStage& output_stage;
@@ -257,11 +256,9 @@ struct OutputStageTanhEvalImpl {
 
 template <>
 struct OutputStageEvalImpl<OutputStageTanh, FragmentInt32x1x1>
-  : OutputStageTanhEvalImpl<FragmentInt32x1x1>
-{
+    : OutputStageTanhEvalImpl<FragmentInt32x1x1> {
   OutputStageEvalImpl(const OutputStageTanh& output_stage)
-    : OutputStageTanhEvalImpl(output_stage)
-  {}
+      : OutputStageTanhEvalImpl(output_stage) {}
 };
 
 // OutputPipelineOutputType is a helper to determine the output data type of a
@@ -305,30 +302,26 @@ struct OutputPipelineEvalImpl {
                                             InputType>::Type OutputType;
 
   OutputPipelineEvalImpl(const OutputPipelineType& output_pipeline)
-      : head_impl(std::get<FirstStage>(output_pipeline))
-      , tail_impl(output_pipeline)
-  {}
+      : head_impl(std::get<FirstStage>(output_pipeline)),
+        tail_impl(output_pipeline) {}
 
   OutputType Eval(InputType input, int row, int col) const {
     // Evaluate the first stage.
-    FirstStageOutputType first_stage_output =
-        head_impl.Eval(input, row, col);
+    FirstStageOutputType first_stage_output = head_impl.Eval(input, row, col);
     // Recurse into the remaining stages.
     return tail_impl.Eval(first_stage_output, row, col);
   }
 
   const OutputStageEvalImpl<FirstStageType, InputType> head_impl;
-  const OutputPipelineEvalImpl<
-        OutputPipelineType, FirstStage + 1,
-        FirstStageOutputType> tail_impl;
+  const OutputPipelineEvalImpl<OutputPipelineType, FirstStage + 1,
+                               FirstStageOutputType>
+      tail_impl;
 };
 
 // Specialization on 'StopRecursion' for terminating the recursion.
 template <typename OutputPipelineType, int FirstStage, typename InputType>
-struct OutputPipelineEvalImpl<OutputPipelineType, FirstStage,
-                                       InputType, true> {
-  OutputPipelineEvalImpl(const OutputPipelineType&)
-  {}
+struct OutputPipelineEvalImpl<OutputPipelineType, FirstStage, InputType, true> {
+  OutputPipelineEvalImpl(const OutputPipelineType&) {}
 
   InputType Eval(InputType input, int, int) const {
     // Terminating the recursion.
@@ -346,22 +339,21 @@ void StoreFinalOutput(OutputType value, DstType* dst, int row, int col) {
 }
 
 template <typename OutputPipelineType, typename InputType>
-struct OutputPipelineExecutor
-{
+struct OutputPipelineExecutor {
   OutputPipelineExecutor(const OutputPipelineType& output_pipeline)
-      : output_pipeline_eval_impl_(output_pipeline)
-  {}
+      : output_pipeline_eval_impl_(output_pipeline) {}
 
   // RunOutputPipeline is the entry point into the output pipeline evaluation
-  // code. It should be the only thing that unpack code calls. It takes the result
+  // code. It should be the only thing that unpack code calls. It takes the
+  // result
   // of the unpack stage and stores it into the destination matrix.
   template <typename DstType>
   void Execute(InputType input, DstType* dst, int row, int col) {
     // Statically assert that the output pipeline matches the given destination
     // matrix's scalar type.
-    typedef
-        typename OutputPipelineOutputType<OutputPipelineType, 0,
-                                          FragmentInt32x1x1>::Type::DataType ScalarOutputType;
+    typedef typename OutputPipelineOutputType<OutputPipelineType, 0,
+                                              FragmentInt32x1x1>::Type::DataType
+        ScalarOutputType;
     typedef typename DstType::Scalar ScalarDstType;
     static_assert(std::is_same<ScalarOutputType, ScalarDstType>::value,
                   "mismatched destination scalar type and output pipeline");
@@ -372,7 +364,8 @@ struct OutputPipelineExecutor
     StoreFinalOutput(output, dst, row, col);
   }
 
-  const OutputPipelineEvalImpl<OutputPipelineType, 0, InputType> output_pipeline_eval_impl_;
+  const OutputPipelineEvalImpl<OutputPipelineType, 0, InputType>
+      output_pipeline_eval_impl_;
 };
 
 }  // namespace gemmlowp

@@ -43,13 +43,13 @@ using ::uintptr_t;
 }
 #endif
 
+#include <algorithm>
 #include <cassert>
 #include <cstdlib>
-#include <algorithm>
 
 #ifdef GEMMLOWP_PROFILING
-#include <set>
 #include <cstring>
+#include <set>
 #endif
 
 // We should always use C++11 thread_local; unfortunately that

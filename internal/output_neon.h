@@ -45,9 +45,7 @@ struct OutputStageEvalImpl<OutputStageType, NEONFragmentInt32x16x1> {
   typedef NEONFragmentInt32x16x1 OutputType;
   typedef OutputStageEvalImpl<OutputStageType, NEONFragmentInt32x4x1>
       ImplInt32x4;
-  OutputStageEvalImpl(const OutputStageType& s)
-    : impl_int32x4(s)
-  {}
+  OutputStageEvalImpl(const OutputStageType& s) : impl_int32x4(s) {}
 
   OutputType Eval(InputType input, int row, int col) const {
     OutputType output;
@@ -71,9 +69,7 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
   typedef NEONFragmentInt32x4x1 OutputType;
   typedef OutputStageQuantizeDownInt32ToUint8Scale OutputStage;
 
-  OutputStageEvalImpl(const OutputStage& s)
-    : output_stage(s)
-  {}
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
   OutputType Eval(InputType input, int, int) const {
     const std::int32_t result_shift = output_stage.result_shift;
@@ -98,8 +94,7 @@ struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
   typedef NEONFragmentUint8x4x1 OutputType;
   typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-  OutputStageEvalImpl(const OutputStage&)
-  {}
+  OutputStageEvalImpl(const OutputStage&) {}
 
   OutputType Eval(InputType input, int, int) const {
     int16x8_t q16 = vcombine_s16(vqmovn_s32(input), vdup_n_s16(0));
@@ -120,8 +115,7 @@ struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
   typedef NEONFragmentUint8x16x1 OutputType;
   typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-  OutputStageEvalImpl(const OutputStage&)
-  {}
+  OutputStageEvalImpl(const OutputStage&) {}
 
   OutputType Eval(InputType input, int, int) const {
     int16x8_t q16[2];
@@ -141,9 +135,7 @@ struct OutputStageEvalImpl<OutputStageBiasAddition<VectorType>,
   typedef NEONFragmentInt32x4x1 OutputType;
   typedef OutputStageBiasAddition<VectorType> OutputStage;
 
-  OutputStageEvalImpl(const OutputStage& s)
-    : output_stage(s)
-  {}
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
   OutputType Eval(InputType input, int row, int col) const {
     int32x4_t bias;
@@ -165,9 +157,7 @@ struct OutputStageEvalImpl<OutputStageClamp, NEONFragmentInt32x4x1> {
   typedef NEONFragmentInt32x4x1 OutputType;
   typedef OutputStageClamp OutputStage;
 
-  OutputStageEvalImpl(const OutputStage& s)
-    : output_stage(s)
-  {}
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
   OutputType Eval(InputType input, int, int) const {
     const int32x4_t min = vdupq_n_s32(output_stage.min);
@@ -181,11 +171,9 @@ struct OutputStageEvalImpl<OutputStageClamp, NEONFragmentInt32x4x1> {
 // Implementation of OutputStageTanh for NEONFragmentInt32x4x1
 template <>
 struct OutputStageEvalImpl<OutputStageTanh, NEONFragmentInt32x4x1>
-  : OutputStageTanhEvalImpl<NEONFragmentInt32x4x1>
-{
+    : OutputStageTanhEvalImpl<NEONFragmentInt32x4x1> {
   OutputStageEvalImpl(const OutputStageTanh& output_stage)
-    : OutputStageTanhEvalImpl(output_stage)
-  {}
+      : OutputStageTanhEvalImpl(output_stage) {}
 };
 
 // Specialization of StoreFinalOutput for NEONFragmentUint8x4x1.

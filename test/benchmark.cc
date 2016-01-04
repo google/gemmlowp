@@ -17,18 +17,18 @@
 #include <sys/time.h>
 #endif
 
-#include <iostream>
-#include <ctime>
 #include <cstdint>
-#include <vector>
-#include <map>
 #include <cstdlib>
+#include <ctime>
+#include <iostream>
+#include <map>
+#include <vector>
 #ifdef __APPLE__
 #include <TargetConditionals.h>
 #endif
 
-#include "test.h"
 #include "../public/gemmlowp.h"
+#include "test.h"
 
 #ifndef GEMMLOWP_TEST_BIT_DEPTH_PARAMS
 #define GEMMLOWP_TEST_BIT_DEPTH_PARAMS DefaultL8R8BitDepthParams

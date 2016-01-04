@@ -33,7 +33,6 @@
 
 namespace gemmlowp {
 
-
 void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
                               bool transpose_c, int m, int n, int k,
                               const uint8_t* a, int32_t a_offset, int lda,
@@ -957,10 +956,12 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
   for (int r = 0; r < rows; r++) {
     for (int c = 0; c < cols; c++) {
       std::int32_t raw = result_raw_int32(r, c);
-      double real_input = double(raw - real_zero_as_int32) / real_amplitude_as_int32;
+      double real_input =
+          double(raw - real_zero_as_int32) / real_amplitude_as_int32;
       double expected = std::tanh(real_input);
       std::int32_t actual_int32 = result_tanh(r, c);
-      double actual = double(actual_int32 - real_zero_as_int32) / real_amplitude_as_int32;
+      double actual =
+          double(actual_int32 - real_zero_as_int32) / real_amplitude_as_int32;
       Check(std::abs(expected - actual) < 1e-4);
     }
   }
