@@ -484,7 +484,16 @@ inline int HowManyThreads(MultiThreadGemmContext* context, int rows, int cols,
 
   // Basic calculation: take into account max pool size, and
   // how many rows we have to feed our kernel.
-  int thread_count = std::min(max_count, CeilQuotient(rows, KernelRows));
+  // The motivation for an absolute minimum number of rows per thread,
+  // potentially higher than KernelRows, is that very thin thread workload
+  // currently defeat assumptions of the AddMod generator, resulting
+  // in substantial bias in TestWithRealData on 24 threads.
+  // Ideally, the AddMod generator should be aware of global (r,c) coordinates
+  // so as to be independent of the number of threads.
+  static const int AbsoluteMinRowsPerThread = 16;
+  static const int MinRowsPerThread =
+      KernelRows > AbsoluteMinRowsPerThread ? KernelRows : AbsoluteMinRowsPerThread;
+  int thread_count = std::min(max_count, CeilQuotient(rows, MinRowsPerThread));
 
   // At this point for small products we already have thread_count==1 so
   // we can avoid doing more work; otherwise, we still want to check
