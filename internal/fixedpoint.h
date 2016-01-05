@@ -32,6 +32,7 @@
 #include "common.h"
 
 #include <limits>
+#include <cassert>
 
 namespace gemmlowp {
 
@@ -422,7 +423,7 @@ FixedPointType CheckedFixedPointConstant(
   static const int kIntegerBits = FixedPointType::kIntegerBits;
   FixedPointType ref = FixedPointType::FromScalarRaw(raw_value);
   FixedPointType check = ToFixedPoint<RawType, kIntegerBits>(double_value);
-  Check(ref == check);
+  assert(ref == check);
   return ref;
 }
 #define GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(FixedPointType, ScalarRawValue, \

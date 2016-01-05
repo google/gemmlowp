@@ -52,7 +52,7 @@ struct ReferenceKernel : KernelBase {
     std::int32_t accumulator[Format::kRows * Format::kCols];
     memset(accumulator, 0, sizeof(accumulator));
 
-    const int run_depth_cells = run_depth / Format::kDepth;
+    const int run_depth_cells = static_cast<int>(run_depth / Format::kDepth);
 
     // The outer loop is over the depth dimension.
     for (int dc = 0; dc < run_depth_cells; dc++) {
