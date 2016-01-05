@@ -130,7 +130,7 @@ class BlockingCounter {
 
   // Sets/resets the counter; initial_count is the number of
   // decrementing events that the Wait() call will be waiting for.
-  void Reset(int initial_count) {
+  void Reset(std::size_t initial_count) {
     pthread_mutex_lock(&mutex_);
     assert(count_ == 0);
     initial_count_ = initial_count;
@@ -160,7 +160,7 @@ class BlockingCounter {
     ScopedProfilingLabel label("BlockingCounter::Wait");
     while (count_) {
       MemoryBarrier();
-      const int count_value = count_;
+      const std::size_t count_value = count_;
       if (count_value) {
         WaitForVariableChange(&count_, count_value, &cond_, &mutex_);
       }
@@ -170,8 +170,8 @@ class BlockingCounter {
  private:
   pthread_cond_t cond_;
   pthread_mutex_t mutex_;
-  int count_;
-  int initial_count_;
+  std::size_t count_;
+  std::size_t initial_count_;
 };
 
 // A workload for a worker.
@@ -508,7 +508,7 @@ inline int HowManyThreads(MultiThreadGemmContext* context, int rows, int cols,
         std::uint64_t(rows) * std::uint64_t(cols) * std::uint64_t(depth);
 
     thread_count =
-        std::min<int>(thread_count, cubic_size / min_cubic_size_per_thread);
+        std::min(thread_count, int(cubic_size / min_cubic_size_per_thread));
 
     if (thread_count < 1) {
       thread_count = 1;

@@ -195,15 +195,15 @@ inline void Prefetch(const void* ptr) {
 
 // Returns the runtime argument rounded down to the nearest multiple of
 // the fixed Modulus.
-template <int Modulus>
-int RoundDown(int i) {
+template <unsigned Modulus, typename Integer>
+Integer RoundDown(Integer i) {
   return i - (i % Modulus);
 }
 
 // Returns the runtime argument rounded up to the nearest multiple of
 // the fixed Modulus.
-template <int Modulus>
-int RoundUp(int i) {
+template <unsigned Modulus, typename Integer>
+Integer RoundUp(Integer i) {
   return RoundDown<Modulus>(i + Modulus - 1);
 }
 

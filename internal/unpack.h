@@ -81,8 +81,8 @@ std::int32_t RoundingMultiplyByConstantFraction(std::int32_t x) {
   const std::int32_t scaled_remaining_product_nudge =
       (scaled_remaining_product > 0 ? 1 : -1) * (1 << 30);
 
-  const std::int32_t remaining_product =
-      (scaled_remaining_product + scaled_remaining_product_nudge) / (1u << 31);
+  const std::int32_t remaining_product = static_cast<std::int32_t>(
+      (scaled_remaining_product + scaled_remaining_product_nudge) / (1u << 31));
 
   return x * int_quotient + remaining_product;
 }
