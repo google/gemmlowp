@@ -39,7 +39,8 @@ int32x4_t RoundingMultiplyByConstantFraction(int32x4_t x) {
       numerator - int_quotient * denominator;
   static const std::int32_t scaled_remaining_numerator =
       static_cast<std::int32_t>(
-          (static_cast<std::int64_t>(remaining_numerator) << 31) / denominator);
+          (static_cast<std::int64_t>(remaining_numerator) * (1ll << 31)) /
+          denominator);
   // Note: vqrdmulh instruction is rounding doubling multiply high.
   const int32x4_t remaining_product =
       vqrdmulhq_n_s32(x, scaled_remaining_numerator);
