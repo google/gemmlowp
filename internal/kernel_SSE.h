@@ -37,9 +37,9 @@ struct SSE4_32_Kernel4x4Depth2 : KernelBase {
 
   const char* Name() const override { return "SSE, 4x4, depth 2"; }
 
-  void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
+  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride, std::size_t dst_col_stride,
            const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
-           int start_depth, int run_depth) const override {
+           std::size_t start_depth, std::size_t run_depth) const override {
     ScopedProfilingLabel label("optimized kernel");
     assert(dst_row_stride == 1);
     std::int32_t run_depth_cells = run_depth / Format::kDepth;
@@ -209,9 +209,9 @@ struct SSE4_64_Kernel12x4Depth2 : KernelBase {
 
   const char* Name() const override { return "SSE, 12x4, depth 2"; }
 
-  void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
+  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride, std::size_t dst_col_stride,
            const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
-           int start_depth, int run_depth) const override {
+           std::size_t start_depth, std::size_t run_depth) const override {
     ScopedProfilingLabel label("optimized kernel");
     assert(dst_row_stride == 1);
     const std::int64_t run_depth_cells = run_depth / Format::kDepth;
