@@ -800,7 +800,7 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
   const int rhs_offset = -34;
 
   // Test an empty pipeline, i.e. returning raw int32 accumulators.
-  const std::tuple<> empty_pipeline;
+  auto empty_pipeline = std::make_tuple();
   GemmContext context;
   GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
       &context, lhs.const_map(), rhs.const_map(), &result_raw_int32, lhs_offset,
