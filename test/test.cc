@@ -872,7 +872,7 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
 
   // Test a bias-addition with row-vector
   std::vector<std::int32_t> row_vector_data(cols);
-  for (std::size_t i = 0; i < cols; i++) {
+  for (int i = 0; i < cols; i++) {
     row_vector_data[i] = (Random() % 1000) - 500;
   }
   typedef VectorMap<std::int32_t, VectorShape::Row> RowVectorMap;
@@ -893,7 +893,7 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
 
   // Test a bias-addition with column-vector
   std::vector<std::int32_t> col_vector_data(rows);
-  for (std::size_t i = 0; i < rows; i++) {
+  for (int i = 0; i < rows; i++) {
     col_vector_data[i] = (Random() % 1000) - 500;
   }
   typedef VectorMap<std::int32_t, VectorShape::Col> ColVectorMap;
