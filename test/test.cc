@@ -962,7 +962,7 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
       std::int32_t actual_int32 = result_tanh(r, c);
       double actual =
           double(actual_int32 - real_zero_as_int32) / real_amplitude_as_int32;
-      Check(std::abs(expected - actual) < 1e-4);
+      Check(std::abs(expected - actual) < 2e-4);
     }
   }
 
