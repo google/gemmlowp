@@ -39,9 +39,10 @@ struct NEON_32_Kernel12x4Depth2 : KernelBase {
   const char* Name() const override { return "NEON, 12x4, depth 2"; }
 
   // TODO(benoitjacob): reorder function arguments so dst comes last
-  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride, std::size_t dst_col_stride,
-           const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
-           std::size_t start_depth, std::size_t run_depth) const override {
+  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride,
+           std::size_t dst_col_stride, const std::uint8_t* lhs_ptr,
+           const std::uint8_t* rhs_ptr, std::size_t start_depth,
+           std::size_t run_depth) const override {
     ScopedProfilingLabel label("optimized kernel (NEON 12x4)");
 
 // For iOS assembler, the %= style of local labels cause compilation errors,
@@ -274,9 +275,10 @@ struct NEON_32_Kernel12x4Depth2Assuming12BitProducts : KernelBase {
   }
 
   // TODO(benoitjacob): reorder function arguments so dst comes last
-  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride, std::size_t dst_col_stride,
-           const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
-           std::size_t start_depth, std::size_t run_depth) const override {
+  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride,
+           std::size_t dst_col_stride, const std::uint8_t* lhs_ptr,
+           const std::uint8_t* rhs_ptr, std::size_t start_depth,
+           std::size_t run_depth) const override {
     ScopedProfilingLabel label(
         "optimized kernel (NEON 12x4, assuming 12-bit products)");
     assert(dst_row_stride == 1);
@@ -650,9 +652,10 @@ struct NEON_64_Kernel12x8Depth2 : KernelBase {
   const char* Name() const override { return "NEON, 12x8, depth 2"; }
 
   // TODO(benoitjacob): reorder function arguments so dst comes last
-  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride, std::size_t dst_col_stride,
-           const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
-           std::size_t start_depth, std::size_t run_depth) const override {
+  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride,
+           std::size_t dst_col_stride, const std::uint8_t* lhs_ptr,
+           const std::uint8_t* rhs_ptr, std::size_t start_depth,
+           std::size_t run_depth) const override {
     ScopedProfilingLabel label("optimized kernel (NEON 12x8)");
 // See comments above for why we need local numerical labels in our asm.
 #define GEMMLOWP_LOOP_NEON_64_KERNEL_12X8_DEPTH2 "1"
@@ -991,9 +994,10 @@ struct NEONKernel4Nx1Depth2 : KernelBase {
 
   const char* Name() const override { return "NEON intrinsics, 4Nx1, depth 2"; }
 
-  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride, std::size_t dst_col_stride,
-           const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
-           std::size_t start_depth, std::size_t run_depth) const override {
+  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride,
+           std::size_t dst_col_stride, const std::uint8_t* lhs_ptr,
+           const std::uint8_t* rhs_ptr, std::size_t start_depth,
+           std::size_t run_depth) const override {
     ScopedProfilingLabel label("optimized kernel (NEON 4Nx1)");
 
     assert(dst_row_stride == 1);

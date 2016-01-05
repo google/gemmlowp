@@ -494,8 +494,8 @@ FixedPoint<tRawType, 0> exp_on_negative_values(
 
   if (kIntegerBits > 5) {
     static const int b = kIntegerBits > 5 ? kFractionalBits + 5 : 0;
-    const InputF clamp = GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(
-        InputF, -(1 << b), -32.0);
+    const InputF clamp =
+        GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(InputF, -(1 << b), -32.0);
     result = SelectUsingMask(MaskIfLessThan(a, clamp), ResultF::Zero(), result);
   }
 

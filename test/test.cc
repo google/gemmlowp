@@ -28,7 +28,6 @@
 
 #include "../eight_bit_int_gemm/eight_bit_int_gemm.h"
 #include "../internal/kernel_reference.h"
-#include "../public/gemmlowp.h"
 #include "test_data.h"
 
 namespace gemmlowp {

@@ -491,8 +491,9 @@ inline int HowManyThreads(MultiThreadGemmContext* context, int rows, int cols,
   // Ideally, the AddMod generator should be aware of global (r,c) coordinates
   // so as to be independent of the number of threads.
   static const int AbsoluteMinRowsPerThread = 16;
-  static const int MinRowsPerThread =
-      KernelRows > AbsoluteMinRowsPerThread ? KernelRows : AbsoluteMinRowsPerThread;
+  static const int MinRowsPerThread = KernelRows > AbsoluteMinRowsPerThread
+                                          ? KernelRows
+                                          : AbsoluteMinRowsPerThread;
   int thread_count = std::min(max_count, CeilQuotient(rows, MinRowsPerThread));
 
   // At this point for small products we already have thread_count==1 so
