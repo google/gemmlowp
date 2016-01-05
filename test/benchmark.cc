@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#include "test.h"
+
 #include <unistd.h>
 #ifdef __APPLE__
 #include <sys/time.h>
@@ -28,7 +30,6 @@
 #endif
 
 #include "../public/gemmlowp.h"
-#include "test.h"
 
 #ifndef GEMMLOWP_TEST_BIT_DEPTH_PARAMS
 #define GEMMLOWP_TEST_BIT_DEPTH_PARAMS DefaultL8R8BitDepthParams
