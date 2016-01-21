@@ -391,7 +391,7 @@ struct GemmWithPackedRhsTask : Task {
     BlockParams block_params;
     block_params.Init<KernelFormat>(rows, cols, depth, 1);
 
-    PackedLhs packed_lhs(Side::Lhs, local_allocator, block_params, rhs_offset);
+    PackedLhs packed_lhs(Side::Lhs, local_allocator, block_params);
 
     PackedResult packed_result(local_allocator, block_params);
 
@@ -409,9 +409,9 @@ struct GemmWithPackedRhsTask : Task {
 
         auto result_block = result.block(r, c, rs, cs);
         UnpackResult<BitDepthParams>(&result_block, packed_result, depth,
-                                     packed_lhs.rank_one_update(),
-                                     packed_rhs.rank_one_update(), lhs_offset,
-                                     rhs_offset, output_pipeline);
+                                     packed_lhs.sums_of_each_slice(),
+                                     packed_rhs.sums_of_each_slice(),
+                                     lhs_offset, rhs_offset, output_pipeline);
       }
     }
 
@@ -575,7 +575,7 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
   block_params.Init<KernelFormat>(rows, cols, depth, workers_count);
 
   PackedSideBlock<typename KernelFormat::Rhs> packed_rhs(
-      Side::Rhs, allocator, block_params, lhs_offset);
+      Side::Rhs, allocator, block_params);
   allocator->Commit();
 
   // We loop over large blocks of the RHS.

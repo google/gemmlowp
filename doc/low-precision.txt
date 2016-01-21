@@ -59,15 +59,15 @@ The rationale for these parameters is as follows:
     case. One may at first glance worry that these offsets would incur
     substantial overhead to the GEMM computation, but that is actually not the
     case thanks to a trick described below (see "Efficient handling of
-    offsets as rank-one updates").
+    offsets").
   - The result_mult_int and result_shift parameters allow approximating
     arbitrarily closely any real multiplier, as a fraction of the form given
     in (1) above, without using floating-point arithmetic and without using
     a division instruction (only a right shift).
 
 
-Efficient handling of offsets as rank-one updates
-=================================================
+Efficient handling of offsets
+=============================
 
 At first glance it may seem like the above-described quantized computation
 scheme requires adding the lhs_offset and rhs_offset to each of the lhs and
@@ -116,15 +116,15 @@ with 1's, P * rhs has all its rows equal to each other, and equal to the
 row-vector of sums of all the entries in each column of rhs.
 
 Thus, we can compute the second term, lhs_offset * P * rhs, by summing
-each column of rhs, and multiplying these sums by lhs_offset. This produces
-a single row-vector, and in order to add the second term, we simply need
-to add this row-vector to each row of the result. This is just a rank one
-update of the result (equivalently, the second term is a rank one matrix),
-and we can efficiently store it as a single vector.
+each column of rhs. This produces a single row-vector, and in order to add the
+second term, we simply need to add this row-vector (multiplied by lhs_offset)
+to each row of the result. This is just a rank one update of the result
+(equivalently, the second term is a rank one matrix), and we can efficiently
+store it as a single vector.
 
 The third term, lhs * rhs_offset * Q, is entirely similar to the second one,
-and can be similarly computed by summing each row of lhs, and multiplying
-these sums by rhs_offset, storing this in a single column-vector.
+and can be similarly computed by summing each row of lhs, storing this in a
+single column-vector, and later multiplying these sums by rhs_offset.
 
 The fourth term is a single constant, repeated into all the entries of the
 matrix. The matrix P * Q is filled with the single constant value 'depth'
@@ -140,26 +140,17 @@ Implementation of this technique in gemmlowp
 
 In gemmlowp, at the packing stage (where we traverse blocks of the lhs and rhs
 to prepare them for efficient repeated traversal by the kernel), we compute
-the sum of each row of the lhs block and the sum of each columns of the rhs
-block, and multiply these values by the rhs_offset and lhs_offset,
-respectively.
+the sum of each row of the lhs block and the sum of each column of the rhs
+block.
 
-See in internal/pack.h, in the PackedSideBlock class, the following members:
+See in internal/pack.h, in the PackedSideBlock class, the following member:
 
-  // Handle on the additional buffer backing the rank-one-update vector
+  // Handle on the additional buffer backing the vector of sums of slices
   // associated with this block. Owned.
-  Allocator::Handle rank_one_update_handle_;
+  Allocator::Handle sums_of_each_slice_handle_;
 
-  // The constant multiplier of the rank one update vector.
-  std::int32_t rank_one_update_multiplier_;
-
-Here, rank_one_update_multiplier_ is the offset to be multiplied with. It is
-rhs_offset for lhs blocks, and lhs_offet for rhs blocks.
-
-rank_one_update_handle_ is the handle to the buffer allocated to store
-the vector describing the rank one update, i.e. the vector of sums of
-rows of lhs or of sums of columns of rhs, multiplied by
-rank_one_update_multiplier_.
+sums_of_each_slice_handle_ is the handle to the buffer allocated to store
+the vector containing sums of rows of lhs, or of sums of columns of rhs.
 
 After these rank one updates have been computed at the packing stage, they are
 ignored at the compute kernel stage, since that stage is only concerned

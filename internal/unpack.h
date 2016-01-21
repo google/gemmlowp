@@ -91,8 +91,8 @@ template <typename BitDepthParams, typename ResultBlockType,
           typename PackedResultType, typename OutputPipelineType>
 struct UnpackResultImplGeneric {
   static void Unpack(ResultBlockType* dst, const PackedResultType& src,
-                     int depth, const std::int32_t* lhs_rank_one_update,
-                     const std::int32_t* rhs_rank_one_update,
+                     int depth, const std::int32_t* lhs_sums_of_each_slice,
+                     const std::int32_t* rhs_sums_of_each_slice,
                      std::int32_t lhs_offset, std::int32_t rhs_offset,
                      const OutputPipelineType& output_pipeline) {
     std::int32_t term_11 = lhs_offset * rhs_offset * depth;
@@ -114,8 +114,8 @@ struct UnpackResultImplGeneric {
         // In case of requantization, we first need to scale them back
         // to the original scale, using RoundingMultiplyByConstantFraction.
         std::int32_t raw_xx = src_map(r, c);
-        std::int32_t raw_x1 = lhs_rank_one_update[r];
-        std::int32_t raw_1x = rhs_rank_one_update[c];
+        std::int32_t raw_x1 = lhs_sums_of_each_slice[r] * rhs_offset;
+        std::int32_t raw_1x = rhs_sums_of_each_slice[c] * lhs_offset;
         std::int32_t term_xx =
             RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
                 raw_xx);
@@ -141,16 +141,17 @@ struct UnpackResultImpl
 template <typename BitDepthParams, typename ResultBlockType,
           typename PackedResultType, typename OutputPipelineType>
 void UnpackResult(ResultBlockType* dst, const PackedResultType& src, int depth,
-                  const std::int32_t* lhs_rank_one_update,
-                  const std::int32_t* rhs_rank_one_update,
+                  const std::int32_t* lhs_sums_of_each_slice,
+                  const std::int32_t* rhs_sums_of_each_slice,
                   std::int32_t lhs_offset, std::int32_t rhs_offset,
                   const OutputPipelineType& output_pipeline) {
   ScopedProfilingLabel label("unpack");
   UnpackResultImpl<BitDepthParams, ResultBlockType, PackedResultType,
                    OutputPipelineType>::Unpack(dst, src, depth,
-                                               lhs_rank_one_update,
-                                               rhs_rank_one_update, lhs_offset,
-                                               rhs_offset, output_pipeline);
+                                               lhs_sums_of_each_slice,
+                                               rhs_sums_of_each_slice,
+                                               lhs_offset, rhs_offset,
+                                               output_pipeline);
 }
 
 }  // namespace gemmlowp
