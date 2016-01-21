@@ -55,8 +55,8 @@ struct UnpackResultImpl<BitDepthParams,
                         PackedResultType, OutputPipelineType> {
   typedef MatrixMap<OutputScalar, MapOrder::ColMajor> ResultBlockType;
   static void Unpack(ResultBlockType* dst, const PackedResultType& src,
-                     int depth, const std::int32_t* lhs_rank_one_update,
-                     const std::int32_t* rhs_rank_one_update,
+                     int depth, const std::int32_t* lhs_sums_of_each_slice,
+                     const std::int32_t* rhs_sums_of_each_slice,
                      std::int32_t lhs_offset, std::int32_t rhs_offset,
                      const OutputPipelineType& output_pipeline) {
     ScopedProfilingLabel label("optimized path (NEON)");
@@ -75,8 +75,8 @@ struct UnpackResultImpl<BitDepthParams,
 
     for (int c = 0; c < dst->cols(); c++) {
       const std::int32_t* src_ptr = src_map.data(0, c);
-      const std::int32_t* rank_one_update_ptr = lhs_rank_one_update;
-      const std::int32_t raw_1x = rhs_rank_one_update[c];
+      const std::int32_t* sums_of_each_slice_ptr = lhs_sums_of_each_slice;
+      const std::int32_t raw_1x = rhs_sums_of_each_slice[c] * lhs_offset;
       const std::int32_t term_1x =
           RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
       const std::int32_t term_1x_plus_term_11 = term_1x + term_11;
@@ -94,8 +94,9 @@ struct UnpackResultImpl<BitDepthParams,
         }
         int32x4_t raw_x1[4];
         for (int i = 0; i < 4; i++) {
-          raw_x1[i] = vld1q_s32(rank_one_update_ptr);
-          rank_one_update_ptr += 4;
+          const int32x4_t sum_x1 = vld1q_s32(sums_of_each_slice_ptr);
+          raw_x1[i] = vmulq_n_s32(sum_x1, rhs_offset);
+          sums_of_each_slice_ptr += 4;
         }
         int32x4_t term_xx[4];
         for (int i = 0; i < 4; i++) {
@@ -128,8 +129,9 @@ struct UnpackResultImpl<BitDepthParams,
         const int32x4_t term_xx =
             RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
                 raw_xx);
-        const int32x4_t raw_x1 = vld1q_s32(rank_one_update_ptr);
-        rank_one_update_ptr += 4;
+        const int32x4_t sum_x1 = vld1q_s32(sums_of_each_slice_ptr);
+        const int32x4_t raw_x1 = vmulq_n_s32(sum_x1, rhs_offset);
+        sums_of_each_slice_ptr += 4;
         const int32x4_t term_x1 =
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         int32x4_t q = vaddq_s32(vaddq_s32(term_xx, term_x1),
@@ -142,7 +144,7 @@ struct UnpackResultImpl<BitDepthParams,
       // to the code in unpack.h, see comments there.
       for (int r = dst_rows_aligned4; r < dst->rows(); r++) {
         std::int32_t raw_xx = src_map(r, c);
-        std::int32_t raw_x1 = lhs_rank_one_update[r];
+        std::int32_t raw_x1 = lhs_sums_of_each_slice[r] * rhs_offset;
         std::int32_t term_xx =
             RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
                 raw_xx);

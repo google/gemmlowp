@@ -15,7 +15,7 @@ packed format requirements that the kernels expect, and that forms
 basically the contract that the packing stage must honor.
 
 Some parts below also assume familiarity with doc/low-precision.txt
-as the packing stage also has to compute the rank-one-update vectors
+as the packing stage also has to compute the vectors of sums or columns as
 described there.
 
 
@@ -180,8 +180,8 @@ Besides storing matrix entries in a suitable order, the packing stages also has
 two other things to do.
 
 First, packing has to compute the vectors of sums of entries along the depth
-dimension, which we call the "rank-one-update" vectors. If this is any mysterious,
-read doc/low-precision.txt. These will only be used at the unpacking stage.
+dimension. If this is any mysterious, read doc/low-precision.txt. These will
+only be used at the unpacking stage.
 
 Second, if the BitDepthSetting requires less than 8 bit of precision, then at
 the packing stage we have to requantize inputs accordingly.
@@ -204,4 +204,3 @@ in which case a given path is to be used in place of the generic packing code.
 It is entirely possible to set the value of kRegisterSize differently based on
 the CPU architecture (for example, 32 on x86 with AVX) as long as all the
 specialized packing paths used on that CPU architecture are consistent with it.
-
