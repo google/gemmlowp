@@ -49,15 +49,17 @@ int32x4_t RoundingMultiplyByConstantFraction(int32x4_t x) {
 }
 
 template <typename BitDepthParams, typename PackedResultType,
-          typename OutputScalar, typename OutputPipelineType>
+          typename OutputScalar, typename LhsOffset, typename RhsOffset,
+          typename OutputPipelineType>
 struct UnpackResultImpl<BitDepthParams,
                         MatrixMap<OutputScalar, MapOrder::ColMajor>,
-                        PackedResultType, OutputPipelineType> {
+                        PackedResultType, LhsOffset, RhsOffset,
+                        OutputPipelineType> {
   typedef MatrixMap<OutputScalar, MapOrder::ColMajor> ResultBlockType;
   static void Unpack(ResultBlockType* dst, const PackedResultType& src,
                      int depth, const std::int32_t* lhs_sums_of_each_slice,
                      const std::int32_t* rhs_sums_of_each_slice,
-                     std::int32_t lhs_offset, std::int32_t rhs_offset,
+                     const LhsOffset& lhs_offset, const LhsOffset& rhs_offset,
                      const OutputPipelineType& output_pipeline) {
     ScopedProfilingLabel label("optimized path (NEON)");
     const int kLhsBits = BitDepthParams::LhsBitDepth::kBits;

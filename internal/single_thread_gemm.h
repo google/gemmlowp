@@ -40,13 +40,14 @@ class SingleThreadGemmContext {
 
 template <typename KernelFormat, typename InputScalar, typename OutputScalar,
           typename BitDepthParams, MapOrder LhsOrder, MapOrder RhsOrder,
-          MapOrder ResultOrder, typename OutputPipelineType>
+          MapOrder ResultOrder, typename LhsOffset, typename RhsOffset,
+          typename OutputPipelineType>
 void SingleThreadGemm(SingleThreadGemmContext* context,
                       const KernelBase& kernel,
                       const MatrixMap<const InputScalar, LhsOrder>& lhs,
                       const MatrixMap<const InputScalar, RhsOrder>& rhs,
                       MatrixMap<OutputScalar, ResultOrder>* result,
-                      int lhs_offset, int rhs_offset,
+                      const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                       const OutputPipelineType& output_pipeline) {
   ScopedProfilingLabel label("gemmlowp::SingleThreadGemm");
 
@@ -97,8 +98,8 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
       auto result_block = result->block(r, c, rs, cs);
       UnpackResult<BitDepthParams>(&result_block, packed_result, depth,
                                    packed_lhs.sums_of_each_slice(),
-                                   packed_rhs.sums_of_each_slice(), lhs_offset,
-                                   rhs_offset, output_pipeline);
+                                   packed_rhs.sums_of_each_slice(),
+                                   lhs_offset, rhs_offset, output_pipeline);
     }
   }
 
