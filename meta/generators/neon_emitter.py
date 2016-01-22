@@ -23,6 +23,22 @@ class RegisterAllocationError(Error):
   """Cannot alocate registers."""
 
 
+class LaneError(Error):
+  """Wrong lane number."""
+
+
+def Low(register):
+  assert register[0] == 'q'
+  num = int(register[1:])
+  return 'd%d' % (num * 2)
+
+
+def High(register):
+  assert register[0] == 'q'
+  num = int(register[1:])
+  return 'd%d' % (num * 2 + 1)
+
+
 class NeonRegisters(object):
   """Utility that keeps track of used ARM/NEON registers."""
 
@@ -67,21 +83,18 @@ class NeonRegisters(object):
     return [x for x in self.parameters]
 
   def Clobbers(self):
-    return (['r%d' % i for i in self.general_ever] +
-            ['d%d' % i for i in self.DoubleClobbers()])
+    return (['r%d' % i
+             for i in self.general_ever] + ['d%d' % i
+                                            for i in self.DoubleClobbers()])
 
   def DoubleClobbers(self):
     return sorted(self.double_ever)
 
   def Low(self, register):
-    assert register[0] == 'q'
-    num = int(register[1:])
-    return 'd%d' % (num * 2)
+    return Low(register)
 
   def High(self, register):
-    assert register[0] == 'q'
-    num = int(register[1:])
-    return 'd%d' % (num * 2 + 1)
+    return High(register)
 
   def FreeRegister(self, register):
     assert len(register) > 1
@@ -163,10 +176,9 @@ class NeonEmitter(object):
     self.EmitIndented('%s;' % code)
 
   def EmitFunctionBeginA(self, function_name, params, return_type):
-    self.EmitIndented('%s %s(%s) {' % (
-        return_type,
-        function_name,
-        ', '.join(['%s %s' % (t, n) for (t, n) in params])))
+    self.EmitIndented('%s %s(%s) {' %
+                      (return_type, function_name,
+                       ', '.join(['%s %s' % (t, n) for (t, n) in params])))
     self.PushIndent()
 
   def EmitFunctionEnd(self):
@@ -179,8 +191,8 @@ class NeonEmitter(object):
 
   def EmitAsmMapping(self, elements, modifier):
     if elements:
-      self.EmitIndented(': ' + ', '.join(
-          ['[%s] "%s"(%s)' % (d, modifier, d) for d in elements]))
+      self.EmitIndented(': ' + ', '.join(['[%s] "%s"(%s)' % (d, modifier, d)
+                                          for d in elements]))
     else:
       self.EmitIndented(':')
 
@@ -263,6 +275,9 @@ class NeonEmitter(object):
   def EmitVAddw(self, add_type, destination, source_1, source_2):
     self.EmitOp3('vaddw.%s' % add_type, destination, source_1, source_2)
 
+  def EmitVCvt(self, cvt_to, cvt_from, destination, source):
+    self.EmitOp2('vcvt.%s.%s' % (cvt_to, cvt_from), destination, source)
+
   def EmitVDup(self, dup_type, destination, source):
     self.EmitOp2('vdup.%s' % dup_type, destination, source)
 
@@ -291,9 +306,7 @@ class NeonEmitter(object):
     self.EmitOp2('vpadal.%s' % add_type, destination, source)
 
   def EmitVLoad(self, load_type, destination, source):
-    self.EmitOp2('vld%s' % load_type,
-                 '{%s}' % destination,
-                 '%s' % source)
+    self.EmitOp2('vld%s' % load_type, '{%s}' % destination, '%s' % source)
 
   def EmitVLoadA(self, load_type, destinations, source):
     self.EmitVLoad(load_type, ', '.join(destinations), source)
