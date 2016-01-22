@@ -86,7 +86,7 @@ class GemmQuantized8BitOperation {
 
   static std::int32_t ScratchPerThread(std::int32_t m, std::int32_t n,
                                        std::int32_t k) {
-    return 2048 * 1024;
+    return 128 * 1024;
   }
 
  private:
@@ -125,7 +125,7 @@ class GemmFloatOperation {
 
   static std::int32_t ScratchPerThread(std::int32_t m, std::int32_t n,
                                        std::int32_t k) {
-    return 512 * 1024;
+    return 128 * 1024;
   }
 
  private:
