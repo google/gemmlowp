@@ -130,7 +130,7 @@ class BlockingCounter {
 
   // Sets/resets the counter; initial_count is the number of
   // decrementing events that the Wait() call will be waiting for.
-  void Reset(int initial_count) {
+  void Reset(std::size_t initial_count) {
     pthread_mutex_lock(&mutex_);
     assert(count_ == 0);
     initial_count_ = initial_count;
@@ -160,7 +160,7 @@ class BlockingCounter {
     ScopedProfilingLabel label("BlockingCounter::Wait");
     while (count_) {
       MemoryBarrier();
-      const int count_value = count_;
+      const std::size_t count_value = count_;
       if (count_value) {
         WaitForVariableChange(&count_, count_value, &cond_, &mutex_);
       }
@@ -170,8 +170,8 @@ class BlockingCounter {
  private:
   pthread_cond_t cond_;
   pthread_mutex_t mutex_;
-  int count_;
-  int initial_count_;
+  std::size_t count_;
+  std::size_t initial_count_;
 };
 
 // A workload for a worker.
@@ -391,7 +391,7 @@ struct GemmWithPackedRhsTask : Task {
     BlockParams block_params;
     block_params.Init<KernelFormat>(rows, cols, depth, 1);
 
-    PackedLhs packed_lhs(Side::Lhs, local_allocator, block_params, rhs_offset);
+    PackedLhs packed_lhs(Side::Lhs, local_allocator, block_params);
 
     PackedResult packed_result(local_allocator, block_params);
 
@@ -409,9 +409,9 @@ struct GemmWithPackedRhsTask : Task {
 
         auto result_block = result.block(r, c, rs, cs);
         UnpackResult<BitDepthParams>(&result_block, packed_result, depth,
-                                     packed_lhs.rank_one_update(),
-                                     packed_rhs.rank_one_update(), lhs_offset,
-                                     rhs_offset, output_pipeline);
+                                     packed_lhs.sums_of_each_slice(),
+                                     packed_rhs.sums_of_each_slice(),
+                                     lhs_offset, rhs_offset, output_pipeline);
       }
     }
 
@@ -484,7 +484,17 @@ inline int HowManyThreads(MultiThreadGemmContext* context, int rows, int cols,
 
   // Basic calculation: take into account max pool size, and
   // how many rows we have to feed our kernel.
-  int thread_count = std::min(max_count, CeilQuotient(rows, KernelRows));
+  // The motivation for an absolute minimum number of rows per thread,
+  // potentially higher than KernelRows, is that very thin thread workload
+  // currently defeat assumptions of the AddMod generator, resulting
+  // in substantial bias in TestWithRealData on 24 threads.
+  // Ideally, the AddMod generator should be aware of global (r,c) coordinates
+  // so as to be independent of the number of threads.
+  static const int AbsoluteMinRowsPerThread = 16;
+  static const int MinRowsPerThread = KernelRows > AbsoluteMinRowsPerThread
+                                          ? KernelRows
+                                          : AbsoluteMinRowsPerThread;
+  int thread_count = std::min(max_count, CeilQuotient(rows, MinRowsPerThread));
 
   // At this point for small products we already have thread_count==1 so
   // we can avoid doing more work; otherwise, we still want to check
@@ -499,7 +509,7 @@ inline int HowManyThreads(MultiThreadGemmContext* context, int rows, int cols,
         std::uint64_t(rows) * std::uint64_t(cols) * std::uint64_t(depth);
 
     thread_count =
-        std::min<int>(thread_count, cubic_size / min_cubic_size_per_thread);
+        std::min(thread_count, int(cubic_size / min_cubic_size_per_thread));
 
     if (thread_count < 1) {
       thread_count = 1;
@@ -565,7 +575,7 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
   block_params.Init<KernelFormat>(rows, cols, depth, workers_count);
 
   PackedSideBlock<typename KernelFormat::Rhs> packed_rhs(
-      Side::Rhs, allocator, block_params, lhs_offset);
+      Side::Rhs, allocator, block_params);
   allocator->Commit();
 
   // We loop over large blocks of the RHS.

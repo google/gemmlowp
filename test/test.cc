@@ -28,7 +28,6 @@
 
 #include "../eight_bit_int_gemm/eight_bit_int_gemm.h"
 #include "../internal/kernel_reference.h"
-#include "../public/gemmlowp.h"
 #include "test_data.h"
 
 namespace gemmlowp {
@@ -800,7 +799,7 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
   const int rhs_offset = -34;
 
   // Test an empty pipeline, i.e. returning raw int32 accumulators.
-  const std::tuple<> empty_pipeline;
+  auto empty_pipeline = std::make_tuple();
   GemmContext context;
   GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
       &context, lhs.const_map(), rhs.const_map(), &result_raw_int32, lhs_offset,
@@ -872,7 +871,7 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
 
   // Test a bias-addition with row-vector
   std::vector<std::int32_t> row_vector_data(cols);
-  for (std::size_t i = 0; i < cols; i++) {
+  for (int i = 0; i < cols; i++) {
     row_vector_data[i] = (Random() % 1000) - 500;
   }
   typedef VectorMap<std::int32_t, VectorShape::Row> RowVectorMap;
@@ -893,7 +892,7 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
 
   // Test a bias-addition with column-vector
   std::vector<std::int32_t> col_vector_data(rows);
-  for (std::size_t i = 0; i < rows; i++) {
+  for (int i = 0; i < rows; i++) {
     col_vector_data[i] = (Random() % 1000) - 500;
   }
   typedef VectorMap<std::int32_t, VectorShape::Col> ColVectorMap;
@@ -939,6 +938,30 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
       std::int32_t expected =
           std::min(std::max(raw, clamp_stage.min), clamp_stage.max);
       Check(expected == result_clamped(r, c));
+    }
+  }
+
+  // Test tanh
+  OutputStageTanh tanh_stage;
+  const std::int32_t real_zero_as_int32 = (raw_max + raw_min) / 2;
+  const std::int32_t real_amplitude_as_int32 = (raw_max - raw_min) / 16;
+  tanh_stage.real_zero_as_int32 = real_zero_as_int32;
+  tanh_stage.real_amplitude_as_int32 = real_amplitude_as_int32;
+  auto tanh_pipeline = std::make_tuple(tanh_stage);
+  Matrix<std::int32_t, ResultOrder> result_tanh(rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(), &result_tanh, lhs_offset,
+      rhs_offset, tanh_pipeline);
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t raw = result_raw_int32(r, c);
+      double real_input =
+          double(raw - real_zero_as_int32) / real_amplitude_as_int32;
+      double expected = std::tanh(real_input);
+      std::int32_t actual_int32 = result_tanh(r, c);
+      double actual =
+          double(actual_int32 - real_zero_as_int32) / real_amplitude_as_int32;
+      Check(std::abs(expected - actual) < 2e-4);
     }
   }
 

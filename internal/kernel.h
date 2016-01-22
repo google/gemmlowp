@@ -202,10 +202,10 @@ struct KernelBase {
   // This is the kernel implementation. We use the word 'run' consistently
   // throughout gemmlowp to mean an inner loop, the implementation of which
   // is to be provided by a separate optimized function.
-  virtual void Run(std::int32_t* dst_ptr, int dst_row_stride,
-                   int dst_col_stride, const std::uint8_t* lhs_ptr,
-                   const std::uint8_t* rhs_ptr, int start_depth,
-                   int run_depth) const = 0;
+  virtual void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride,
+                   std::size_t dst_col_stride, const std::uint8_t* lhs_ptr,
+                   const std::uint8_t* rhs_ptr, std::size_t start_depth,
+                   std::size_t run_depth) const = 0;
 
   virtual ~KernelBase() {}
 };

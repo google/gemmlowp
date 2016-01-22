@@ -39,7 +39,8 @@ int32x4_t RoundingMultiplyByConstantFraction(int32x4_t x) {
       numerator - int_quotient * denominator;
   static const std::int32_t scaled_remaining_numerator =
       static_cast<std::int32_t>(
-          (static_cast<std::int64_t>(remaining_numerator) << 31) / denominator);
+          (static_cast<std::int64_t>(remaining_numerator) * (1ll << 31)) /
+          denominator);
   // Note: vqrdmulh instruction is rounding doubling multiply high.
   const int32x4_t remaining_product =
       vqrdmulhq_n_s32(x, scaled_remaining_numerator);
@@ -54,8 +55,8 @@ struct UnpackResultImpl<BitDepthParams,
                         PackedResultType, OutputPipelineType> {
   typedef MatrixMap<OutputScalar, MapOrder::ColMajor> ResultBlockType;
   static void Unpack(ResultBlockType* dst, const PackedResultType& src,
-                     int depth, const std::int32_t* lhs_rank_one_update,
-                     const std::int32_t* rhs_rank_one_update,
+                     int depth, const std::int32_t* lhs_sums_of_each_slice,
+                     const std::int32_t* rhs_sums_of_each_slice,
                      std::int32_t lhs_offset, std::int32_t rhs_offset,
                      const OutputPipelineType& output_pipeline) {
     ScopedProfilingLabel label("optimized path (NEON)");
@@ -65,10 +66,17 @@ struct UnpackResultImpl<BitDepthParams,
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     auto src_map = src.Map();
     const std::int32_t term_11 = lhs_offset * rhs_offset * depth;
+    OutputPipelineExecutor<OutputPipelineType, FragmentInt32x1x1>
+        output_pipeline_executor_int32x1x1(output_pipeline);
+    OutputPipelineExecutor<OutputPipelineType, NEONFragmentInt32x4x1>
+        output_pipeline_executor_int32x4x1(output_pipeline);
+    OutputPipelineExecutor<OutputPipelineType, NEONFragmentInt32x16x1>
+        output_pipeline_executor_int32x16x1(output_pipeline);
+
     for (int c = 0; c < dst->cols(); c++) {
       const std::int32_t* src_ptr = src_map.data(0, c);
-      const std::int32_t* rank_one_update_ptr = lhs_rank_one_update;
-      const std::int32_t raw_1x = rhs_rank_one_update[c];
+      const std::int32_t* sums_of_each_slice_ptr = lhs_sums_of_each_slice;
+      const std::int32_t raw_1x = rhs_sums_of_each_slice[c] * lhs_offset;
       const std::int32_t term_1x =
           RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
       const std::int32_t term_1x_plus_term_11 = term_1x + term_11;
@@ -86,8 +94,9 @@ struct UnpackResultImpl<BitDepthParams,
         }
         int32x4_t raw_x1[4];
         for (int i = 0; i < 4; i++) {
-          raw_x1[i] = vld1q_s32(rank_one_update_ptr);
-          rank_one_update_ptr += 4;
+          const int32x4_t sum_x1 = vld1q_s32(sums_of_each_slice_ptr);
+          raw_x1[i] = vmulq_n_s32(sum_x1, rhs_offset);
+          sums_of_each_slice_ptr += 4;
         }
         int32x4_t term_xx[4];
         for (int i = 0; i < 4; i++) {
@@ -106,7 +115,7 @@ struct UnpackResultImpl<BitDepthParams,
                                vdupq_n_s32(term_1x_plus_term_11));
         }
         NEONFragmentInt32x16x1 f(q);
-        RunOutputPipeline(output_pipeline, f, dst, r, c);
+        output_pipeline_executor_int32x16x1.Execute(f, dst, r, c);
       }
       // We have finished handling groups of 16 entries at once; now
       // try to handle 4 entries at once.
@@ -120,28 +129,29 @@ struct UnpackResultImpl<BitDepthParams,
         const int32x4_t term_xx =
             RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
                 raw_xx);
-        const int32x4_t raw_x1 = vld1q_s32(rank_one_update_ptr);
-        rank_one_update_ptr += 4;
+        const int32x4_t sum_x1 = vld1q_s32(sums_of_each_slice_ptr);
+        const int32x4_t raw_x1 = vmulq_n_s32(sum_x1, rhs_offset);
+        sums_of_each_slice_ptr += 4;
         const int32x4_t term_x1 =
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         int32x4_t q = vaddq_s32(vaddq_s32(term_xx, term_x1),
                                 vdupq_n_s32(term_1x_plus_term_11));
         NEONFragmentInt32x4x1 f(q);
-        RunOutputPipeline(output_pipeline, f, dst, r, c);
+        output_pipeline_executor_int32x4x1.Execute(f, dst, r, c);
       }
       // We have finished handling 4 entries at once; now handle
       // remaining entries one by one. This scalar code is similar
       // to the code in unpack.h, see comments there.
       for (int r = dst_rows_aligned4; r < dst->rows(); r++) {
         std::int32_t raw_xx = src_map(r, c);
-        std::int32_t raw_x1 = lhs_rank_one_update[r];
+        std::int32_t raw_x1 = lhs_sums_of_each_slice[r] * rhs_offset;
         std::int32_t term_xx =
             RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
                 raw_xx);
         std::int32_t term_x1 =
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
-        std::int32_t sum = term_xx + term_x1 + term_1x_plus_term_11;
-        RunOutputPipeline(output_pipeline, sum, dst, r, c);
+        FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x_plus_term_11;
+        output_pipeline_executor_int32x1x1.Execute(sum, dst, r, c);
       }
     }
   }

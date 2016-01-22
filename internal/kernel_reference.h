@@ -45,13 +45,14 @@ struct ReferenceKernel : KernelBase {
     return buf;
   }
 
-  void Run(std::int32_t* dst_ptr, int dst_row_stride, int dst_col_stride,
-           const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr,
-           int start_depth, int run_depth) const override {
+  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride,
+           std::size_t dst_col_stride, const std::uint8_t* lhs_ptr,
+           const std::uint8_t* rhs_ptr, std::size_t start_depth,
+           std::size_t run_depth) const override {
     std::int32_t accumulator[Format::kRows * Format::kCols];
     memset(accumulator, 0, sizeof(accumulator));
 
-    const int run_depth_cells = run_depth / Format::kDepth;
+    const int run_depth_cells = static_cast<int>(run_depth / Format::kDepth);
 
     // The outer loop is over the depth dimension.
     for (int dc = 0; dc < run_depth_cells; dc++) {

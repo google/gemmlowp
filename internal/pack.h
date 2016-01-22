@@ -50,15 +50,13 @@ class PackedSideBlock {
   typedef tKernelSideFormat KernelSideFormat;
 
   PackedSideBlock(Side side, Allocator* allocator,
-                  const BlockParams& block_params,
-                  int rank_one_update_multiplier)
+                  const BlockParams& block_params)
       : allocator_(allocator),
-        rank_one_update_multiplier_(rank_one_update_multiplier),
         pos_(0) {
     GetSideBlockParams(side, &params_, block_params);
     data_handle_ =
         allocator_->Reserve<std::uint8_t>(params_.l2_width * params_.l2_depth);
-    rank_one_update_handle_ =
+    sums_of_each_slice_handle_ =
         allocator_->Reserve<std::int32_t>(params_.l2_width);
   }
 
@@ -84,16 +82,13 @@ class PackedSideBlock {
     return allocator_->GetPointer<std::uint8_t>(data_handle_) + pos_;
   }
 
-  std::int32_t* rank_one_update() {
-    return allocator_->GetPointer<std::int32_t>(rank_one_update_handle_);
+  std::int32_t* sums_of_each_slice() {
+    return allocator_->GetPointer<std::int32_t>(sums_of_each_slice_handle_);
   }
 
-  const std::int32_t* rank_one_update() const {
-    return allocator_->GetPointer<const std::int32_t>(rank_one_update_handle_);
-  }
-
-  std::int32_t rank_one_update_multiplier() const {
-    return rank_one_update_multiplier_;
+  const std::int32_t* sums_of_each_slice() const {
+    return allocator_->GetPointer<const std::int32_t>(
+        sums_of_each_slice_handle_);
   }
 
   const SideBlockParams& params() const { return params_; }
@@ -112,12 +107,9 @@ class PackedSideBlock {
   // Handle on the buffer backing this packed block. Owned.
   Allocator::Handle data_handle_;
 
-  // Handle on the additional buffer backing the rank-one-update vector
+  // Handle on the additional buffer backing the vector of sums of slices
   // associated with this block. Owned.
-  Allocator::Handle rank_one_update_handle_;
-
-  // The constant multiplier of the rank one update vector.
-  std::int32_t rank_one_update_multiplier_;
+  Allocator::Handle sums_of_each_slice_handle_;
 
   // pos_ is the current position in the buffer, which we access
   // sequentially, like a file.
@@ -360,8 +352,8 @@ class PackingRegisterBlockBase {
          cell_start_depth += kCellDepth) {
       for (int cell_start_width = 0; cell_start_width < kKernelWidth;
            cell_start_width += kCellWidth) {
-        std::int32_t* cell_rank_one_update_ptr =
-            dst->rank_one_update() + start_width + cell_start_width;
+        std::int32_t* cell_sums_of_each_slice_ptr =
+            dst->sums_of_each_slice() + start_width + cell_start_width;
         const SideMap<const std::uint8_t, kSrcOrder> src_cell_map(
             complete_src_.block(cell_start_width, cell_start_depth, kCellWidth,
                                 kCellDepth));
@@ -374,8 +366,7 @@ class PackingRegisterBlockBase {
             dst_ptr[OffsetIntoCell<CellFormat>(w, d)] = requantized;
             sum += requantized;
           }
-          cell_rank_one_update_ptr[w] +=
-              sum * dst->rank_one_update_multiplier();
+          cell_sums_of_each_slice_ptr[w] += sum;
         }
         dst_ptr += kCellSize;
       }
@@ -417,7 +408,7 @@ class PackSideBlockImpl {
 
   // The public entry point to pack a block.
   void PackL2() {
-    memset(packed_side_block_->rank_one_update(), 0,
+    memset(packed_side_block_->sums_of_each_slice(), 0,
            sizeof(std::int32_t) * packed_side_block_->params().l2_width);
     for (int d = 0; d < src_map_.depth();
          d += packed_side_block_->params().l1_depth) {
@@ -578,7 +569,10 @@ void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
 
 #ifdef GEMMLOWP_NEON
 #include "pack_neon.h"
-#elif defined(GEMMLOWP_SSE4)
+// There's a problem with _mm_blend_epi16() and related intrinsics on some
+// toolchains with 64-bit x86 builds, so for now only use accelerated packing on
+// 32-bit SSE.
+#elif defined(GEMMLOWP_SSE4_32)
 #include "pack_SSE.h"
 #endif
 

@@ -20,8 +20,8 @@
 
 #ifdef GEMMLOWP_NEON_32
 
-#include "single_thread_gemm.h"
 #include "../internal/multi_thread_gemm.h"
+#include "single_thread_gemm.h"
 
 namespace gemmlowp {
 namespace meta {

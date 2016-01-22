@@ -247,18 +247,17 @@ class PackingRegisterBlock<
                       vget_high_u16(sums_of_2_cells[cell][i])));
       }
     }
-    // Update the rank_one_update vector
+    // Update the sums_of_each_slice vector
     for (int cell = 0; cell < kCells; cell++) {
       int32x4_t s01 =
           vaddq_s32(sums_of_4_cells[cell][0], sums_of_4_cells[cell][1]);
       int32x4_t s23 =
           vaddq_s32(sums_of_4_cells[cell][2], sums_of_4_cells[cell][3]);
       int32x4_t s = vaddq_s32(s01, s23);
-      int32x4_t u = vmulq_n_s32(s, dst->rank_one_update_multiplier());
-      std::int32_t* rank_one_update_ptr =
-          dst->rank_one_update() + start_width + 4 * cell;
-      vst1q_s32(rank_one_update_ptr,
-                vaddq_s32(u, vld1q_s32(rank_one_update_ptr)));
+      std::int32_t* sums_of_each_slice_ptr =
+          dst->sums_of_each_slice() + start_width + 4 * cell;
+      vst1q_s32(sums_of_each_slice_ptr,
+                vaddq_s32(s, vld1q_s32(sums_of_each_slice_ptr)));
     }
     dst->seek_forward_n_cells(kCells * kRegisterSize / kCellDepth);
   }
@@ -374,14 +373,13 @@ class PackingRegisterBlock<
       sums_of_16[cell] = vadd_u16(vget_low_u16(sums_of_8[cell]),
                                   vget_high_u16(sums_of_8[cell]));
     }
-    // Update the rank_one_update vector
+    // Update the sums_of_each_slice vector
     for (int cell = 0; cell < kCells; cell++) {
       int32x4_t s = vreinterpretq_s32_u32(vmovl_u16(sums_of_16[cell]));
-      int32x4_t u = vmulq_n_s32(s, dst->rank_one_update_multiplier());
-      std::int32_t* rank_one_update_ptr =
-          dst->rank_one_update() + start_width + 4 * cell;
-      vst1q_s32(rank_one_update_ptr,
-                vaddq_s32(u, vld1q_s32(rank_one_update_ptr)));
+      std::int32_t* sums_of_each_slice_ptr =
+          dst->sums_of_each_slice() + start_width + 4 * cell;
+      vst1q_s32(sums_of_each_slice_ptr,
+                vaddq_s32(s, vld1q_s32(sums_of_each_slice_ptr)));
     }
     dst->seek_forward_n_cells(kCells * kRegisterSize / kCellDepth);
   }

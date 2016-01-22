@@ -81,8 +81,8 @@ std::int32_t RoundingMultiplyByConstantFraction(std::int32_t x) {
   const std::int32_t scaled_remaining_product_nudge =
       (scaled_remaining_product > 0 ? 1 : -1) * (1 << 30);
 
-  const std::int32_t remaining_product =
-      (scaled_remaining_product + scaled_remaining_product_nudge) / (1u << 31);
+  const std::int32_t remaining_product = static_cast<std::int32_t>(
+      (scaled_remaining_product + scaled_remaining_product_nudge) / (1u << 31));
 
   return x * int_quotient + remaining_product;
 }
@@ -91,8 +91,8 @@ template <typename BitDepthParams, typename ResultBlockType,
           typename PackedResultType, typename OutputPipelineType>
 struct UnpackResultImplGeneric {
   static void Unpack(ResultBlockType* dst, const PackedResultType& src,
-                     int depth, const std::int32_t* lhs_rank_one_update,
-                     const std::int32_t* rhs_rank_one_update,
+                     int depth, const std::int32_t* lhs_sums_of_each_slice,
+                     const std::int32_t* rhs_sums_of_each_slice,
                      std::int32_t lhs_offset, std::int32_t rhs_offset,
                      const OutputPipelineType& output_pipeline) {
     std::int32_t term_11 = lhs_offset * rhs_offset * depth;
@@ -103,6 +103,8 @@ struct UnpackResultImplGeneric {
     const int kRhsBits = BitDepthParams::RhsBitDepth::kBits;
     const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
+    OutputPipelineExecutor<OutputPipelineType, FragmentInt32x1x1>
+        output_pipeline_executor(output_pipeline);
     for (int c = 0; c < dst->cols(); c++) {
       for (int r = 0; r < dst->rows(); r++) {
         // To understand this code, read
@@ -112,8 +114,8 @@ struct UnpackResultImplGeneric {
         // In case of requantization, we first need to scale them back
         // to the original scale, using RoundingMultiplyByConstantFraction.
         std::int32_t raw_xx = src_map(r, c);
-        std::int32_t raw_x1 = lhs_rank_one_update[r];
-        std::int32_t raw_1x = rhs_rank_one_update[c];
+        std::int32_t raw_x1 = lhs_sums_of_each_slice[r] * rhs_offset;
+        std::int32_t raw_1x = rhs_sums_of_each_slice[c] * lhs_offset;
         std::int32_t term_xx =
             RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
                 raw_xx);
@@ -122,9 +124,9 @@ struct UnpackResultImplGeneric {
         std::int32_t term_1x =
             RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
         // Sum the 4 terms.
-        std::int32_t sum = term_xx + term_x1 + term_1x + term_11;
+        FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x + term_11;
 
-        RunOutputPipeline(output_pipeline, sum, dst, r, c);
+        output_pipeline_executor.Execute(sum, dst, r, c);
       }
     }
   }
@@ -139,16 +141,17 @@ struct UnpackResultImpl
 template <typename BitDepthParams, typename ResultBlockType,
           typename PackedResultType, typename OutputPipelineType>
 void UnpackResult(ResultBlockType* dst, const PackedResultType& src, int depth,
-                  const std::int32_t* lhs_rank_one_update,
-                  const std::int32_t* rhs_rank_one_update,
+                  const std::int32_t* lhs_sums_of_each_slice,
+                  const std::int32_t* rhs_sums_of_each_slice,
                   std::int32_t lhs_offset, std::int32_t rhs_offset,
                   const OutputPipelineType& output_pipeline) {
   ScopedProfilingLabel label("unpack");
   UnpackResultImpl<BitDepthParams, ResultBlockType, PackedResultType,
                    OutputPipelineType>::Unpack(dst, src, depth,
-                                               lhs_rank_one_update,
-                                               rhs_rank_one_update, lhs_offset,
-                                               rhs_offset, output_pipeline);
+                                               lhs_sums_of_each_slice,
+                                               rhs_sums_of_each_slice,
+                                               lhs_offset, rhs_offset,
+                                               output_pipeline);
 }
 
 }  // namespace gemmlowp

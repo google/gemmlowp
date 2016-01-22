@@ -206,9 +206,9 @@ void MetaGemm(GemmContext* context, const std::uint8_t* lhs,
               std::int32_t result_stride, std::uint8_t* result) {
   Scratch* scratch = GetOrCreateGlobalScratch();
   if (IsRowMajorOrVector(result_transpose, result_stride, m, n)) {
-   scratch->AssureSize(
-       meta::RequiredScratch(m, n, k, context->max_num_threads()));
-   meta::multi_thread_gemm(context->workers_pool(), context->max_num_threads(),
+    scratch->AssureSize(
+        meta::RequiredScratch(m, n, k, context->max_num_threads()));
+    meta::multi_thread_gemm(context->workers_pool(), context->max_num_threads(),
                             scratch->buffer(), lhs, rhs, m, n, k, lhs_offset,
                             rhs_offset, sum_offset, multiplicative_offset,
                             shift, result);
@@ -237,8 +237,8 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
   GemmContext* context = GetOrCreateGlobalContext();
 
 #if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
-  if (CanHandleMetaFastpath(transpose_a, transpose_b, transpose_c, m, n, k,
-                            lda, ldb, ldc, bit_depth)) {
+  if (CanHandleMetaFastpath(transpose_a, transpose_b, transpose_c, m, n, k, lda,
+                            ldb, ldc, bit_depth)) {
     MetaGemm(context, a, b, m, n, k, a_offset, b_offset, c_offset, c_mult_int,
              c_shift, transpose_c, ldc, c);
     return;

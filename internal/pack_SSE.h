@@ -83,241 +83,82 @@ class PackingRegisterBlock<
 
   void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width,
             RoundingOffsetGenerator* rounding_offset_generator) {
-    int rank_one_mult = dst->rank_one_update_multiplier();
-    int is_mult_lt_zero = rank_one_mult < 0;
-    int rank_one_mult_abs = is_mult_lt_zero ? -rank_one_mult : rank_one_mult;
-    // extract high and low parts of the multiplier
-    int16_t rank_one_mult_lo = (rank_one_mult_abs << 16) >> 16;
-    int16_t rank_one_mult_hi = rank_one_mult_abs >> 16;
-    int is_bit15_set = (rank_one_mult_lo & 0x8000);
-
     std::uint8_t* dst_ptr = dst->current_data();
     const int width_stride = this->complete_src_.width_stride();
     int depth_step = 8;
 
-    // If the multiplier cannot be represented by int16_t, then we need to do
-    // extra
-    // work for integer multiplication. Hopefully, this is not the case most
-    // of the time since this involves more computations.
-    //
-    // Splits (ab)x(c) integer multiplication into two parts:
-    //
-    // a|b
-    //  |c
-    // ----
-    // (a*c)<<16 + c*b
-    //
-    // where, a,b are 16bit parts of 32bit integer and c is a 16bit integer.
-    //
-    // Here, special care is required if sign bit location of b is set.
-    // The code protected with is_bit15_set handles this case.
-    if (rank_one_mult_hi || is_bit15_set) {
-      // erase the sign bit if it is set
-      rank_one_mult_lo &= (~0x8000);
-      rank_one_mult_lo = is_mult_lt_zero ? -rank_one_mult_lo : rank_one_mult_lo;
-      rank_one_mult_hi = is_mult_lt_zero ? -rank_one_mult_hi : rank_one_mult_hi;
-      __m128i mult_lo_xmm = _mm_set1_epi16(rank_one_mult_lo);
-      __m128i mult_hi_xmm = _mm_set1_epi16(rank_one_mult_hi);
+    __m128i one = _mm_set1_epi16(1);
+    for (int cell_start_depth = 0; cell_start_depth < kRegisterSize;
+         cell_start_depth += depth_step) {
+      for (int cell_start_width = 0; cell_start_width < kKernelWidth;
+           cell_start_width += kCellWidth) {
+        std::int32_t* cell_sums_of_each_slice_ptr =
+            dst->sums_of_each_slice() + start_width + cell_start_width;
+        const std::uint8_t* src_data =
+            this->complete_src_.data(cell_start_width, cell_start_depth);
 
-      __m128i mult_shift_xmm = _mm_set_epi32(0, 0, 0, 16);
-      __m128i bit15_mult = _mm_set1_epi16(0);
-      __m128i bit15_sign = _mm_set1_epi32(0);
+        __m128i xmm1 =
+            _mm_loadl_epi64(reinterpret_cast<const __m128i*>(&src_data[0]));
+        __m128i xmm2 = _mm_loadl_epi64(
+            reinterpret_cast<const __m128i*>(&src_data[1 * width_stride]));
+        __m128i xmm3 = _mm_loadl_epi64(
+            reinterpret_cast<const __m128i*>(&src_data[2 * width_stride]));
+        __m128i xmm4 = _mm_loadl_epi64(
+            reinterpret_cast<const __m128i*>(&src_data[3 * width_stride]));
 
-      if (is_bit15_set) {
-        bit15_mult = _mm_set1_epi16(0x4000);
-        if (is_mult_lt_zero) {
-          bit15_sign = _mm_set1_epi32(0x80000000);
-        }
+        __m128i xmm5 = _mm_unpacklo_epi16(xmm1, xmm2);
+        __m128i xmm8 = _mm_shuffle_epi32(xmm5, 0x31);
+
+        __m128i xmm6 = _mm_unpacklo_epi16(xmm3, xmm4);
+        __m128i xmm7 = _mm_shuffle_epi32(xmm6, 0x80);
+
+        __m128i xmm9 = _mm_blend_epi16(xmm5, xmm7, 0xcc);
+        SSERequantize<QuantizationParams>(&xmm9, rounding_offset_generator);
+
+        __m128i xmm10 = _mm_blend_epi16(xmm8, xmm6, 0xcc);
+        SSERequantize<QuantizationParams>(&xmm10, rounding_offset_generator);
+
+        _mm_storel_epi64(reinterpret_cast<__m128i*>(&dst_ptr[0]), xmm9);
+        _mm_storel_epi64(
+            reinterpret_cast<__m128i*>(&dst_ptr[kCellSize * kCells]), xmm10);
+
+        __m128i xmm11 = _mm_shuffle_epi32(xmm9, 0xee);
+        SSERequantize<QuantizationParams>(&xmm11, rounding_offset_generator);
+
+        __m128i xmm12 = _mm_shuffle_epi32(xmm10, 0xee);
+        SSERequantize<QuantizationParams>(&xmm12, rounding_offset_generator);
+
+        _mm_storel_epi64(
+            reinterpret_cast<__m128i*>(&dst_ptr[2 * kCellSize * kCells]),
+            xmm11);
+        _mm_storel_epi64(
+            reinterpret_cast<__m128i*>(&dst_ptr[3 * kCellSize * kCells]),
+            xmm12);
+
+        xmm1 = _mm_cvtepu8_epi16(xmm9);
+        xmm2 = _mm_madd_epi16(xmm1, one);
+        __m128i sums_of_each_slice_xmm = _mm_loadu_si128(
+            reinterpret_cast<const __m128i*>(&cell_sums_of_each_slice_ptr[0]));
+        sums_of_each_slice_xmm = _mm_add_epi32(sums_of_each_slice_xmm, xmm2);
+
+        xmm1 = _mm_cvtepu8_epi16(xmm10);
+        xmm2 = _mm_madd_epi16(xmm1, one);
+        sums_of_each_slice_xmm = _mm_add_epi32(sums_of_each_slice_xmm, xmm2);
+
+        xmm1 = _mm_cvtepu8_epi16(xmm11);
+        xmm2 = _mm_madd_epi16(xmm1, one);
+        sums_of_each_slice_xmm = _mm_add_epi32(sums_of_each_slice_xmm, xmm2);
+
+        xmm1 = _mm_cvtepu8_epi16(xmm12);
+        xmm2 = _mm_madd_epi16(xmm1, one);
+        sums_of_each_slice_xmm = _mm_add_epi32(sums_of_each_slice_xmm, xmm2);
+
+        _mm_storeu_si128(
+            reinterpret_cast<__m128i*>(&cell_sums_of_each_slice_ptr[0]),
+            sums_of_each_slice_xmm);
+        dst_ptr += kCellSize;
       }
-
-      for (int cell_start_depth = 0; cell_start_depth < kRegisterSize;
-           cell_start_depth += depth_step) {
-        for (int cell_start_width = 0; cell_start_width < kKernelWidth;
-             cell_start_width += kCellWidth) {
-          std::int32_t* cell_rank_one_update_ptr =
-              dst->rank_one_update() + start_width + cell_start_width;
-          const std::uint8_t* src_data =
-              this->complete_src_.data(cell_start_width, cell_start_depth);
-
-          __m128i xmm1 =
-              _mm_loadl_epi64(reinterpret_cast<const __m128i*>(&src_data[0]));
-          __m128i xmm2 = _mm_loadl_epi64(
-              reinterpret_cast<const __m128i*>(&src_data[1 * width_stride]));
-          __m128i xmm3 = _mm_loadl_epi64(
-              reinterpret_cast<const __m128i*>(&src_data[2 * width_stride]));
-          __m128i xmm4 = _mm_loadl_epi64(
-              reinterpret_cast<const __m128i*>(&src_data[3 * width_stride]));
-
-          __m128i xmm5 = _mm_unpacklo_epi16(xmm1, xmm2);
-          __m128i xmm8 = _mm_shuffle_epi32(xmm5, 0x31);
-
-          __m128i xmm6 = _mm_unpacklo_epi16(xmm3, xmm4);
-          __m128i xmm7 = _mm_shuffle_epi32(xmm6, 0x80);
-
-          __m128i xmm9 = _mm_blend_epi16(xmm5, xmm7, 0xcc);
-          SSERequantize<QuantizationParams>(&xmm9, rounding_offset_generator);
-
-          __m128i xmm10 = _mm_blend_epi16(xmm8, xmm6, 0xcc);
-          SSERequantize<QuantizationParams>(&xmm10, rounding_offset_generator);
-
-          _mm_storel_epi64(reinterpret_cast<__m128i*>(&dst_ptr[0]), xmm9);
-          _mm_storel_epi64(
-              reinterpret_cast<__m128i*>(&dst_ptr[kCellSize * kCells]), xmm10);
-
-          __m128i xmm11 = _mm_shuffle_epi32(xmm9, 0xee);
-          SSERequantize<QuantizationParams>(&xmm11, rounding_offset_generator);
-
-          __m128i xmm12 = _mm_shuffle_epi32(xmm10, 0xee);
-          SSERequantize<QuantizationParams>(&xmm12, rounding_offset_generator);
-
-          _mm_storel_epi64(
-              reinterpret_cast<__m128i*>(&dst_ptr[2 * kCellSize * kCells]),
-              xmm11);
-          _mm_storel_epi64(
-              reinterpret_cast<__m128i*>(&dst_ptr[3 * kCellSize * kCells]),
-              xmm12);
-
-          xmm1 = _mm_cvtepu8_epi16(xmm9);
-          // low-16bits multiplication
-          xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
-          // high-16bits multiplication
-          xmm3 = _mm_madd_epi16(xmm1, mult_hi_xmm);
-          xmm3 = _mm_sll_epi32(xmm3, mult_shift_xmm);
-          xmm2 = _mm_add_epi32(xmm3, xmm2);
-          // branch-free code for handling 15th-bit (treated as sign bit)
-          xmm4 = _mm_madd_epi16(xmm1, bit15_mult);
-          xmm4 = _mm_or_si128(bit15_sign, xmm4);
-          xmm2 = _mm_add_epi32(xmm2, xmm4);
-          xmm2 = _mm_add_epi32(xmm2, xmm4);
-          __m128i rank_one_update_xmm = _mm_loadu_si128(
-              reinterpret_cast<const __m128i*>(&cell_rank_one_update_ptr[0]));
-          rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
-
-          xmm1 = _mm_cvtepu8_epi16(xmm10);
-          // low-16bits multiplication
-          xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
-          // high-16bits multiplication
-          xmm3 = _mm_madd_epi16(xmm1, mult_hi_xmm);
-          xmm3 = _mm_sll_epi32(xmm3, mult_shift_xmm);
-          xmm2 = _mm_add_epi32(xmm3, xmm2);
-          // branch-free code for handling 15th-bit (treated as sign bit)
-          xmm4 = _mm_madd_epi16(xmm1, bit15_mult);
-          xmm4 = _mm_or_si128(bit15_sign, xmm4);
-          xmm2 = _mm_add_epi32(xmm2, xmm4);
-          xmm2 = _mm_add_epi32(xmm2, xmm4);
-          rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
-
-          xmm1 = _mm_cvtepu8_epi16(xmm11);
-          // low-16bits multiplication
-          xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
-          // high-16bits multiplication
-          xmm3 = _mm_madd_epi16(xmm1, mult_hi_xmm);
-          xmm3 = _mm_sll_epi32(xmm3, mult_shift_xmm);
-          xmm2 = _mm_add_epi32(xmm3, xmm2);
-          // branch-free code for handling 15th-bit (treated as sign bit)
-          xmm4 = _mm_madd_epi16(xmm1, bit15_mult);
-          xmm4 = _mm_or_si128(bit15_sign, xmm4);
-          xmm2 = _mm_add_epi32(xmm2, xmm4);
-          xmm2 = _mm_add_epi32(xmm2, xmm4);
-          rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
-
-          xmm1 = _mm_cvtepu8_epi16(xmm12);
-          // low-16bits multiplication
-          xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
-          // high-16bits multiplication
-          xmm3 = _mm_madd_epi16(xmm1, mult_hi_xmm);
-          xmm3 = _mm_sll_epi32(xmm3, mult_shift_xmm);
-          xmm2 = _mm_add_epi32(xmm3, xmm2);
-          // branch-free code for handling 15th-bit (treated as sign bit)
-          xmm4 = _mm_madd_epi16(xmm1, bit15_mult);
-          xmm4 = _mm_or_si128(bit15_sign, xmm4);
-          xmm2 = _mm_add_epi32(xmm2, xmm4);
-          xmm2 = _mm_add_epi32(xmm2, xmm4);
-          rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
-          _mm_storeu_si128(
-              reinterpret_cast<__m128i*>(&cell_rank_one_update_ptr[0]),
-              rank_one_update_xmm);
-
-          dst_ptr += kCellSize;
-        }
-        dst_ptr += 3 * kCellSize * kCells;
-      }
-    } else {
-      // safe to use only low 16 bit part of the multiplier
-      rank_one_mult_lo = is_mult_lt_zero ? -rank_one_mult_lo : rank_one_mult_lo;
-      __m128i mult_lo_xmm = _mm_set1_epi16(rank_one_mult_lo);
-      for (int cell_start_depth = 0; cell_start_depth < kRegisterSize;
-           cell_start_depth += depth_step) {
-        for (int cell_start_width = 0; cell_start_width < kKernelWidth;
-             cell_start_width += kCellWidth) {
-          std::int32_t* cell_rank_one_update_ptr =
-              dst->rank_one_update() + start_width + cell_start_width;
-          const std::uint8_t* src_data =
-              this->complete_src_.data(cell_start_width, cell_start_depth);
-
-          __m128i xmm1 =
-              _mm_loadl_epi64(reinterpret_cast<const __m128i*>(&src_data[0]));
-          __m128i xmm2 = _mm_loadl_epi64(
-              reinterpret_cast<const __m128i*>(&src_data[1 * width_stride]));
-          __m128i xmm3 = _mm_loadl_epi64(
-              reinterpret_cast<const __m128i*>(&src_data[2 * width_stride]));
-          __m128i xmm4 = _mm_loadl_epi64(
-              reinterpret_cast<const __m128i*>(&src_data[3 * width_stride]));
-
-          __m128i xmm5 = _mm_unpacklo_epi16(xmm1, xmm2);
-          __m128i xmm8 = _mm_shuffle_epi32(xmm5, 0x31);
-
-          __m128i xmm6 = _mm_unpacklo_epi16(xmm3, xmm4);
-          __m128i xmm7 = _mm_shuffle_epi32(xmm6, 0x80);
-
-          __m128i xmm9 = _mm_blend_epi16(xmm5, xmm7, 0xcc);
-          SSERequantize<QuantizationParams>(&xmm9, rounding_offset_generator);
-
-          __m128i xmm10 = _mm_blend_epi16(xmm8, xmm6, 0xcc);
-          SSERequantize<QuantizationParams>(&xmm10, rounding_offset_generator);
-
-          _mm_storel_epi64(reinterpret_cast<__m128i*>(&dst_ptr[0]), xmm9);
-          _mm_storel_epi64(
-              reinterpret_cast<__m128i*>(&dst_ptr[kCellSize * kCells]), xmm10);
-
-          __m128i xmm11 = _mm_shuffle_epi32(xmm9, 0xee);
-          SSERequantize<QuantizationParams>(&xmm11, rounding_offset_generator);
-
-          __m128i xmm12 = _mm_shuffle_epi32(xmm10, 0xee);
-          SSERequantize<QuantizationParams>(&xmm12, rounding_offset_generator);
-
-          _mm_storel_epi64(
-              reinterpret_cast<__m128i*>(&dst_ptr[2 * kCellSize * kCells]),
-              xmm11);
-          _mm_storel_epi64(
-              reinterpret_cast<__m128i*>(&dst_ptr[3 * kCellSize * kCells]),
-              xmm12);
-
-          xmm1 = _mm_cvtepu8_epi16(xmm9);
-          xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
-          __m128i rank_one_update_xmm = _mm_loadu_si128(
-              reinterpret_cast<const __m128i*>(&cell_rank_one_update_ptr[0]));
-          rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
-
-          xmm1 = _mm_cvtepu8_epi16(xmm10);
-          xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
-          rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
-
-          xmm1 = _mm_cvtepu8_epi16(xmm11);
-          xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
-          rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
-
-          xmm1 = _mm_cvtepu8_epi16(xmm12);
-          xmm2 = _mm_madd_epi16(xmm1, mult_lo_xmm);
-          rank_one_update_xmm = _mm_add_epi32(rank_one_update_xmm, xmm2);
-
-          _mm_storeu_si128(
-              reinterpret_cast<__m128i*>(&cell_rank_one_update_ptr[0]),
-              rank_one_update_xmm);
-          dst_ptr += kCellSize;
-        }
-        dst_ptr += 3 * kCellSize * kCells;
-      }
+      dst_ptr += 3 * kCellSize * kCells;
     }
     dst->seek_forward_n_cells(kCells * kRegisterSize / kCellDepth);
   }

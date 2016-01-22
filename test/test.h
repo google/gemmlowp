@@ -27,7 +27,7 @@
 #include <iostream>
 #include <vector>
 
-#include "../public/map.h"
+#include "../public/gemmlowp.h"
 
 namespace gemmlowp {
 

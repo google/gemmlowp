@@ -140,6 +140,16 @@ cc_test(
     ],
 )
 
+# FixedPoint test
+cc_test(
+    name = "test_fixedpoint",
+    size = "small",
+    srcs = [
+        "test/test_fixedpoint.cc",
+        ":gemmlowp_test_headers",
+    ],
+)
+
 # Benchmark
 cc_binary(
     name = "benchmark",
