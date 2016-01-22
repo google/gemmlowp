@@ -48,20 +48,34 @@ class CCEmitter(object):
   def EmitInclude(self, include):
     self.EmitPreprocessor1('include', include)
 
+  def EmitAssign(self, variable, value):
+    self.EmitBinaryOp(variable, '=', value)
+
+  def EmitAssignIncrement(self, variable, value):
+    self.EmitBinaryOp(variable, '+=', value)
+
+  def EmitBinaryOp(self, operand_1, op, operand_2):
+    self.EmitCode('%s %s %s' % (operand_1, op, operand_2))
+
+  def EmitCall(self, function, params=[]):
+    self.EmitCode('%s(%s)' % (function, ', '.join(map(str, params))))
+
   def EmitCode(self, code):
     self.EmitIndented('%s;' % code)
 
   def EmitCodeNoSemicolon(self, code):
     self.EmitIndented('%s' % code)
 
-  def EmitCall1(self, function, param):
-    self.EmitIndented('%s(%s);' % (function, param))
+  def EmitDeclare(self, decl_type, name, value):
+    self.EmitAssign('%s %s' % (decl_type, name), value)
 
   def EmitAssert(self, assert_expression):
     if self.debug:
       self.EmitCall1('assert', assert_expression)
 
-  def EmitHeaderBegin(self, header_name, includes=[]):
+  def EmitHeaderBegin(self, header_name, includes=None):
+    if includes is None:
+      includes = []
     if self.header_name:
       raise HeaderError('Header already defined.')
     self.EmitPreprocessor1('ifndef', (header_name + '_H_').upper())
@@ -81,10 +95,9 @@ class CCEmitter(object):
     self.header_name = None
 
   def EmitFunctionBeginA(self, function_name, params, return_type):
-    self.EmitIndented('%s %s(%s) {' % (
-        return_type,
-        function_name,
-        ', '.join(['%s %s' % (t, n) for (t, n) in params])))
+    self.EmitIndented('%s %s(%s) {' %
+                      (return_type, function_name,
+                       ', '.join(['%s %s' % (t, n) for (t, n) in params])))
     self.PushIndent()
 
   def EmitFunctionEnd(self):
@@ -136,3 +149,6 @@ class CCEmitter(object):
 
   def EmitEndif(self):
     self.EmitCloseBracket()
+
+  def Scope(self, scope, value):
+    return '%s::%s' % (scope, value)

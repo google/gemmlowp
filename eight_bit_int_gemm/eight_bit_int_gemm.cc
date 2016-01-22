@@ -14,6 +14,8 @@
 
 #include "eight_bit_int_gemm.h"
 
+#include <memory>
+
 // gemmlowp symbols should have hidden visibility.
 // currently this is ensured in the build system by
 // passing -finlines-visibility-hidden. TODO: it would be
@@ -29,14 +31,11 @@
 // low-memory situations.
 
 #if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
-#include <memory>
 #include "../meta/multi_thread_gemm.h"
 #endif
 
 namespace gemmlowp {
-
 namespace eight_bit_int_gemm {
-
 namespace {
 
 // To be used as template parameter for GlobalLock.
@@ -99,7 +98,42 @@ void EightBitIntGemmImpl(GemmContext* context, int m, int n, int k,
   }
 }
 
-#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
+template <bool transpose_a, bool transpose_b, bool transpose_c>
+void EightBitIntGemmInt32Impl(GemmContext* context, int m, int n, int k,
+                              const std::uint8_t* a, std::int32_t a_offset,
+                              int lda, const std::uint8_t* b,
+                              std::int32_t b_offset, int ldb, std::int32_t* c,
+                              int ldc, BitDepthSetting bit_depth) {
+  const int lhs_offset = a_offset;
+  const int rhs_offset = b_offset;
+
+  static const MapOrder ResultOrder =
+      transpose_c ? MapOrder::RowMajor : MapOrder::ColMajor;
+  static const MapOrder LhsOrder =
+      transpose_a ? MapOrder::RowMajor : MapOrder::ColMajor;
+  static const MapOrder RhsOrder =
+      transpose_b ? MapOrder::RowMajor : MapOrder::ColMajor;
+
+  MatrixMap<const std::uint8_t, LhsOrder> lhs(a, m, k, lda);
+  MatrixMap<const std::uint8_t, RhsOrder> rhs(b, k, n, ldb);
+  MatrixMap<std::int32_t, ResultOrder> result(c, m, n, ldc);
+
+  auto empty_pipeline = std::make_tuple();
+
+  switch (bit_depth) {
+#define GEMMLOWP_HANDLE_BIT_DEPTH_INT32(BIT_DEPTH_SETTING, BIT_DEPTH_PARAMS) \
+  case BitDepthSetting::BIT_DEPTH_SETTING:                                   \
+    GemmWithOutputPipeline<std::uint8_t, std::int32_t, BIT_DEPTH_PARAMS>(    \
+        context, lhs, rhs, &result, lhs_offset, rhs_offset, empty_pipeline); \
+    return;
+    GEMMLOWP_HANDLE_BIT_DEPTH_INT32(A8B8, DefaultL8R8BitDepthParams)
+    GEMMLOWP_HANDLE_BIT_DEPTH_INT32(A5B7, DefaultL7R5BitDepthParams)
+    default:
+      abort();
+#undef GEMMLOWP_HANDLE_BIT_DEPTH_INT32
+  }
+}
+
 class Scratch {
  public:
   Scratch() : buffer_(), size_(0) {}
@@ -137,6 +171,8 @@ void DestroyGlobalScratch() {
   delete global_scratch;
   global_scratch = nullptr;
 }
+
+#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
 
 bool IsRowMajorOrVector(bool transpose, int stride, int rows, int cols) {
   // Is it row major and nicely packed?
@@ -198,29 +234,54 @@ bool CanHandleMetaFastpath(bool transpose_a, bool transpose_b, bool transpose_c,
 }
 
 // Assure enough scratch memory is allocated and run the fast path gemm.
-void MetaGemm(GemmContext* context, const std::uint8_t* lhs,
-              const std::uint8_t* rhs, int m, int n, int k,
-              std::int32_t lhs_offset, std::int32_t rhs_offset,
-              std::int32_t sum_offset, std::int32_t multiplicative_offset,
-              std::int32_t shift, bool result_transpose,
-              std::int32_t result_stride, std::uint8_t* result) {
+void MetaGemmQuantized8Bit(GemmContext* context, const std::uint8_t* lhs,
+                           const std::uint8_t* rhs, int m, int n, int k,
+                           std::int32_t lhs_offset, std::int32_t rhs_offset,
+                           std::int32_t sum_offset,
+                           std::int32_t multiplicative_offset,
+                           std::int32_t shift, bool result_transpose,
+                           std::int32_t result_stride, std::uint8_t* result) {
   Scratch* scratch = GetOrCreateGlobalScratch();
   if (IsRowMajorOrVector(result_transpose, result_stride, m, n)) {
     scratch->AssureSize(
-        meta::RequiredScratch(m, n, k, context->max_num_threads()));
-    meta::multi_thread_gemm(context->workers_pool(), context->max_num_threads(),
-                            scratch->buffer(), lhs, rhs, m, n, k, lhs_offset,
-                            rhs_offset, sum_offset, multiplicative_offset,
-                            shift, result);
+        meta::gemm_q8_scratch(m, n, k, context->max_num_threads()));
+    meta::multi_thread_gemm_q8(
+        context->workers_pool(), context->max_num_threads(), scratch->buffer(),
+        lhs, rhs, m, n, k, lhs_offset, rhs_offset, sum_offset,
+        multiplicative_offset, shift, result);
   } else {
     scratch->AssureSize(
-        meta::RequiredScratch(n, m, k, context->max_num_threads()));
-    meta::multi_thread_gemm(context->workers_pool(), context->max_num_threads(),
-                            scratch->buffer(), rhs, lhs, n, m, k, rhs_offset,
-                            lhs_offset, sum_offset, multiplicative_offset,
-                            shift, result);
+        meta::gemm_q8_scratch(n, m, k, context->max_num_threads()));
+    meta::multi_thread_gemm_q8(
+        context->workers_pool(), context->max_num_threads(), scratch->buffer(),
+        rhs, lhs, n, m, k, rhs_offset, lhs_offset, sum_offset,
+        multiplicative_offset, shift, result);
   }
 }
+
+// Assure enough scratch memory is allocated and run the 8bit to float fast
+// path gemm.
+void MetaGemmFloat(GemmContext* context, const std::uint8_t* lhs,
+                   const std::uint8_t* rhs, int m, int n, int k,
+                   std::int32_t lhs_offset, std::int32_t rhs_offset,
+                   float result_offset, bool result_transpose,
+                   std::int32_t result_stride, float* result) {
+  Scratch* scratch = GetOrCreateGlobalScratch();
+  if (IsRowMajorOrVector(result_transpose, result_stride, m, n)) {
+    scratch->AssureSize(
+        meta::gemm_f_scratch(m, n, k, context->max_num_threads()));
+    meta::multi_thread_gemm_f(
+        context->workers_pool(), context->max_num_threads(), scratch->buffer(),
+        lhs, rhs, m, n, k, lhs_offset, rhs_offset, result_offset, result);
+  } else {
+    scratch->AssureSize(
+        meta::gemm_f_scratch(n, m, k, context->max_num_threads()));
+    meta::multi_thread_gemm_f(
+        context->workers_pool(), context->max_num_threads(), scratch->buffer(),
+        rhs, lhs, n, m, k, rhs_offset, lhs_offset, result_offset, result);
+  }
+}
+
 #endif
 
 }  // end anonymous namespace
@@ -239,8 +300,8 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
 #if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
   if (CanHandleMetaFastpath(transpose_a, transpose_b, transpose_c, m, n, k, lda,
                             ldb, ldc, bit_depth)) {
-    MetaGemm(context, a, b, m, n, k, a_offset, b_offset, c_offset, c_mult_int,
-             c_shift, transpose_c, ldc, c);
+    MetaGemmQuantized8Bit(context, a, b, m, n, k, a_offset, b_offset, c_offset,
+                          c_mult_int, c_shift, transpose_c, ldc, c);
     return;
   }
 #endif
@@ -264,6 +325,55 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
 #undef GEMMLOWP_HANDLE_CASE
 }
 
+void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
+                     int m, int n, int k, const std::uint8_t* a,
+                     std::int32_t a_offset, std::int32_t lda,
+                     const std::uint8_t* b, std::int32_t b_offset,
+                     std::int32_t ldb, float* c, float c_offset,
+                     std::int32_t ldc, BitDepthSetting bit_depth) {
+  AutoGlobalLock<EightBitIntGemmLockId> lock;
+  GemmContext* context = GetOrCreateGlobalContext();
+
+#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
+  if (CanHandleMetaFastpath(transpose_a, transpose_b, transpose_c, m, n, k, lda,
+                            ldb, ldc, bit_depth)) {
+    MetaGemmFloat(context, a, b, m, n, k, a_offset, b_offset, c_offset,
+                  transpose_c, ldc, c);
+    return;
+  }
+#endif
+
+  Scratch* scratch = GetOrCreateGlobalScratch();
+  scratch->AssureSize(m * n * sizeof(std::int32_t));
+  std::int32_t* temp_c = reinterpret_cast<std::int32_t*>(scratch->buffer());
+
+#define GEMMLOWP_HANDLE_INT32_CASE(ta, tb, tc)                               \
+  if (transpose_a == ta && transpose_b == tb && transpose_c == tc) {         \
+    EightBitIntGemmInt32Impl<ta, tb, tc>(context, m, n, k, a, a_offset, lda, \
+                                         b, b_offset, ldb, temp_c, ldc,      \
+                                         bit_depth);                         \
+  }
+
+  GEMMLOWP_HANDLE_INT32_CASE(false, false, false)
+  GEMMLOWP_HANDLE_INT32_CASE(false, false, true)
+  GEMMLOWP_HANDLE_INT32_CASE(false, true, false)
+  GEMMLOWP_HANDLE_INT32_CASE(false, true, true)
+  GEMMLOWP_HANDLE_INT32_CASE(true, false, false)
+  GEMMLOWP_HANDLE_INT32_CASE(true, false, true)
+  GEMMLOWP_HANDLE_INT32_CASE(true, true, false)
+  GEMMLOWP_HANDLE_INT32_CASE(true, true, true)
+
+#undef GEMMLOWP_HANDLE_INT32_CASE
+
+  for (int i = 0; i < m; ++i) {
+    float* dest_row = c + i * ldc;
+    std::int32_t* src_row = temp_c + i * n;
+    for (int j = 0; j < n; ++j) {
+      dest_row[j] = static_cast<float>(src_row[j]) * c_offset;
+    }
+  }
+}
+
 void SetMaxNumThreads(int n) {
   AutoGlobalLock<EightBitIntGemmLockId> lock;
   GemmContext* context = GetOrCreateGlobalContext();
@@ -273,11 +383,8 @@ void SetMaxNumThreads(int n) {
 void FreePersistentResources() {
   AutoGlobalLock<EightBitIntGemmLockId> lock;
   DestroyGlobalContext();
-#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
   DestroyGlobalScratch();
-#endif
 }
 
 }  // namespace eight_bit_int_gemm
-
 }  // namespace gemmlowp
