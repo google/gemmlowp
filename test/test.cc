@@ -125,7 +125,7 @@ struct SingleThreadGemmWrapper {
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
     SingleThreadGemm<typename Kernel::Format, Scalar, Scalar, BitDepthParams,
-                     LhsOrder, RhsOrder, ResultOrder>(
+                     LhsOrder, RhsOrder, ResultOrder, int, int>(
         context, Kernel(), lhs, rhs, result, lhs_offset, rhs_offset,
         MakeStandardOutputPipeline(result_offset, result_mult_int,
                                    result_shift));
@@ -152,7 +152,7 @@ struct MultiThreadGemmWrapper {
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
     MultiThreadGemm<typename Kernel::Format, Scalar, Scalar, BitDepthParams,
-                    LhsOrder, RhsOrder, ResultOrder>(
+                    LhsOrder, RhsOrder, ResultOrder, int, int>(
         context, Kernel(), lhs, rhs, result, lhs_offset, rhs_offset,
         MakeStandardOutputPipeline(result_offset, result_mult_int,
                                    result_shift));

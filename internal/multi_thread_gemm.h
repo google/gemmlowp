@@ -363,7 +363,8 @@ class WorkersPool {
 // packed LHS and RHS blocks.
 template <typename KernelFormat, typename InputScalar, typename OutputScalar,
           typename BitDepthParams, MapOrder LhsOrder, MapOrder RhsOrder,
-          MapOrder ResultOrder, typename OutputPipelineType>
+          MapOrder ResultOrder, typename LhsOffset, typename RhsOffset,
+          typename OutputPipelineType>
 struct GemmWithPackedRhsTask : Task {
   typedef PackedSideBlock<typename KernelFormat::Lhs> PackedLhs;
   typedef PackedSideBlock<typename KernelFormat::Rhs> PackedRhs;
@@ -371,7 +372,8 @@ struct GemmWithPackedRhsTask : Task {
                         const MatrixMap<const InputScalar, LhsOrder>& _lhs,
                         const PackedRhs& _packed_rhs,
                         MatrixMap<OutputScalar, ResultOrder>* _result,
-                        int _lhs_offset, int _rhs_offset,
+                        const LhsOffset& _lhs_offset,
+                        const RhsOffset& _rhs_offset,
                         const OutputPipelineType& _output_pipeline)
       : kernel(_kernel),
         lhs(_lhs),
@@ -422,8 +424,8 @@ struct GemmWithPackedRhsTask : Task {
   const MatrixMap<const InputScalar, LhsOrder> lhs;
   const PackedRhs packed_rhs;
   MatrixMap<OutputScalar, ResultOrder> result;
-  int lhs_offset;
-  int rhs_offset;
+  const LhsOffset& lhs_offset;
+  const RhsOffset& rhs_offset;
   const OutputPipelineType& output_pipeline;
 };
 
@@ -527,12 +529,13 @@ inline int HowManyThreads(MultiThreadGemmContext* context, int rows, int cols,
 // each, and accumulate the corresponding products.
 template <typename KernelFormat, typename InputScalar, typename OutputScalar,
           typename BitDepthParams, MapOrder LhsOrder, MapOrder RhsOrder,
-          MapOrder ResultOrder, typename OutputPipelineType>
+          MapOrder ResultOrder, typename LhsOffset, typename RhsOffset,
+          typename OutputPipelineType>
 void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
                      const MatrixMap<const InputScalar, LhsOrder>& lhs,
                      const MatrixMap<const InputScalar, RhsOrder>& rhs,
                      MatrixMap<OutputScalar, ResultOrder>* result,
-                     int lhs_offset, int rhs_offset,
+                     const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                      const OutputPipelineType& output_pipeline) {
   ScopedProfilingLabel label("gemmlowp::MultiThreadGemm");
 
@@ -598,7 +601,8 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
       auto result_block = result->block(start_row, c, block_rows, cs);
       typedef GemmWithPackedRhsTask<KernelFormat, InputScalar, OutputScalar,
                                     BitDepthParams, LhsOrder, RhsOrder,
-                                    ResultOrder, OutputPipelineType>
+                                    ResultOrder, LhsOffset, RhsOffset,
+                                    OutputPipelineType>
           TaskType;
       auto task = new TaskType(kernel, lhs_block, packed_rhs, &result_block,
                                lhs_offset, rhs_offset, output_pipeline);
