@@ -7,10 +7,21 @@ licenses(["notice"])  # Apache 2.0
 
 exports_files(["LICENSE"])
 
+gemmlowp_private_headers = glob([
+    "internal/*.h",
+    "meta/*.h",
+])
+
 gemmlowp_public_headers = glob([
     "public/*.h",
     "profiling/*.h",
 ])
+
+filegroup(
+    name = "gemmlowp_private_headers",
+    srcs = gemmlowp_private_headers,
+    visibility = ["//visibility:private"],
+)
 
 filegroup(
     name = "gemmlowp_public_headers",
@@ -18,10 +29,7 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-gemmlowp_headers = glob([
-    "internal/*.h",
-    "meta/*.h",
-]) + gemmlowp_public_headers
+gemmlowp_headers = gemmlowp_private_headers + gemmlowp_public_headers
 
 filegroup(
     name = "gemmlowp_headers",
@@ -29,9 +37,11 @@ filegroup(
     visibility = ["//visibility:private"],
 )
 
-eight_bit_int_gemm_public_headers = glob([
+eight_bit_int_gemm_headers = glob([
     "eight_bit_int_gemm/*.h",
-]) + gemmlowp_public_headers
+])
+
+eight_bit_int_gemm_public_headers = eight_bit_int_gemm_headers + gemmlowp_public_headers
 
 filegroup(
     name = "eight_bit_int_gemm_public_headers",
@@ -39,14 +49,21 @@ filegroup(
     visibility = ["//visibility:public"],
 )
 
-eight_bit_int_gemm_sources = glob([
+eight_bit_int_gemm_sources_with_no_headers = glob([
     "eight_bit_int_gemm/*.cc",
-    "eight_bit_int_gemm/*.h",
-]) + gemmlowp_headers
+])
+
+eight_bit_int_gemm_sources_and_headers = eight_bit_int_gemm_sources_with_no_headers + eight_bit_int_gemm_headers + gemmlowp_headers
+
+filegroup(
+    name = "eight_bit_int_gemm_sources_with_no_headers",
+    srcs = eight_bit_int_gemm_sources_with_no_headers,
+    visibility = ["//visibility:private"],
+)
 
 filegroup(
     name = "eight_bit_int_gemm_sources",
-    srcs = eight_bit_int_gemm_sources,
+    srcs = eight_bit_int_gemm_sources_and_headers,
     visibility = ["//visibility:public"],
 )
 
@@ -78,10 +95,11 @@ cc_library(
 cc_library(
     name = "eight_bit_int_gemm",
     srcs = [
-        ":eight_bit_int_gemm_sources",
+        ":eight_bit_int_gemm_sources_with_no_headers",
     ],
     hdrs = [
         ":eight_bit_int_gemm_public_headers",
+        ":gemmlowp_headers",
     ],
     linkopts = ["-lpthread"],
     visibility = [
