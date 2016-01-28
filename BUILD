@@ -7,6 +7,8 @@ licenses(["notice"])  # Apache 2.0
 
 exports_files(["LICENSE"])
 
+load("flags", "LIB_LINKOPTS", "BIN_LINKOPTS")
+
 gemmlowp_private_headers = glob([
     "internal/*.h",
     "meta/*.h",
@@ -85,7 +87,7 @@ cc_library(
     hdrs = [
         ":gemmlowp_public_headers",
     ],
-    linkopts = ["-lpthread"],
+    linkopts = LIB_LINKOPTS,
     # Blaze warning:
     # "setting 'linkstatic=1' is recommended if there are no object files."
     linkstatic = 1,
@@ -101,7 +103,7 @@ cc_library(
         ":eight_bit_int_gemm_public_headers",
         ":gemmlowp_headers",
     ],
-    linkopts = ["-lpthread"],
+    linkopts = LIB_LINKOPTS,
     visibility = [
         "//visibility:public",
     ],
@@ -145,7 +147,7 @@ cc_test(
         "test/test_blocking_counter.cc",
         ":gemmlowp_test_headers",
     ],
-    linkopts = ["-lpthread"],
+    linkopts = BIN_LINKOPTS,
 )
 
 # Allocator test
@@ -179,7 +181,7 @@ cc_binary(
         "-O3",
         "-DNDEBUG",
     ],
-    linkopts = ["-lpthread"],
+    linkopts = BIN_LINKOPTS,
 )
 
 # Benchmark
@@ -194,5 +196,5 @@ cc_binary(
         "-DNDEBUG",
         "-DGEMMLOWP_TEST_PROFILE",
     ],
-    linkopts = ["-lpthread"],
+    linkopts = BIN_LINKOPTS,
 )
