@@ -343,8 +343,13 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
   }
 #endif
 
+  // TODO(maciekc): implement a float output stage, get rid of scratch memory.
   Scratch* scratch = GetOrCreateGlobalScratch();
-  scratch->AssureSize(m * n * sizeof(std::int32_t));
+  if (transpose_c) {
+    scratch->AssureSize(m * ldc * sizeof(std::int32_t));
+  } else {
+    scratch->AssureSize(n * ldc * sizeof(std::int32_t));
+  }
   std::int32_t* temp_c = reinterpret_cast<std::int32_t*>(scratch->buffer());
 
 #define GEMMLOWP_HANDLE_INT32_CASE(ta, tb, tc)                               \
@@ -365,11 +370,23 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
 
 #undef GEMMLOWP_HANDLE_INT32_CASE
 
-  for (int i = 0; i < m; ++i) {
-    float* dest_row = c + i * ldc;
-    std::int32_t* src_row = temp_c + i * n;
-    for (int j = 0; j < n; ++j) {
-      dest_row[j] = static_cast<float>(src_row[j]) * c_offset;
+  if (transpose_c) {
+    // Row major.
+    for (int i = 0; i < m; ++i) {
+      float* dest_row = c + i * ldc;
+      std::int32_t* src_row = temp_c + i * ldc;
+      for (int j = 0; j < n; ++j) {
+        dest_row[j] = static_cast<float>(src_row[j]) * c_offset;
+      }
+    }
+  } else {
+    // Column major.
+    for (int i = 0; i < n; ++i) {
+      float* dest_column = c + i * ldc;
+      std::int32_t* src_column = temp_c + i * ldc;
+      for (int j = 0; j < m; ++j) {
+        dest_column[j] = static_cast<float>(src_column[j]) * c_offset;
+      }
     }
   }
 }
