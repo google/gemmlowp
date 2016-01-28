@@ -86,6 +86,66 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
   const OutputStage& output_stage;
 };
 
+// Implementation of OutputStageQuantizeDownInt32ToUint8ScalePC for
+// NEONFragmentInt32x4x1
+template <>
+struct OutputStageEvalImpl<
+    OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Col>,
+    NEONFragmentInt32x4x1> {
+  typedef NEONFragmentInt32x4x1 InputType;
+  typedef NEONFragmentInt32x4x1 OutputType;
+  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Col>
+      OutputStage;
+
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
+
+  OutputType Eval(InputType input, int row, int col) const {
+    const std::int32_t result_shift = output_stage.result_shift;
+    const std::int32_t preshift_offset =
+        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
+    const int32x4_t result_mult_int =
+        vld1q_s32(output_stage.result_mult_int.data(row));
+    const int32x4_t result_offset =
+        vld1q_s32(output_stage.result_offset.data(row));
+    const int32x4_t a = vaddq_s32(input, result_offset);
+    const int32x4_t b =
+        vmlaq_s32(vdupq_n_s32(preshift_offset), a, result_mult_int);
+    return vshlq_s32(b, vdupq_n_s32(-result_shift));
+  }
+
+  const OutputStage& output_stage;
+};
+
+// Implementation of OutputStageQuantizeDownInt32ToUint8ScalePC for
+// NEONFragmentInt32x4x1
+template <>
+struct OutputStageEvalImpl<
+    OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Row>,
+    NEONFragmentInt32x4x1> {
+  typedef NEONFragmentInt32x4x1 InputType;
+  typedef NEONFragmentInt32x4x1 OutputType;
+  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Row>
+      OutputStage;
+
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
+
+  OutputType Eval(InputType input, int row, int col) const {
+    const std::int32_t result_shift = output_stage.result_shift;
+    const std::int32_t preshift_offset =
+        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
+    const int32x4_t result_mult_int =
+        vld1q_s32(output_stage.result_mult_int.data(col));
+    const int32x4_t result_offset =
+        vld1q_s32(output_stage.result_offset.data(row));
+    const int32x4_t a = vaddq_s32(input, result_offset);
+    const int32x4_t b =
+        vmlaq_s32(vdupq_n_s32(preshift_offset), a, result_mult_int);
+    return vshlq_s32(b, vdupq_n_s32(-result_shift));
+  }
+
+  const OutputStage& output_stage;
+};
+
 // Implementation of OutputStageSaturatingCastToUint8 for NEONFragmentInt32x4x1
 template <>
 struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,

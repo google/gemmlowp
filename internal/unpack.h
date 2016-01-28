@@ -96,7 +96,6 @@ struct UnpackResultImplGeneric {
                      const std::int32_t* rhs_sums_of_each_slice,
                      const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                      const OutputPipelineType& output_pipeline) {
-    std::int32_t term_11 = lhs_offset * rhs_offset * depth;
     auto src_map = src.Map();
     // No top-level blocking in the depth dimension at the moment.
     // Too much loss of precision.
@@ -115,8 +114,8 @@ struct UnpackResultImplGeneric {
         // In case of requantization, we first need to scale them back
         // to the original scale, using RoundingMultiplyByConstantFraction.
         std::int32_t raw_xx = src_map(r, c);
-        std::int32_t raw_x1 = lhs_sums_of_each_slice[r] * rhs_offset;
-        std::int32_t raw_1x = rhs_sums_of_each_slice[c] * lhs_offset;
+        std::int32_t raw_x1 = lhs_sums_of_each_slice[r] * rhs_offset(c);
+        std::int32_t raw_1x = rhs_sums_of_each_slice[c] * lhs_offset(r);
         std::int32_t term_xx =
             RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
                 raw_xx);
@@ -124,6 +123,7 @@ struct UnpackResultImplGeneric {
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         std::int32_t term_1x =
             RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
+        std::int32_t term_11 = lhs_offset(r) * rhs_offset(c) * depth;
         // Sum the 4 terms.
         FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x + term_11;
 

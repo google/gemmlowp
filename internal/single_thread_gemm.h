@@ -38,6 +38,11 @@ class SingleThreadGemmContext {
   Allocator allocator_;
 };
 
+typedef VectorMap<const int32_t, VectorShape::Col> OffsetColMap;
+typedef VectorMap<const int32_t, VectorShape::Row> OffsetRowMap;
+typedef VectorDup<const int32_t, VectorShape::Col> OffsetColDup;
+typedef VectorDup<const int32_t, VectorShape::Row> OffsetRowDup;
+
 template <typename KernelFormat, typename InputScalar, typename OutputScalar,
           typename BitDepthParams, MapOrder LhsOrder, MapOrder RhsOrder,
           MapOrder ResultOrder, typename LhsOffset, typename RhsOffset,
