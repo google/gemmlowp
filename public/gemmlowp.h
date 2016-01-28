@@ -35,18 +35,17 @@ inline bool IsRequantizationWorthIt(int rows, int cols) {
 class GemmContext : public MultiThreadGemmContext {};
 
 // Computes a general matrix product ("GEMM").
-// The meaning of the offsets, result_mult_int and result_shift
-// parameters is the same as in the standard EightBitIntGemm interface
-// (which is also implemented in the eight_bit_int_gemm directory).
+// This is a version that supports per channel quantization.
 template <typename InputScalar, typename OutputScalar, typename BitDepthParams,
           MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder,
-          typename OutputPipelineType>
-void GemmWithOutputPipeline(GemmContext* context,
-                            const MatrixMap<const InputScalar, LhsOrder>& lhs,
-                            const MatrixMap<const InputScalar, RhsOrder>& rhs,
-                            MatrixMap<OutputScalar, ResultOrder>* result,
-                            int lhs_offset, int rhs_offset,
-                            const OutputPipelineType& output_pipeline) {
+          typename LhsOffset, typename RhsOffset, typename OutputPipelineType>
+void GemmWithOutputPipelinePC(GemmContext* context,
+                              const MatrixMap<const InputScalar, LhsOrder>& lhs,
+                              const MatrixMap<const InputScalar, RhsOrder>& rhs,
+                              MatrixMap<OutputScalar, ResultOrder>* result,
+                              const LhsOffset& lhs_offset,
+                              const RhsOffset& rhs_offset,
+                              const OutputPipelineType& output_pipeline) {
   assert(lhs.cols() == rhs.rows());
 
   int rows = result->rows();
@@ -88,6 +87,27 @@ void GemmWithOutputPipeline(GemmContext* context,
                                                  output_pipeline);
     }
   }
+}
+
+// Computes a general matrix product ("GEMM").
+// This is the legacy version that does not support per channel quantization.
+// The meaning of the offsets, result_mult_int and result_shift
+// parameters is the same as in the standard EightBitIntGemm interface
+// (which is also implemented in the eight_bit_int_gemm directory).
+template <typename InputScalar, typename OutputScalar, typename BitDepthParams,
+          MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder,
+          typename OutputPipelineType>
+void GemmWithOutputPipeline(GemmContext* context,
+                            const MatrixMap<const InputScalar, LhsOrder>& lhs,
+                            const MatrixMap<const InputScalar, RhsOrder>& rhs,
+                            MatrixMap<OutputScalar, ResultOrder>* result,
+                            int lhs_offset, int rhs_offset,
+                            const OutputPipelineType& output_pipeline) {
+  const OffsetColDup lhs_offset_vector(lhs_offset, lhs.rows());
+  const OffsetRowDup rhs_offset_vector(rhs_offset, rhs.cols());
+  GemmWithOutputPipelinePC<InputScalar, OutputScalar, BitDepthParams>(
+      context, lhs, rhs, result, lhs_offset_vector, rhs_offset_vector,
+      output_pipeline);
 }
 
 // Computes a general matrix product ("GEMM").

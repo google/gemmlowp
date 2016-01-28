@@ -48,6 +48,23 @@ int32x4_t RoundingMultiplyByConstantFraction(int32x4_t x) {
   return vmlaq_n_s32(remaining_product, x, int_quotient);
 }
 
+template <typename tScalar, VectorShape tShape>
+int32x4_t get_int32x4_t_and_inc(
+    ConstIterator<VectorMap<tScalar, tShape>>* iterator) {
+  const int32x4_t result = vld1q_s32(iterator->get());
+  *iterator += 4;
+  return result;
+}
+
+template <typename tScalar, VectorShape tShape>
+int32x4_t get_int32x4_t_and_inc(
+    ConstIterator<VectorDup<tScalar, tShape>>* iterator) {
+  const int32x4_t result = vdupq_n_s32(**iterator);
+  // Increment really does nothing for VectorDup.
+  *iterator += 4;
+  return result;
+}
+
 template <typename BitDepthParams, typename PackedResultType,
           typename OutputScalar, typename LhsOffset, typename RhsOffset,
           typename OutputPipelineType>
@@ -59,7 +76,7 @@ struct UnpackResultImpl<BitDepthParams,
   static void Unpack(ResultBlockType* dst, const PackedResultType& src,
                      int depth, const std::int32_t* lhs_sums_of_each_slice,
                      const std::int32_t* rhs_sums_of_each_slice,
-                     const LhsOffset& lhs_offset, const LhsOffset& rhs_offset,
+                     const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                      const OutputPipelineType& output_pipeline) {
     ScopedProfilingLabel label("optimized path (NEON)");
     const int kLhsBits = BitDepthParams::LhsBitDepth::kBits;
@@ -67,7 +84,6 @@ struct UnpackResultImpl<BitDepthParams,
     const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     auto src_map = src.Map();
-    const std::int32_t term_11 = lhs_offset * rhs_offset * depth;
     OutputPipelineExecutor<OutputPipelineType, FragmentInt32x1x1>
         output_pipeline_executor_int32x1x1(output_pipeline);
     OutputPipelineExecutor<OutputPipelineType, NEONFragmentInt32x4x1>
@@ -78,10 +94,9 @@ struct UnpackResultImpl<BitDepthParams,
     for (int c = 0; c < dst->cols(); c++) {
       const std::int32_t* src_ptr = src_map.data(0, c);
       const std::int32_t* sums_of_each_slice_ptr = lhs_sums_of_each_slice;
-      const std::int32_t raw_1x = rhs_sums_of_each_slice[c] * lhs_offset;
-      const std::int32_t term_1x =
-          RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
-      const std::int32_t term_1x_plus_term_11 = term_1x + term_11;
+      auto lhs_offset_iter = const_iterator(lhs_offset);
+      const std::int32_t rhs_offset_c = rhs_offset(c);
+      const std::int32_t rhs_sums_of_each_slice_c = rhs_sums_of_each_slice[c];
 
       // Handle 16 values at once for higher performance
       int dst_rows_aligned16 = RoundDown<16>(dst->rows());
@@ -97,8 +112,15 @@ struct UnpackResultImpl<BitDepthParams,
         int32x4_t raw_x1[4];
         for (int i = 0; i < 4; i++) {
           const int32x4_t sum_x1 = vld1q_s32(sums_of_each_slice_ptr);
-          raw_x1[i] = vmulq_n_s32(sum_x1, rhs_offset);
+          raw_x1[i] = vmulq_n_s32(sum_x1, rhs_offset_c);
           sums_of_each_slice_ptr += 4;
+        }
+        int32x4_t raw_1x[4];
+        int32x4_t term_11[4];
+        for (int i = 0; i < 4; i++) {
+          const int32x4_t lhs_offsets = get_int32x4_t_and_inc(&lhs_offset_iter);
+          raw_1x[i] = vmulq_n_s32(lhs_offsets, rhs_sums_of_each_slice_c);
+          term_11[i] = vmulq_n_s32(lhs_offsets, rhs_offset_c * depth);
         }
         int32x4_t term_xx[4];
         for (int i = 0; i < 4; i++) {
@@ -111,10 +133,15 @@ struct UnpackResultImpl<BitDepthParams,
           term_x1[i] =
               RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1[i]);
         }
+        int32x4_t term_1x[4];
+        for (int i = 0; i < 4; i++) {
+          term_1x[i] =
+              RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x[i]);
+        }
         int32x4x4_t q;
         for (int i = 0; i < 4; i++) {
           q.val[i] = vaddq_s32(vaddq_s32(term_xx[i], term_x1[i]),
-                               vdupq_n_s32(term_1x_plus_term_11));
+                               vaddq_s32(term_1x[i], term_11[i]));
         }
         NEONFragmentInt32x16x1 f(q);
         output_pipeline_executor_int32x16x1.Execute(f, dst, r, c);
@@ -132,12 +159,19 @@ struct UnpackResultImpl<BitDepthParams,
             RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
                 raw_xx);
         const int32x4_t sum_x1 = vld1q_s32(sums_of_each_slice_ptr);
-        const int32x4_t raw_x1 = vmulq_n_s32(sum_x1, rhs_offset);
+        const int32x4_t raw_x1 = vmulq_n_s32(sum_x1, rhs_offset_c);
         sums_of_each_slice_ptr += 4;
         const int32x4_t term_x1 =
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
+        const int32x4_t lhs_offsets = get_int32x4_t_and_inc(&lhs_offset_iter);
+        const int32x4_t raw_1x =
+            vmulq_n_s32(lhs_offsets, rhs_sums_of_each_slice_c);
+        const int32x4_t term_1x =
+            RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
+        const int32x4_t term_11 =
+            vmulq_n_s32(lhs_offsets, rhs_offset_c * depth);
         int32x4_t q = vaddq_s32(vaddq_s32(term_xx, term_x1),
-                                vdupq_n_s32(term_1x_plus_term_11));
+                                vaddq_s32(term_1x, term_11));
         NEONFragmentInt32x4x1 f(q);
         output_pipeline_executor_int32x4x1.Execute(f, dst, r, c);
       }
@@ -145,14 +179,18 @@ struct UnpackResultImpl<BitDepthParams,
       // remaining entries one by one. This scalar code is similar
       // to the code in unpack.h, see comments there.
       for (int r = dst_rows_aligned4; r < dst->rows(); r++) {
-        std::int32_t raw_xx = src_map(r, c);
-        std::int32_t raw_x1 = lhs_sums_of_each_slice[r] * rhs_offset;
-        std::int32_t term_xx =
+        const std::int32_t raw_xx = src_map(r, c);
+        const std::int32_t raw_x1 = lhs_sums_of_each_slice[r] * rhs_offset_c;
+        const std::int32_t raw_1x = rhs_sums_of_each_slice_c * lhs_offset(r);
+        const std::int32_t term_xx =
             RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
                 raw_xx);
-        std::int32_t term_x1 =
+        const std::int32_t term_x1 =
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
-        FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x_plus_term_11;
+        const std::int32_t term_1x =
+            RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
+        const std::int32_t term_11 = lhs_offset(r) * rhs_offset(c) * depth;
+        FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x + term_11;
         output_pipeline_executor_int32x1x1.Execute(sum, dst, r, c);
       }
     }

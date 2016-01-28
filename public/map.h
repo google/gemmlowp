@@ -19,6 +19,7 @@
 #define GEMMLOWP_PUBLIC_MAP_H_
 
 #include "../internal/common.h"
+#include "../internal/iterator.h"
 
 namespace gemmlowp {
 
@@ -94,6 +95,26 @@ class VectorMap {
   Scalar* data() const { return data_; }
   Scalar* data(int index) const { return data_ + index; }
   Scalar& operator()(int index) const { return *data(index); }
+};
+
+// A VectorDup is a (duplicated value) vector where all components are the same.
+template <typename tScalar, VectorShape tShape>
+class VectorDup {
+ public:
+  typedef tScalar Scalar;
+  static const VectorShape kShape = tShape;
+
+ protected:
+  Scalar data_;
+  int size_;
+
+ public:
+  VectorDup() : data_(0), size_(0) {}
+  VectorDup(Scalar data, int size) : data_(data), size_(size) {}
+  VectorDup(const VectorDup& other) : data_(other.data_), size_(other.size_) {}
+
+  int size() const { return size_; }
+  Scalar& operator()(int index) const { return data_; }
 };
 
 }  // namespace gemmlowp
