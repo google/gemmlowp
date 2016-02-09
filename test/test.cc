@@ -1527,6 +1527,8 @@ void test() {
   // output stages.
   TestOutputStages<MapOrder::RowMajor>(63, 10, 127, 5, 17, 14);
   TestOutputStages<MapOrder::ColMajor>(63, 10, 127, 5, 17, 14);
+  TestOutputStages<MapOrder::RowMajor>(630, 10, 1270, 5, 17, 14);
+  TestOutputStages<MapOrder::ColMajor>(630, 10, 1270, 5, 17, 14);
 
   // Test per channel quantization.
   TestWithSmallDataPerChannelQuantization();
