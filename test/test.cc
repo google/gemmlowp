@@ -1002,6 +1002,103 @@ void TestWithLargeDataPerChannelQuantization() {
   Check(good);
 }
 
+// Multithreading only activates when the result has more than 16 rows, and also
+// (result rows) * (result cols) * depth >= 2 x 65 x 1024.  Size was selected
+// to run in 3 threads.
+//
+// Based on the following floating point data:
+//   LHS: all zeros except 10.0, 20.0 at the beginning of first 16 rows;
+//     1.0, 2.0 at the beginning of next 16 rows; 0.1, 0.2 in next 16 rows;
+//     0.01, 0.02 in last 16 rows.
+//   RHS: all zeros except 1.0 in (0, 0) and 2.0 in (1, 0).
+//   Expected result: all zeros, except 50.0 at the beginning of first 16 rows;
+//     5.0 at the beginning of next 16 rows; 0.5 in next 16 rows; 0.05 in last
+//     16 rows.
+void TestMultithreadedPerChannelQuantization() {
+  const int m = 64;
+  const int n = 20;
+  const int k = 160;
+
+  // LHS, m x k.
+  // All zeros, except 128 at (i, 0) and 255 at (i, 1).
+  std::vector<uint8_t> a_data(m * k, 0);
+  for (int i = 0; i < m; ++i) {
+    a_data[i * k] = 128;
+    a_data[i * k + 1] = 255;
+  }
+
+  const int lda = k;
+  // All zeros.
+  std::vector<int32_t> a_offset(m, 0);
+
+  MatrixMap<const std::uint8_t, MapOrder::RowMajor> lhs(&a_data[0], m, k, lda);
+  const OffsetColMap lhs_offset(&a_offset[0], m);
+
+  // RHS, k x n.
+  // All zeros, except 128 at (0, 0) and 255 at (1, 0).
+  std::vector<uint8_t> b_data(k * n, 0);
+  b_data[0] = 128;
+  b_data[1] = 255;
+
+  const int ldb = k;
+  int b_offset = 0;
+  MatrixMap<const std::uint8_t, MapOrder::ColMajor> rhs(&b_data[0], k, n, ldb);
+  const OffsetRowDup rhs_offset(b_offset, rhs.cols());
+
+  // Result, m x n.
+  // All zeros, except given values at (i / 16, 0).
+  const uint8_t expected_c_terse[] = {
+      142, 160, 182, 213,
+  };
+  assert(
+      (std::end(expected_c_terse) - std::begin(expected_c_terse)) * 16 == m);
+  std::vector<uint8_t> expected_c_data(m * n, 0);
+  for (int i = 0; i < m; ++i) {
+    expected_c_data[i] = expected_c_terse[i / 16];
+  }
+
+  const int ldc = m;
+  // All zeros.
+  std::vector<int32_t> c_offset(m, 0);
+  // Given values at [i / 16].
+  const int32_t c_mult_int_terse[] = {
+      3655, 4112, 4700, 5483,
+  };
+  assert(
+      (std::end(c_mult_int_terse) - std::begin(c_mult_int_terse)) * 16 == m);
+  std::vector<int32_t> c_mult_int(m);
+  for (int i = 0; i < m; ++i) {
+    c_mult_int[i] = c_mult_int_terse[i / 16];
+  }
+
+  const int c_shift = 21;
+
+  const int c_count = m * n;
+  std::unique_ptr<uint8_t[]> output_data(new uint8_t[c_count]);
+  MatrixMap<std::uint8_t, MapOrder::ColMajor> result(output_data.get(), m, n,
+                                                     ldc);
+  const OffsetColMap result_offset(&c_offset[0], m);
+  const OffsetColMap result_mult_int(&c_mult_int[0], m);
+  const int result_shift = c_shift;
+
+  GemmContext gemm_context;
+  auto output_pipeline = MakeStandardOutputPipeline<VectorShape::Col>(
+      result_offset, result_mult_int, result_shift);
+  GemmWithOutputPipelinePC<uint8_t, uint8_t, DefaultL8R8BitDepthParams>(
+      &gemm_context, lhs, rhs, &result, lhs_offset, rhs_offset,
+      output_pipeline);
+
+  ResultStats stats;
+  GetResultStats(output_data.get(), &expected_c_data[0], c_count, &stats);
+
+  ResultStatsBounds bounds;
+  const bool good = CheckResultStatsBounds(stats, bounds);
+  printf("TestMultithreadedPerChannelQuantization: %s\n",
+         good ? "PASS" : "FAIL");
+  ReportResultStats(stats, bounds);
+  Check(good);
+}
+
 // Runs a small set of hand-calculated data through the implementation.
 void TestWithSmallData() {
   const int m = 4;
@@ -1434,6 +1531,7 @@ void test() {
   // Test per channel quantization.
   TestWithSmallDataPerChannelQuantization();
   TestWithLargeDataPerChannelQuantization();
+  TestMultithreadedPerChannelQuantization();
 #ifdef GEMMLOWP_TEST_PROFILE
   FinishProfiling();
 #endif

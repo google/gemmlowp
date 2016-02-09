@@ -73,12 +73,18 @@ struct UnpackResultImpl<BitDepthParams,
                         PackedResultType, LhsOffset, RhsOffset,
                         OutputPipelineType> {
   typedef MatrixMap<OutputScalar, MapOrder::ColMajor> ResultBlockType;
-  static void Unpack(ResultBlockType* dst, const PackedResultType& src,
-                     int depth, const std::int32_t* lhs_sums_of_each_slice,
+  static void Unpack(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
+                     const PackedResultType& src, int depth,
+                     const std::int32_t* lhs_sums_of_each_slice,
                      const std::int32_t* rhs_sums_of_each_slice,
                      const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                      const OutputPipelineType& output_pipeline) {
     ScopedProfilingLabel label("optimized path (NEON)");
+    assert(dst_block.start_row >= 0);
+    assert(dst_block.start_row % 16 == 0);
+    assert(dst_block.start_row + dst_block.rows <= dst->rows());
+    assert(dst_block.start_col >= 0);
+    assert(dst_block.start_col + dst_block.cols <= dst->cols());
     const int kLhsBits = BitDepthParams::LhsBitDepth::kBits;
     const int kRhsBits = BitDepthParams::RhsBitDepth::kBits;
     const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
@@ -91,16 +97,18 @@ struct UnpackResultImpl<BitDepthParams,
     OutputPipelineExecutor<OutputPipelineType, NEONFragmentInt32x16x1>
         output_pipeline_executor_int32x16x1(output_pipeline);
 
-    for (int c = 0; c < dst->cols(); c++) {
+    for (int c = 0; c < dst_block.cols; c++) {
+      int c_dst = c + dst_block.start_col;
       const std::int32_t* src_ptr = src_map.data(0, c);
       const std::int32_t* sums_of_each_slice_ptr = lhs_sums_of_each_slice;
-      auto lhs_offset_iter = const_iterator(lhs_offset);
-      const std::int32_t rhs_offset_c = rhs_offset(c);
+      auto lhs_offset_iter = const_iterator(lhs_offset, dst_block.start_row);
+      const std::int32_t rhs_offset_c = rhs_offset(c_dst);
       const std::int32_t rhs_sums_of_each_slice_c = rhs_sums_of_each_slice[c];
 
       // Handle 16 values at once for higher performance
-      int dst_rows_aligned16 = RoundDown<16>(dst->rows());
+      int dst_rows_aligned16 = RoundDown<16>(dst_block.rows);
       for (int r = 0; r < dst_rows_aligned16; r += 16) {
+        int r_dst = r + dst_block.start_row;
         // Compute the sum of the 4 terms,
         //   q = term_xx + term_x1 + term_1x_plus_term_11
         // Refer to the generic code in unpack.h.
@@ -144,12 +152,13 @@ struct UnpackResultImpl<BitDepthParams,
                                vaddq_s32(term_1x[i], term_11[i]));
         }
         NEONFragmentInt32x16x1 f(q);
-        output_pipeline_executor_int32x16x1.Execute(f, dst, r, c);
+        output_pipeline_executor_int32x16x1.Execute(f, dst, r_dst, c_dst);
       }
       // We have finished handling groups of 16 entries at once; now
       // try to handle 4 entries at once.
-      int dst_rows_aligned4 = RoundDown<4>(dst->rows());
+      int dst_rows_aligned4 = RoundDown<4>(dst_block.rows);
       for (int r = dst_rows_aligned16; r < dst_rows_aligned4; r += 4) {
+        int r_dst = r + dst_block.start_row;
         // Compute the sum of the 4 terms,
         //   q = term_xx + term_x1 + term_1x_plus_term_11
         // Refer to the generic code in unpack.h.
@@ -173,15 +182,17 @@ struct UnpackResultImpl<BitDepthParams,
         int32x4_t q = vaddq_s32(vaddq_s32(term_xx, term_x1),
                                 vaddq_s32(term_1x, term_11));
         NEONFragmentInt32x4x1 f(q);
-        output_pipeline_executor_int32x4x1.Execute(f, dst, r, c);
+        output_pipeline_executor_int32x4x1.Execute(f, dst, r_dst, c_dst);
       }
       // We have finished handling 4 entries at once; now handle
       // remaining entries one by one. This scalar code is similar
       // to the code in unpack.h, see comments there.
-      for (int r = dst_rows_aligned4; r < dst->rows(); r++) {
+      for (int r = dst_rows_aligned4; r < dst_block.rows; r++) {
+        int r_dst = r + dst_block.start_row;
         const std::int32_t raw_xx = src_map(r, c);
         const std::int32_t raw_x1 = lhs_sums_of_each_slice[r] * rhs_offset_c;
-        const std::int32_t raw_1x = rhs_sums_of_each_slice_c * lhs_offset(r);
+        const std::int32_t raw_1x =
+            rhs_sums_of_each_slice_c * lhs_offset(r_dst);
         const std::int32_t term_xx =
             RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
                 raw_xx);
@@ -191,7 +202,7 @@ struct UnpackResultImpl<BitDepthParams,
             RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
         const std::int32_t term_11 = lhs_offset(r) * rhs_offset(c) * depth;
         FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x + term_11;
-        output_pipeline_executor_int32x1x1.Execute(sum, dst, r, c);
+        output_pipeline_executor_int32x1x1.Execute(sum, dst, r_dst, c_dst);
       }
     }
   }
