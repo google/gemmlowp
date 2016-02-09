@@ -372,6 +372,7 @@ struct GemmWithPackedRhsTask : Task {
                         const MatrixMap<const InputScalar, LhsOrder>& _lhs,
                         const PackedRhs& _packed_rhs,
                         MatrixMap<OutputScalar, ResultOrder>* _result,
+                        const MatrixBlockBounds& _result_block,
                         const LhsOffset& _lhs_offset,
                         const RhsOffset& _rhs_offset,
                         const OutputPipelineType& _output_pipeline)
@@ -379,6 +380,7 @@ struct GemmWithPackedRhsTask : Task {
         lhs(_lhs),
         packed_rhs(_packed_rhs),
         result(*_result),
+        result_block(_result_block),
         lhs_offset(_lhs_offset),
         rhs_offset(_rhs_offset),
         output_pipeline(_output_pipeline) {}
@@ -386,8 +388,8 @@ struct GemmWithPackedRhsTask : Task {
   void Run() const override {
     ScopedProfilingLabel label("GemmWithPackedRhsTask");
 
-    const int rows = result.rows();
-    const int cols = result.cols();
+    const int rows = result_block.rows;
+    const int cols = result_block.cols;
     const int depth = lhs.cols();
 
     BlockParams block_params;
@@ -409,9 +411,11 @@ struct GemmWithPackedRhsTask : Task {
 
         Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
 
-        auto result_block = result.block(r, c, rs, cs);
-        UnpackResult<BitDepthParams>(&result_block, packed_result, depth,
-                                     packed_lhs.sums_of_each_slice(),
+        auto curr_result_block = MatrixBlockBounds(result_block.start_row + r,
+                                                   result_block.start_col + c,
+                                                   rs, cs);
+        UnpackResult<BitDepthParams>(&result, curr_result_block, packed_result,
+                                     depth, packed_lhs.sums_of_each_slice(),
                                      packed_rhs.sums_of_each_slice(),
                                      lhs_offset, rhs_offset, output_pipeline);
       }
@@ -424,6 +428,7 @@ struct GemmWithPackedRhsTask : Task {
   const MatrixMap<const InputScalar, LhsOrder> lhs;
   const PackedRhs packed_rhs;
   MatrixMap<OutputScalar, ResultOrder> result;
+  const MatrixBlockBounds result_block;
   const LhsOffset& lhs_offset;
   const RhsOffset& rhs_offset;
   const OutputPipelineType& output_pipeline;
@@ -598,13 +603,13 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
 
       int block_rows = next_start_row - start_row;
       auto lhs_block = lhs.block(start_row, 0, block_rows, depth);
-      auto result_block = result->block(start_row, c, block_rows, cs);
       typedef GemmWithPackedRhsTask<KernelFormat, InputScalar, OutputScalar,
                                     BitDepthParams, LhsOrder, RhsOrder,
                                     ResultOrder, LhsOffset, RhsOffset,
                                     OutputPipelineType>
           TaskType;
-      auto task = new TaskType(kernel, lhs_block, packed_rhs, &result_block,
+      auto task = new TaskType(kernel, lhs_block, packed_rhs, result,
+                               MatrixBlockBounds(start_row, c, block_rows, cs),
                                lhs_offset, rhs_offset, output_pipeline);
       if (thread < workers_count) {
         workers_pool->StartWorker(thread, task);
