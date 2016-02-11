@@ -289,6 +289,17 @@ int main() {
     shape.init();
   }
 
+  std::vector<Shape> lstm;
+  lstm.push_back(Shape(1, 500, 320));
+  lstm.push_back(Shape(1, 100, 500));
+  lstm.push_back(Shape(1, 500, 500));
+  lstm.push_back(Shape(1, 500, 100));
+  lstm.push_back(Shape(1, 2000, 100));
+
+  for (auto& shape : lstm) {
+    shape.init();
+  }
+
   gemmlowp::eight_bit_int_gemm::SetMaxNumThreads(4);
 
   std::cout << "Warmup run." << std::endl;
@@ -296,7 +307,7 @@ int main() {
   time_all(&small_gemms, 50, 1.0);
 
   std::cout << "Timing all." << std::endl;
-  time_all(&googlenet_gemms, 10, 20.0);
+  time_all(&googlenet_gemms, 10, 10.0);
   time_all(&small_gemms, 50, 10.0);
 
   std::cout << "Timing separate." << std::endl;
@@ -310,6 +321,10 @@ int main() {
   }
 
   for (auto& shape : others) {
+    time_one(&shape, 0.10);
+  }
+
+  for (auto& shape : lstm) {
     time_one(&shape, 0.10);
   }
 

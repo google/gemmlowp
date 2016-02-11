@@ -24,7 +24,7 @@ namespace gemmlowp {
 namespace meta {
 namespace internal {
 
-const std::int32_t kMinTaskSize = 10000;
+const std::int32_t kMinTaskSize = 16000;
 const std::int32_t kMinTaskDimension = 6;
 
 struct TaskRect {

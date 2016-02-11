@@ -27,7 +27,7 @@ namespace gemmlowp {
 namespace meta {
 namespace internal {
 
-const std::int32_t kMaxCacheFriendlySize = 24 * 1024;
+const std::int32_t kMaxCacheFriendlySize = 256 * 1024;
 
 template <typename IN_TYPE, typename OUT_TYPE, typename F>
 void CacheFriendlyMatrixMatrix(std::uint8_t* scratch, const IN_TYPE* lhs,
@@ -86,7 +86,7 @@ class GemmQuantized8BitOperation {
 
   static std::int32_t ScratchPerThread(std::int32_t m, std::int32_t n,
                                        std::int32_t k) {
-    return 128 * 1024;
+    return 4 * kMaxCacheFriendlySize;
   }
 
  private:
@@ -125,7 +125,7 @@ class GemmFloatOperation {
 
   static std::int32_t ScratchPerThread(std::int32_t m, std::int32_t n,
                                        std::int32_t k) {
-    return 128 * 1024;
+    return 4 * kMaxCacheFriendlySize;
   }
 
  private:
@@ -159,7 +159,7 @@ class GemmInt32Operation {
 
   static std::int32_t ScratchPerThread(std::int32_t m, std::int32_t n,
                                        std::int32_t k) {
-    return 128 * 1024;
+    return 4 * kMaxCacheFriendlySize;
   }
 
  private:
@@ -182,10 +182,17 @@ void multi_thread_gemm_q8(gemmlowp::WorkersPool* pool, std::int32_t max_threads,
                           std::int32_t lhs_offset, std::int32_t rhs_offset,
                           std::int32_t sum_offset, std::int32_t multiplier,
                           std::int32_t shift, std::uint8_t* result) {
+  max_threads = internal::ResolveMaxThreads(max_threads);
   internal::GemmQuantized8BitOperation operation(lhs_offset, rhs_offset,
-                                                 sum_offset, multiplier, shift);
-  internal::MultiThreadedMatrixMatrix(pool, max_threads, scratch, lhs, rhs, m,
-                                      n, k, result, n, operation);
+                                                 sum_offset, multiplier,
+                                                 shift);
+  if (max_threads == 1) {
+    internal::CacheFriendlyMatrixMatrix(scratch, lhs, rhs, m, n, k, result, n,
+                                        operation);
+  } else {
+    internal::MultiThreadedMatrixMatrix(pool, max_threads, scratch, lhs, rhs, m,
+                                        n, k, result, n, operation);
+  }
 }
 
 std::int32_t gemm_f_scratch(std::int32_t m, std::int32_t n, std::int32_t k,
@@ -200,9 +207,15 @@ void multi_thread_gemm_f(gemmlowp::WorkersPool* pool, std::int32_t max_threads,
                          std::int32_t n, std::int32_t k,
                          std::int32_t lhs_offset, std::int32_t rhs_offset,
                          float result_offset, float* result) {
+  max_threads = internal::ResolveMaxThreads(max_threads);
   internal::GemmFloatOperation operation(lhs_offset, rhs_offset, result_offset);
-  internal::MultiThreadedMatrixMatrix(pool, max_threads, scratch, lhs, rhs, m,
-                                      n, k, result, n, operation);
+  if (max_threads == 1) {
+    internal::CacheFriendlyMatrixMatrix(scratch, lhs, rhs, m, n, k, result, n,
+                                        operation);
+  } else {
+    internal::MultiThreadedMatrixMatrix(pool, max_threads, scratch, lhs, rhs, m,
+                                        n, k, result, n, operation);
+  }
 }
 
 std::int32_t gemm_i32_scratch(std::int32_t m, std::int32_t n, std::int32_t k,
@@ -217,9 +230,15 @@ void multi_thread_gemm_i32(gemmlowp::WorkersPool* pool,
                            std::int32_t m, std::int32_t n, std::int32_t k,
                            std::int32_t lhs_offset, std::int32_t rhs_offset,
                            std::int32_t* result) {
+  max_threads = internal::ResolveMaxThreads(max_threads);
   internal::GemmInt32Operation operation(lhs_offset, rhs_offset);
-  internal::MultiThreadedMatrixMatrix(pool, max_threads, scratch, lhs, rhs, m,
-                                      n, k, result, n, operation);
+  if (max_threads == 1) {
+    internal::CacheFriendlyMatrixMatrix(scratch, lhs, rhs, m, n, k, result, n,
+                                        operation);
+  } else {
+    internal::MultiThreadedMatrixMatrix(pool, max_threads, scratch, lhs, rhs, m,
+                                        n, k, result, n, operation);
+  }
 }
 
 }  // namespace meta
