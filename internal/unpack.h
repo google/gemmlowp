@@ -141,7 +141,7 @@ struct UnpackResultImplGeneric {
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         std::int32_t term_1x =
             RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
-        std::int32_t term_11 = lhs_offset(r) * rhs_offset(c) * depth;
+        std::int32_t term_11 = lhs_offset(r_dst) * rhs_offset(c_dst) * depth;
         // Sum the 4 terms.
         FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x + term_11;
 
