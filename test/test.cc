@@ -1011,6 +1011,8 @@ void TestWithLargeDataPerChannelQuantization() {
 //     1.0, 2.0 at the beginning of next 16 rows; 0.1, 0.2 in next 16 rows;
 //     0.01, 0.02 in last 16 rows.
 //   RHS: all zeros except 1.0 in (0, 0) and 2.0 in (1, 0).
+//   Varying boundaries were used for each 16 rows block of LHS, to test for
+//     correct indexing into offsets.
 //   Expected result: all zeros, except 50.0 at the beginning of first 16 rows;
 //     5.0 at the beginning of next 16 rows; 0.5 in next 16 rows; 0.05 in last
 //     16 rows.
@@ -1020,16 +1022,31 @@ void TestMultithreadedPerChannelQuantization() {
   const int k = 160;
 
   // LHS, m x k.
-  // All zeros, except 128 at (i, 0) and 255 at (i, 1).
+  const std::array<int32_t, 4> lhs_offsets_terse {{
+      0, -51, -85, -109,
+  }};
+  assert(lhs_offsets_terse.size() * 16 == m);
+  const std::array<uint8_t, 4> lhs_first_el {{
+      128, 153, 170, 182,
+  }};
+  assert(lhs_first_el.size() * 16 == m);
+
+  // lhs_first_el at (i, 0) and 255 at (i, 1), other values are all -offset.
   std::vector<uint8_t> a_data(m * k, 0);
   for (int i = 0; i < m; ++i) {
-    a_data[i * k] = 128;
+    a_data[i * k] = lhs_first_el[i /16];
     a_data[i * k + 1] = 255;
+    for (int j = 2; j < k; ++j) {
+      a_data[i * k + j] = uint8_t(-lhs_offsets_terse[i / 16]);
+    }
   }
 
   const int lda = k;
-  // All zeros.
+  // Given values at [i / 16].
   std::vector<int32_t> a_offset(m, 0);
+  for (int i = 0; i < m; ++i) {
+    a_offset[i] = lhs_offsets_terse[i / 16];
+  }
 
   MatrixMap<const std::uint8_t, MapOrder::RowMajor> lhs(&a_data[0], m, k, lda);
   const OffsetColMap lhs_offset(&a_offset[0], m);
@@ -1041,17 +1058,16 @@ void TestMultithreadedPerChannelQuantization() {
   b_data[1] = 255;
 
   const int ldb = k;
-  int b_offset = 0;
+  int32_t b_offset = 0;
   MatrixMap<const std::uint8_t, MapOrder::ColMajor> rhs(&b_data[0], k, n, ldb);
   const OffsetRowDup rhs_offset(b_offset, rhs.cols());
 
   // Result, m x n.
   // All zeros, except given values at (i / 16, 0).
-  const uint8_t expected_c_terse[] = {
-      142, 160, 182, 213,
-  };
-  assert(
-      (std::end(expected_c_terse) - std::begin(expected_c_terse)) * 16 == m);
+  const std::array<uint8_t, 4> expected_c_terse {{
+      142, 159, 182, 213,
+  }};
+  assert(expected_c_terse.size() * 16 == m);
   std::vector<uint8_t> expected_c_data(m * n, 0);
   for (int i = 0; i < m; ++i) {
     expected_c_data[i] = expected_c_terse[i / 16];
@@ -1061,11 +1077,10 @@ void TestMultithreadedPerChannelQuantization() {
   // All zeros.
   std::vector<int32_t> c_offset(m, 0);
   // Given values at [i / 16].
-  const int32_t c_mult_int_terse[] = {
-      3655, 4112, 4700, 5483,
-  };
-  assert(
-      (std::end(c_mult_int_terse) - std::begin(c_mult_int_terse)) * 16 == m);
+  const std::array<int32_t, 4> c_mult_int_terse {{
+      3655, 5140, 7049, 9595,
+  }};
+  assert(c_mult_int_terse.size() * 16 == m);
   std::vector<int32_t> c_mult_int(m);
   for (int i = 0; i < m; ++i) {
     c_mult_int[i] = c_mult_int_terse[i / 16];
