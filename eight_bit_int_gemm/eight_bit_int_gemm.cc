@@ -32,6 +32,12 @@
 
 #if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
 #include "../meta/multi_thread_gemm.h"
+#else
+
+#if defined(GEMMLOWP_USE_META_FASTPATH)
+#warning "META fast path turned on without NEON!"
+#endif
+
 #endif
 
 namespace gemmlowp {
@@ -242,18 +248,29 @@ void MetaGemmQuantized8Bit(GemmContext* context, const std::uint8_t* lhs,
                            std::int32_t shift, bool result_transpose,
                            std::int32_t result_stride, std::uint8_t* result) {
   Scratch* scratch = GetOrCreateGlobalScratch();
-  if (IsRowMajorOrVector(result_transpose, result_stride, m, n)) {
-    scratch->AssureSize(
-        meta::gemm_q8_scratch(m, n, k, context->max_num_threads()));
+  const std::int32_t max_num_threads = context->max_num_threads();
+  if (m == 1) {
+    scratch->AssureSize(meta::gemm_q8_scratch(n, m, k, max_num_threads));
     meta::multi_thread_gemm_q8(
-        context->workers_pool(), context->max_num_threads(), scratch->buffer(),
+        context->workers_pool(), max_num_threads, scratch->buffer(),
+        rhs, lhs, n, m, k, rhs_offset, lhs_offset, sum_offset,
+        multiplicative_offset, shift, result);
+  } else if (n == 1) {
+    scratch->AssureSize(meta::gemm_q8_scratch(m, n, k, max_num_threads));
+    meta::multi_thread_gemm_q8(
+        context->workers_pool(), max_num_threads, scratch->buffer(),
+        lhs, rhs, m, n, k, lhs_offset, rhs_offset, sum_offset,
+        multiplicative_offset, shift, result);
+  } else  if (IsRowMajorOrVector(result_transpose, result_stride, m, n)) {
+    scratch->AssureSize(meta::gemm_q8_scratch(m, n, k, max_num_threads));
+    meta::multi_thread_gemm_q8(
+        context->workers_pool(), max_num_threads, scratch->buffer(),
         lhs, rhs, m, n, k, lhs_offset, rhs_offset, sum_offset,
         multiplicative_offset, shift, result);
   } else {
-    scratch->AssureSize(
-        meta::gemm_q8_scratch(n, m, k, context->max_num_threads()));
+    scratch->AssureSize(meta::gemm_q8_scratch(n, m, k, max_num_threads));
     meta::multi_thread_gemm_q8(
-        context->workers_pool(), context->max_num_threads(), scratch->buffer(),
+        context->workers_pool(), max_num_threads, scratch->buffer(),
         rhs, lhs, n, m, k, rhs_offset, lhs_offset, sum_offset,
         multiplicative_offset, shift, result);
   }
@@ -267,17 +284,26 @@ void MetaGemmFloat(GemmContext* context, const std::uint8_t* lhs,
                    float result_offset, bool result_transpose,
                    std::int32_t result_stride, float* result) {
   Scratch* scratch = GetOrCreateGlobalScratch();
-  if (IsRowMajorOrVector(result_transpose, result_stride, m, n)) {
-    scratch->AssureSize(
-        meta::gemm_f_scratch(m, n, k, context->max_num_threads()));
+  const std::int32_t max_num_threads = context->max_num_threads();
+  if (m == 1) {
+    scratch->AssureSize(meta::gemm_f_scratch(n, m, k, max_num_threads));
     meta::multi_thread_gemm_f(
-        context->workers_pool(), context->max_num_threads(), scratch->buffer(),
+        context->workers_pool(), max_num_threads, scratch->buffer(),
+        rhs, lhs, n, m, k, rhs_offset, lhs_offset, result_offset, result);
+  } else if (n == 1) {
+    scratch->AssureSize(meta::gemm_f_scratch(m, n, k, max_num_threads));
+    meta::multi_thread_gemm_f(
+        context->workers_pool(), max_num_threads, scratch->buffer(),
+        lhs, rhs, m, n, k, lhs_offset, rhs_offset, result_offset, result);
+  } else if (IsRowMajorOrVector(result_transpose, result_stride, m, n)) {
+    scratch->AssureSize(meta::gemm_f_scratch(m, n, k, max_num_threads));
+    meta::multi_thread_gemm_f(
+        context->workers_pool(), max_num_threads, scratch->buffer(),
         lhs, rhs, m, n, k, lhs_offset, rhs_offset, result_offset, result);
   } else {
-    scratch->AssureSize(
-        meta::gemm_f_scratch(n, m, k, context->max_num_threads()));
+    scratch->AssureSize(meta::gemm_f_scratch(n, m, k, max_num_threads));
     meta::multi_thread_gemm_f(
-        context->workers_pool(), context->max_num_threads(), scratch->buffer(),
+        context->workers_pool(), max_num_threads, scratch->buffer(),
         rhs, lhs, n, m, k, rhs_offset, lhs_offset, result_offset, result);
   }
 }

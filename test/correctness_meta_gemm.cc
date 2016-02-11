@@ -192,8 +192,8 @@ void test_f(std::uint8_t* scratch, std::uint8_t* lhs, std::uint8_t* rhs,
 }
 
 int main() {
-  const std::int32_t min_n = 256;
-  const std::int32_t min_m = 256;
+  const std::int32_t min_n = 1;
+  const std::int32_t min_m = 1;
   const std::int32_t min_k = 256;
 
   const std::int32_t max_n = 1024;
@@ -209,25 +209,31 @@ int main() {
   gemmlowp::WorkersPool pool;
   pool.CreateWorkers(3);
 
-  std::cout << "Quantized 8 bit." << std::endl << std::flush;
+  for (int t = 1; t < 5; ++t) {
+    std::cout << "Threads: " << t << std::endl << std::flush;
 
-  for (int m = min_m; m < max_m; m += 128) {
-    for (int n = min_n; n < max_n; n += 128) {
-      for (int k = min_k; k < max_k; k += 13) {
-        test(scratch, left, right, m, n, k, result, &pool, 4);
+    std::cout << "Quantized 8 bit." << std::endl << std::flush;
+
+    for (int m = min_m; m < max_m; m += 128) {
+      for (int n = min_n; n < max_n; n += 128) {
+        for (int k = min_k; k < max_k; k += 13) {
+          test(scratch, left, right, m, n, k, result, &pool, t);
+        }
       }
     }
-  }
 
-  std::cout << std::endl << "Floats." << std::endl << std::flush;
+    std::cout << std::endl << "Floats." << std::endl << std::flush;
 
-  for (int m = min_m; m < max_m; m += 128) {
-    for (int n = min_n; n < max_n; n += 128) {
-      for (int k = min_k; k < max_k; k += 13) {
-        test_f(scratch, left, right, m, n, k, result_float, &pool, 4);
+    for (int m = min_m; m < max_m; m += 128) {
+      for (int n = min_n; n < max_n; n += 128) {
+        for (int k = min_k; k < max_k; k += 13) {
+          test_f(scratch, left, right, m, n, k, result_float, &pool, t);
+        }
       }
     }
+
+    std::cout << std::endl << std::flush;
   }
 
-  std::cout << std::endl << "Done." << std::endl << std::flush;
+  std::cout << "Done." << std::endl << std::flush;
 }
