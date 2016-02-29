@@ -86,9 +86,13 @@
 #define GEMMLOWP_NEON_64
 #endif
 
-// Detect SSE4.
-#if defined __SSE4_1__
+// Detect SSE.
+#ifdef __SSE4_1__
 #define GEMMLOWP_SSE4
+#endif
+
+#ifdef __SSE3__
+#define GEMMLOWP_SSE3
 #endif
 
 // Convenience SSE4 tokens for 32-bit or 64-bit
@@ -96,9 +100,18 @@
 #define GEMMLOWP_SSE4_32
 #endif
 
+#if defined(GEMMLOWP_SSE3) && defined(GEMMLOWP_X86_32)
+#define GEMMLOWP_SSE3_32
+#endif
+
 #if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_64)
 #define GEMMLOWP_SSE4_64
 #endif
+
+#if defined(GEMMLOWP_SSE3) && defined(GEMMLOWP_X86_64)
+#define GEMMLOWP_SSE3_64
+#endif
+
 
 #endif  // GEMMLOWP_ALLOW_INLINE_ASM
 
