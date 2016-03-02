@@ -1257,6 +1257,578 @@ void zip_3x8_7_aligned(const std::uint8_t* source, std::int32_t count,
         "d10", "d11", "d12", "d13", "d14", "d16", "d17", "cc", "memory");
 }
 
+void zip_4x8_aligned(const std::uint8_t* source, std::int32_t count,
+                     std::int32_t stride, std::uint8_t* destination,
+                     std::int32_t multiplicative_offset,
+                     std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]:64]!\n"
+      "vld1.8 {d1}, [r0:64]!\n"
+      "vld1.8 {d2}, [r1:64]!\n"
+      "vld1.8 {d3}, [r2:64]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
+void zip_4x8_1_aligned(const std::uint8_t* source, std::int32_t count,
+                       std::int32_t stride, std::uint8_t* destination,
+                       std::int32_t multiplicative_offset,
+                       std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "sub %[count], %[count], #1\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]:64]!\n"
+      "vld1.8 {d1}, [r0:64]!\n"
+      "vld1.8 {d2}, [r1:64]!\n"
+      "vld1.8 {d3}, [r2:64]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Leftover Load Aggregate Store.
+      "vmov.i8 d0, #0\n"
+      "vmov.i8 d1, #0\n"
+      "vmov.i8 d2, #0\n"
+      "vmov.i8 d3, #0\n"
+      "vld1.8 {d0[0]}, [%[source]]\n"
+      "vld1.8 {d1[0]}, [r0]\n"
+      "vld1.8 {d2[0]}, [r1]\n"
+      "vld1.8 {d3[0]}, [r2]\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
+void zip_4x8_2_aligned(const std::uint8_t* source, std::int32_t count,
+                       std::int32_t stride, std::uint8_t* destination,
+                       std::int32_t multiplicative_offset,
+                       std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "sub %[count], %[count], #2\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]:64]!\n"
+      "vld1.8 {d1}, [r0:64]!\n"
+      "vld1.8 {d2}, [r1:64]!\n"
+      "vld1.8 {d3}, [r2:64]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Leftover Load Aggregate Store.
+      "vmov.i8 d0, #0\n"
+      "vmov.i8 d1, #0\n"
+      "vmov.i8 d2, #0\n"
+      "vmov.i8 d3, #0\n"
+      "vld1.16 {d0[0]}, [%[source]]\n"
+      "vld1.16 {d1[0]}, [r0]\n"
+      "vld1.16 {d2[0]}, [r1]\n"
+      "vld1.16 {d3[0]}, [r2]\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
+void zip_4x8_3_aligned(const std::uint8_t* source, std::int32_t count,
+                       std::int32_t stride, std::uint8_t* destination,
+                       std::int32_t multiplicative_offset,
+                       std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "sub %[count], %[count], #3\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]:64]!\n"
+      "vld1.8 {d1}, [r0:64]!\n"
+      "vld1.8 {d2}, [r1:64]!\n"
+      "vld1.8 {d3}, [r2:64]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Leftover Load Aggregate Store.
+      "vmov.i8 d0, #0\n"
+      "vmov.i8 d1, #0\n"
+      "vmov.i8 d2, #0\n"
+      "vmov.i8 d3, #0\n"
+      "vld1.16 {d0[0]}, [%[source]]!\n"
+      "vld1.16 {d1[0]}, [r0]!\n"
+      "vld1.16 {d2[0]}, [r1]!\n"
+      "vld1.16 {d3[0]}, [r2]!\n"
+      "vld1.8 {d0[2]}, [%[source]]\n"
+      "vld1.8 {d1[2]}, [r0]\n"
+      "vld1.8 {d2[2]}, [r1]\n"
+      "vld1.8 {d3[2]}, [r2]\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
+void zip_4x8_4_aligned(const std::uint8_t* source, std::int32_t count,
+                       std::int32_t stride, std::uint8_t* destination,
+                       std::int32_t multiplicative_offset,
+                       std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "sub %[count], %[count], #4\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]:64]!\n"
+      "vld1.8 {d1}, [r0:64]!\n"
+      "vld1.8 {d2}, [r1:64]!\n"
+      "vld1.8 {d3}, [r2:64]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Leftover Load Aggregate Store.
+      "vmov.i8 d0, #0\n"
+      "vmov.i8 d1, #0\n"
+      "vmov.i8 d2, #0\n"
+      "vmov.i8 d3, #0\n"
+      "vld1.32 {d0[0]}, [%[source]]\n"
+      "vld1.32 {d1[0]}, [r0]\n"
+      "vld1.32 {d2[0]}, [r1]\n"
+      "vld1.32 {d3[0]}, [r2]\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
+void zip_4x8_5_aligned(const std::uint8_t* source, std::int32_t count,
+                       std::int32_t stride, std::uint8_t* destination,
+                       std::int32_t multiplicative_offset,
+                       std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "sub %[count], %[count], #5\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]:64]!\n"
+      "vld1.8 {d1}, [r0:64]!\n"
+      "vld1.8 {d2}, [r1:64]!\n"
+      "vld1.8 {d3}, [r2:64]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Leftover Load Aggregate Store.
+      "vmov.i8 d0, #0\n"
+      "vmov.i8 d1, #0\n"
+      "vmov.i8 d2, #0\n"
+      "vmov.i8 d3, #0\n"
+      "vld1.32 {d0[0]}, [%[source]]!\n"
+      "vld1.32 {d1[0]}, [r0]!\n"
+      "vld1.32 {d2[0]}, [r1]!\n"
+      "vld1.32 {d3[0]}, [r2]!\n"
+      "vld1.8 {d0[4]}, [%[source]]\n"
+      "vld1.8 {d1[4]}, [r0]\n"
+      "vld1.8 {d2[4]}, [r1]\n"
+      "vld1.8 {d3[4]}, [r2]\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
+void zip_4x8_6_aligned(const std::uint8_t* source, std::int32_t count,
+                       std::int32_t stride, std::uint8_t* destination,
+                       std::int32_t multiplicative_offset,
+                       std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "sub %[count], %[count], #6\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]:64]!\n"
+      "vld1.8 {d1}, [r0:64]!\n"
+      "vld1.8 {d2}, [r1:64]!\n"
+      "vld1.8 {d3}, [r2:64]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Leftover Load Aggregate Store.
+      "vmov.i8 d0, #0\n"
+      "vmov.i8 d1, #0\n"
+      "vmov.i8 d2, #0\n"
+      "vmov.i8 d3, #0\n"
+      "vld1.32 {d0[0]}, [%[source]]!\n"
+      "vld1.32 {d1[0]}, [r0]!\n"
+      "vld1.32 {d2[0]}, [r1]!\n"
+      "vld1.32 {d3[0]}, [r2]!\n"
+      "vld1.16 {d0[2]}, [%[source]]\n"
+      "vld1.16 {d1[2]}, [r0]\n"
+      "vld1.16 {d2[2]}, [r1]\n"
+      "vld1.16 {d3[2]}, [r2]\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
+void zip_4x8_7_aligned(const std::uint8_t* source, std::int32_t count,
+                       std::int32_t stride, std::uint8_t* destination,
+                       std::int32_t multiplicative_offset,
+                       std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "sub %[count], %[count], #7\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]:64]!\n"
+      "vld1.8 {d1}, [r0:64]!\n"
+      "vld1.8 {d2}, [r1:64]!\n"
+      "vld1.8 {d3}, [r2:64]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Leftover Load Aggregate Store.
+      "vmov.i8 d0, #0\n"
+      "vmov.i8 d1, #0\n"
+      "vmov.i8 d2, #0\n"
+      "vmov.i8 d3, #0\n"
+      "vld1.32 {d0[0]}, [%[source]]!\n"
+      "vld1.32 {d1[0]}, [r0]!\n"
+      "vld1.32 {d2[0]}, [r1]!\n"
+      "vld1.32 {d3[0]}, [r2]!\n"
+      "vld1.16 {d0[2]}, [%[source]]!\n"
+      "vld1.16 {d1[2]}, [r0]!\n"
+      "vld1.16 {d2[2]}, [r1]!\n"
+      "vld1.16 {d3[2]}, [r2]!\n"
+      "vld1.8 {d0[6]}, [%[source]]\n"
+      "vld1.8 {d1[6]}, [r0]\n"
+      "vld1.8 {d2[6]}, [r1]\n"
+      "vld1.8 {d3[6]}, [r2]\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
 void zip_1x8(const std::uint8_t* source, std::int32_t count,
              std::int32_t stride, std::uint8_t* destination,
              std::int32_t multiplicative_offset, std::int32_t additive_offset) {
@@ -2486,16 +3058,587 @@ void zip_3x8_7(const std::uint8_t* source, std::int32_t count,
         "d10", "d11", "d12", "d13", "d14", "d16", "d17", "cc", "memory");
 }
 
+void zip_4x8(const std::uint8_t* source, std::int32_t count,
+             std::int32_t stride, std::uint8_t* destination,
+             std::int32_t multiplicative_offset, std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]]!\n"
+      "vld1.8 {d1}, [r0]!\n"
+      "vld1.8 {d2}, [r1]!\n"
+      "vld1.8 {d3}, [r2]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
+void zip_4x8_1(const std::uint8_t* source, std::int32_t count,
+               std::int32_t stride, std::uint8_t* destination,
+               std::int32_t multiplicative_offset,
+               std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "sub %[count], %[count], #1\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]]!\n"
+      "vld1.8 {d1}, [r0]!\n"
+      "vld1.8 {d2}, [r1]!\n"
+      "vld1.8 {d3}, [r2]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Leftover Load Aggregate Store.
+      "vmov.i8 d0, #0\n"
+      "vmov.i8 d1, #0\n"
+      "vmov.i8 d2, #0\n"
+      "vmov.i8 d3, #0\n"
+      "vld1.8 {d0[0]}, [%[source]]\n"
+      "vld1.8 {d1[0]}, [r0]\n"
+      "vld1.8 {d2[0]}, [r1]\n"
+      "vld1.8 {d3[0]}, [r2]\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
+void zip_4x8_2(const std::uint8_t* source, std::int32_t count,
+               std::int32_t stride, std::uint8_t* destination,
+               std::int32_t multiplicative_offset,
+               std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "sub %[count], %[count], #2\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]]!\n"
+      "vld1.8 {d1}, [r0]!\n"
+      "vld1.8 {d2}, [r1]!\n"
+      "vld1.8 {d3}, [r2]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Leftover Load Aggregate Store.
+      "vmov.i8 d0, #0\n"
+      "vmov.i8 d1, #0\n"
+      "vmov.i8 d2, #0\n"
+      "vmov.i8 d3, #0\n"
+      "vld1.16 {d0[0]}, [%[source]]\n"
+      "vld1.16 {d1[0]}, [r0]\n"
+      "vld1.16 {d2[0]}, [r1]\n"
+      "vld1.16 {d3[0]}, [r2]\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
+void zip_4x8_3(const std::uint8_t* source, std::int32_t count,
+               std::int32_t stride, std::uint8_t* destination,
+               std::int32_t multiplicative_offset,
+               std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "sub %[count], %[count], #3\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]]!\n"
+      "vld1.8 {d1}, [r0]!\n"
+      "vld1.8 {d2}, [r1]!\n"
+      "vld1.8 {d3}, [r2]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Leftover Load Aggregate Store.
+      "vmov.i8 d0, #0\n"
+      "vmov.i8 d1, #0\n"
+      "vmov.i8 d2, #0\n"
+      "vmov.i8 d3, #0\n"
+      "vld1.16 {d0[0]}, [%[source]]!\n"
+      "vld1.16 {d1[0]}, [r0]!\n"
+      "vld1.16 {d2[0]}, [r1]!\n"
+      "vld1.16 {d3[0]}, [r2]!\n"
+      "vld1.8 {d0[2]}, [%[source]]\n"
+      "vld1.8 {d1[2]}, [r0]\n"
+      "vld1.8 {d2[2]}, [r1]\n"
+      "vld1.8 {d3[2]}, [r2]\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
+void zip_4x8_4(const std::uint8_t* source, std::int32_t count,
+               std::int32_t stride, std::uint8_t* destination,
+               std::int32_t multiplicative_offset,
+               std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "sub %[count], %[count], #4\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]]!\n"
+      "vld1.8 {d1}, [r0]!\n"
+      "vld1.8 {d2}, [r1]!\n"
+      "vld1.8 {d3}, [r2]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Leftover Load Aggregate Store.
+      "vmov.i8 d0, #0\n"
+      "vmov.i8 d1, #0\n"
+      "vmov.i8 d2, #0\n"
+      "vmov.i8 d3, #0\n"
+      "vld1.32 {d0[0]}, [%[source]]\n"
+      "vld1.32 {d1[0]}, [r0]\n"
+      "vld1.32 {d2[0]}, [r1]\n"
+      "vld1.32 {d3[0]}, [r2]\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
+void zip_4x8_5(const std::uint8_t* source, std::int32_t count,
+               std::int32_t stride, std::uint8_t* destination,
+               std::int32_t multiplicative_offset,
+               std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "sub %[count], %[count], #5\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]]!\n"
+      "vld1.8 {d1}, [r0]!\n"
+      "vld1.8 {d2}, [r1]!\n"
+      "vld1.8 {d3}, [r2]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Leftover Load Aggregate Store.
+      "vmov.i8 d0, #0\n"
+      "vmov.i8 d1, #0\n"
+      "vmov.i8 d2, #0\n"
+      "vmov.i8 d3, #0\n"
+      "vld1.32 {d0[0]}, [%[source]]!\n"
+      "vld1.32 {d1[0]}, [r0]!\n"
+      "vld1.32 {d2[0]}, [r1]!\n"
+      "vld1.32 {d3[0]}, [r2]!\n"
+      "vld1.8 {d0[4]}, [%[source]]\n"
+      "vld1.8 {d1[4]}, [r0]\n"
+      "vld1.8 {d2[4]}, [r1]\n"
+      "vld1.8 {d3[4]}, [r2]\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
+void zip_4x8_6(const std::uint8_t* source, std::int32_t count,
+               std::int32_t stride, std::uint8_t* destination,
+               std::int32_t multiplicative_offset,
+               std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "sub %[count], %[count], #6\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]]!\n"
+      "vld1.8 {d1}, [r0]!\n"
+      "vld1.8 {d2}, [r1]!\n"
+      "vld1.8 {d3}, [r2]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Leftover Load Aggregate Store.
+      "vmov.i8 d0, #0\n"
+      "vmov.i8 d1, #0\n"
+      "vmov.i8 d2, #0\n"
+      "vmov.i8 d3, #0\n"
+      "vld1.32 {d0[0]}, [%[source]]!\n"
+      "vld1.32 {d1[0]}, [r0]!\n"
+      "vld1.32 {d2[0]}, [r1]!\n"
+      "vld1.32 {d3[0]}, [r2]!\n"
+      "vld1.16 {d0[2]}, [%[source]]\n"
+      "vld1.16 {d1[2]}, [r0]\n"
+      "vld1.16 {d2[2]}, [r1]\n"
+      "vld1.16 {d3[2]}, [r2]\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
+void zip_4x8_7(const std::uint8_t* source, std::int32_t count,
+               std::int32_t stride, std::uint8_t* destination,
+               std::int32_t multiplicative_offset,
+               std::int32_t additive_offset) {
+  asm volatile(
+      "add r0, %[source], %[stride]\n"
+      "add r1, r0, %[stride]\n"
+      "add r2, r1, %[stride]\n"
+      "sub %[count], %[count], #7\n"
+      "vmov.i16 q2, #0\n"
+      "vmov.i16 q3, #0\n"
+      "vmov.i16 q4, #0\n"
+      "vmov.i16 q5, #0\n"
+
+      "1:"
+      "subs %[count], %[count], #8\n"
+
+      // Load Aggregate Store.
+      "vld1.8 {d0}, [%[source]]!\n"
+      "vld1.8 {d1}, [r0]!\n"
+      "vld1.8 {d2}, [r1]!\n"
+      "vld1.8 {d3}, [r2]!\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      "bne 1b\n"
+
+      // Leftover Load Aggregate Store.
+      "vmov.i8 d0, #0\n"
+      "vmov.i8 d1, #0\n"
+      "vmov.i8 d2, #0\n"
+      "vmov.i8 d3, #0\n"
+      "vld1.32 {d0[0]}, [%[source]]!\n"
+      "vld1.32 {d1[0]}, [r0]!\n"
+      "vld1.32 {d2[0]}, [r1]!\n"
+      "vld1.32 {d3[0]}, [r2]!\n"
+      "vld1.16 {d0[2]}, [%[source]]!\n"
+      "vld1.16 {d1[2]}, [r0]!\n"
+      "vld1.16 {d2[2]}, [r1]!\n"
+      "vld1.16 {d3[2]}, [r2]!\n"
+      "vld1.8 {d0[6]}, [%[source]]\n"
+      "vld1.8 {d1[6]}, [r0]\n"
+      "vld1.8 {d2[6]}, [r1]\n"
+      "vld1.8 {d3[6]}, [r2]\n"
+      "vaddw.u8 q2, q2, d0\n"
+      "vaddw.u8 q3, q3, d1\n"
+      "vaddw.u8 q4, q4, d2\n"
+      "vaddw.u8 q5, q5, d3\n"
+      "vst1.8 {d0, d1, d2, d3}, [%[destination]:64]!\n"
+
+      // Aggregator Reduction.
+      "vmov.32 d12[0], %[multiplicative_offset]\n"
+      "vdup.32 q7, %[additive_offset]\n"
+      "vpaddl.u16 q2, q2\n"
+      "vpaddl.u16 q3, q3\n"
+      "vpaddl.u16 q4, q4\n"
+      "vpaddl.u16 q5, q5\n"
+      "vpadd.u32 d13, d4, d5\n"
+      "vpadd.u32 d16, d6, d7\n"
+      "vpadd.u32 d17, d8, d9\n"
+      "vpadd.u32 d18, d10, d11\n"
+      "vpadd.u32 d20, d13, d16\n"
+      "vpadd.u32 d21, d17, d18\n"
+      "vmul.i32 q10, q10, d12[0]\n"
+      "vadd.i32 q10, q10, q7\n"
+      "vst1.32 {d20, d21}, [%[destination]:64]!\n"
+      : [count] "+r"(count),
+        [multiplicative_offset] "+r"(multiplicative_offset),
+        [additive_offset] "+r"(additive_offset), [stride] "+r"(stride),
+        [destination] "+r"(destination), [source] "+r"(source)
+      :
+      : "r0", "r1", "r2", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8",
+        "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18",
+        "d20", "d21", "cc", "memory");
+}
+
 inline void mul_1x8_1x8_int32_rhsadd(const std::uint8_t* lhs,
                                      const std::uint8_t* rhs,
                                      std::int32_t count, std::int32_t* result,
                                      std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -2536,12 +3679,12 @@ inline void mul_1x8_2x8_int32_rhsadd(const std::uint8_t* lhs,
                                      std::int32_t count, std::int32_t* result,
                                      std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -2586,13 +3729,13 @@ inline void mul_1x8_3x8_int32_rhsadd(const std::uint8_t* lhs,
                                      std::int32_t count, std::int32_t* result,
                                      std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
       "vmov.i32 q2, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -2646,12 +3789,12 @@ inline void mul_2x8_1x8_int32_rhsadd(const std::uint8_t* lhs,
                                      std::int32_t count, std::int32_t* result,
                                      std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -2699,14 +3842,14 @@ inline void mul_2x8_2x8_int32_rhsadd(const std::uint8_t* lhs,
                                      std::int32_t count, std::int32_t* result,
                                      std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
       "vmov.i32 q2, #0\n"
       "vmov.i32 q3, q0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -2761,6 +3904,8 @@ inline void mul_2x8_3x8_int32_rhsadd(const std::uint8_t* lhs,
                                      std::int32_t count, std::int32_t* result,
                                      std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
@@ -2769,8 +3914,6 @@ inline void mul_2x8_3x8_int32_rhsadd(const std::uint8_t* lhs,
       "vmov.i32 q4, q1\n"
       "vmov.i32 q5, q2\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -2840,13 +3983,13 @@ inline void mul_3x8_1x8_int32_rhsadd(const std::uint8_t* lhs,
                                      std::int32_t count, std::int32_t* result,
                                      std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
       "vmov.i32 q2, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -2900,6 +4043,8 @@ inline void mul_3x8_2x8_int32_rhsadd(const std::uint8_t* lhs,
                                      std::int32_t count, std::int32_t* result,
                                      std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
@@ -2908,8 +4053,6 @@ inline void mul_3x8_2x8_int32_rhsadd(const std::uint8_t* lhs,
       "vmov.i32 q4, q1\n"
       "vmov.i32 q5, q2\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -2973,6 +4116,8 @@ inline void mul_3x8_3x8_int32_rhsadd(const std::uint8_t* lhs,
                                      std::int32_t count, std::int32_t* result,
                                      std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
@@ -2984,8 +4129,6 @@ inline void mul_3x8_3x8_int32_rhsadd(const std::uint8_t* lhs,
       "vmov.i32 q7, q4\n"
       "vmov.i32 q8, q5\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // 3x3 lanes loop.
       "1:"
 
@@ -3066,17 +4209,77 @@ inline void mul_3x8_3x8_int32_rhsadd(const std::uint8_t* lhs,
         "d31", "cc", "memory");
 }
 
+inline void mul_1x8_4x8_int32_rhsadd(const std::uint8_t* lhs,
+                                     const std::uint8_t* rhs,
+                                     std::int32_t count, std::int32_t* result,
+                                     std::int32_t result_stride) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+
+      // General NxM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d8}, [%[lhs]:64]!\n"
+      "vld1.8 {d9, d10, d11, d12}, [%[rhs]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs], #64]\n"
+      "vmull.u8 q7, d9, d8\n"
+      "vmull.u8 q8, d10, d8\n"
+      "vmull.u8 q9, d11, d8\n"
+      "vmull.u8 q10, d12, d8\n"
+      "vpadal.u16 q0, q7\n"
+      "vpadal.u16 q1, q8\n"
+      "vpadal.u16 q2, q9\n"
+      "vpadal.u16 q3, q10\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {q4}, [%[rhs]:64]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+
+      // Reduce rows.
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q4\n"
+
+      // Store reduced rows.
+      "vst1.32 {d0, d1}, [%[result]], %[result_stride]\n"
+      : [count] "+r"(count), [result_stride] "+r"(result_stride),
+        [rhs] "+r"(rhs), [lhs] "+r"(lhs), [result] "+r"(result)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d14", "d15", "d16", "d17", "d18", "d19", "d20", "d21",
+        "cc", "memory");
+}
+
 inline void mul_1x8_1x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             const std::uint8_t* rhs,
                                             std::int32_t count,
                                             std::int32_t* result,
                                             std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -3123,12 +4326,12 @@ inline void mul_1x8_2x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t* result,
                                             std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -3179,13 +4382,13 @@ inline void mul_1x8_3x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t* result,
                                             std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
       "vmov.i32 q2, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -3245,12 +4448,12 @@ inline void mul_2x8_1x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t* result,
                                             std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -3306,14 +4509,14 @@ inline void mul_2x8_2x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t* result,
                                             std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
       "vmov.i32 q2, #0\n"
       "vmov.i32 q3, q0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -3376,6 +4579,8 @@ inline void mul_2x8_3x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t* result,
                                             std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
@@ -3384,8 +4589,6 @@ inline void mul_2x8_3x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
       "vmov.i32 q4, q1\n"
       "vmov.i32 q5, q2\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -3464,13 +4667,13 @@ inline void mul_3x8_1x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t* result,
                                             std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
       "vmov.i32 q2, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -3534,6 +4737,8 @@ inline void mul_3x8_2x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t* result,
                                             std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
@@ -3542,8 +4747,6 @@ inline void mul_3x8_2x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
       "vmov.i32 q4, q1\n"
       "vmov.i32 q5, q2\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -3618,6 +4821,8 @@ inline void mul_3x8_3x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t* result,
                                             std::int32_t result_stride) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
@@ -3629,8 +4834,6 @@ inline void mul_3x8_3x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
       "vmov.i32 q7, q4\n"
       "vmov.i32 q8, q5\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // 3x3 lanes loop.
       "1:"
 
@@ -3720,17 +4923,83 @@ inline void mul_3x8_3x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
         "d31", "cc", "memory");
 }
 
+inline void mul_1x8_4x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
+                                            const std::uint8_t* rhs,
+                                            std::int32_t count,
+                                            std::int32_t* result,
+                                            std::int32_t result_stride) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+
+      // General NxM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d8}, [%[lhs]:64]!\n"
+      "vld1.8 {d9, d10, d11, d12}, [%[rhs]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs], #64]\n"
+      "vmull.u8 q7, d9, d8\n"
+      "vmull.u8 q8, d10, d8\n"
+      "vmull.u8 q9, d11, d8\n"
+      "vmull.u8 q10, d12, d8\n"
+      "vpadal.u16 q0, q7\n"
+      "vpadal.u16 q1, q8\n"
+      "vpadal.u16 q2, q9\n"
+      "vpadal.u16 q3, q10\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {d8}, [%[lhs]:64]\n"
+      "vdup.32 q5, d8[0]\n"
+      "vld1.32 {q6}, [%[rhs]:64]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+
+      // Reduce rows.
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+
+      // Add lhs offsets to aggregated rows.
+      "vadd.s32 q0, q0, q5\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q6\n"
+
+      // Store reduced rows.
+      "vst1.32 {d0, d1}, [%[result]], %[result_stride]\n"
+      : [count] "+r"(count), [result_stride] "+r"(result_stride),
+        [rhs] "+r"(rhs), [lhs] "+r"(lhs), [result] "+r"(result)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
+        "d21", "cc", "memory");
+}
+
 inline void mul_1x8_1x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             const std::uint8_t* rhs,
                                             std::int32_t count, float* result,
                                             std::int32_t result_stride,
                                             float result_scale) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -3783,12 +5052,12 @@ inline void mul_1x8_2x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t result_stride,
                                             float result_scale) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -3845,13 +5114,13 @@ inline void mul_1x8_3x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t result_stride,
                                             float result_scale) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
       "vmov.i32 q2, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -3917,12 +5186,12 @@ inline void mul_2x8_1x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t result_stride,
                                             float result_scale) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -3986,14 +5255,14 @@ inline void mul_2x8_2x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t result_stride,
                                             float result_scale) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
       "vmov.i32 q2, #0\n"
       "vmov.i32 q3, q0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -4064,6 +5333,8 @@ inline void mul_2x8_3x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t result_stride,
                                             float result_scale) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
@@ -4072,8 +5343,6 @@ inline void mul_2x8_3x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
       "vmov.i32 q4, q1\n"
       "vmov.i32 q5, q2\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -4160,13 +5429,13 @@ inline void mul_3x8_1x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t result_stride,
                                             float result_scale) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
       "vmov.i32 q2, #0\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -4240,6 +5509,8 @@ inline void mul_3x8_2x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t result_stride,
                                             float result_scale) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
@@ -4248,8 +5519,6 @@ inline void mul_3x8_2x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
       "vmov.i32 q4, q1\n"
       "vmov.i32 q5, q2\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // General NxM lanes loop.
       "1:"
 
@@ -4334,6 +5603,8 @@ inline void mul_3x8_3x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
                                             std::int32_t result_stride,
                                             float result_scale) {
   asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
       // Clear aggregators.
       "vmov.i32 q0, #0\n"
       "vmov.i32 q1, #0\n"
@@ -4345,8 +5616,6 @@ inline void mul_3x8_3x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
       "vmov.i32 q7, q4\n"
       "vmov.i32 q8, q5\n"
 
-      "pld [%[lhs]]\n"
-      "pld [%[rhs]]\n"
       // 3x3 lanes loop.
       "1:"
 
@@ -4444,6 +5713,1068 @@ inline void mul_3x8_3x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
         "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
         "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30",
         "d31", "cc", "memory");
+}
+
+inline void mul_1x8_4x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
+                                            const std::uint8_t* rhs,
+                                            std::int32_t count, float* result,
+                                            std::int32_t result_stride,
+                                            float result_scale) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs]]\n"
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+
+      // General NxM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d8}, [%[lhs]:64]!\n"
+      "vld1.8 {d9, d10, d11, d12}, [%[rhs]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs], #64]\n"
+      "vmull.u8 q7, d9, d8\n"
+      "vmull.u8 q8, d10, d8\n"
+      "vmull.u8 q9, d11, d8\n"
+      "vmull.u8 q10, d12, d8\n"
+      "vpadal.u16 q0, q7\n"
+      "vpadal.u16 q1, q8\n"
+      "vpadal.u16 q2, q9\n"
+      "vpadal.u16 q3, q10\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {d8}, [%[lhs]:64]\n"
+      "vdup.32 q5, d8[0]\n"
+      "vld1.32 {q6}, [%[rhs]:64]\n"
+      "vdup.32 q7, %[result_scale]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+
+      // Reduce rows.
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+
+      // Add lhs offsets to aggregated rows.
+      "vadd.s32 q0, q0, q5\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q6\n"
+
+      // Convert to float. Multiply by result scale.
+      "vcvt.f32.s32 q0, q0\n"
+      "vmul.f32 q0, q0, q7\n"
+
+      // Store reduced rows.
+      "vst1.32 {d0, d1}, [%[result]], %[result_stride]\n"
+      : [count] "+r"(count), [result_scale] "+r"(result_scale),
+        [result_stride] "+r"(result_stride), [rhs] "+r"(rhs), [lhs] "+r"(lhs),
+        [result] "+r"(result)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
+        "d21", "cc", "memory");
+}
+
+inline void mul_1x8_5x8_int32_rhsadd(const std::uint8_t* lhs,
+                                     const std::uint8_t* rhs_1,
+                                     const std::uint8_t* rhs_2,
+                                     std::int32_t count, std::int32_t* result) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs_1]]\n"
+      "pld [%[rhs_2]]\n"
+
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+      "vmov.i32 q4, q1\n"
+
+      // General 1xM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d14}, [%[lhs]:64]!\n"
+      "vld1.8 {d10, d11, d12, d13}, [%[rhs_1]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs_1], #128]\n"
+      "vmull.u8 q8, d10, d14\n"
+      "vmull.u8 q9, d11, d14\n"
+      "vmull.u8 q10, d12, d14\n"
+      "vmull.u8 q11, d13, d14\n"
+      "vld1.8 {d10}, [%[rhs_2]:64]!\n"
+      "pld [%[rhs_2], #32]\n"
+      "vpadal.u16 q0, q8\n"
+      "vpadal.u16 q1, q9\n"
+      "vpadal.u16 q2, q10\n"
+      "vpadal.u16 q3, q11\n"
+      "vmull.u8 q8, d10, d14\n"
+      "vpadal.u16 q4, q8\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {q5}, [%[rhs_1]:64]\n"
+      "vld1.32 {d12}, [%[rhs_2]:64]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+      "vpadd.u32 d8, d8, d9\n"
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+      "vpadd.u32 d2, d8, d8\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q5\n"
+      "vadd.s32 d2, d2, d12\n"
+
+      // Store results.
+      "vst1.32 {d0, d1}, [%[result]]!\n"
+      "vst1.32 {d2[0]}, [%[result]]\n"
+      : [count] "+r"(count), [rhs_1] "+r"(rhs_1), [rhs_2] "+r"(rhs_2),
+        [lhs] "+r"(lhs), [result] "+r"(result)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d16", "d17", "d18", "d19", "d20", "d21",
+        "d22", "d23", "cc", "memory");
+}
+
+inline void mul_1x8_6x8_int32_rhsadd(const std::uint8_t* lhs,
+                                     const std::uint8_t* rhs_1,
+                                     const std::uint8_t* rhs_2,
+                                     std::int32_t count, std::int32_t* result) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs_1]]\n"
+      "pld [%[rhs_2]]\n"
+
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+      "vmov.i32 q4, q1\n"
+      "vmov.i32 q5, q2\n"
+
+      // General 1xM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d16}, [%[lhs]:64]!\n"
+      "vld1.8 {d12, d13, d14, d15}, [%[rhs_1]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs_1], #128]\n"
+      "vmull.u8 q9, d12, d16\n"
+      "vmull.u8 q10, d13, d16\n"
+      "vmull.u8 q11, d14, d16\n"
+      "vmull.u8 q12, d15, d16\n"
+      "vld1.8 {d12, d13}, [%[rhs_2]:64]!\n"
+      "pld [%[rhs_2], #64]\n"
+      "vpadal.u16 q0, q9\n"
+      "vpadal.u16 q1, q10\n"
+      "vpadal.u16 q2, q11\n"
+      "vpadal.u16 q3, q12\n"
+      "vmull.u8 q9, d12, d16\n"
+      "vmull.u8 q10, d13, d16\n"
+      "vpadal.u16 q4, q9\n"
+      "vpadal.u16 q5, q10\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {q6}, [%[rhs_1]:64]\n"
+      "vld1.32 {d14}, [%[rhs_2]:64]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+      "vpadd.u32 d8, d8, d9\n"
+      "vpadd.u32 d10, d10, d11\n"
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+      "vpadd.u32 d2, d8, d10\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q6\n"
+      "vadd.s32 d2, d2, d14\n"
+
+      // Store results.
+      "vst1.32 {d0, d1, d2}, [%[result]]\n"
+      : [count] "+r"(count), [rhs_1] "+r"(rhs_1), [rhs_2] "+r"(rhs_2),
+        [lhs] "+r"(lhs), [result] "+r"(result)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d15", "d16", "d18", "d19", "d20", "d21",
+        "d22", "d23", "d24", "d25", "cc", "memory");
+}
+
+inline void mul_1x8_7x8_int32_rhsadd(const std::uint8_t* lhs,
+                                     const std::uint8_t* rhs_1,
+                                     const std::uint8_t* rhs_2,
+                                     std::int32_t count, std::int32_t* result) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs_1]]\n"
+      "pld [%[rhs_2]]\n"
+
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+      "vmov.i32 q4, q1\n"
+      "vmov.i32 q5, q2\n"
+      "vmov.i32 q6, q3\n"
+
+      // General 1xM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d18}, [%[lhs]:64]!\n"
+      "vld1.8 {d14, d15, d16, d17}, [%[rhs_1]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs_1], #128]\n"
+      "vmull.u8 q10, d14, d18\n"
+      "vmull.u8 q11, d15, d18\n"
+      "vmull.u8 q12, d16, d18\n"
+      "vmull.u8 q13, d17, d18\n"
+      "vld1.8 {d14, d15, d16}, [%[rhs_2]:64]!\n"
+      "pld [%[rhs_2], #96]\n"
+      "vpadal.u16 q0, q10\n"
+      "vpadal.u16 q1, q11\n"
+      "vpadal.u16 q2, q12\n"
+      "vpadal.u16 q3, q13\n"
+      "vmull.u8 q10, d14, d18\n"
+      "vmull.u8 q11, d15, d18\n"
+      "vmull.u8 q12, d16, d18\n"
+      "vpadal.u16 q4, q10\n"
+      "vpadal.u16 q5, q11\n"
+      "vpadal.u16 q6, q12\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {q7}, [%[rhs_1]:64]\n"
+      "vld1.32 {q8}, [%[rhs_2]:64]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+      "vpadd.u32 d8, d8, d9\n"
+      "vpadd.u32 d10, d10, d11\n"
+      "vpadd.u32 d12, d12, d13\n"
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+      "vpadd.u32 d2, d8, d10\n"
+      "vpadd.u32 d3, d12, d12\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q7\n"
+      "vadd.s32 q1, q1, q8\n"
+
+      // Store results.
+      "vst1.32 {d0, d1, d2}, [%[result]]!\n"
+      "vst1.32 {d3[0]}, [%[result]]\n"
+      : [count] "+r"(count), [rhs_1] "+r"(rhs_1), [rhs_2] "+r"(rhs_2),
+        [lhs] "+r"(lhs), [result] "+r"(result)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d20", "d21",
+        "d22", "d23", "d24", "d25", "d26", "d27", "cc", "memory");
+}
+
+inline void mul_1x8_8x8_int32_rhsadd(const std::uint8_t* lhs,
+                                     const std::uint8_t* rhs_1,
+                                     const std::uint8_t* rhs_2,
+                                     std::int32_t count, std::int32_t* result) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs_1]]\n"
+      "pld [%[rhs_2]]\n"
+
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+      "vmov.i32 q4, q1\n"
+      "vmov.i32 q5, q2\n"
+      "vmov.i32 q6, q3\n"
+      "vmov.i32 q7, q4\n"
+
+      // General 1xM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d20}, [%[lhs]:64]!\n"
+      "vld1.8 {d16, d17, d18, d19}, [%[rhs_1]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs_1], #128]\n"
+      "vmull.u8 q11, d16, d20\n"
+      "vmull.u8 q12, d17, d20\n"
+      "vmull.u8 q13, d18, d20\n"
+      "vmull.u8 q14, d19, d20\n"
+      "vld1.8 {d16, d17, d18, d19}, [%[rhs_2]:64]!\n"
+      "pld [%[rhs_2], #128]\n"
+      "vpadal.u16 q0, q11\n"
+      "vpadal.u16 q1, q12\n"
+      "vpadal.u16 q2, q13\n"
+      "vpadal.u16 q3, q14\n"
+      "vmull.u8 q11, d16, d20\n"
+      "vmull.u8 q12, d17, d20\n"
+      "vmull.u8 q13, d18, d20\n"
+      "vmull.u8 q14, d19, d20\n"
+      "vpadal.u16 q4, q11\n"
+      "vpadal.u16 q5, q12\n"
+      "vpadal.u16 q6, q13\n"
+      "vpadal.u16 q7, q14\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {q8}, [%[rhs_1]:64]\n"
+      "vld1.32 {q9}, [%[rhs_2]:64]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+      "vpadd.u32 d8, d8, d9\n"
+      "vpadd.u32 d10, d10, d11\n"
+      "vpadd.u32 d12, d12, d13\n"
+      "vpadd.u32 d14, d14, d15\n"
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+      "vpadd.u32 d2, d8, d10\n"
+      "vpadd.u32 d3, d12, d14\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q8\n"
+      "vadd.s32 q1, q1, q9\n"
+
+      // Store results.
+      "vst1.32 {d0, d1, d2, d3}, [%[result]]\n"
+      : [count] "+r"(count), [rhs_1] "+r"(rhs_1), [rhs_2] "+r"(rhs_2),
+        [lhs] "+r"(lhs), [result] "+r"(result)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
+        "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "cc", "memory");
+}
+
+inline void mul_1x8_5x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
+                                            const std::uint8_t* rhs_1,
+                                            const std::uint8_t* rhs_2,
+                                            std::int32_t count,
+                                            std::int32_t* result) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs_1]]\n"
+      "pld [%[rhs_2]]\n"
+
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+      "vmov.i32 q4, q1\n"
+
+      // General 1xM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d14}, [%[lhs]:64]!\n"
+      "vld1.8 {d10, d11, d12, d13}, [%[rhs_1]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs_1], #128]\n"
+      "vmull.u8 q8, d10, d14\n"
+      "vmull.u8 q9, d11, d14\n"
+      "vmull.u8 q10, d12, d14\n"
+      "vmull.u8 q11, d13, d14\n"
+      "vld1.8 {d10}, [%[rhs_2]:64]!\n"
+      "pld [%[rhs_2], #32]\n"
+      "vpadal.u16 q0, q8\n"
+      "vpadal.u16 q1, q9\n"
+      "vpadal.u16 q2, q10\n"
+      "vpadal.u16 q3, q11\n"
+      "vmull.u8 q8, d10, d14\n"
+      "vpadal.u16 q4, q8\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {d10[], d11[]}, [%[lhs]]\n"
+      "vld1.32 {q6}, [%[rhs_1]:64]\n"
+      "vld1.32 {d14}, [%[rhs_2]:64]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+      "vpadd.u32 d8, d8, d9\n"
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+      "vpadd.u32 d2, d8, d8\n"
+
+      // Add lhs offsets to aggregated rows.
+      "vadd.s32 q0, q0, q5\n"
+      "vadd.s32 d2, d2, d10\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q6\n"
+      "vadd.s32 d2, d2, d14\n"
+
+      // Store results.
+      "vst1.32 {d0, d1}, [%[result]]!\n"
+      "vst1.32 {d2[0]}, [%[result]]\n"
+      : [count] "+r"(count), [rhs_1] "+r"(rhs_1), [rhs_2] "+r"(rhs_2),
+        [lhs] "+r"(lhs), [result] "+r"(result)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d16", "d17", "d18", "d19", "d20", "d21",
+        "d22", "d23", "cc", "memory");
+}
+
+inline void mul_1x8_6x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
+                                            const std::uint8_t* rhs_1,
+                                            const std::uint8_t* rhs_2,
+                                            std::int32_t count,
+                                            std::int32_t* result) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs_1]]\n"
+      "pld [%[rhs_2]]\n"
+
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+      "vmov.i32 q4, q1\n"
+      "vmov.i32 q5, q2\n"
+
+      // General 1xM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d16}, [%[lhs]:64]!\n"
+      "vld1.8 {d12, d13, d14, d15}, [%[rhs_1]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs_1], #128]\n"
+      "vmull.u8 q9, d12, d16\n"
+      "vmull.u8 q10, d13, d16\n"
+      "vmull.u8 q11, d14, d16\n"
+      "vmull.u8 q12, d15, d16\n"
+      "vld1.8 {d12, d13}, [%[rhs_2]:64]!\n"
+      "pld [%[rhs_2], #64]\n"
+      "vpadal.u16 q0, q9\n"
+      "vpadal.u16 q1, q10\n"
+      "vpadal.u16 q2, q11\n"
+      "vpadal.u16 q3, q12\n"
+      "vmull.u8 q9, d12, d16\n"
+      "vmull.u8 q10, d13, d16\n"
+      "vpadal.u16 q4, q9\n"
+      "vpadal.u16 q5, q10\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {d12[], d13[]}, [%[lhs]]\n"
+      "vld1.32 {q7}, [%[rhs_1]:64]\n"
+      "vld1.32 {d16}, [%[rhs_2]:64]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+      "vpadd.u32 d8, d8, d9\n"
+      "vpadd.u32 d10, d10, d11\n"
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+      "vpadd.u32 d2, d8, d10\n"
+
+      // Add lhs offsets to aggregated rows.
+      "vadd.s32 q0, q0, q6\n"
+      "vadd.s32 d2, d2, d12\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q7\n"
+      "vadd.s32 d2, d2, d16\n"
+
+      // Store results.
+      "vst1.32 {d0, d1, d2}, [%[result]]\n"
+      : [count] "+r"(count), [rhs_1] "+r"(rhs_1), [rhs_2] "+r"(rhs_2),
+        [lhs] "+r"(lhs), [result] "+r"(result)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d15", "d16", "d18", "d19", "d20", "d21",
+        "d22", "d23", "d24", "d25", "cc", "memory");
+}
+
+inline void mul_1x8_7x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
+                                            const std::uint8_t* rhs_1,
+                                            const std::uint8_t* rhs_2,
+                                            std::int32_t count,
+                                            std::int32_t* result) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs_1]]\n"
+      "pld [%[rhs_2]]\n"
+
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+      "vmov.i32 q4, q1\n"
+      "vmov.i32 q5, q2\n"
+      "vmov.i32 q6, q3\n"
+
+      // General 1xM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d18}, [%[lhs]:64]!\n"
+      "vld1.8 {d14, d15, d16, d17}, [%[rhs_1]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs_1], #128]\n"
+      "vmull.u8 q10, d14, d18\n"
+      "vmull.u8 q11, d15, d18\n"
+      "vmull.u8 q12, d16, d18\n"
+      "vmull.u8 q13, d17, d18\n"
+      "vld1.8 {d14, d15, d16}, [%[rhs_2]:64]!\n"
+      "pld [%[rhs_2], #96]\n"
+      "vpadal.u16 q0, q10\n"
+      "vpadal.u16 q1, q11\n"
+      "vpadal.u16 q2, q12\n"
+      "vpadal.u16 q3, q13\n"
+      "vmull.u8 q10, d14, d18\n"
+      "vmull.u8 q11, d15, d18\n"
+      "vmull.u8 q12, d16, d18\n"
+      "vpadal.u16 q4, q10\n"
+      "vpadal.u16 q5, q11\n"
+      "vpadal.u16 q6, q12\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {d14[], d15[]}, [%[lhs]]\n"
+      "vld1.32 {q8}, [%[rhs_1]:64]\n"
+      "vld1.32 {q9}, [%[rhs_2]:64]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+      "vpadd.u32 d8, d8, d9\n"
+      "vpadd.u32 d10, d10, d11\n"
+      "vpadd.u32 d12, d12, d13\n"
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+      "vpadd.u32 d2, d8, d10\n"
+      "vpadd.u32 d3, d12, d12\n"
+
+      // Add lhs offsets to aggregated rows.
+      "vadd.s32 q0, q0, q7\n"
+      "vadd.s32 q1, q1, q7\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q8\n"
+      "vadd.s32 q1, q1, q9\n"
+
+      // Store results.
+      "vst1.32 {d0, d1, d2}, [%[result]]!\n"
+      "vst1.32 {d3[0]}, [%[result]]\n"
+      : [count] "+r"(count), [rhs_1] "+r"(rhs_1), [rhs_2] "+r"(rhs_2),
+        [lhs] "+r"(lhs), [result] "+r"(result)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
+        "d21", "d22", "d23", "d24", "d25", "d26", "d27", "cc", "memory");
+}
+
+inline void mul_1x8_8x8_int32_lhsadd_rhsadd(const std::uint8_t* lhs,
+                                            const std::uint8_t* rhs_1,
+                                            const std::uint8_t* rhs_2,
+                                            std::int32_t count,
+                                            std::int32_t* result) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs_1]]\n"
+      "pld [%[rhs_2]]\n"
+
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+      "vmov.i32 q4, q1\n"
+      "vmov.i32 q5, q2\n"
+      "vmov.i32 q6, q3\n"
+      "vmov.i32 q7, q4\n"
+
+      // General 1xM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d20}, [%[lhs]:64]!\n"
+      "vld1.8 {d16, d17, d18, d19}, [%[rhs_1]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs_1], #128]\n"
+      "vmull.u8 q11, d16, d20\n"
+      "vmull.u8 q12, d17, d20\n"
+      "vmull.u8 q13, d18, d20\n"
+      "vmull.u8 q14, d19, d20\n"
+      "vld1.8 {d16, d17, d18, d19}, [%[rhs_2]:64]!\n"
+      "pld [%[rhs_2], #128]\n"
+      "vpadal.u16 q0, q11\n"
+      "vpadal.u16 q1, q12\n"
+      "vpadal.u16 q2, q13\n"
+      "vpadal.u16 q3, q14\n"
+      "vmull.u8 q11, d16, d20\n"
+      "vmull.u8 q12, d17, d20\n"
+      "vmull.u8 q13, d18, d20\n"
+      "vmull.u8 q14, d19, d20\n"
+      "vpadal.u16 q4, q11\n"
+      "vpadal.u16 q5, q12\n"
+      "vpadal.u16 q6, q13\n"
+      "vpadal.u16 q7, q14\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {d16[], d17[]}, [%[lhs]]\n"
+      "vld1.32 {q9}, [%[rhs_1]:64]\n"
+      "vld1.32 {q10}, [%[rhs_2]:64]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+      "vpadd.u32 d8, d8, d9\n"
+      "vpadd.u32 d10, d10, d11\n"
+      "vpadd.u32 d12, d12, d13\n"
+      "vpadd.u32 d14, d14, d15\n"
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+      "vpadd.u32 d2, d8, d10\n"
+      "vpadd.u32 d3, d12, d14\n"
+
+      // Add lhs offsets to aggregated rows.
+      "vadd.s32 q0, q0, q8\n"
+      "vadd.s32 q1, q1, q8\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q9\n"
+      "vadd.s32 q1, q1, q10\n"
+
+      // Store results.
+      "vst1.32 {d0, d1, d2, d3}, [%[result]]\n"
+      : [count] "+r"(count), [rhs_1] "+r"(rhs_1), [rhs_2] "+r"(rhs_2),
+        [lhs] "+r"(lhs), [result] "+r"(result)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
+        "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "cc",
+        "memory");
+}
+
+inline void mul_1x8_5x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
+                                            const std::uint8_t* rhs_1,
+                                            const std::uint8_t* rhs_2,
+                                            std::int32_t count, float* result,
+                                            float result_scale) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs_1]]\n"
+      "pld [%[rhs_2]]\n"
+
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+      "vmov.i32 q4, q1\n"
+
+      // General 1xM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d14}, [%[lhs]:64]!\n"
+      "vld1.8 {d10, d11, d12, d13}, [%[rhs_1]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs_1], #128]\n"
+      "vmull.u8 q8, d10, d14\n"
+      "vmull.u8 q9, d11, d14\n"
+      "vmull.u8 q10, d12, d14\n"
+      "vmull.u8 q11, d13, d14\n"
+      "vld1.8 {d10}, [%[rhs_2]:64]!\n"
+      "pld [%[rhs_2], #32]\n"
+      "vpadal.u16 q0, q8\n"
+      "vpadal.u16 q1, q9\n"
+      "vpadal.u16 q2, q10\n"
+      "vpadal.u16 q3, q11\n"
+      "vmull.u8 q8, d10, d14\n"
+      "vpadal.u16 q4, q8\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {d10[], d11[]}, [%[lhs]]\n"
+      "vld1.32 {q6}, [%[rhs_1]:64]\n"
+      "vld1.32 {d14}, [%[rhs_2]:64]\n"
+      "vdup.32 q8, %[result_scale]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+      "vpadd.u32 d8, d8, d9\n"
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+      "vpadd.u32 d2, d8, d8\n"
+
+      // Add lhs offsets to aggregated rows.
+      "vadd.s32 q0, q0, q5\n"
+      "vadd.s32 d2, d2, d10\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q6\n"
+      "vadd.s32 d2, d2, d14\n"
+
+      // Convert to float and scale.
+      "vcvt.f32.s32 q0, q0\n"
+      "vcvt.f32.s32 d2, d2\n"
+      "vmul.f32 q0, q0, q8\n"
+      "vmul.f32 d2, d2, d16\n"
+
+      // Store results.
+      "vst1.32 {d0, d1}, [%[result]]!\n"
+      "vst1.32 {d2[0]}, [%[result]]\n"
+      : [count] "+r"(count), [result_scale] "+r"(result_scale), [lhs] "+r"(lhs),
+        [result] "+r"(result), [rhs_1] "+r"(rhs_1), [rhs_2] "+r"(rhs_2)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d16", "d17", "d18", "d19", "d20", "d21",
+        "d22", "d23", "cc", "memory");
+}
+
+inline void mul_1x8_6x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
+                                            const std::uint8_t* rhs_1,
+                                            const std::uint8_t* rhs_2,
+                                            std::int32_t count, float* result,
+                                            float result_scale) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs_1]]\n"
+      "pld [%[rhs_2]]\n"
+
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+      "vmov.i32 q4, q1\n"
+      "vmov.i32 q5, q2\n"
+
+      // General 1xM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d16}, [%[lhs]:64]!\n"
+      "vld1.8 {d12, d13, d14, d15}, [%[rhs_1]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs_1], #128]\n"
+      "vmull.u8 q9, d12, d16\n"
+      "vmull.u8 q10, d13, d16\n"
+      "vmull.u8 q11, d14, d16\n"
+      "vmull.u8 q12, d15, d16\n"
+      "vld1.8 {d12, d13}, [%[rhs_2]:64]!\n"
+      "pld [%[rhs_2], #64]\n"
+      "vpadal.u16 q0, q9\n"
+      "vpadal.u16 q1, q10\n"
+      "vpadal.u16 q2, q11\n"
+      "vpadal.u16 q3, q12\n"
+      "vmull.u8 q9, d12, d16\n"
+      "vmull.u8 q10, d13, d16\n"
+      "vpadal.u16 q4, q9\n"
+      "vpadal.u16 q5, q10\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {d12[], d13[]}, [%[lhs]]\n"
+      "vld1.32 {q7}, [%[rhs_1]:64]\n"
+      "vld1.32 {d16}, [%[rhs_2]:64]\n"
+      "vdup.32 q9, %[result_scale]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+      "vpadd.u32 d8, d8, d9\n"
+      "vpadd.u32 d10, d10, d11\n"
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+      "vpadd.u32 d2, d8, d10\n"
+
+      // Add lhs offsets to aggregated rows.
+      "vadd.s32 q0, q0, q6\n"
+      "vadd.s32 d2, d2, d12\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q7\n"
+      "vadd.s32 d2, d2, d16\n"
+
+      // Convert to float and scale.
+      "vcvt.f32.s32 q0, q0\n"
+      "vcvt.f32.s32 d2, d2\n"
+      "vmul.f32 q0, q0, q9\n"
+      "vmul.f32 d2, d2, d18\n"
+
+      // Store results.
+      "vst1.32 {d0, d1, d2}, [%[result]]\n"
+      : [count] "+r"(count), [result_scale] "+r"(result_scale), [lhs] "+r"(lhs),
+        [result] "+r"(result), [rhs_1] "+r"(rhs_1), [rhs_2] "+r"(rhs_2)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d15", "d16", "d18", "d19", "d20", "d21",
+        "d22", "d23", "d24", "d25", "cc", "memory");
+}
+
+inline void mul_1x8_7x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
+                                            const std::uint8_t* rhs_1,
+                                            const std::uint8_t* rhs_2,
+                                            std::int32_t count, float* result,
+                                            float result_scale) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs_1]]\n"
+      "pld [%[rhs_2]]\n"
+
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+      "vmov.i32 q4, q1\n"
+      "vmov.i32 q5, q2\n"
+      "vmov.i32 q6, q3\n"
+
+      // General 1xM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d18}, [%[lhs]:64]!\n"
+      "vld1.8 {d14, d15, d16, d17}, [%[rhs_1]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs_1], #128]\n"
+      "vmull.u8 q10, d14, d18\n"
+      "vmull.u8 q11, d15, d18\n"
+      "vmull.u8 q12, d16, d18\n"
+      "vmull.u8 q13, d17, d18\n"
+      "vld1.8 {d14, d15, d16}, [%[rhs_2]:64]!\n"
+      "pld [%[rhs_2], #96]\n"
+      "vpadal.u16 q0, q10\n"
+      "vpadal.u16 q1, q11\n"
+      "vpadal.u16 q2, q12\n"
+      "vpadal.u16 q3, q13\n"
+      "vmull.u8 q10, d14, d18\n"
+      "vmull.u8 q11, d15, d18\n"
+      "vmull.u8 q12, d16, d18\n"
+      "vpadal.u16 q4, q10\n"
+      "vpadal.u16 q5, q11\n"
+      "vpadal.u16 q6, q12\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {d14[], d15[]}, [%[lhs]]\n"
+      "vld1.32 {q8}, [%[rhs_1]:64]\n"
+      "vld1.32 {q9}, [%[rhs_2]:64]\n"
+      "vdup.32 q10, %[result_scale]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+      "vpadd.u32 d8, d8, d9\n"
+      "vpadd.u32 d10, d10, d11\n"
+      "vpadd.u32 d12, d12, d13\n"
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+      "vpadd.u32 d2, d8, d10\n"
+      "vpadd.u32 d3, d12, d12\n"
+
+      // Add lhs offsets to aggregated rows.
+      "vadd.s32 q0, q0, q7\n"
+      "vadd.s32 q1, q1, q7\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q8\n"
+      "vadd.s32 q1, q1, q9\n"
+
+      // Convert to float and scale.
+      "vcvt.f32.s32 q0, q0\n"
+      "vcvt.f32.s32 q1, q1\n"
+      "vmul.f32 q0, q0, q10\n"
+      "vmul.f32 q1, q1, q10\n"
+
+      // Store results.
+      "vst1.32 {d0, d1, d2}, [%[result]]!\n"
+      "vst1.32 {d3[0]}, [%[result]]\n"
+      : [count] "+r"(count), [result_scale] "+r"(result_scale), [lhs] "+r"(lhs),
+        [result] "+r"(result), [rhs_1] "+r"(rhs_1), [rhs_2] "+r"(rhs_2)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
+        "d21", "d22", "d23", "d24", "d25", "d26", "d27", "cc", "memory");
+}
+
+inline void mul_1x8_8x8_float_lhsadd_rhsadd(const std::uint8_t* lhs,
+                                            const std::uint8_t* rhs_1,
+                                            const std::uint8_t* rhs_2,
+                                            std::int32_t count, float* result,
+                                            float result_scale) {
+  asm volatile(
+      "pld [%[lhs]]\n"
+      "pld [%[rhs_1]]\n"
+      "pld [%[rhs_2]]\n"
+
+      // Clear aggregators.
+      "vmov.i32 q0, #0\n"
+      "vmov.i32 q1, #0\n"
+      "vmov.i32 q2, #0\n"
+      "vmov.i32 q3, q0\n"
+      "vmov.i32 q4, q1\n"
+      "vmov.i32 q5, q2\n"
+      "vmov.i32 q6, q3\n"
+      "vmov.i32 q7, q4\n"
+
+      // General 1xM lanes loop.
+      "1:"
+
+      // Subtract counter.
+      "subs %[count], %[count], #8\n"
+
+      "vld1.8 {d20}, [%[lhs]:64]!\n"
+      "vld1.8 {d16, d17, d18, d19}, [%[rhs_1]:64]!\n"
+      "pld [%[lhs], #64]\n"
+      "pld [%[rhs_1], #128]\n"
+      "vmull.u8 q11, d16, d20\n"
+      "vmull.u8 q12, d17, d20\n"
+      "vmull.u8 q13, d18, d20\n"
+      "vmull.u8 q14, d19, d20\n"
+      "vld1.8 {d16, d17, d18, d19}, [%[rhs_2]:64]!\n"
+      "pld [%[rhs_2], #128]\n"
+      "vpadal.u16 q0, q11\n"
+      "vpadal.u16 q1, q12\n"
+      "vpadal.u16 q2, q13\n"
+      "vpadal.u16 q3, q14\n"
+      "vmull.u8 q11, d16, d20\n"
+      "vmull.u8 q12, d17, d20\n"
+      "vmull.u8 q13, d18, d20\n"
+      "vmull.u8 q14, d19, d20\n"
+      "vpadal.u16 q4, q11\n"
+      "vpadal.u16 q5, q12\n"
+      "vpadal.u16 q6, q13\n"
+      "vpadal.u16 q7, q14\n"
+
+      // Loop break.
+      "bne 1b\n"
+
+      "vld1.32 {d16[], d17[]}, [%[lhs]]\n"
+      "vld1.32 {q9}, [%[rhs_1]:64]\n"
+      "vld1.32 {q10}, [%[rhs_2]:64]\n"
+      "vdup.32 q11, %[result_scale]\n"
+
+      // Horizontal reduce aggregators.
+      "vpadd.u32 d0, d0, d1\n"
+      "vpadd.u32 d2, d2, d3\n"
+      "vpadd.u32 d4, d4, d5\n"
+      "vpadd.u32 d6, d6, d7\n"
+      "vpadd.u32 d8, d8, d9\n"
+      "vpadd.u32 d10, d10, d11\n"
+      "vpadd.u32 d12, d12, d13\n"
+      "vpadd.u32 d14, d14, d15\n"
+      "vpadd.u32 d0, d0, d2\n"
+      "vpadd.u32 d1, d4, d6\n"
+      "vpadd.u32 d2, d8, d10\n"
+      "vpadd.u32 d3, d12, d14\n"
+
+      // Add lhs offsets to aggregated rows.
+      "vadd.s32 q0, q0, q8\n"
+      "vadd.s32 q1, q1, q8\n"
+
+      // Add rhs offset to aggregated rows.
+      "vadd.s32 q0, q0, q9\n"
+      "vadd.s32 q1, q1, q10\n"
+
+      // Convert to float and scale.
+      "vcvt.f32.s32 q0, q0\n"
+      "vcvt.f32.s32 q1, q1\n"
+      "vmul.f32 q0, q0, q11\n"
+      "vmul.f32 q1, q1, q11\n"
+
+      // Store results.
+      "vst1.32 {d0, d1, d2, d3}, [%[result]]\n"
+      : [count] "+r"(count), [result_scale] "+r"(result_scale), [lhs] "+r"(lhs),
+        [result] "+r"(result), [rhs_1] "+r"(rhs_1), [rhs_2] "+r"(rhs_2)
+      :
+      : "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+        "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
+        "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "cc",
+        "memory");
 }
 
 void qnt_1x8_aligned(const std::int32_t* source, std::int32_t count,
@@ -35486,6 +37817,13654 @@ void gemm_f_2_2_7(std::uint8_t* scratch, const std::uint8_t* lhs,
                                   mul_result_chunk_stride_bytes, result_scale);
 }
 
+void gemv_q8_0_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                  multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                  multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                  multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                  multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                  multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                  multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                  multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                  multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                         const std::uint8_t* rhs, std::int32_t n,
+                         std::int32_t k, std::int32_t lhs_offset,
+                         std::int32_t rhs_offset, std::int32_t result_offset,
+                         std::int32_t multiplicative_offset, std::int32_t shift,
+                         std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7_aligned(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+                    multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+          multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+          multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+          multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+          multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+          multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+          multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+          multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_0_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  qnt_1x8(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+          multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_1_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_1(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_2_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_2(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_3_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_3(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_4_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, padded_k, mul_result_chunk,
+                           0);
+  qnt_1x8_4(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_5_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_5(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_6_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_6(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_q8_7_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                 const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                 std::int32_t lhs_offset, std::int32_t rhs_offset,
+                 std::int32_t result_offset, std::int32_t multiplicative_offset,
+                 std::int32_t shift, std::uint8_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k + result_offset;
+  const std::int32_t rounding_offset = (1 << (shift - 1));
+  std::int32_t* temp_result =
+      reinterpret_cast<std::int32_t*>(zipped_rhs_2 + zipped_chunk_size);
+  std::int32_t* mul_result_chunk = temp_result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                             mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2, padded_k,
+                           mul_result_chunk);
+  qnt_1x8_7(temp_result, n, 0, zipped_lhs_offsets, result, 0,
+            multiplicative_offset, rounding_offset, -shift);
+}
+
+void gemv_i32_0_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_0_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_0_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_0_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_0_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_0_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_0_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_0_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_1_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_1_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_1_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_1_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_1_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_1_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_1_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_1_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_5_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_5_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_5_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_5_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_5_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_5_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_5_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_5_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                          const std::uint8_t* rhs, std::int32_t n,
+                          std::int32_t k, std::int32_t lhs_offset,
+                          std::int32_t rhs_offset, std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_0_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_0_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_0_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_0_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_0_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_0_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_0_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_0_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_i32_1_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_1_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_1_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_1_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_1_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_1_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_1_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_1_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_2_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_3_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_4_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0);
+}
+
+void gemv_i32_5_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_5_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_5_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_5_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_5_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_5_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_5_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_5_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_6_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_i32_7_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                  const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  std::int32_t* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  std::int32_t* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_int32_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk);
+}
+
+void gemv_f_0_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_0_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_0_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_0_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_0_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_0_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_0_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_0_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_1_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_1_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_1_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_1_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_1_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_1_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_1_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_1_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_5_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_5_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_5_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_5_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_5_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_5_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_5_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_5_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_0_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_1_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_1_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_2_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_2_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_3_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_3_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_4_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_4_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_5_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_5_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_6_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_6_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_7_aligned(std::uint8_t* scratch, const std::uint8_t* lhs,
+                        const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                        std::int32_t lhs_offset, std::int32_t rhs_offset,
+                        float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7_aligned(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7_aligned(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_7_aligned(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_0_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_0_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_0_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_0_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_0_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_0_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_0_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_0_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+}
+
+void gemv_f_1_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_1_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_1_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_1_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_1_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_1_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_1_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_1_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_1x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_1x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_2_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_2x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_2x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_3_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_3x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_3x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_4_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  mul_1x8_4x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, padded_k,
+                                  mul_result_chunk, 0, result_scale);
+}
+
+void gemv_f_5_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_5_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_5_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_5_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_5_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_5_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_5_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_5_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_1x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_5x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_6_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_2x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_6x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_0(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_1(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_1(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_1(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_1(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_2(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_2(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_2(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_2(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_3(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_3(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_3(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_3(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_4(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_4(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_4(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_4(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_5(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_5(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_5(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_5(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_6(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_6(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_6(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_6(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
+void gemv_f_7_7(std::uint8_t* scratch, const std::uint8_t* lhs,
+                const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+                std::int32_t lhs_offset, std::int32_t rhs_offset,
+                float result_scale, float* result) {
+  const std::int32_t col_chunks = n / 8;
+  const std::int32_t padded_k = ((k + 7) / 8) * 8;
+  const std::int32_t chunk_size = k * 4;
+  const std::int32_t zipped_chunk_size = (padded_k + 16) * 4;
+  const std::uint8_t* rhs_chunk = rhs;
+  std::uint8_t* zipped_lhs = scratch;
+  std::int32_t* zipped_lhs_offsets =
+      reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k);
+  std::uint8_t* zipped_rhs_1 = scratch + padded_k + 16;
+  std::uint8_t* zipped_rhs_2 = zipped_rhs_1 + zipped_chunk_size;
+
+  const std::int32_t const_offset = lhs_offset * rhs_offset * k;
+  float* mul_result_chunk = result;
+
+  zip_1x8_7(lhs, k, k, zipped_lhs, rhs_offset, 0);
+  for (int i = 0; i < col_chunks; ++i) {
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    zip_4x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+    rhs_chunk += chunk_size;
+    mul_1x8_8x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                    padded_k, mul_result_chunk, result_scale);
+    mul_result_chunk += 8;
+  }
+  zip_4x8_7(rhs_chunk, k, k, zipped_rhs_1, lhs_offset, const_offset);
+  rhs_chunk += chunk_size;
+  zip_3x8_7(rhs_chunk, k, k, zipped_rhs_2, lhs_offset, const_offset);
+  mul_1x8_7x8_float_lhsadd_rhsadd(zipped_lhs, zipped_rhs_1, zipped_rhs_2,
+                                  padded_k, mul_result_chunk, result_scale);
+}
+
 }  // namespace internal
 
 void gemm_q8_strided(std::uint8_t* scratch, const std::uint8_t* lhs,
@@ -36471,6 +52450,15 @@ void gemm_q8_strided(std::uint8_t* scratch, const std::uint8_t* lhs,
   }
 }
 
+void gemm_q8(std::uint8_t* scratch, const std::uint8_t* lhs,
+             const std::uint8_t* rhs, std::int32_t m, std::int32_t n,
+             std::int32_t k, std::int32_t lhs_offset, std::int32_t rhs_offset,
+             std::int32_t result_offset, std::int32_t multiplicative_offset,
+             std::int32_t shift, std::uint8_t* result) {
+  gemm_q8_strided(scratch, lhs, rhs, m, n, k, lhs_offset, rhs_offset,
+                  result_offset, multiplicative_offset, shift, result, n);
+}
+
 void gemm_i32_strided(std::uint8_t* scratch, const std::uint8_t* lhs,
                       const std::uint8_t* rhs, std::int32_t m, std::int32_t n,
                       std::int32_t k, std::int32_t lhs_offset,
@@ -37231,6 +53219,14 @@ void gemm_i32_strided(std::uint8_t* scratch, const std::uint8_t* lhs,
         break;
     }
   }
+}
+
+void gemm_i32(std::uint8_t* scratch, const std::uint8_t* lhs,
+              const std::uint8_t* rhs, std::int32_t m, std::int32_t n,
+              std::int32_t k, std::int32_t lhs_offset, std::int32_t rhs_offset,
+              std::int32_t* result) {
+  gemm_i32_strided(scratch, lhs, rhs, m, n, k, lhs_offset, rhs_offset, result,
+                   n);
 }
 
 void gemm_f_strided(std::uint8_t* scratch, const std::uint8_t* lhs,
@@ -38067,23 +54063,6 @@ void gemm_f_strided(std::uint8_t* scratch, const std::uint8_t* lhs,
   }
 }
 
-void gemm_q8(std::uint8_t* scratch, const std::uint8_t* lhs,
-             const std::uint8_t* rhs, std::int32_t m, std::int32_t n,
-             std::int32_t k, std::int32_t lhs_offset, std::int32_t rhs_offset,
-             std::int32_t result_offset, std::int32_t multiplicative_offset,
-             std::int32_t shift, std::uint8_t* result) {
-  gemm_q8_strided(scratch, lhs, rhs, m, n, k, lhs_offset, rhs_offset,
-                  result_offset, multiplicative_offset, shift, result, n);
-}
-
-void gemm_i32(std::uint8_t* scratch, const std::uint8_t* lhs,
-              const std::uint8_t* rhs, std::int32_t m, std::int32_t n,
-              std::int32_t k, std::int32_t lhs_offset, std::int32_t rhs_offset,
-              std::int32_t* result) {
-  gemm_i32_strided(scratch, lhs, rhs, m, n, k, lhs_offset, rhs_offset, result,
-                   n);
-}
-
 void gemm_f(std::uint8_t* scratch, const std::uint8_t* lhs,
             const std::uint8_t* rhs, std::int32_t m, std::int32_t n,
             std::int32_t k, std::int32_t lhs_offset, std::int32_t rhs_offset,
@@ -38092,8 +54071,1919 @@ void gemm_f(std::uint8_t* scratch, const std::uint8_t* lhs,
                  result_scale, result, n);
 }
 
-}  // namespace meta
+void gemv_q8(std::uint8_t* scratch, const std::uint8_t* lhs,
+             const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+             std::int32_t lhs_offset, std::int32_t rhs_offset,
+             std::int32_t result_offset, std::int32_t multiplicative_offset,
+             std::int32_t shift, std::uint8_t* result) {
+  const bool lhs_aligned = ((reinterpret_cast<std::uintptr_t>(lhs) % 8) == 0);
+  const bool rhs_aligned = ((reinterpret_cast<std::uintptr_t>(rhs) % 8) == 0);
+  const bool k_aligned = ((k % 8) == 0);
+  const bool result_aligned =
+      ((reinterpret_cast<std::uintptr_t>(result) % 8) == 0);
+  const bool aligned =
+      lhs_aligned && rhs_aligned && result_aligned && k_aligned;
+  if (aligned) {
+    switch (n % 8) {
+      case 0:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_0_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_0_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_0_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_0_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_0_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_0_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_0_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_0_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+      case 1:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_1_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_1_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_1_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_1_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_1_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_1_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_1_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_1_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+      case 2:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_2_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_2_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_2_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_2_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_2_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_2_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_2_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_2_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+      case 3:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_3_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_3_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_3_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_3_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_3_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_3_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_3_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_3_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+      case 4:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_4_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_4_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_4_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_4_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_4_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_4_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_4_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_4_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+      case 5:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_5_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_5_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_5_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_5_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_5_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_5_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_5_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_5_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+      case 6:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_6_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_6_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_6_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_6_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_6_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_6_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_6_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_6_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+      case 7:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_7_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_7_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_7_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_7_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_7_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_7_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_7_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_7_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                          rhs_offset, result_offset,
+                                          multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+    }
+  } else {
+    switch (n % 8) {
+      case 0:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_0_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_0_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_0_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_0_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_0_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_0_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_0_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_0_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+      case 1:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_1_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_1_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_1_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_1_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_1_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_1_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_1_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_1_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+      case 2:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_2_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_2_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_2_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_2_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_2_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_2_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_2_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_2_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+      case 3:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_3_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_3_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_3_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_3_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_3_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_3_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_3_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_3_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+      case 4:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_4_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_4_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_4_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_4_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_4_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_4_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_4_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_4_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+      case 5:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_5_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_5_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_5_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_5_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_5_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_5_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_5_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_5_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+      case 6:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_6_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_6_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_6_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_6_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_6_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_6_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_6_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_6_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+      case 7:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_q8_7_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 1:
+            internal::gemv_q8_7_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 2:
+            internal::gemv_q8_7_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 3:
+            internal::gemv_q8_7_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 4:
+            internal::gemv_q8_7_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 5:
+            internal::gemv_q8_7_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 6:
+            internal::gemv_q8_7_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+          case 7:
+            internal::gemv_q8_7_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                  rhs_offset, result_offset,
+                                  multiplicative_offset, shift, result);
+            break;
+        }
+        break;
+    }
+  }
+}
 
+void gemv_i32(std::uint8_t* scratch, const std::uint8_t* lhs,
+              const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+              std::int32_t lhs_offset, std::int32_t rhs_offset,
+              std::int32_t* result) {
+  const bool lhs_aligned = ((reinterpret_cast<std::uintptr_t>(lhs) % 8) == 0);
+  const bool rhs_aligned = ((reinterpret_cast<std::uintptr_t>(rhs) % 8) == 0);
+  const bool k_aligned = ((k % 8) == 0);
+  const bool aligned = lhs_aligned && rhs_aligned && k_aligned;
+  if (aligned) {
+    switch (n % 8) {
+      case 0:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_0_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_0_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_0_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_0_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_0_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_0_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_0_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_0_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+        }
+        break;
+      case 1:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_1_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_1_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_1_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_1_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_1_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_1_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_1_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_1_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+        }
+        break;
+      case 2:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_2_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_2_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_2_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_2_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_2_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_2_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_2_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_2_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+        }
+        break;
+      case 3:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_3_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_3_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_3_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_3_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_3_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_3_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_3_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_3_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+        }
+        break;
+      case 4:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_4_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_4_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_4_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_4_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_4_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_4_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_4_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_4_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+        }
+        break;
+      case 5:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_5_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_5_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_5_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_5_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_5_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_5_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_5_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_5_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+        }
+        break;
+      case 6:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_6_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_6_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_6_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_6_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_6_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_6_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_6_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_6_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+        }
+        break;
+      case 7:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_7_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_7_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_7_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_7_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_7_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_7_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_7_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_7_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                           rhs_offset, result);
+            break;
+        }
+        break;
+    }
+  } else {
+    switch (n % 8) {
+      case 0:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_0_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_0_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_0_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_0_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_0_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_0_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_0_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_0_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+        }
+        break;
+      case 1:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_1_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_1_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_1_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_1_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_1_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_1_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_1_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_1_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+        }
+        break;
+      case 2:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_2_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_2_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_2_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_2_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_2_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_2_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_2_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_2_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+        }
+        break;
+      case 3:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_3_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_3_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_3_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_3_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_3_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_3_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_3_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_3_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+        }
+        break;
+      case 4:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_4_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_4_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_4_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_4_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_4_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_4_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_4_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_4_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+        }
+        break;
+      case 5:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_5_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_5_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_5_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_5_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_5_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_5_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_5_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_5_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+        }
+        break;
+      case 6:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_6_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_6_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_6_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_6_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_6_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_6_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_6_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_6_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+        }
+        break;
+      case 7:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_i32_7_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 1:
+            internal::gemv_i32_7_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 2:
+            internal::gemv_i32_7_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 3:
+            internal::gemv_i32_7_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 4:
+            internal::gemv_i32_7_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 5:
+            internal::gemv_i32_7_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 6:
+            internal::gemv_i32_7_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+          case 7:
+            internal::gemv_i32_7_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                   rhs_offset, result);
+            break;
+        }
+        break;
+    }
+  }
+}
+
+void gemv_f(std::uint8_t* scratch, const std::uint8_t* lhs,
+            const std::uint8_t* rhs, std::int32_t n, std::int32_t k,
+            std::int32_t lhs_offset, std::int32_t rhs_offset,
+            float result_scale, float* result) {
+  const bool lhs_aligned = ((reinterpret_cast<std::uintptr_t>(lhs) % 8) == 0);
+  const bool rhs_aligned = ((reinterpret_cast<std::uintptr_t>(rhs) % 8) == 0);
+  const bool k_aligned = ((k % 8) == 0);
+  const bool aligned = lhs_aligned && rhs_aligned && k_aligned;
+  if (aligned) {
+    switch (n % 8) {
+      case 0:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_0_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_0_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_0_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_0_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_0_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_0_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_0_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_0_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+      case 1:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_1_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_1_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_1_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_1_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_1_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_1_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_1_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_1_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+      case 2:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_2_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_2_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_2_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_2_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_2_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_2_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_2_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_2_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+      case 3:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_3_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_3_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_3_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_3_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_3_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_3_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_3_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_3_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+      case 4:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_4_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_4_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_4_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_4_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_4_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_4_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_4_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_4_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+      case 5:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_5_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_5_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_5_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_5_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_5_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_5_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_5_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_5_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+      case 6:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_6_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_6_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_6_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_6_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_6_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_6_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_6_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_6_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+      case 7:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_7_0_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_7_1_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_7_2_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_7_3_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_7_4_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_7_5_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_7_6_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_7_7_aligned(scratch, lhs, rhs, n, k, lhs_offset,
+                                         rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+    }
+  } else {
+    switch (n % 8) {
+      case 0:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_0_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_0_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_0_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_0_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_0_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_0_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_0_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_0_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+      case 1:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_1_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_1_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_1_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_1_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_1_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_1_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_1_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_1_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+      case 2:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_2_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_2_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_2_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_2_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_2_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_2_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_2_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_2_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+      case 3:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_3_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_3_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_3_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_3_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_3_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_3_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_3_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_3_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+      case 4:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_4_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_4_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_4_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_4_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_4_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_4_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_4_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_4_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+      case 5:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_5_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_5_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_5_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_5_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_5_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_5_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_5_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_5_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+      case 6:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_6_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_6_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_6_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_6_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_6_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_6_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_6_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_6_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+      case 7:
+        switch (k % 8) {
+          case 0:
+            internal::gemv_f_7_0(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 1:
+            internal::gemv_f_7_1(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 2:
+            internal::gemv_f_7_2(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 3:
+            internal::gemv_f_7_3(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 4:
+            internal::gemv_f_7_4(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 5:
+            internal::gemv_f_7_5(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 6:
+            internal::gemv_f_7_6(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+          case 7:
+            internal::gemv_f_7_7(scratch, lhs, rhs, n, k, lhs_offset,
+                                 rhs_offset, result_scale, result);
+            break;
+        }
+        break;
+    }
+  }
+}
+
+
+}  // namespace meta
 }  // namespace gemmlowp
 
 #else

@@ -5,7 +5,6 @@ multiply of 8 length with zeros. Calculates row sums and appends those at the
 end.
 """
 
-
 import neon_emitter
 
 
@@ -42,13 +41,11 @@ def GenerateZipLanes(emitter, registers, zip_lanes, input_address, stride):
   last_address_register = input_address
   for i in range(0, zip_lanes):
     if not i:
-      lanes.append(ZipLane(input_address,
-                           registers.DoubleRegister(),
+      lanes.append(ZipLane(input_address, registers.DoubleRegister(),
                            registers.QuadRegister(2)))
     else:
       address_register = registers.GeneralRegister()
-      lanes.append(ZipLane(address_register,
-                           registers.DoubleRegister(),
+      lanes.append(ZipLane(address_register, registers.DoubleRegister(),
                            registers.QuadRegister(2)))
       emitter.EmitAdd(address_register, last_address_register, stride)
       last_address_register = address_register
@@ -88,8 +85,8 @@ def GenerateLoadAggregateStore(emitter, lanes, output_address, alignment):
                       emitter.DereferenceIncrement(output_address, 64))
 
 
-def GenerateLeftoverLoadAggregateStore(
-    emitter, leftovers, lanes, output_address):
+def GenerateLeftoverLoadAggregateStore(emitter, leftovers, lanes,
+                                       output_address):
   """Handle leftovers when count is not a multiply of 8."""
   emitter.EmitNewline()
   emitter.EmitComment('Leftover Load Aggregate Store.')
@@ -111,9 +108,8 @@ def GenerateLeftoverLoadAggregateStore(
   elif leftovers == 3:
     # Load 16 bits.
     for lane in lanes:
-      emitter.EmitVLoad(
-          '1.16', emitter.Lane(lane.load, 0),
-          emitter.DereferenceIncrement(lane.input_address, None))
+      emitter.EmitVLoad('1.16', emitter.Lane(lane.load, 0),
+                        emitter.DereferenceIncrement(lane.input_address, None))
     # Load 8 bits.
     for lane in lanes:
       emitter.EmitVLoad('1.8', emitter.Lane(lane.load, 2),
@@ -126,9 +122,8 @@ def GenerateLeftoverLoadAggregateStore(
   elif leftovers == 5:
     # Load 32 bits..
     for lane in lanes:
-      emitter.EmitVLoad(
-          '1.32', emitter.Lane(lane.load, 0),
-          emitter.DereferenceIncrement(lane.input_address, None))
+      emitter.EmitVLoad('1.32', emitter.Lane(lane.load, 0),
+                        emitter.DereferenceIncrement(lane.input_address, None))
     # Load 8 bits.
     for lane in lanes:
       emitter.EmitVLoad('1.8', emitter.Lane(lane.load, 4),
@@ -136,9 +131,8 @@ def GenerateLeftoverLoadAggregateStore(
   elif leftovers == 6:
     # Load 32 bits..
     for lane in lanes:
-      emitter.EmitVLoad(
-          '1.32', emitter.Lane(lane.load, 0),
-          emitter.DereferenceIncrement(lane.input_address, None))
+      emitter.EmitVLoad('1.32', emitter.Lane(lane.load, 0),
+                        emitter.DereferenceIncrement(lane.input_address, None))
     # Load 16 bits.
     for lane in lanes:
       emitter.EmitVLoad('1.16', emitter.Lane(lane.load, 2),
@@ -146,14 +140,12 @@ def GenerateLeftoverLoadAggregateStore(
   elif leftovers == 7:
     # Load 32 bits..
     for lane in lanes:
-      emitter.EmitVLoad(
-          '1.32', emitter.Lane(lane.load, 0),
-          emitter.DereferenceIncrement(lane.input_address, None))
+      emitter.EmitVLoad('1.32', emitter.Lane(lane.load, 0),
+                        emitter.DereferenceIncrement(lane.input_address, None))
     # Load 16 bits.
     for lane in lanes:
-      emitter.EmitVLoad(
-          '1.16', emitter.Lane(lane.load, 2),
-          emitter.DereferenceIncrement(lane.input_address, None))
+      emitter.EmitVLoad('1.16', emitter.Lane(lane.load, 2),
+                        emitter.DereferenceIncrement(lane.input_address, None))
     # Load 8 bits.
     for lane in lanes:
       emitter.EmitVLoad('1.8', emitter.Lane(lane.load, 6),
@@ -172,12 +164,8 @@ def GenerateLeftoverLoadAggregateStore(
                       emitter.DereferenceIncrement(output_address, 64))
 
 
-def GenerateAggregatorReduction(emitter,
-                                registers,
-                                lanes,
-                                output_address,
-                                multiplicative_offset,
-                                additive_offset):
+def GenerateAggregatorReduction(emitter, registers, lanes, output_address,
+                                multiplicative_offset, additive_offset):
   """Reduce 4 lane sum aggregators to 1 value and store the sums."""
   emitter.EmitNewline()
   emitter.EmitComment('Aggregator Reduction.')
@@ -194,9 +182,7 @@ def GenerateAggregatorReduction(emitter,
   for lane in lanes:
     lane_temp = registers.DoubleRegister()
     lane_temps.append(lane_temp)
-    emitter.EmitVPadd('u32',
-                      lane_temp,
-                      registers.Low(lane.aggregator),
+    emitter.EmitVPadd('u32', lane_temp, registers.Low(lane.aggregator),
                       registers.High(lane.aggregator))
 
   temp = registers.QuadRegister()
@@ -214,46 +200,41 @@ def GenerateAggregatorReduction(emitter,
     emitter.EmitVPadd('u32', low, lane_temps[0], lane_temps[1])
     emitter.EmitVPadd('u32', high, lane_temps[2], lane_temps[3])
   else:
-    raise ConfigurationError(
-        'Unexpected number of aggregators to reduce: %d' % len(lanes))
+    raise ConfigurationError('Unexpected number of aggregators to reduce: %d' %
+                             len(lanes))
 
   emitter.EmitVMul('i32', temp, temp, emitter.Lane(multiplier, 0))
   emitter.EmitVAdd('i32', temp, temp, offset)
 
   if len(lanes) == 1:
-    emitter.EmitVStore(
-        '1.32', emitter.Lane(low, 0), emitter.Dereference(output_address, None))
+    emitter.EmitVStore('1.32', emitter.Lane(low, 0),
+                       emitter.Dereference(output_address, None))
   elif len(lanes) == 2:
     emitter.EmitVStore('1.32', low, emitter.Dereference(output_address, 64))
   elif len(lanes) == 3:
-    emitter.EmitVStore(
-        '1.32', low, emitter.DereferenceIncrement(output_address, 64))
-    emitter.EmitVStore(
-        '1.32', emitter.Lane(high, 0),
-        emitter.Dereference(output_address, None))
+    emitter.EmitVStore('1.32', low,
+                       emitter.DereferenceIncrement(output_address, 64))
+    emitter.EmitVStore('1.32', emitter.Lane(high, 0),
+                       emitter.Dereference(output_address, None))
   elif len(lanes) == 4:
-    emitter.EmitVStore(
-        '1.32', low, emitter.DereferenceIncrement(output_address, 64))
-    emitter.EmitVStore('1.32', high, emitter.Dereference(output_address, 64))
+    emitter.EmitVStoreA('1.32', [low, high],
+                        emitter.DereferenceIncrement(output_address, 64))
 
 
 def GenerateZipNx8(emitter, zip_lanes, leftovers, aligned):
   """Emit the zip function for a given number of rows and row size leftovers."""
   if leftovers < 0 or leftovers > 7:
     raise ConfigurationError('Leftovers should be between 0 and 7 inclusive.')
-  if zip_lanes < 1 or zip_lanes > 3:
-    raise ConfigurationError('Zip_lanes should should be 1, 2 or 3.')
+  if zip_lanes < 1 or zip_lanes > 4:
+    raise ConfigurationError('Zip_lanes should should be 1, 2, 3 or 4.')
 
   name = BuildName(zip_lanes, leftovers, aligned)
 
-  emitter.EmitFunctionBeginA(name,
-                             [['const std::uint8_t*', 'source'],
-                              ['std::int32_t', 'count'],
-                              ['std::int32_t', 'stride'],
-                              ['std::uint8_t*', 'destination'],
-                              ['std::int32_t', 'multiplicative_offset'],
-                              ['std::int32_t', 'additive_offset']],
-                             'void')
+  emitter.EmitFunctionBeginA(
+      name, [['const std::uint8_t*', 'source'], ['std::int32_t', 'count'],
+             ['std::int32_t', 'stride'], ['std::uint8_t*', 'destination'],
+             ['std::int32_t', 'multiplicative_offset'],
+             ['std::int32_t', 'additive_offset']], 'void')
   emitter.EmitAssert('count %% 8 == %d' % leftovers)
   emitter.EmitAssert('count <= 2048')
   emitter.EmitAssert('count >= 8')
@@ -269,9 +250,7 @@ def GenerateZipNx8(emitter, zip_lanes, leftovers, aligned):
   count = registers.MapParameter('count')
   output_address = registers.MapParameter('destination')
 
-  lanes = GenerateZipLanes(emitter,
-                           registers,
-                           zip_lanes,
+  lanes = GenerateZipLanes(emitter, registers, zip_lanes,
                            registers.MapParameter('source'),
                            registers.MapParameter('stride'))
 
@@ -284,32 +263,28 @@ def GenerateZipNx8(emitter, zip_lanes, leftovers, aligned):
   emitter.EmitNumericalLabel(1)
   emitter.EmitSubs(count, count, emitter.ImmediateConstant(8))
 
-  GenerateLoadAggregateStore(
-      emitter, lanes, output_address, 64 if aligned else None)
+  GenerateLoadAggregateStore(emitter, lanes, output_address, 64 if aligned else
+                             None)
 
   emitter.EmitNewline()
   emitter.EmitBneBack(1)
 
   if leftovers:
-    GenerateLeftoverLoadAggregateStore(
-        emitter, leftovers, lanes, output_address)
+    GenerateLeftoverLoadAggregateStore(emitter, leftovers, lanes,
+                                       output_address)
 
-  GenerateAggregatorReduction(emitter,
-                              registers,
-                              lanes,
-                              output_address,
+  GenerateAggregatorReduction(emitter, registers, lanes, output_address,
                               registers.MapParameter('multiplicative_offset'),
                               registers.MapParameter('additive_offset'))
 
-  emitter.EmitAsmEnd(registers.MappedParameters(),
-                     [],
+  emitter.EmitAsmEnd(registers.MappedParameters(), [],
                      registers.Clobbers() + ['cc', 'memory'])
   emitter.EmitFunctionEnd()
 
 
 def GenerateFunctions(emitter):
   for aligned in [True, False]:
-    for lanes in range(1, 4):
+    for lanes in range(1, 5):
       for leftovers in range(0, 8):
         GenerateZipNx8(emitter, lanes, leftovers, aligned)
         emitter.EmitNewline()

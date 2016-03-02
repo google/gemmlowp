@@ -114,6 +114,10 @@ class NeonRegisters(object):
     else:
       raise RegisterDeallocationError('Register not allocated: %s' % register)
 
+  def FreeRegisters(self, registers):
+    for register in registers:
+      self.FreeRegister(register)
+
 
 class NeonEmitter(object):
   """Emits ARM/NEON assembly opcodes."""
@@ -331,6 +335,9 @@ class NeonEmitter(object):
 
   def EmitVStoreOffset(self, store_type, source, destination, offset):
     self.EmitOp3('vst%s' % store_type, '{%s}' % source, destination, offset)
+
+  def EmitVStoreOffsetA(self, store_type, sources, destination, offset):
+    self.EmitVStoreOffset(store_type, ', '.join(sources), destination, offset)
 
   def Dereference(self, value, alignment):
     if alignment:

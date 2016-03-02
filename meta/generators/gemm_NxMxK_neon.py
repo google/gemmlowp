@@ -1,29 +1,8 @@
-"""Generates the whole gemm header.
+"""Generates the specialized gemm functions."""
 
-"""
-
-import cc_emitter
 import mul_Nx8_Mx8_neon
-import neon_emitter
 import qnt_Nx8_neon
 import zip_Nx8_neon
-
-_HEADER_COPYRIGHT = """// Copyright 2015 Google Inc. All Rights Reserved.
-//
-// Licensed under the Apache License, Version 2.0 (the "License");
-// you may not use this file except in compliance with the License.
-// You may obtain a copy of the License at
-//
-//     http://www.apache.org/licenses/LICENSE-2.0
-//
-// Unless required by applicable law or agreed to in writing, software
-// distributed under the License is distributed on an "AS IS" BASIS,
-// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
-// See the License for the specific language governing permissions and
-// limitations under the License.
-//
-// single_thread_gemm.h: programatically generated GEMM library header.
-"""
 
 _QUANTIZED_8BIT = 'quantized_8bit'
 _FULL_32BIT = 'full_32bit'
@@ -158,7 +137,7 @@ def GenerateQuantized8BitMul(emitter, aligned, rows, cols, leftovers):
   GenerateMulRows(emitter, 'temp_result', 'int32', False, True, aligned, 3,
                   cols, leftovers)
   emitter.EmitCall(
-      BuildMultiQuantizeName(aligned, 3),
+      qnt_Nx8_neon.BuildMultiQuantizeName(aligned, 3),
       ['temp_result', 'n', 'mul_result_chunk_stride_bytes',
        'zipped_lhs_3_offsets', 'result_chunk', 'result_stride',
        'multiplicative_offset', 'rounding_offset', '-shift'])
@@ -171,7 +150,7 @@ def GenerateQuantized8BitMul(emitter, aligned, rows, cols, leftovers):
     GenerateMulRows(emitter, 'temp_result', 'int32', False, True, aligned, rows,
                     cols, leftovers)
     emitter.EmitCall(
-        BuildMultiQuantizeName(aligned, rows),
+        qnt_Nx8_neon.BuildMultiQuantizeName(aligned, rows),
         ['temp_result', 'n', 'mul_result_chunk_stride_bytes',
          'zipped_lhs_%d_offsets' % rows, 'result_chunk', 'result_stride',
          'multiplicative_offset', 'rounding_offset', '-shift'])
@@ -252,40 +231,6 @@ def GenerateGemm(emitter, output_type, aligned, rows, cols, leftovers):
   else:
     raise ConfigurationError('Unknown output type: %s' % output_type)
 
-  emitter.EmitFunctionEnd()
-
-
-def BuildMultiQuantizeName(aligned, rows):
-  name = 'multi_qnt_%dx8' % rows
-  if aligned:
-    name = '%s_aligned' % name
-  return name
-
-
-def GenerateMultiQuantize(emitter, aligned, rows):
-  """Emit main quantization code that switches between optimized versions."""
-  name = BuildMultiQuantizeName(aligned, rows)
-  emitter.EmitFunctionBeginA(
-      name,
-      [['const std::int32_t*', 'source'], ['std::int32_t', 'count'],
-       ['std::int32_t', 'stride'], ['const std::int32_t*', 'offsets'],
-       ['std::uint8_t*', 'destination'], ['std::int32_t', 'destination_stride'],
-       ['std::int32_t', 'multiplicative_offset'],
-       ['std::int32_t', 'rounding_offset'], ['std::int32_t', 'shift']], 'void')
-  emitter.EmitSwitch('count % 8')
-
-  for leftovers in range(0, 8):
-    emitter.EmitCase(leftovers)
-    emitter.PushIndent()
-    emitter.EmitCall(
-        qnt_Nx8_neon.BuildName(rows, leftovers, aligned),
-        ['source', 'count', 'stride', 'offsets', 'destination',
-         'destination_stride', 'multiplicative_offset', 'rounding_offset',
-         'shift'])
-    emitter.EmitBreak()
-    emitter.PopIndent()
-
-  emitter.EmitSwitchEnd()
   emitter.EmitFunctionEnd()
 
 
@@ -396,29 +341,6 @@ def GenerateWrapperGemmFunction(emitter, output_type):
 
 def GenerateInternalFunctions(emitter):
   """Generate all the functions hidden in the internal namespace."""
-  zip_Nx8_neon.GenerateFunctions(neon_emitter.NeonEmitter())
-  emitter.EmitNewline()
-
-  mul_Nx8_Mx8_neon.GenerateFunctions(neon_emitter.NeonEmitter(), 'int32', False,
-                                     True)
-  emitter.EmitNewline()
-
-  mul_Nx8_Mx8_neon.GenerateFunctions(neon_emitter.NeonEmitter(), 'int32', True,
-                                     True)
-  emitter.EmitNewline()
-
-  mul_Nx8_Mx8_neon.GenerateFunctions(neon_emitter.NeonEmitter(), 'float', True,
-                                     True)
-  emitter.EmitNewline()
-
-  qnt_Nx8_neon.GenerateFunctions(neon_emitter.NeonEmitter())
-  emitter.EmitNewline()
-
-  for aligned in [True, False]:
-    for rows in range(1, 4):
-      GenerateMultiQuantize(emitter, aligned, rows)
-      emitter.EmitNewline()
-
   for output_type in [_QUANTIZED_8BIT, _FULL_32BIT, _FULL_FLOAT]:
     for aligned in [True, False]:
       for rows in range(0, 3):
@@ -428,54 +350,10 @@ def GenerateInternalFunctions(emitter):
             emitter.EmitNewline()
 
 
-def Main():
-  """Generate the single threaded meta gemm library."""
-  emitter = cc_emitter.CCEmitter()
+def GeneratePublicFunctions(emitter):
+  for output_type in [_QUANTIZED_8BIT, _FULL_32BIT, _FULL_FLOAT]:
+    GenerateMainGemmFunction(emitter, output_type)
+    emitter.EmitNewline()
 
-  emitter.EmitCodeNoSemicolon(_HEADER_COPYRIGHT)
-  emitter.EmitHeaderBegin('gemmlowp_meta_single_thread_gemm')
-
-  emitter.EmitPreprocessor1('ifdef', 'GEMMLOWP_NEON_32')
-  emitter.EmitNewline()
-
-  emitter.EmitInclude('<cassert>')
-  emitter.EmitNewline()
-
-  emitter.EmitNamespaceBegin('gemmlowp')
-  emitter.EmitNamespaceBegin('meta')
-  emitter.EmitNamespaceBegin('internal')
-  emitter.EmitNewline()
-
-  GenerateInternalFunctions(emitter)
-
-  emitter.EmitNamespaceEnd()
-  emitter.EmitNewline()
-
-  GenerateMainGemmFunction(emitter, _QUANTIZED_8BIT)
-  emitter.EmitNewline()
-  GenerateMainGemmFunction(emitter, _FULL_32BIT)
-  emitter.EmitNewline()
-  GenerateMainGemmFunction(emitter, _FULL_FLOAT)
-  emitter.EmitNewline()
-  GenerateWrapperGemmFunction(emitter, _QUANTIZED_8BIT)
-  emitter.EmitNewline()
-  GenerateWrapperGemmFunction(emitter, _FULL_32BIT)
-  emitter.EmitNewline()
-  GenerateWrapperGemmFunction(emitter, _FULL_FLOAT)
-  emitter.EmitNewline()
-
-  emitter.EmitNamespaceEnd()
-  emitter.EmitNamespaceEnd()
-  emitter.EmitNewline()
-
-  emitter.EmitPreprocessor('else')
-  emitter.EmitPreprocessor1('warning',
-                            '"Meta gemm fast-path requires GEMMLOWP_NEON_32!"')
-  emitter.EmitPreprocessor('endif')
-  emitter.EmitNewline()
-
-  emitter.EmitHeaderEnd()
-
-
-if __name__ == '__main__':
-  Main()
+    GenerateWrapperGemmFunction(emitter, output_type)
+    emitter.EmitNewline()
