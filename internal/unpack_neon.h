@@ -81,7 +81,6 @@ struct UnpackResultImpl<BitDepthParams,
                      const OutputPipelineType& output_pipeline) {
     ScopedProfilingLabel label("optimized path (NEON)");
     assert(dst_block.start_row >= 0);
-    assert(dst_block.start_row % 16 == 0);
     assert(dst_block.start_row + dst_block.rows <= dst->rows());
     assert(dst_block.start_col >= 0);
     assert(dst_block.start_col + dst_block.cols <= dst->cols());
