@@ -121,6 +121,54 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
   const OutputStage& output_stage;
 };
 
+template <>
+struct OutputStageEvalImpl<
+    OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Col>,
+    FragmentInt32x1x1> {
+  typedef FragmentInt32x1x1 InputType;
+  typedef FragmentInt32x1x1 OutputType;
+  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Col>
+      OutputStage;
+
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
+
+  OutputType Eval(InputType input, int row, int col) const {
+    const std::int32_t result_shift = output_stage.result_shift;
+    const std::int32_t result_mult_int = output_stage.result_mult_int(row);
+    const std::int32_t result_offset = output_stage.result_offset(row);
+    const std::int32_t kRoundingTerm =
+        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
+    return ((input + result_offset) * result_mult_int + kRoundingTerm) >>
+           result_shift;
+  }
+
+  const OutputStage& output_stage;
+};
+
+template <>
+struct OutputStageEvalImpl<
+    OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Row>,
+    FragmentInt32x1x1> {
+  typedef FragmentInt32x1x1 InputType;
+  typedef FragmentInt32x1x1 OutputType;
+  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Row>
+      OutputStage;
+
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
+
+  OutputType Eval(InputType input, int row, int col) const {
+    const std::int32_t result_shift = output_stage.result_shift;
+    const std::int32_t result_mult_int = output_stage.result_mult_int(col);
+    const std::int32_t result_offset = output_stage.result_offset(col);
+    const std::int32_t kRoundingTerm =
+        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
+    return ((input + result_offset) * result_mult_int + kRoundingTerm) >>
+           result_shift;
+  }
+
+  const OutputStage& output_stage;
+};
+
 // Implementation of OutputStageSaturatingCastToUint8 for scalar data
 template <>
 struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,

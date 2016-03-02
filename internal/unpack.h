@@ -87,15 +87,31 @@ std::int32_t RoundingMultiplyByConstantFraction(std::int32_t x) {
   return x * int_quotient + remaining_product;
 }
 
+struct MatrixBlockBounds {
+  int start_row;
+  int start_col;
+  int rows;
+  int cols;
+
+  MatrixBlockBounds(int start_row_, int start_col_, int rows_, int cols_)
+      : start_row(start_row_), start_col(start_col_), rows(rows_), cols(cols_) {
+  }
+};
+
 template <typename BitDepthParams, typename ResultBlockType,
-          typename PackedResultType, typename OutputPipelineType>
+          typename PackedResultType, typename LhsOffset, typename RhsOffset,
+          typename OutputPipelineType>
 struct UnpackResultImplGeneric {
-  static void Unpack(ResultBlockType* dst, const PackedResultType& src,
-                     int depth, const std::int32_t* lhs_sums_of_each_slice,
+  static void Unpack(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
+                     const PackedResultType& src, int depth,
+                     const std::int32_t* lhs_sums_of_each_slice,
                      const std::int32_t* rhs_sums_of_each_slice,
-                     std::int32_t lhs_offset, std::int32_t rhs_offset,
+                     const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                      const OutputPipelineType& output_pipeline) {
-    std::int32_t term_11 = lhs_offset * rhs_offset * depth;
+    assert(dst_block.start_row >= 0);
+    assert(dst_block.start_row + dst_block.rows <= dst->rows());
+    assert(dst_block.start_col >= 0);
+    assert(dst_block.start_col + dst_block.cols <= dst->cols());
     auto src_map = src.Map();
     // No top-level blocking in the depth dimension at the moment.
     // Too much loss of precision.
@@ -105,8 +121,10 @@ struct UnpackResultImplGeneric {
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     OutputPipelineExecutor<OutputPipelineType, FragmentInt32x1x1>
         output_pipeline_executor(output_pipeline);
-    for (int c = 0; c < dst->cols(); c++) {
-      for (int r = 0; r < dst->rows(); r++) {
+    for (int c = 0; c < dst_block.cols; c++) {
+      int c_dst = c + dst_block.start_col;
+      for (int r = 0; r < dst_block.rows; r++) {
+        int r_dst = r + dst_block.start_row;
         // To understand this code, read
         //   doc/low-precision.txt
         //   doc/less-than-8-bit.txt
@@ -114,8 +132,8 @@ struct UnpackResultImplGeneric {
         // In case of requantization, we first need to scale them back
         // to the original scale, using RoundingMultiplyByConstantFraction.
         std::int32_t raw_xx = src_map(r, c);
-        std::int32_t raw_x1 = lhs_sums_of_each_slice[r] * rhs_offset;
-        std::int32_t raw_1x = rhs_sums_of_each_slice[c] * lhs_offset;
+        std::int32_t raw_x1 = lhs_sums_of_each_slice[r] * rhs_offset(c_dst);
+        std::int32_t raw_1x = rhs_sums_of_each_slice[c] * lhs_offset(r_dst);
         std::int32_t term_xx =
             RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
                 raw_xx);
@@ -123,35 +141,37 @@ struct UnpackResultImplGeneric {
             RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
         std::int32_t term_1x =
             RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
+        std::int32_t term_11 = lhs_offset(r_dst) * rhs_offset(c_dst) * depth;
         // Sum the 4 terms.
         FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x + term_11;
 
-        output_pipeline_executor.Execute(sum, dst, r, c);
+        output_pipeline_executor.Execute(sum, dst, r_dst, c_dst);
       }
     }
   }
 };
 
 template <typename BitDepthParams, typename ResultBlockType,
-          typename PackedResultType, typename OutputPipelineType>
+          typename PackedResultType, typename LhsOffset, typename RhsOffset,
+          typename OutputPipelineType>
 struct UnpackResultImpl
     : UnpackResultImplGeneric<BitDepthParams, ResultBlockType, PackedResultType,
-                              OutputPipelineType> {};
+                              LhsOffset, RhsOffset, OutputPipelineType> {};
 
 template <typename BitDepthParams, typename ResultBlockType,
-          typename PackedResultType, typename OutputPipelineType>
-void UnpackResult(ResultBlockType* dst, const PackedResultType& src, int depth,
+          typename PackedResultType, typename LhsOffset, typename RhsOffset,
+          typename OutputPipelineType>
+void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
+                  const PackedResultType& src, int depth,
                   const std::int32_t* lhs_sums_of_each_slice,
                   const std::int32_t* rhs_sums_of_each_slice,
-                  std::int32_t lhs_offset, std::int32_t rhs_offset,
+                  const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                   const OutputPipelineType& output_pipeline) {
   ScopedProfilingLabel label("unpack");
   UnpackResultImpl<BitDepthParams, ResultBlockType, PackedResultType,
-                   OutputPipelineType>::Unpack(dst, src, depth,
-                                               lhs_sums_of_each_slice,
-                                               rhs_sums_of_each_slice,
-                                               lhs_offset, rhs_offset,
-                                               output_pipeline);
+                   LhsOffset, RhsOffset, OutputPipelineType>::Unpack(
+      dst, dst_block, src, depth, lhs_sums_of_each_slice,
+      rhs_sums_of_each_slice, lhs_offset, rhs_offset, output_pipeline);
 }
 
 }  // namespace gemmlowp

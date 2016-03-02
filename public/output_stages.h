@@ -43,6 +43,28 @@ struct OutputStageQuantizeDownInt32ToUint8Scale {
   std::int32_t result_shift;
 };
 
+// This output stage takes int32 values and returns still int32 values,
+// but "quantized down" to the uint8 scale; in other words, its output
+// is typically what one would then clamp to [0..255] and cast to uint8
+// (see OutputStageSaturatingCastToUint8).
+//
+// This "quantization down" process depends on 3 parameters,
+//   result_offset, result_mult_int, result_shift,
+// and the result is:
+//   ((input + result_offset) * result_mult_int + rounding) >> result_shift
+// where
+//   rounding = (result_shift < 1) ? 0 : (1 << (result_shift - 1));
+//
+// Difference from OutputStageQuantizeDownInt32ToUint8Scale here is that each
+// row or column of the output (depending on tShape) has its own result_offset
+// and result_mult_int numbers.
+template <VectorShape tShape>
+struct OutputStageQuantizeDownInt32ToUint8ScalePC {
+  VectorMap<const std::int32_t, tShape> result_offset;
+  VectorMap<const std::int32_t, tShape> result_mult_int;
+  std::int32_t result_shift;
+};
+
 // This output stage takes int32 values that are expected to be already
 // on the final uint8 scale, but not necessarily in the [0..255] range.
 // It clamps them to the [0..255] range and returns them casted to uint8.
@@ -81,6 +103,25 @@ MakeStandardOutputPipeline(std::int32_t result_offset,
                            std::int32_t result_mult_int,
                            std::int32_t result_shift) {
   OutputStageQuantizeDownInt32ToUint8Scale quantize_down_stage;
+  quantize_down_stage.result_offset = result_offset;
+  quantize_down_stage.result_mult_int = result_mult_int;
+  quantize_down_stage.result_shift = result_shift;
+  OutputStageSaturatingCastToUint8 saturating_cast_stage;
+  return std::make_tuple(quantize_down_stage, saturating_cast_stage);
+}
+
+// An output pipeline is just a std::tuple of output stages.
+// This function generates a standard output pipeline consisting of two stages:
+// OutputStageQuantizeDownInt32ToUint8ScalePC, OutputStageSaturatingCastToUint8.
+template <VectorShape tShape>
+inline std::tuple<OutputStageQuantizeDownInt32ToUint8ScalePC<tShape>,
+                  OutputStageSaturatingCastToUint8>
+MakeStandardOutputPipeline(const VectorMap<const std::int32_t, tShape>&
+                               result_offset,
+                           const VectorMap<const std::int32_t, tShape>&
+                               result_mult_int,
+                           std::int32_t result_shift) {
+  OutputStageQuantizeDownInt32ToUint8ScalePC<tShape> quantize_down_stage;
   quantize_down_stage.result_offset = result_offset;
   quantize_down_stage.result_mult_int = result_mult_int;
   quantize_down_stage.result_shift = result_shift;

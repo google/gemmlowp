@@ -569,10 +569,7 @@ void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
 
 #ifdef GEMMLOWP_NEON
 #include "pack_neon.h"
-// There's a problem with _mm_blend_epi16() and related intrinsics on some
-// toolchains with 64-bit x86 builds, so for now only use accelerated packing on
-// 32-bit SSE.
-#elif defined(GEMMLOWP_SSE4_32)
+#elif defined(GEMMLOWP_SSE4)
 #include "pack_SSE.h"
 #endif
 

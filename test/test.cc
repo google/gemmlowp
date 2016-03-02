@@ -124,9 +124,13 @@ struct SingleThreadGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
+    const OffsetColDup lhs_offset_vector(lhs_offset, lhs.rows());
+    const OffsetRowDup rhs_offset_vector(rhs_offset, rhs.cols());
     SingleThreadGemm<typename Kernel::Format, Scalar, Scalar, BitDepthParams,
-                     LhsOrder, RhsOrder, ResultOrder>(
-        context, Kernel(), lhs, rhs, result, lhs_offset, rhs_offset,
+                     LhsOrder, RhsOrder, ResultOrder,
+                     OffsetColDup, OffsetRowDup>(
+        context, Kernel(), lhs, rhs, result, lhs_offset_vector,
+        rhs_offset_vector,
         MakeStandardOutputPipeline(result_offset, result_mult_int,
                                    result_shift));
   }
@@ -151,9 +155,13 @@ struct MultiThreadGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
+    const OffsetColDup lhs_offset_vector(lhs_offset, lhs.rows());
+    const OffsetRowDup rhs_offset_vector(rhs_offset, rhs.cols());
     MultiThreadGemm<typename Kernel::Format, Scalar, Scalar, BitDepthParams,
-                    LhsOrder, RhsOrder, ResultOrder>(
-        context, Kernel(), lhs, rhs, result, lhs_offset, rhs_offset,
+                    LhsOrder, RhsOrder, ResultOrder,
+                    OffsetColDup, OffsetRowDup>(
+        context, Kernel(), lhs, rhs, result, lhs_offset_vector,
+        rhs_offset_vector,
         MakeStandardOutputPipeline(result_offset, result_mult_int,
                                    result_shift));
   }
@@ -696,6 +704,416 @@ const char* GetBitDepthName(eight_bit_int_gemm::BitDepthSetting b) {
   }
 }
 
+// Runs a small set of hand-picked data for per-channel quantized data.
+// This test case comes from a set of 2 2x2 convolution filters run over a 3x3
+// image.
+void TestWithSmallDataPerChannelQuantization() {
+  const int m = 2;
+  const int n = 9;
+  const int k = 12;
+
+  // 12 x 2, columnwise.
+  const uint8_t a_data[] = {
+     0,  0,  0,  0,  0,  0, 0, 0, 0, 255, 255, 255,
+    64, 64, 64, 64, 64, 64, 0, 0, 0, 255, 255, 255
+  };
+  const int lda = k;
+  int a_offset[] = {0, -64};
+  MatrixMap<const std::uint8_t, MapOrder::RowMajor> lhs(a_data, m, k, lda);
+  const OffsetColMap lhs_offset(a_offset, m);
+
+  // 12 x 9, columnwise.
+  const uint8_t b_data[] = {
+      0,   0,   0,   0,   0,   0,   0,   0,   0, 255, 255, 255,
+      0,   0,   0,   0,   0,   0, 255, 255, 255,   0,   0,   0,
+      0,   0,   0, 127, 127, 127,   0,   0,   0, 127, 127, 127,
+      0,   0,   0, 255, 255, 255,   0,   0,   0,   0,   0,   0,
+    255, 255, 255,   0,   0,   0,   0,   0,   0,   0,   0,   0,
+      0,   0,   0, 127, 127, 127,   0,   0,   0, 127, 127, 127,
+      0,   0,   0,   0,   0,   0, 127, 127, 127, 127, 127, 127,
+      0,   0,   0,   0,   0,   0, 127, 127, 127, 127, 127, 127,
+      0,   0,   0, 127, 127, 127, 127, 127, 127, 127, 127, 127
+  };
+  const int ldb = k;
+  int b_offset = -127;
+  MatrixMap<const std::uint8_t, MapOrder::ColMajor> rhs(b_data, k, n, ldb);
+  const OffsetRowDup rhs_offset(b_offset, rhs.cols());
+
+  // 2 x 9, columnwise.
+  const uint8_t expected_c_data[] = {
+    255, 255,
+      0,   0,
+    127, 159,
+      0,  64,
+      0,  64,
+    127, 159,
+    127, 127,
+    127, 127,
+    127, 127
+  };
+  const int ldc = m;
+  int c_offset[] = {97155, 97346};
+  int c_mult_int[] = {2741, 2741};
+  const int c_shift = 21;
+
+  const int c_count = m * n;
+  std::unique_ptr<uint8_t[]> output_data(new uint8_t[c_count]);
+  MatrixMap<std::uint8_t, MapOrder::ColMajor> result(output_data.get(), m, n,
+                                                     ldc);
+  const OffsetColMap result_offset(c_offset, m);
+  const OffsetColMap result_mult_int(c_mult_int, m);
+  const int result_shift = c_shift;
+
+  GemmContext gemm_context;
+  auto output_pipeline = MakeStandardOutputPipeline<VectorShape::Col>(
+      result_offset, result_mult_int, result_shift);
+  GemmWithOutputPipelinePC<uint8_t, uint8_t, DefaultL8R8BitDepthParams>(
+      &gemm_context, lhs, rhs, &result, lhs_offset, rhs_offset,
+      output_pipeline);
+
+  ResultStats stats;
+  GetResultStats(output_data.get(), expected_c_data, c_count, &stats);
+
+  ResultStatsBounds bounds;
+  const bool good = CheckResultStatsBounds(stats, bounds);
+  printf("TestWithSmallDataPerChannelQuantization: %s\n",
+         good ? "PASS" : "FAIL");
+  ReportResultStats(stats, bounds);
+  Check(good);
+}
+
+// Runs a larger set of hand-picked data for per-channel quantized data.
+// This test case comes from a set of 22 3x3 convolution filters run over a 5x5
+// image.  Right now, I have 7 different filters and 15 copies of the first
+// filter to make sure NEON code path that processes 16 rows at a time is
+// covered.
+void TestWithLargeDataPerChannelQuantization() {
+  const int m = 22;
+  const int n = 25;
+  const int k = 27;
+
+  // 27 x 22, column-wise.
+  const uint8_t a_data[] = {
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0, 127, 127, 127, 255, 255, 255,
+       127, 127, 127,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0, 127, 127, 127,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0, 127, 127, 127,  0,  0,  0,
+    51, 51, 51,  51,  51,  51, 51, 51, 51,   0,   0,   0, 255, 255, 255,
+         0,   0,   0, 51, 51, 51,  51,  51,  51, 51, 51, 51,
+    51, 51, 51,   0,   0,   0, 51, 51, 51,  51,  51,  51, 255, 255, 255,
+        51,  51,  51, 51, 51, 51,   0,   0,   0, 51, 51, 51,
+     0,  0,  0,  64,  64,  64,  0,  0,  0,  64,  64,  64, 255, 255, 255,
+        64,  64,  64,  0,  0,  0,  64,  64,  64,  0,  0,  0,
+    36, 36, 36,   0,   0,   0, 36, 36, 36,   0,   0,   0, 255, 255, 255,
+         0,   0,   0, 36, 36, 36,   0,   0,   0, 36, 36, 36,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+     0,  0,  0,   0,   0,   0,  0,  0,  0,   0,   0,   0, 255, 255, 255,
+         0,   0,   0,  0,  0,  0,   0,   0,   0,  0,  0,  0,
+  };
+  const int lda = k;
+  int a_offset[] = {
+      0, 0, 0, -51, -51, 0, -36, 0, 0, 0,
+      0, 0, 0,   0,   0, 0,   0, 0, 0, 0,
+      0, 0
+  };
+  MatrixMap<const std::uint8_t, MapOrder::RowMajor> lhs(a_data, m, k, lda);
+  const OffsetColMap lhs_offset(a_offset, m);
+
+  // 27 x 25, column-wise.
+  const uint8_t b_data[] = {
+    127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 119, 119, 119,
+         119, 119, 119, 127, 127, 127, 119, 119, 119, 119, 119, 119,
+    127, 127, 127, 127, 127, 127, 127, 127, 127, 119, 119, 119, 119, 119, 119,
+         119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+    127, 127, 127, 127, 127, 127, 127, 127, 127, 119, 119, 119, 119, 119, 119,
+         119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+    127, 127, 127, 127, 127, 127, 127, 127, 127, 119, 119, 119, 119, 119, 119,
+         119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+    127, 127, 127, 127, 127, 127, 127, 127, 127, 119, 119, 119, 119, 119, 119,
+         127, 127, 127, 119, 119, 119, 119, 119, 119, 127, 127, 127,
+    127, 127, 127, 119, 119, 119, 119, 119, 119, 127, 127, 127, 119, 119, 119,
+         119, 119, 119, 127, 127, 127, 119, 119, 119, 119, 119, 119,
+    119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+         119, 119, 119, 119, 119, 119, 119, 119, 119, 136, 136, 136,
+    119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+         119, 119, 119, 119, 119, 119, 136, 136, 136, 119, 119, 119,
+    119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+         119, 119, 119, 136, 136, 136, 119, 119, 119, 119, 119, 119,
+    119, 119, 119, 119, 119, 119, 127, 127, 127, 119, 119, 119, 119, 119, 119,
+         127, 127, 127, 119, 119, 119, 119, 119, 119, 127, 127, 127,
+    127, 127, 127, 119, 119, 119, 119, 119, 119, 127, 127, 127, 119, 119, 119,
+         119, 119, 119, 127, 127, 127, 119, 119, 119, 119, 119, 119,
+    119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+         136, 136, 136, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+    119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 136, 136, 136,
+         119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+    119, 119, 119, 119, 119, 119, 119, 119, 119, 136, 136, 136, 119, 119, 119,
+         119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+    119, 119, 119, 119, 119, 119, 127, 127, 127, 119, 119, 119, 119, 119, 119,
+         127, 127, 127, 119, 119, 119, 119, 119, 119, 127, 127, 127,
+    127, 127, 127, 119, 119, 119, 119, 119, 119, 127, 127, 127, 119, 119, 119,
+         119, 119, 119, 127, 127, 127, 119, 119, 119, 119, 119, 119,
+    119, 119, 119, 119, 119, 119, 136, 136, 136, 119, 119, 119, 119, 119, 119,
+         119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+    119, 119, 119, 136, 136, 136, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+         119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+    136, 136, 136, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+         119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+    119, 119, 119, 119, 119, 119, 127, 127, 127, 119, 119, 119, 119, 119, 119,
+         127, 127, 127, 119, 119, 119, 119, 119, 119, 127, 127, 127,
+    127, 127, 127, 119, 119, 119, 119, 119, 119, 127, 127, 127, 119, 119, 119,
+         119, 119, 119, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+    119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+         119, 119, 119, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+    119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+         119, 119, 119, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+    119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119, 119,
+         119, 119, 119, 127, 127, 127, 127, 127, 127, 127, 127, 127,
+    119, 119, 119, 119, 119, 119, 127, 127, 127, 119, 119, 119, 119, 119, 119,
+         127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127, 127
+  };
+  const int ldb = k;
+  int b_offset = -127;
+  MatrixMap<const std::uint8_t, MapOrder::ColMajor> rhs(b_data, k, n, ldb);
+  const OffsetRowDup rhs_offset(b_offset, rhs.cols());
+
+  // 22 x 25, column-wise.
+  const uint8_t expected_c_data[] = {
+      7,  37,  37,  67,  67,  39,  79,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,   7,  37,  87,  67,  23,  91,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,   7,  37,  87,  67,  23,  91,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,   7,  37,  87,  67,  23,  91,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,  37,  37,  67,  67,  39,  79,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,  37,   7,  67,  87,  23,  91,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,   7,   7,  87,  87,   7, 103,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,   7,  71,  87,  45,  41,  77,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,   7,   7,  87,  87,   7, 103,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,  37,   7,  67,  87,  23,  91,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,  37,   7,  67,  87,  23,  91,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,  71,   7,  45,  87,  41,  77,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+    255, 135, 135, 255, 255, 143, 255, 255, 255, 255, 255, 255, 255, 255, 255,
+         255, 255, 255, 255, 255, 255, 255,
+      7,  71,   7,  45,  87,  41,  77,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,  37,   7,  67,  87,  23,  91,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,  37,   7,  67,  87,  23,  91,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,   7,   7,  87,  87,   7, 103,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,   7,  71,  87,  45,  41,  77,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,   7,   7,  87,  87,   7, 103,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,  37,   7,  67,  87,  23,  91,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,  37,  37,  67,  67,  39,  79,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,   7,  37,  87,  67,  23,  91,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,   7,  37,  87,  67,  23,  91,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,   7,  37,  87,  67,  23,  91,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+      7,  37,  37,  67,  67,  39,  79,   7,   7,   7,   7,   7,   7,   7,   7,
+           7,   7,   7,   7,   7,   7,   7,
+     99,  99,  99,  99,  99,  99,  99,  99,  99,  99,  99,  99,  99,  99,  99,
+          99,  99,  99,  99,  99,  99,  99,
+    111, 111, 111, 111, 111, 111, 111, 111, 111, 111, 111, 111, 111, 111, 111,
+         111, 111, 111, 111, 111, 111, 111,
+  };
+  const int ldc = m;
+  int c_offset[] = {
+      6477, 12954, 12954, 7793, 7793, 12954, 9282, 6477, 6477, 6477,
+      6477,  6477,  6477, 6477, 6477,  6477, 6477, 6477, 6477, 6477,
+      6477,  6477,
+  };
+  int c_mult_int[] = {
+      41121, 20560, 20560, 34267, 34267, 21937, 28784, 41121, 41121, 41121,
+      41121, 41121, 41121, 41121, 41121, 41121, 41121, 41121, 41121, 41121,
+      41121, 41121,
+  };
+  const int c_shift = 21;
+
+  const int c_count = m * n;
+  std::unique_ptr<uint8_t[]> output_data(new uint8_t[c_count]);
+  MatrixMap<std::uint8_t, MapOrder::ColMajor> result(output_data.get(), m, n,
+                                                     ldc);
+  const OffsetColMap result_offset(c_offset, m);
+  const OffsetColMap result_mult_int(c_mult_int, m);
+  const int result_shift = c_shift;
+
+  GemmContext gemm_context;
+  auto output_pipeline = MakeStandardOutputPipeline<VectorShape::Col>(
+      result_offset, result_mult_int, result_shift);
+  GemmWithOutputPipelinePC<uint8_t, uint8_t, DefaultL8R8BitDepthParams>(
+      &gemm_context, lhs, rhs, &result, lhs_offset, rhs_offset,
+      output_pipeline);
+
+  ResultStats stats;
+  GetResultStats(output_data.get(), expected_c_data, c_count, &stats);
+
+  ResultStatsBounds bounds;
+  const bool good = CheckResultStatsBounds(stats, bounds);
+  printf("TestWithLargeDataPerChannelQuantization: %s\n",
+         good ? "PASS" : "FAIL");
+  ReportResultStats(stats, bounds);
+  Check(good);
+}
+
+// Multithreading only activates when the result has more than 16 rows, and also
+// (result rows) * (result cols) * depth >= 2 x 65 x 1024.  Size was selected
+// to run in 3 threads.
+//
+// Based on the following floating point data:
+//   LHS: all zeros except 10.0, 20.0 at the beginning of first 16 rows;
+//     1.0, 2.0 at the beginning of next 16 rows; 0.1, 0.2 in next 16 rows;
+//     0.01, 0.02 in last 16 rows.
+//   RHS: all zeros except 1.0 in (0, 0) and 2.0 in (1, 0).
+//   Varying boundaries were used for each 16 rows block of LHS, to test for
+//     correct indexing into offsets.
+//   Expected result: all zeros, except 50.0 at the beginning of first 16 rows;
+//     5.0 at the beginning of next 16 rows; 0.5 in next 16 rows; 0.05 in last
+//     16 rows.
+void TestMultithreadedPerChannelQuantization() {
+  const int m = 64;
+  const int n = 20;
+  const int k = 160;
+
+  // LHS, m x k.
+  const std::array<int32_t, 4> lhs_offsets_terse {{
+      0, -51, -85, -109,
+  }};
+  assert(lhs_offsets_terse.size() * 16 == m);
+  const std::array<uint8_t, 4> lhs_first_el {{
+      128, 153, 170, 182,
+  }};
+  assert(lhs_first_el.size() * 16 == m);
+
+  // lhs_first_el at (i, 0) and 255 at (i, 1), other values are all -offset.
+  std::vector<uint8_t> a_data(m * k, 0);
+  for (int i = 0; i < m; ++i) {
+    a_data[i * k] = lhs_first_el[i /16];
+    a_data[i * k + 1] = 255;
+    for (int j = 2; j < k; ++j) {
+      a_data[i * k + j] = uint8_t(-lhs_offsets_terse[i / 16]);
+    }
+  }
+
+  const int lda = k;
+  // Given values at [i / 16].
+  std::vector<int32_t> a_offset(m, 0);
+  for (int i = 0; i < m; ++i) {
+    a_offset[i] = lhs_offsets_terse[i / 16];
+  }
+
+  MatrixMap<const std::uint8_t, MapOrder::RowMajor> lhs(&a_data[0], m, k, lda);
+  const OffsetColMap lhs_offset(&a_offset[0], m);
+
+  // RHS, k x n.
+  // All zeros, except 128 at (0, 0) and 255 at (1, 0).
+  std::vector<uint8_t> b_data(k * n, 0);
+  b_data[0] = 128;
+  b_data[1] = 255;
+
+  const int ldb = k;
+  int32_t b_offset = 0;
+  MatrixMap<const std::uint8_t, MapOrder::ColMajor> rhs(&b_data[0], k, n, ldb);
+  const OffsetRowDup rhs_offset(b_offset, rhs.cols());
+
+  // Result, m x n.
+  // All zeros, except given values at (i / 16, 0).
+  const std::array<uint8_t, 4> expected_c_terse {{
+      142, 159, 182, 213,
+  }};
+  assert(expected_c_terse.size() * 16 == m);
+  std::vector<uint8_t> expected_c_data(m * n, 0);
+  for (int i = 0; i < m; ++i) {
+    expected_c_data[i] = expected_c_terse[i / 16];
+  }
+
+  const int ldc = m;
+  // All zeros.
+  std::vector<int32_t> c_offset(m, 0);
+  // Given values at [i / 16].
+  const std::array<int32_t, 4> c_mult_int_terse {{
+      3655, 5140, 7049, 9595,
+  }};
+  assert(c_mult_int_terse.size() * 16 == m);
+  std::vector<int32_t> c_mult_int(m);
+  for (int i = 0; i < m; ++i) {
+    c_mult_int[i] = c_mult_int_terse[i / 16];
+  }
+
+  const int c_shift = 21;
+
+  const int c_count = m * n;
+  std::unique_ptr<uint8_t[]> output_data(new uint8_t[c_count]);
+  MatrixMap<std::uint8_t, MapOrder::ColMajor> result(output_data.get(), m, n,
+                                                     ldc);
+  const OffsetColMap result_offset(&c_offset[0], m);
+  const OffsetColMap result_mult_int(&c_mult_int[0], m);
+  const int result_shift = c_shift;
+
+  GemmContext gemm_context;
+  auto output_pipeline = MakeStandardOutputPipeline<VectorShape::Col>(
+      result_offset, result_mult_int, result_shift);
+  GemmWithOutputPipelinePC<uint8_t, uint8_t, DefaultL8R8BitDepthParams>(
+      &gemm_context, lhs, rhs, &result, lhs_offset, rhs_offset,
+      output_pipeline);
+
+  ResultStats stats;
+  GetResultStats(output_data.get(), &expected_c_data[0], c_count, &stats);
+
+  ResultStatsBounds bounds;
+  const bool good = CheckResultStatsBounds(stats, bounds);
+  printf("TestMultithreadedPerChannelQuantization: %s\n",
+         good ? "PASS" : "FAIL");
+  ReportResultStats(stats, bounds);
+  Check(good);
+}
+
 // Runs a small set of hand-calculated data through the implementation.
 void TestWithSmallData() {
   const int m = 4;
@@ -1124,6 +1542,13 @@ void test() {
   // output stages.
   TestOutputStages<MapOrder::RowMajor>(63, 10, 127, 5, 17, 14);
   TestOutputStages<MapOrder::ColMajor>(63, 10, 127, 5, 17, 14);
+  TestOutputStages<MapOrder::RowMajor>(630, 10, 1270, 5, 17, 14);
+  TestOutputStages<MapOrder::ColMajor>(630, 10, 1270, 5, 17, 14);
+
+  // Test per channel quantization.
+  TestWithSmallDataPerChannelQuantization();
+  TestWithLargeDataPerChannelQuantization();
+  TestMultithreadedPerChannelQuantization();
 #ifdef GEMMLOWP_TEST_PROFILE
   FinishProfiling();
 #endif
