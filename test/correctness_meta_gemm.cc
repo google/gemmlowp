@@ -232,6 +232,26 @@ int main() {
       }
     }
 
+    std::cout << std::endl
+              << "Quantized 8 bit gemv." << std::endl
+              << std::flush;
+
+    for (int n = min_n; n < max_n; n += 17) {
+      for (int k = min_k; k < max_k; k += 23) {
+        test(scratch, left, right, 1, n, k, result, &pool, t);
+        test(scratch, left, right, n, 1, k, result, &pool, t);
+      }
+    }
+
+    std::cout << std::endl << "Float gemv." << std::endl << std::flush;
+
+    for (int n = min_n; n < max_n; n += 17) {
+      for (int k = min_k; k < max_k; k += 23) {
+        test_f(scratch, left, right, 1, n, k, result_float, &pool, t);
+        test_f(scratch, left, right, n, 1, k, result_float, &pool, t);
+      }
+    }
+
     std::cout << std::endl << std::flush;
   }
 

@@ -21,6 +21,8 @@
 #ifdef GEMMLOWP_NEON_32
 
 #include "multi_thread_common.h"
+#include "multi_thread_gemv.h"
+#include "operations_common.h"
 #include "single_thread_gemm.h"
 
 namespace gemmlowp {
@@ -55,16 +57,13 @@ void CacheFriendlyMatrixMatrix(std::uint8_t* scratch, const IN_TYPE* lhs,
   }
 }
 
-class GemmQuantized8BitOperation {
+class GemmQuantized8BitOperation : public Quantized8BitOperation {
  public:
   GemmQuantized8BitOperation(std::int32_t lhs_offset, std::int32_t rhs_offset,
                              std::int32_t sum_offset, std::int32_t multiplier,
                              std::int32_t shift)
-      : lhs_offset(lhs_offset),
-        rhs_offset(rhs_offset),
-        sum_offset(sum_offset),
-        multiplier(multiplier),
-        shift(shift) {}
+      : Quantized8BitOperation(lhs_offset, rhs_offset, sum_offset, multiplier,
+                               shift) {}
 
   void ExecuteMatrixMatrix(std::uint8_t* scratch, const std::uint8_t* lhs,
                            const std::uint8_t* rhs, std::int32_t m,
@@ -88,22 +87,13 @@ class GemmQuantized8BitOperation {
                                        std::int32_t k) {
     return 4 * kMaxCacheFriendlySize;
   }
-
- private:
-  std::int32_t lhs_offset;
-  std::int32_t rhs_offset;
-  std::int32_t sum_offset;
-  std::int32_t multiplier;
-  std::int32_t shift;
 };
 
-class GemmFloatOperation {
+class GemmFloatOperation : public FloatOperation {
  public:
   GemmFloatOperation(std::int32_t lhs_offset, std::int32_t rhs_offset,
                      float result_offset)
-      : lhs_offset(lhs_offset),
-        rhs_offset(rhs_offset),
-        result_offset(result_offset) {}
+      : FloatOperation(lhs_offset, rhs_offset, result_offset) {}
 
   void ExecuteMatrixMatrix(std::uint8_t* scratch, const std::uint8_t* lhs,
                            const std::uint8_t* rhs, std::int32_t m,
@@ -127,17 +117,12 @@ class GemmFloatOperation {
                                        std::int32_t k) {
     return 4 * kMaxCacheFriendlySize;
   }
-
- private:
-  std::int32_t lhs_offset;
-  std::int32_t rhs_offset;
-  float result_offset;
 };
 
-class GemmInt32Operation {
+class GemmInt32Operation : public Int32Operation {
  public:
   GemmInt32Operation(std::int32_t lhs_offset, std::int32_t rhs_offset)
-      : lhs_offset(lhs_offset), rhs_offset(rhs_offset) {}
+      : Int32Operation(lhs_offset, rhs_offset) {}
 
   void ExecuteMatrixMatrix(std::uint8_t* scratch, const std::uint8_t* lhs,
                            const std::uint8_t* rhs, std::int32_t m,
@@ -161,10 +146,6 @@ class GemmInt32Operation {
                                        std::int32_t k) {
     return 4 * kMaxCacheFriendlySize;
   }
-
- private:
-  std::int32_t lhs_offset;
-  std::int32_t rhs_offset;
 };
 
 }  // namespace internal
@@ -182,6 +163,16 @@ void multi_thread_gemm_q8(gemmlowp::WorkersPool* pool, std::int32_t max_threads,
                           std::int32_t lhs_offset, std::int32_t rhs_offset,
                           std::int32_t sum_offset, std::int32_t multiplier,
                           std::int32_t shift, std::uint8_t* result) {
+  if (m == 1 && k <= 1536) {
+    multi_thread_gemv_q8(pool, max_threads, scratch, lhs, rhs, n, k, lhs_offset,
+                         rhs_offset, sum_offset, multiplier, shift, result);
+    return;
+  } else if (n == 1 && k <= 1536) {
+    multi_thread_gemv_q8(pool, max_threads, scratch, rhs, lhs, m, k, rhs_offset,
+                         lhs_offset, sum_offset, multiplier, shift, result);
+    return;
+  }
+
   max_threads = internal::ResolveMaxThreads(max_threads);
   internal::GemmQuantized8BitOperation operation(lhs_offset, rhs_offset,
                                                  sum_offset, multiplier,
@@ -207,6 +198,16 @@ void multi_thread_gemm_f(gemmlowp::WorkersPool* pool, std::int32_t max_threads,
                          std::int32_t n, std::int32_t k,
                          std::int32_t lhs_offset, std::int32_t rhs_offset,
                          float result_offset, float* result) {
+  if (m == 1 && k <= 1536) {
+    multi_thread_gemv_f(pool, max_threads, scratch, lhs, rhs, n, k, lhs_offset,
+                        rhs_offset, result_offset, result);
+    return;
+  } else if (n == 1 && k <= 1536) {
+    multi_thread_gemv_f(pool, max_threads, scratch, rhs, lhs, m, k, rhs_offset,
+                        lhs_offset, result_offset, result);
+    return;
+  }
+
   max_threads = internal::ResolveMaxThreads(max_threads);
   internal::GemmFloatOperation operation(lhs_offset, rhs_offset, result_offset);
   if (max_threads == 1) {
@@ -230,6 +231,16 @@ void multi_thread_gemm_i32(gemmlowp::WorkersPool* pool,
                            std::int32_t m, std::int32_t n, std::int32_t k,
                            std::int32_t lhs_offset, std::int32_t rhs_offset,
                            std::int32_t* result) {
+  if (m == 1 && k <= 1536) {
+    multi_thread_gemv_i32(pool, max_threads, scratch, lhs, rhs, n, k,
+                          lhs_offset, rhs_offset, result);
+    return;
+  } else if (n == 1 && k <= 1536) {
+    multi_thread_gemv_i32(pool, max_threads, scratch, rhs, lhs, m, k,
+                          rhs_offset, lhs_offset, result);
+    return;
+  }
+
   max_threads = internal::ResolveMaxThreads(max_threads);
   internal::GemmInt32Operation operation(lhs_offset, rhs_offset);
   if (max_threads == 1) {

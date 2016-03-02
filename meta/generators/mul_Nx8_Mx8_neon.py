@@ -167,7 +167,7 @@ def ReadParams(emitter, registers, input_address, elements, min_reg):
     register = registers.DoubleRegister(min_reg * 2)
     emitter.EmitVLoad('1.32', register, emitter.Dereference(input_address, 64))
     return register
-  elif elements == 3:
+  elif elements == 3 or elements == 4:
     register = registers.QuadRegister(min_reg)
     emitter.EmitVLoad('1.32', register, emitter.Dereference(input_address, 64))
     return register
@@ -181,7 +181,7 @@ def Duplicate(emitter, registers, rows, cols, min_register, values):
   if cols == 1 or cols == 2:
     for unused_i in range(0, rows):
       duplicated.append(registers.DoubleRegister(min_register))
-  elif cols == 3:
+  elif cols == 3 or cols == 4:
     for unused_i in range(0, rows):
       duplicated.append(registers.QuadRegister(min_register))
   else:
@@ -199,6 +199,15 @@ def Duplicate(emitter, registers, rows, cols, min_register, values):
         registers.Low(values), 1))
     emitter.EmitVDup('32', duplicated[2], emitter.Lane(
         registers.High(values), 0))
+  elif rows == 4:
+    emitter.EmitVDup('32', duplicated[0], emitter.Lane(
+        registers.Low(values), 0))
+    emitter.EmitVDup('32', duplicated[1], emitter.Lane(
+        registers.Low(values), 1))
+    emitter.EmitVDup('32', duplicated[2], emitter.Lane(
+        registers.High(values), 0))
+    emitter.EmitVDup('32', duplicated[3], emitter.Lane(
+        registers.High(values), 1))
 
   return duplicated
 
@@ -207,7 +216,7 @@ def DuplicateGeneralRegister(emitter, registers, cols, general_register,
                              min_register):
   if cols == 1 or cols == 2:
     duplicated = registers.DoubleRegister(min_register)
-  elif cols == 3:
+  elif cols == 3 or cols == 4:
     duplicated = registers.QuadRegister(min_register)
   else:
     raise ConfigurationError('Unsupported duplicate amount: %d' % cols)
@@ -234,6 +243,14 @@ def ReduceAggregator(emitter, registers, aggregators, row, cols):
                       registers.Low(aggregators[row * 3 + 2]),
                       registers.Low(aggregators[row * 3 + 2]))
     return register
+  elif cols == 4:
+    register = aggregators[row * 3]
+    emitter.EmitVPadd('u32', registers.Low(register), registers.Low(register),
+                      registers.Low(aggregators[row * 3 + 1]))
+    emitter.EmitVPadd('u32', registers.High(register),
+                      registers.Low(aggregators[row * 3 + 2]),
+                      registers.Low(aggregators[row * 3 + 3]))
+    return register
   else:
     raise ConfigurationError('Unsupported columns no: %d' % cols)
 
@@ -255,6 +272,10 @@ def StoreAggregator(emitter, registers, aggregator, cols, result_address,
         registers.High(aggregator),
         0), emitter.Dereference(result_address, None), result_stride)
     emitter.EmitNewline()
+  elif cols == 4:
+    emitter.EmitVStoreOffsetA(
+        '1.32', [registers.Low(aggregator), registers.High(aggregator)],
+        emitter.Dereference(result_address, None), result_stride)
   else:
     raise ConfigurationError('Unsupported columns no: %d' % cols)
 
@@ -359,10 +380,10 @@ def GetParameters(result_type):
 def GenerateMulNx8Mx8(emitter, result_type, lhs_add, rhs_add, left_lanes_count,
                       right_lanes_count):
   """Emit the multiply code for given rows and cols counts."""
-  if left_lanes_count < 1 or left_lanes_count > 3:
-    raise ConfigurationError('Left_lanes should be: 1, 2 or 3.')
-  if right_lanes_count < 1 or right_lanes_count > 3:
-    raise ConfigurationError('Right_lanes should be: 1, 2 or 3.')
+  if left_lanes_count < 1 or left_lanes_count > 4:
+    raise ConfigurationError('Left_lanes should be: 1, 2, 3 or 4.')
+  if right_lanes_count < 1 or right_lanes_count > 4:
+    raise ConfigurationError('Right_lanes should be: 1, 2, 3 or 4.')
 
   emitter.EmitFunctionBeginA(
       BuildName(result_type, lhs_add, rhs_add, left_lanes_count,
@@ -378,35 +399,29 @@ def GenerateMulNx8Mx8(emitter, result_type, lhs_add, rhs_add, left_lanes_count,
 
   size = left_lanes_count * right_lanes_count
 
+  lhs = registers.MapParameter('lhs')
+  rhs = registers.MapParameter('rhs')
+
+  emitter.EmitPld(lhs)
+  emitter.EmitPld(rhs)
+
+  aggregators = GenerateAndClearAggregators(emitter, registers, size)
+
   if size < 9:
-    aggregators = GenerateAndClearAggregators(emitter, registers, size)
-
-    left_lanes = GenerateMulLanes(registers, left_lanes_count,
-                                  registers.MapParameter('lhs'))
-    right_lanes = GenerateMulLanes(registers, right_lanes_count,
-                                   registers.MapParameter('rhs'))
-
-    emitter.EmitPld(left_lanes.input_address)
-    emitter.EmitPld(right_lanes.input_address)
+    left_lanes = GenerateMulLanes(registers, left_lanes_count, lhs)
+    right_lanes = GenerateMulLanes(registers, right_lanes_count, rhs)
 
     GenerateNxMLoadMultiplyAggregate(emitter, registers, left_lanes,
                                      right_lanes, aggregators, count)
 
   else:  # left == 3 and right == 3
-    aggregators = GenerateAndClearAggregators(emitter, registers, size)
     backup_register = registers.QuadRegister()
-    left_lanes = Generate3MulLanes(backup_register, registers,
-                                   registers.MapParameter('lhs'))
-    right_lanes = GenerateMulLanes(registers, right_lanes_count,
-                                   registers.MapParameter('rhs'))
-
-    emitter.EmitPld(left_lanes.input_address)
-    emitter.EmitPld(right_lanes.input_address)
+    left_lanes = Generate3MulLanes(backup_register, registers, lhs)
+    right_lanes = GenerateMulLanes(registers, right_lanes_count, rhs)
 
     Generate3x3LoadMultiplyAggregate(emitter, registers, left_lanes,
                                      right_lanes, aggregators, count,
                                      backup_register)
-
   left_lanes.FreeRegisters(registers)
   right_lanes.FreeRegisters(registers)
 
@@ -426,3 +441,10 @@ def GenerateFunctions(emitter, result_type, lhs_add, rhs_add):
       GenerateMulNx8Mx8(emitter, result_type, lhs_add, rhs_add, left_lanes,
                         right_lanes)
       emitter.EmitNewline()
+
+  GenerateMulNx8Mx8(emitter, result_type, lhs_add, rhs_add, 1, 4)
+  emitter.EmitNewline()
+
+
+if __name__ == '__main__':
+  GenerateFunctions(neon_emitter.NeonEmitter(), 'int32', True, True)
