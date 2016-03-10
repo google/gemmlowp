@@ -211,8 +211,8 @@ bool IsColumnMajorOrVector(bool transpose, int stride, int rows, int cols) {
 bool CanHandleMetaFastpath(bool transpose_a, bool transpose_b, bool transpose_c,
                            int m, int n, int k, int lda, int ldb, int ldc,
                            BitDepthSetting depth_setting) {
-  // Meta fastpath only supports 8bit x 8bit and k up to 2048.
-  if (depth_setting != BitDepthSetting::A8B8 || k > 2048) {
+  // Meta fastpath only supports 8bit x 8bit and k between 8 and 2048.
+  if (depth_setting != BitDepthSetting::A8B8 || k < 8 || k > 2048) {
     return false;
   }
 
