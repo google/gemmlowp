@@ -201,8 +201,8 @@ struct SSE3_32_Kernel4x4Depth2 : KernelBase {
   }
 };
 #endif
-#ifdef GEMMLOWP_SSE4_64
-struct SSE4_64_Kernel12x4Depth2 : KernelBase {
+#ifdef GEMMLOWP_SSE3_64
+struct SSE3_64_Kernel12x4Depth2 : KernelBase {
   typedef KernelFormat<
       KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 3>,
       KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 1> >
