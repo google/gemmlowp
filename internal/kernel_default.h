@@ -53,14 +53,14 @@ GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, NEONKernel4Nx1Depth2<3>)
 #include "kernel_neon.h"
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, NEON_64_Kernel12x8Depth2)
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, NEONKernel4Nx1Depth2<3>)
-#elif defined GEMMLOWP_SSE3_32
+#elif defined GEMMLOWP_SSE4_32
 #include "kernel_SSE.h"
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, SSE3_32_Kernel4x4Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, SSE3_32_Kernel4x4Depth2)
-#elif defined GEMMLOWP_SSE3_64
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, SSE4_32_Kernel4x4Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, SSE4_32_Kernel4x4Depth2)
+#elif defined GEMMLOWP_SSE4_64
 #include "kernel_SSE.h"
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, SSE3_64_Kernel12x4Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, SSE3_64_Kernel12x4Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, SSE4_64_Kernel12x4Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, SSE4_64_Kernel12x4Depth2)
 #else
 #include "kernel_reference.h"
 namespace gemmlowp {
