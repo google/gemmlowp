@@ -100,7 +100,7 @@ Building by manually invoking your compiler
 -------------------------------------------
 
 Because gemmlowp is so simple, working with it involves only
-single-command-line compiler invokations. Therefore we expect that
+single-command-line compiler invocations. Therefore we expect that
 most people working with gemmlowp will either manually invoke their
 compiler, or write their own rules for their own preferred build
 system.
