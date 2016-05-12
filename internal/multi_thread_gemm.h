@@ -66,6 +66,30 @@ inline int Do256NOPs() { return 0; }
 
 #endif  // not GEMMLOWP_ALLOW_INLINE_ASM
 
+inline void WriteBarrier() {
+#ifdef GEMMLOWP_ARM_32
+  MemoryBarrier();
+#elif defined(GEMMLOWP_ARM_64)
+  asm volatile("dmb ishst" ::: "memory");
+#elif defined(GEMMLOWP_X86)
+  asm volatile("sfence" ::: "memory");
+#else
+#error "Unsupported architecture for WriteBarrier."
+#endif
+}
+
+inline void ReadBarrier() {
+#ifdef GEMMLOWP_ARM_32
+  MemoryBarrier();
+#elif defined(GEMMLOWP_ARM_64)
+  asm volatile("dmb ishld" ::: "memory");
+#elif defined(GEMMLOWP_X86)
+  asm volatile("lfence" ::: "memory");
+#else
+#error "Unsupported architecture for ReadBarrier."
+#endif
+}
+
 // Waits until *var != initial_value.
 //
 // Returns the new value of *var. The guarantee here is that
@@ -255,6 +279,7 @@ class Worker {
       switch (state_to_act_upon) {
         case State::HasWork:
           // Got work to do! So do it, and then revert to 'Ready' state.
+          ReadBarrier();
           assert(task_);
           task_->Run();
           delete task_;
@@ -280,6 +305,7 @@ class Worker {
     assert(!task_);
     task->local_allocator = &local_allocator_;
     task_ = task;
+    WriteBarrier();
     assert(state_ == State::Ready);
     ChangeState(State::HasWork);
   }
