@@ -130,6 +130,7 @@ T WaitForVariableChange(volatile T* var, T initial_value, pthread_cond_t* cond,
     }
   }
 #endif
+
   // Finally, do real passive waiting.
   pthread_mutex_lock(mutex);
   T new_value = *var;
