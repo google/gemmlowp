@@ -27,9 +27,15 @@
 
 namespace gemmlowp {
 
-#ifdef GEMMLOWP_ALLOW_INLINE_ASM
-// Where inline asm is allowed, we use some busy-waiting,
-// preferably implemented using NOP instructions.
+// On X86 and ARM platforms we enable a busy-wait spinlock before waiting on a
+// pthread conditional variable. In order to implement that correctly we need
+// to put some explicit memory load/store barriers.
+
+#if defined(GEMMLOWP_ALLOW_INLINE_ASM) && !defined(GEMMLOWP_NO_BUSYWAIT) && \
+    (defined(GEMMLOWP_ARM) || defined(GEMMLOWP_X86))
+
+#define GEMMLOWP_USE_BUSYWAIT
+
 const int kMaxBusyWaitNOPs = 32 * 1000 * 1000;
 
 #define GEMMLOWP_NOP "nop\n"
@@ -51,20 +57,6 @@ inline int Do256NOPs() {
 #undef GEMMLOWP_NOP16
 #undef GEMMLOWP_NOP4
 #undef GEMMLOWP_NOP
-
-#else  // not GEMMLOWP_ALLOW_INLINE_ASM
-
-// It is nontrivial to implement a good busy-waiting without
-// using asm; NOP instructions have the least side effects
-// and the lowest power usage; and since the whole busy-waiting
-// story is an optimization, it's not very interesting anyway
-// in places where we're slow anyway due to not being able to
-// use our inline asm kernels.
-
-const int kMaxBusyWaitNOPs = 0;
-inline int Do256NOPs() { return 0; }
-
-#endif  // not GEMMLOWP_ALLOW_INLINE_ASM
 
 inline void WriteBarrier() {
 #ifdef GEMMLOWP_ARM_32
@@ -89,6 +81,8 @@ inline void ReadBarrier() {
 #error "Unsupported architecture for ReadBarrier."
 #endif
 }
+
+#endif
 
 // Waits until *var != initial_value.
 //
@@ -115,23 +109,31 @@ inline void ReadBarrier() {
 template <typename T>
 T WaitForVariableChange(volatile T* var, T initial_value, pthread_cond_t* cond,
                         pthread_mutex_t* mutex) {
-  int nops = 0;
-  // First, trivial case where the variable already changed value.
-  T new_value = *var;
-  if (new_value != initial_value) {
-    return new_value;
-  }
-  // Then try busy-waiting.
-  while (nops < kMaxBusyWaitNOPs) {
-    nops += Do256NOPs();
-    new_value = *var;
+#ifdef GEMMLOWP_USE_BUSYWAIT
+  // If we are on a platform that supports it, spin for some time.
+  {
+    int nops = 0;
+    // First, trivial case where the variable already changed value.
+    T new_value = *var;
     if (new_value != initial_value) {
+      ReadBarrier();
       return new_value;
     }
+    // Then try busy-waiting.
+    while (nops < kMaxBusyWaitNOPs) {
+      nops += Do256NOPs();
+      new_value = *var;
+      if (new_value != initial_value) {
+        ReadBarrier();
+        return new_value;
+      }
+    }
   }
+#endif
+
   // Finally, do real passive waiting.
   pthread_mutex_lock(mutex);
-  new_value = *var;
+  T new_value = *var;
   if (new_value == initial_value) {
     pthread_cond_wait(cond, mutex);
     new_value = *var;
@@ -170,6 +172,9 @@ class BlockingCounter {
     pthread_mutex_lock(&mutex_);
     assert(count_ > 0);
     count_--;
+#ifdef GEMMLOWP_USE_BUSYWAIT
+    WriteBarrier();
+#endif
     if (count_ == 0) {
       pthread_cond_signal(&cond_);
     }
@@ -279,7 +284,6 @@ class Worker {
       switch (state_to_act_upon) {
         case State::HasWork:
           // Got work to do! So do it, and then revert to 'Ready' state.
-          ReadBarrier();
           assert(task_);
           task_->Run();
           delete task_;
@@ -305,7 +309,9 @@ class Worker {
     assert(!task_);
     task->local_allocator = &local_allocator_;
     task_ = task;
+#ifdef GEMMLOWP_USE_BUSYWAIT
     WriteBarrier();
+#endif
     assert(state_ == State::Ready);
     ChangeState(State::HasWork);
   }
