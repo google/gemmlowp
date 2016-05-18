@@ -11,6 +11,15 @@ class ConfigurationError(Error):
   """Unsupported configuration."""
 
 
+def RegisterForCols(registers, cols, min_register=0):
+  if cols == 1 or cols == 2:
+    return registers.DoubleRegister(min_register * 2)
+  elif cols == 3 or cols == 4:
+    return registers.QuadRegister(min_register)
+  else:
+    raise ConfigurationError('Wrong no of cols for register: %d' % cols)
+
+
 def GenerateLoadMultiplyAggregate(emitter, registers, lanes_count, aggregators,
                                   count, lhs, rhs_1, rhs_2):
   """Emit inner loop for 1 row x M cols multiplication."""
@@ -24,8 +33,8 @@ def GenerateLoadMultiplyAggregate(emitter, registers, lanes_count, aggregators,
   right_load = [registers.DoubleRegister() for unused_i in range(4)]
   left_load = registers.DoubleRegister()
 
-  emitter.EmitVLoad('1.8', left_load, emitter.DereferenceIncrement(lhs, 64))
-  emitter.EmitVLoadA('1.8', right_load, emitter.DereferenceIncrement(rhs_1, 64))
+  emitter.EmitVLoad(1, 8, left_load, emitter.DereferenceIncrement(lhs, 64))
+  emitter.EmitVLoadA(1, 8, right_load, emitter.DereferenceIncrement(rhs_1, 64))
 
   emitter.EmitPldOffset(lhs, emitter.ImmediateConstant(64))
   emitter.EmitPldOffset(rhs_1, emitter.ImmediateConstant(128))
@@ -35,7 +44,7 @@ def GenerateLoadMultiplyAggregate(emitter, registers, lanes_count, aggregators,
   for i in range(4):
     emitter.EmitVMull('u8', multiply_results[i], right_load[i], left_load)
 
-  emitter.EmitVLoadA('1.8', right_load[:lanes_count],
+  emitter.EmitVLoadA(1, 8, right_load[:lanes_count],
                      emitter.DereferenceIncrement(rhs_2, 64))
   emitter.EmitPldOffset(rhs_2, emitter.ImmediateConstant(lanes_count * 32))
 
@@ -60,20 +69,13 @@ def GenerateLoadMultiplyAggregate(emitter, registers, lanes_count, aggregators,
 
 def ReadLeft(emitter, registers, lhs):
   register = registers.QuadRegister()
-  emitter.EmitVLoadA('1.32', [emitter.AllLanes(registers.Low(register)),
-                              emitter.AllLanes(registers.High(register))],
-                     emitter.Dereference(lhs, None))
+  emitter.EmitVLoadAllLanes(1, 32, register, emitter.Dereference(lhs, None))
   return register
 
 
 def ReadRight(emitter, registers, rhs, count):
-  if count == 1 or count == 2:
-    register = registers.DoubleRegister()
-  elif count == 3 or count == 4:
-    register = registers.QuadRegister()
-  else:
-    raise ConfigurationError('Unsupported elements no: %d' % count)
-  emitter.EmitVLoad('1.32', register, emitter.Dereference(rhs, 64))
+  register = RegisterForCols(registers, count)
+  emitter.EmitVLoad(1, 32, register, emitter.Dereference(rhs, 64))
   return register
 
 
@@ -88,6 +90,9 @@ def GenerateAggregatorReduceStore(emitter, registers, lanes_count, aggregators,
                                   result_type, lhs_add, rhs_add, lhs, rhs_1,
                                   rhs_2, results):
   """Generates assembly responsible for reducing the 4 way aggregators."""
+  temp = registers.QuadRegister()
+  temp_2 = RegisterForCols(registers, lanes_count)
+
   if lhs_add:
     left_offset = ReadLeft(emitter, registers, lhs)
   else:
@@ -108,51 +113,15 @@ def GenerateAggregatorReduceStore(emitter, registers, lanes_count, aggregators,
 
   emitter.EmitNewline()
   emitter.EmitComment('Horizontal reduce aggregators.')
-  for aggregator in aggregators:
-    emitter.EmitVPadd('u32', registers.Low(aggregator),
-                      registers.Low(aggregator), registers.High(aggregator))
 
-  temp = aggregators[0]
-  emitter.EmitVPadd('u32', registers.Low(temp), registers.Low(aggregators[0]),
-                    registers.Low(aggregators[1]))
-  emitter.EmitVPadd('u32', registers.High(temp), registers.Low(aggregators[2]),
-                    registers.Low(aggregators[3]))
-
-  if lanes_count == 1:
-    temp_2 = registers.Low(aggregators[1])
-    emitter.EmitVPadd('u32', temp_2, registers.Low(aggregators[4]),
-                      registers.Low(aggregators[4]))
-  elif lanes_count == 2:
-    temp_2 = registers.Low(aggregators[1])
-    emitter.EmitVPadd('u32', temp_2, registers.Low(aggregators[4]),
-                      registers.Low(aggregators[5]))
-  elif lanes_count == 3:
-    temp_2 = aggregators[1]
-    emitter.EmitVPadd('u32', registers.Low(temp_2),
-                      registers.Low(aggregators[4]),
-                      registers.Low(aggregators[5]))
-    emitter.EmitVPadd('u32', registers.High(temp_2),
-                      registers.Low(aggregators[6]),
-                      registers.Low(aggregators[6]))
-  elif lanes_count == 4:
-    temp_2 = aggregators[1]
-    emitter.EmitVPadd('u32', registers.Low(temp_2),
-                      registers.Low(aggregators[4]),
-                      registers.Low(aggregators[5]))
-    emitter.EmitVPadd('u32', registers.High(temp_2),
-                      registers.Low(aggregators[6]),
-                      registers.Low(aggregators[7]))
-  else:
-    temp_2 = None
+  emitter.EmitVSumReduce('u32', len(aggregators), 4, [temp, temp_2],
+                         aggregators)
 
   if lhs_add:
     emitter.EmitNewline()
     emitter.EmitComment('Add lhs offsets to aggregated rows.')
     emitter.EmitVAdd('s32', temp, temp, left_offset)
-    if lanes_count == 1 or lanes_count == 2:
-      emitter.EmitVAdd('s32', temp_2, temp_2, registers.Low(left_offset))
-    elif lanes_count == 3 or lanes_count == 4:
-      emitter.EmitVAdd('s32', temp_2, temp_2, left_offset)
+    emitter.EmitVAdd('s32', temp_2, temp_2, left_offset)
 
   if rhs_add:
     emitter.EmitNewline()
@@ -166,32 +135,12 @@ def GenerateAggregatorReduceStore(emitter, registers, lanes_count, aggregators,
     emitter.EmitVCvt('f32', 's32', temp, temp)
     emitter.EmitVCvt('f32', 's32', temp_2, temp_2)
     emitter.EmitVMul('f32', temp, temp, result_scale)
-    if lanes_count == 1 or lanes_count == 2:
-      emitter.EmitVMul('f32', temp_2, temp_2, registers.Low(result_scale))
-    elif lanes_count == 3 or lanes_count == 4:
-      emitter.EmitVMul('f32', temp_2, temp_2, result_scale)
+    emitter.EmitVMul('f32', temp_2, temp_2, result_scale)
 
   emitter.EmitNewline()
   emitter.EmitComment('Store results.')
-  if lanes_count == 1:
-    emitter.EmitVStoreA('1.32', [registers.Low(temp), registers.High(temp)],
-                        emitter.DereferenceIncrement(results, None))
-    emitter.EmitVStore('1.32', emitter.Lane(temp_2, 0),
-                       emitter.Dereference(results, None))
-  elif lanes_count == 2:
-    emitter.EmitVStoreA('1.32', [registers.Low(temp), registers.High(temp),
-                                 temp_2], emitter.Dereference(results, None))
-  elif lanes_count == 3:
-    emitter.EmitVStoreA(
-        '1.32',
-        [registers.Low(temp), registers.High(temp), registers.Low(temp_2)],
-        emitter.DereferenceIncrement(results, None))
-    emitter.EmitVStore('1.32', emitter.Lane(
-        registers.High(temp_2), 0), emitter.Dereference(results, None))
-  elif lanes_count == 4:
-    emitter.EmitVStoreA('1.32', [registers.Low(temp), registers.High(temp),
-                                 registers.Low(temp_2), registers.High(temp_2)],
-                        emitter.Dereference(results, None))
+  emitter.EmitVStore(1, 32, temp, emitter.DereferenceIncrement(results))
+  emitter.EmitVStoreAE(32, lanes_count, [temp_2], results)
 
 
 def BuildName(result_type, lhs_add, rhs_add, lanes):
@@ -221,18 +170,16 @@ def GetParameters(result_type):
   return params
 
 
-def GenerateAndClearAggregators(emitter, registers, aggregator_count):
+def GenerateAndClearAggregators(emitter, registers, count):
   """Prepare aggregators and emit aggregator clear code."""
   emitter.EmitNewline()
   emitter.EmitComment('Clear aggregators.')
-  aggregators = []
-  for i in range(aggregator_count):
-    aggregator = registers.QuadRegister()
-    aggregators.append(aggregator)
+  aggregators = [registers.QuadRegister() for unused_i in range(count)]
+  for i in range(count):
     if i < 3:
-      emitter.EmitVMov('i32', aggregator, emitter.ImmediateConstant(0))
+      emitter.EmitVMov('i32', aggregators[i], emitter.ImmediateConstant(0))
     else:
-      emitter.EmitVMov('i32', aggregator, aggregators[i - 3])
+      emitter.EmitVMov('i32', aggregators[i], aggregators[i - 3])
   emitter.EmitNewline()
   return aggregators
 
@@ -250,7 +197,7 @@ def GenerateMul1x8Mx8(emitter, result_type, lhs_add, rhs_add, lanes_count):
   emitter.EmitAssert('count >= 8')
   emitter.EmitAsmBegin()
 
-  registers = neon_emitter.NeonRegisters()
+  registers = emitter.CreateRegisters()
 
   count = registers.MapParameter('count')
 

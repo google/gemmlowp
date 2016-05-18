@@ -18,7 +18,7 @@
 #ifndef GEMMLOWP_META_MULTI_THREAD_GEMM_H_
 #define GEMMLOWP_META_MULTI_THREAD_GEMM_H_
 
-#ifdef GEMMLOWP_NEON_32
+#ifdef GEMMLOWP_NEON
 
 #include "multi_thread_common.h"
 #include "multi_thread_gemv.h"
@@ -256,7 +256,7 @@ void multi_thread_gemm_i32(gemmlowp::WorkersPool* pool,
 }  // namespace gemmlowp
 
 #else
-#warning "Meta gemm fast-path requires GEMMLOWP_NEON_32!"
+#warning "Meta gemm fast-path requires GEMMLOWP_NEON_(32|64)!"
 #endif
 
 #endif  // GEMMLOWP_META_MULTI_THREAD_GEMM_H_

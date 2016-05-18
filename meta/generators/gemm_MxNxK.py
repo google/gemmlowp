@@ -18,6 +18,7 @@ class ConfigurationError(Error):
 
 
 def GenerateCommonTempsCountersAndConsts(emitter, rows):
+  """Generates all the boilerplate variables for each of the gemm functions."""
   emitter.EmitDeclare('const std::int32_t', 'row_chunks', 'm / 3')
   emitter.EmitDeclare('const std::int32_t', 'col_chunks', 'n / 3')
   emitter.EmitDeclare('const std::int32_t', 'padded_k', '((k + 7) / 8) * 8')
@@ -37,7 +38,7 @@ def GenerateCommonTempsCountersAndConsts(emitter, rows):
         'std::int32_t*', 'zipped_lhs_%d_offsets' % rows,
         'reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k * %d)' % rows)
   emitter.EmitDeclare('std::uint8_t*', 'zipped_rhs',
-                      'scratch + zipped_chunk_size')
+                      'scratch + ((zipped_chunk_size + 15) / 16) * 16')
   emitter.EmitDeclare('std::uint8_t*', 'zipped_rhs_chunk', 'zipped_rhs')
   emitter.EmitDeclare('const std::int32_t', 'result_chunk_stride',
                       'result_stride * 3')
@@ -53,11 +54,11 @@ def GenerateQuantized8BitTempsCountersAndConsts(emitter, rows):
                       '(1 << (shift - 1))')
   emitter.EmitDeclare('std::int32_t*', 'temp_result',
                       'reinterpret_cast<std::int32_t*>('
-                      'scratch + zipped_chunk_size + zipped_rhs_size)')
+                      'zipped_rhs + ((zipped_rhs_size + 15) / 16) * 16)')
   emitter.EmitDeclare('std::uint8_t*', 'result_chunk', 'result')
   emitter.EmitDeclare('std::int32_t*', 'mul_result_chunk', 'temp_result')
   emitter.EmitDeclare('const std::int32_t', 'mul_result_chunk_stride_bytes',
-                      '((n * 4 + 7) / 8) * 8')
+                      '((n * 4 + 31) / 32) * 32')
   emitter.EmitNewline()
 
 
