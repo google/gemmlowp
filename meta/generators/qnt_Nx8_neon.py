@@ -1,8 +1,4 @@
-"""Qnt primitive used by the GEMM function.
-
-"""
-
-import neon_emitter
+"""Qnt primitive used by the GEMM function."""
 
 
 class Error(Exception):
@@ -35,11 +31,10 @@ def BuildName(lanes, leftovers, aligned):
 def LoadAndDuplicateOffsets(emitter, registers, lanes, offsets):
   if lanes == 1 or lanes == 2 or lanes == 3:
     offset_registers = []
-    for unused_i in range(0, lanes):
+    for unused_i in range(lanes):
       register = registers.QuadRegister()
-      emitter.EmitVLoadA('1.32', [emitter.AllLanes(registers.Low(register)),
-                                  emitter.AllLanes(registers.High(register))],
-                         emitter.DereferenceIncrement(offsets, 32))
+      emitter.EmitVLoadAllLanes(1, 32, register,
+                                emitter.DereferenceIncrement(offsets, 32))
       offset_registers.append(register)
     return offset_registers
   else:
@@ -83,187 +78,68 @@ def DuplicateRegister(emitter, registers, value):
   return register
 
 
-def GenerateQuantize(emitter, registers, lanes, lane_temps,
-                     multiplicative_offset, rounding_offset, shift):
+def GenerateQuantize(emitter, lanes, count, multiplicative_offset,
+                     rounding_offset, shift):
   """Inner loop for quantization: add offsets, multiply, round, shift."""
   for lane in lanes:
-    emitter.EmitVAdd('i32', lane[0], lane[0], lane[1])
+    emitter.EmitVAdd('i32', lane.load_1, lane.load_1, lane.offset)
+    if count > 4:
+      emitter.EmitVAdd('i32', lane.load_2, lane.load_2, lane.offset)
 
   for lane in lanes:
-    emitter.EmitVMul('i32', lane[0], lane[0], multiplicative_offset)
+    emitter.EmitVMul('i32', lane.load_1, lane.load_1, multiplicative_offset)
+    if count > 4:
+      emitter.EmitVMul('i32', lane.load_2, lane.load_2, multiplicative_offset)
 
   for lane in lanes:
-    emitter.EmitVAdd('i32', lane[0], lane[0], rounding_offset)
+    emitter.EmitVAdd('i32', lane.load_1, lane.load_1, rounding_offset)
+    if count > 4:
+      emitter.EmitVAdd('i32', lane.load_2, lane.load_2, rounding_offset)
 
   for lane in lanes:
-    emitter.EmitVShl('s32', lane[0], lane[0], shift)
+    emitter.EmitVShl('s32', lane.load_1, lane.load_1, shift)
+    if count > 4:
+      emitter.EmitVShl('s32', lane.load_2, lane.load_2, shift)
 
   for lane in lanes:
-    emitter.EmitVQmovn('s32', lane[2], lane[0])
+    if count <= 4:
+      emitter.EmitVQmovn('s32', lane.load_1, lane.load_1)
+    else:
+      emitter.EmitVQmovn2('s32', lane.load_1, lane.load_1, lane.load_2)
 
-  for lane_temp in lane_temps:
-    emitter.EmitVQmovun('s16', registers.Low(lane_temp), lane_temp)
+  for lane in lanes:
+    emitter.EmitVQmovun('s16', lane.load_1, lane.load_1)
 
 
-def GenerateLoadQuantizeStore(emitter, registers, lanes, multiplicative_offset,
-                              rounding_offset, shift, alignment):
+def GenerateLoadQuantizeStore(emitter, lanes, multiplicative_offset,
+                              rounding_offset, shift, aligned):
   """Load unquantized data from lanes, quantize, store final result."""
-  lane_temps = []
   for lane in lanes:
-    lane_temps.append(registers.QuadRegister())
-
-  for lane in lanes:
-    emitter.EmitVLoadA(
-        '1.32', [registers.Low(lane.load_1), registers.High(lane.load_1),
-                 registers.Low(lane.load_2), registers.High(lane.load_2)],
-        emitter.DereferenceIncrement(lane.source, 64))
+    emitter.EmitVLoadAE(32, 8, [lane.load_1, lane.load_2], lane.source, 128)
 
   for lane in lanes:
     emitter.EmitPld(lane.source)
 
-  quantize_setup = []
-  for (lane_temp, lane) in zip(lane_temps, lanes):
-    quantize_setup.append([lane.load_1, lane.offset, registers.Low(lane_temp)])
-    quantize_setup.append([lane.load_2, lane.offset, registers.High(lane_temp)])
+  GenerateQuantize(emitter, lanes, 8, multiplicative_offset, rounding_offset,
+                   shift)
 
-  GenerateQuantize(emitter, registers, quantize_setup, lane_temps,
-                   multiplicative_offset, rounding_offset, shift)
-
-  for (lane_temp, lane) in zip(lane_temps, lanes):
-    emitter.EmitVStore('1.8', registers.Low(lane_temp),
-                       emitter.DereferenceIncrement(lane.output, alignment))
-
-  for lane_temp in lane_temps:
-    registers.FreeRegister(lane_temp)
+  for lane in lanes:
+    emitter.EmitVStoreE(8, 8, lane.load_1, lane.output, 64 if aligned else None)
 
 
-def GenerateLoadLeftovers(emitter, registers, leftovers, lanes):
-  """Handle non multiply of 8 leftover loading."""
-  if leftovers == 1:
-    for lane in lanes:
-      emitter.EmitVLoad('1.32', emitter.Lane(
-          registers.Low(lane.load_1), 0),
-                        emitter.Dereference(lane.source, None))
-  elif leftovers == 2:
-    for lane in lanes:
-      emitter.EmitVLoad('1.32', registers.Low(lane.load_1),
-                        emitter.Dereference(lane.source, 64))
-  elif leftovers == 3:
-    for lane in lanes:
-      emitter.EmitVLoad('1.32', registers.Low(lane.load_1),
-                        emitter.DereferenceIncrement(lane.source, 64))
-    for lane in lanes:
-      emitter.EmitVLoad('1.32', emitter.Lane(
-          registers.High(lane.load_1), 0),
-                        emitter.Dereference(lane.source, None))
-  elif leftovers == 4:
-    for lane in lanes:
-      emitter.EmitVLoadA('1.32', [registers.Low(lane.load_1),
-                                  registers.High(lane.load_1)],
-                         emitter.Dereference(lane.source, 64))
-  elif leftovers == 5:
-    for lane in lanes:
-      emitter.EmitVLoadA('1.32', [registers.Low(lane.load_1),
-                                  registers.High(lane.load_1)],
-                         emitter.DereferenceIncrement(lane.source, 64))
-    for lane in lanes:
-      emitter.EmitVLoad('1.32', emitter.Lane(
-          registers.Low(lane.load_2), 0),
-                        emitter.Dereference(lane.source, None))
-  elif leftovers == 6:
-    for lane in lanes:
-      emitter.EmitVLoadA('1.32', [registers.Low(lane.load_1),
-                                  registers.High(lane.load_1),
-                                  registers.Low(lane.load_2)],
-                         emitter.Dereference(lane.source, 64))
-  elif leftovers == 7:
-    for lane in lanes:
-      emitter.EmitVLoadA('1.32', [registers.Low(lane.load_1),
-                                  registers.High(lane.load_1),
-                                  registers.Low(lane.load_2)],
-                         emitter.DereferenceIncrement(lane.source, 64))
-    for lane in lanes:
-      emitter.EmitVLoad('1.32', emitter.Lane(
-          registers.High(lane.load_2), 0),
-                        emitter.Dereference(lane.source, None))
-  else:
-    raise ConfigurationError('Unsuported leftover count: %d' % leftovers)
-
-
-def GenerateStoreLeftovers(emitter, registers, leftovers, lane_temps, lanes):
-  """Handle non multiply of 8 leftover storing."""
-  setup = []
-  for (temp, lane) in zip(lane_temps, lanes):
-    setup.append([registers.Low(temp), lane.output])
-
-  if leftovers == 1:
-    for lane in setup:
-      emitter.EmitVStore('1.8', emitter.Lane(lane[0], 0),
-                         emitter.Dereference(lane[1], None))
-  elif leftovers == 2:
-    for lane in setup:
-      emitter.EmitVStore('1.16', emitter.Lane(lane[0], 0),
-                         emitter.Dereference(lane[1], None))
-  elif leftovers == 3:
-    for lane in setup:
-      emitter.EmitVStore('1.16', emitter.Lane(lane[0], 0),
-                         emitter.DereferenceIncrement(lane[1], None))
-    for lane in setup:
-      emitter.EmitVStore('1.8', emitter.Lane(lane[0], 2),
-                         emitter.Dereference(lane[1], None))
-  elif leftovers == 4:
-    for lane in setup:
-      emitter.EmitVStore('1.32', emitter.Lane(lane[0], 0),
-                         emitter.Dereference(lane[1], None))
-  elif leftovers == 5:
-    for lane in setup:
-      emitter.EmitVStore('1.32', emitter.Lane(lane[0], 0),
-                         emitter.DereferenceIncrement(lane[1], None))
-    for lane in setup:
-      emitter.EmitVStore('1.8', emitter.Lane(lane[0], 4),
-                         emitter.Dereference(lane[1], None))
-  elif leftovers == 6:
-    for lane in setup:
-      emitter.EmitVStore('1.32', emitter.Lane(lane[0], 0),
-                         emitter.DereferenceIncrement(lane[1], None))
-    for lane in setup:
-      emitter.EmitVStore('1.16', emitter.Lane(lane[0], 2),
-                         emitter.Dereference(lane[1], None))
-  elif leftovers == 7:
-    for lane in setup:
-      emitter.EmitVStore('1.32', emitter.Lane(lane[0], 0),
-                         emitter.DereferenceIncrement(lane[1], None))
-    for lane in setup:
-      emitter.EmitVStore('1.16', emitter.Lane(lane[0], 2),
-                         emitter.DereferenceIncrement(lane[1], None))
-    for lane in setup:
-      emitter.EmitVStore('1.8', emitter.Lane(lane[0], 6),
-                         emitter.DereferenceIncrement(lane[1], None))
-  else:
-    raise ConfigurationError('Unsupported leftovers count: %d' % leftovers)
-
-
-def GenerateLeftoverLoadQuantizeStore(emitter, registers, leftovers, lanes,
+def GenerateLeftoverLoadQuantizeStore(emitter, leftovers, lanes,
                                       multiplicative_offset, rounding_offset,
                                       shift):
   """Handle leftovers if row size not a multiply of 8."""
-  lane_temps = []
   for lane in lanes:
-    lane_temps.append(registers.QuadRegister())
+    emitter.EmitVLoadAE(32, leftovers, [lane.load_1, lane.load_2], lane.source,
+                        64)
 
-  GenerateLoadLeftovers(emitter, registers, leftovers, lanes)
+  GenerateQuantize(emitter, lanes, leftovers, multiplicative_offset,
+                   rounding_offset, shift)
 
-  quantize_setup = []
-  for (lane_temp, lane) in zip(lane_temps, lanes):
-    quantize_setup.append([lane.load_1, lane.offset, registers.Low(lane_temp)])
-    if leftovers > 4:
-      quantize_setup.append([lane.load_2, lane.offset, registers.High(lane_temp)
-                            ])
-
-  GenerateQuantize(emitter, registers, quantize_setup, lane_temps,
-                   multiplicative_offset, rounding_offset, shift)
-
-  GenerateStoreLeftovers(emitter, registers, leftovers, lane_temps, lanes)
+  for lane in lanes:
+    emitter.EmitVStoreE(8, leftovers, lane.load_1, lane.output)
 
 
 def GenerateQntNx8(emitter, qnt_lanes, leftovers, aligned):
@@ -275,13 +151,15 @@ def GenerateQntNx8(emitter, qnt_lanes, leftovers, aligned):
 
   name = BuildName(qnt_lanes, leftovers, aligned)
 
-  emitter.EmitFunctionBeginA(
-      name,
-      [['const std::int32_t*', 'source'], ['std::int32_t', 'count'],
-       ['std::int32_t', 'stride'], ['const std::int32_t*', 'offsets'],
-       ['std::uint8_t*', 'destination'], ['std::int32_t', 'destination_stride'],
-       ['std::int32_t', 'multiplicative_offset'],
-       ['std::int32_t', 'rounding_offset'], ['std::int32_t', 'shift']], 'void')
+  emitter.EmitFunctionBeginA(name, [['const std::int32_t*', 'source'],
+                                    ['std::int32_t', 'count'],
+                                    ['std::int32_t', 'stride'],
+                                    ['const std::int32_t*', 'offsets'],
+                                    ['std::uint8_t*', 'destination'],
+                                    ['std::int32_t', 'destination_stride'],
+                                    ['std::int32_t', 'multiplicative_offset'],
+                                    ['std::int32_t', 'rounding_offset'],
+                                    ['std::int32_t', 'shift']], 'void')
   emitter.EmitAssert('count %% 8 == %d' % leftovers)
   emitter.EmitAssert('count >= 8')
   emitter.EmitAssert('reinterpret_cast<std::uintptr_t>(source) % 8 == 0')
@@ -291,7 +169,7 @@ def GenerateQntNx8(emitter, qnt_lanes, leftovers, aligned):
       emitter.EmitAssert('destination_stride % 8 == 0')
   emitter.EmitAsmBegin()
 
-  registers = neon_emitter.NeonRegisters()
+  registers = emitter.CreateRegisters()
 
   count = registers.MapParameter('count')
 
@@ -301,11 +179,12 @@ def GenerateQntNx8(emitter, qnt_lanes, leftovers, aligned):
                                       registers.MapParameter('rounding_offset'))
   shift = DuplicateRegister(emitter, registers, registers.MapParameter('shift'))
 
-  lanes = GenerateQntLanes(
-      emitter, registers, qnt_lanes, registers.MapParameter('source'),
-      registers.MapParameter('stride'), registers.MapParameter('destination'),
-      registers.MapParameter('destination_stride'),
-      registers.MapParameter('offsets'))
+  lanes = GenerateQntLanes(emitter, registers, qnt_lanes,
+                           registers.MapParameter('source'),
+                           registers.MapParameter('stride'),
+                           registers.MapParameter('destination'),
+                           registers.MapParameter('destination_stride'),
+                           registers.MapParameter('offsets'))
 
   if leftovers:
     emitter.EmitSubs(count, count, emitter.ImmediateConstant(leftovers))
@@ -315,15 +194,15 @@ def GenerateQntNx8(emitter, qnt_lanes, leftovers, aligned):
   emitter.EmitNumericalLabel(1)
   emitter.EmitSubs(count, count, emitter.ImmediateConstant(8))
 
-  GenerateLoadQuantizeStore(emitter, registers, lanes, multiplicative_offset,
-                            rounding_offset, shift, 64 if aligned else None)
+  GenerateLoadQuantizeStore(emitter, lanes, multiplicative_offset,
+                            rounding_offset, shift, aligned)
 
   emitter.EmitNewline()
   emitter.EmitBneBack(1)
 
   if leftovers:
     emitter.EmitNumericalLabel(2)
-    GenerateLeftoverLoadQuantizeStore(emitter, registers, leftovers, lanes,
+    GenerateLeftoverLoadQuantizeStore(emitter, leftovers, lanes,
                                       multiplicative_offset, rounding_offset,
                                       shift)
 
@@ -342,16 +221,18 @@ def BuildMultiQuantizeName(aligned, rows):
 def GenerateMultiQuantize(emitter, aligned, rows):
   """Emit main quantization code that switches between optimized versions."""
   name = BuildMultiQuantizeName(aligned, rows)
-  emitter.EmitFunctionBeginA(
-      name,
-      [['const std::int32_t*', 'source'], ['std::int32_t', 'count'],
-       ['std::int32_t', 'stride'], ['const std::int32_t*', 'offsets'],
-       ['std::uint8_t*', 'destination'], ['std::int32_t', 'destination_stride'],
-       ['std::int32_t', 'multiplicative_offset'],
-       ['std::int32_t', 'rounding_offset'], ['std::int32_t', 'shift']], 'void')
+  emitter.EmitFunctionBeginA(name, [['const std::int32_t*', 'source'],
+                                    ['std::int32_t', 'count'],
+                                    ['std::int32_t', 'stride'],
+                                    ['const std::int32_t*', 'offsets'],
+                                    ['std::uint8_t*', 'destination'],
+                                    ['std::int32_t', 'destination_stride'],
+                                    ['std::int32_t', 'multiplicative_offset'],
+                                    ['std::int32_t', 'rounding_offset'],
+                                    ['std::int32_t', 'shift']], 'void')
   emitter.EmitSwitch('count % 8')
 
-  for leftovers in range(0, 8):
+  for leftovers in range(8):
     emitter.EmitCase(leftovers)
     emitter.PushIndent()
     emitter.EmitCall(

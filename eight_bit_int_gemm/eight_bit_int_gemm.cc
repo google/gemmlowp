@@ -30,7 +30,7 @@
 // is quite significant (approx. 200kb) which might be prohibitive in
 // low-memory situations.
 
-#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
+#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON)
 #include "../meta/multi_thread_gemm.h"
 #else
 
@@ -178,7 +178,7 @@ void DestroyGlobalScratch() {
   global_scratch = nullptr;
 }
 
-#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
+#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON)
 
 bool IsRowMajorOrVector(bool transpose, int stride, int rows, int cols) {
   // Is it row major and nicely packed?
@@ -301,7 +301,7 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
   AutoGlobalLock<EightBitIntGemmLockId> lock;
   GemmContext* context = GetOrCreateGlobalContext();
 
-#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
+#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON)
   if (CanHandleMetaFastpath(transpose_a, transpose_b, transpose_c, m, n, k, lda,
                             ldb, ldc, bit_depth)) {
     MetaGemmQuantized8Bit(context, a, b, m, n, k, a_offset, b_offset, c_offset,
@@ -338,7 +338,7 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
   AutoGlobalLock<EightBitIntGemmLockId> lock;
   GemmContext* context = GetOrCreateGlobalContext();
 
-#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON_32)
+#if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON)
   if (CanHandleMetaFastpath(transpose_a, transpose_b, transpose_c, m, n, k, lda,
                             ldb, ldc, bit_depth)) {
     MetaGemmFloat(context, a, b, m, n, k, a_offset, b_offset, c_offset,

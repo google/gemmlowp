@@ -159,6 +159,50 @@ void check_result_f(std::uint8_t* left, std::uint8_t* right, float* result,
   }
 }
 
+void check_result_i32(std::uint8_t* left, std::uint8_t* right,
+                      std::int32_t* result, std::int32_t rows,
+                      std::int32_t cols, std::int32_t depth,
+                      std::int32_t lhs_offset, std::int32_t rhs_offset) {
+  std::int32_t wrong = 0;
+  for (int i = 0; i < rows; ++i) {
+    for (int j = 0; j < cols; ++j) {
+      std::int32_t expected = 0;
+      for (int k = 0; k < depth; ++k) {
+        expected +=
+            (static_cast<std::int32_t>(left[depth * i + k]) + lhs_offset) *
+            (static_cast<std::int32_t>(right[depth * j + k]) + rhs_offset);
+      }
+      float actual = result[i * cols + j];
+      if (actual == expected) {
+        if (!quiet) {
+          if (verbose) {
+            std::cout << expected << "==" << actual << " ";
+          } else {
+            std::cout << ".";
+          }
+        }
+      } else {
+        if (!quiet) {
+          if (verbose) {
+            std::cout << expected << "!=" << actual << " ";
+          } else {
+            std::cout << "x";
+          }
+        }
+        wrong++;
+      }
+    }
+    if (!quiet) {
+      std::cout << std::endl;
+    }
+  }
+  if (wrong > 0) {
+    std::cout << "Wrong: " << wrong << std::endl;
+  } else {
+    std::cout << "." << std::flush;
+  }
+}
+
 template <typename T>
 void clear(T* result, std::int32_t rows, std::int32_t cols) {
   for (int i = 0; i < rows * cols; ++i) {
@@ -191,6 +235,19 @@ void test_f(std::uint8_t* scratch, std::uint8_t* lhs, std::uint8_t* rhs,
   check_result_f(lhs, rhs, result, m, n, k, -127, -127, scale);
 }
 
+void test_i32(std::uint8_t* scratch, std::uint8_t* lhs, std::uint8_t* rhs,
+              std::int32_t m, std::int32_t n, std::int32_t k,
+              std::int32_t* result, gemmlowp::WorkersPool* pool,
+              std::int32_t pool_size) {
+  prepare_test_data(lhs, m, k, 11, 13);
+  prepare_test_data(rhs, n, k, 177, 19);
+
+  clear(result, m, n);
+  gemmlowp::meta::multi_thread_gemm_i32(pool, pool_size, scratch, lhs, rhs, m,
+                                        n, k, -127, -127, result);
+  check_result_i32(lhs, rhs, result, m, n, k, -127, -127);
+}
+
 int main() {
   const std::int32_t min_n = 1;
   const std::int32_t min_m = 1;
@@ -204,12 +261,14 @@ int main() {
   std::uint8_t* right = new std::uint8_t[max_n * max_k];
   std::uint8_t* result = new std::uint8_t[max_m * max_n];
   float* result_float = new float[max_m * max_n];
+  std::int32_t* result_i32 = new std::int32_t[max_m * max_n];
   std::uint8_t* scratch = new std::uint8_t[1024 * 1024 * 64];
 
   gemmlowp::WorkersPool pool;
   pool.CreateWorkers(3);
 
-  for (int t = 1; t < 5; ++t) {
+  for (int repetitions = 1; repetitions < 11; ++repetitions) {
+    int t = std::min(repetitions, 4);
     std::cout << "Threads: " << t << std::endl << std::flush;
 
     std::cout << "Quantized 8 bit." << std::endl << std::flush;
@@ -232,6 +291,16 @@ int main() {
       }
     }
 
+    std::cout << std::endl << "Int32." << std::endl << std::flush;
+
+    for (int m = min_m; m < max_m; m += 128) {
+      for (int n = min_n; n < max_n; n += 128) {
+        for (int k = min_k; k < max_k; k += 13) {
+          test_i32(scratch, left, right, m, n, k, result_i32, &pool, t);
+        }
+      }
+    }
+
     std::cout << std::endl
               << "Quantized 8 bit gemv." << std::endl
               << std::flush;
@@ -249,6 +318,15 @@ int main() {
       for (int k = min_k; k < max_k; k += 23) {
         test_f(scratch, left, right, 1, n, k, result_float, &pool, t);
         test_f(scratch, left, right, n, 1, k, result_float, &pool, t);
+      }
+    }
+
+    std::cout << std::endl << "Int32 gemv." << std::endl << std::flush;
+
+    for (int n = min_n; n < max_n; n += 17) {
+      for (int k = min_k; k < max_k; k += 23) {
+        test_i32(scratch, left, right, 1, n, k, result_i32, &pool, t);
+        test_i32(scratch, left, right, n, 1, k, result_i32, &pool, t);
       }
     }
 

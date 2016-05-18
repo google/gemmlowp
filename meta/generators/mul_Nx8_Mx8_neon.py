@@ -15,53 +15,30 @@ class ConfigurationError(Error):
   """Unsupported configuration."""
 
 
-class MulLanes(object):
-
-  def __init__(self, input_address):
-    self.input_address = input_address
-    self.lanes = []
-
-  def AddLane(self, lane):
-    self.lanes.append(lane)
-
-  def FreeRegisters(self, registers):
-    for i in range(0, len(self.lanes)):
-      registers.FreeRegister(self.lanes[i])
-      self.lanes[i] = None
+def RegisterForCols(registers, cols, min_register=0):
+  if cols == 1 or cols == 2:
+    return registers.DoubleRegister(min_register * 2)
+  elif cols == 3 or cols == 4:
+    return registers.QuadRegister(min_register)
+  else:
+    raise ConfigurationError('Wrong no of cols for register: %d' % cols)
 
 
-def GenerateMulLanes(registers, lane_count, address):
-  lanes = MulLanes(address)
-  for unused_i in range(0, lane_count):
-    lanes.AddLane(registers.DoubleRegister())
-  return lanes
-
-
-def Generate3MulLanes(quad_register, registers, address):
-  lanes = MulLanes(address)
-  lanes.AddLane(registers.Low(quad_register))
-  lanes.AddLane(registers.High(quad_register))
-  lanes.AddLane(registers.DoubleRegister())
-  return lanes
-
-
-def GenerateAndClearAggregators(emitter, registers, aggregator_count):
+def GenerateAndClearAggregators(emitter, registers, count):
   """Prepare aggregators and emit aggregator clear code."""
   emitter.EmitComment('Clear aggregators.')
-  aggregators = []
-  for i in range(0, aggregator_count):
-    aggregator = registers.QuadRegister()
-    aggregators.append(aggregator)
+  aggregators = [registers.QuadRegister() for unused_i in range(count)]
+  for i in range(count):
     if i < 3:
-      emitter.EmitVMov('i32', aggregator, emitter.ImmediateConstant(0))
+      emitter.EmitVMov('i32', aggregators[i], emitter.ImmediateConstant(0))
     else:
-      emitter.EmitVMov('i32', aggregator, aggregators[i - 3])
+      emitter.EmitVMov('i32', aggregators[i], aggregators[i - 3])
   emitter.EmitNewline()
   return aggregators
 
 
-def GenerateNxMLoadMultiplyAggregate(emitter, registers, left_lanes,
-                                     right_lanes, aggregators, count):
+def GenerateNxMLoadMultiplyAggregate(emitter, registers, left, right,
+                                     aggregators, lhs, rhs, count):
   """Emit inner loop for N rows x M cols multiplication."""
   emitter.EmitComment('General NxM lanes loop.')
   emitter.EmitNumericalLabel(1)
@@ -70,30 +47,25 @@ def GenerateNxMLoadMultiplyAggregate(emitter, registers, left_lanes,
   emitter.EmitSubs(count, count, emitter.ImmediateConstant(8))
   emitter.EmitNewline()
 
-  emitter.EmitVLoadA('1.8', left_lanes.lanes,
-                     emitter.DereferenceIncrement(left_lanes.input_address, 64))
-  emitter.EmitVLoadA(
-      '1.8', right_lanes.lanes,
-      emitter.DereferenceIncrement(right_lanes.input_address, 64))
+  left_load = [registers.DoubleRegister() for unused_i in range(left)]
+  right_load = [registers.DoubleRegister() for unused_i in range(right)]
 
-  emitter.EmitPldOffset(left_lanes.input_address, emitter.ImmediateConstant(64))
-  emitter.EmitPldOffset(right_lanes.input_address,
-                        emitter.ImmediateConstant(64))
+  emitter.EmitVLoadA(1, 8, left_load, emitter.DereferenceIncrement(lhs, 64))
+  emitter.EmitVLoadA(1, 8, right_load, emitter.DereferenceIncrement(rhs, 64))
 
-  rows = len(left_lanes.lanes)
-  cols = len(right_lanes.lanes)
+  emitter.EmitPldOffset(lhs, emitter.ImmediateConstant(64))
+  emitter.EmitPldOffset(rhs, emitter.ImmediateConstant(64))
 
-  multiply_results = []
-  for i in range(0, rows * cols):
-    multiply_results.append(registers.QuadRegister())
+  multiply_results = [registers.QuadRegister()
+                      for unused_i in range(left * right)]
 
-  for row in range(0, rows):
-    for col in range(0, cols):
-      index = row * cols + col
-      emitter.EmitVMull('u8', multiply_results[index], right_lanes.lanes[col],
-                        left_lanes.lanes[row])
+  for row in range(left):
+    for col in range(right):
+      index = row * right + col
+      emitter.EmitVMull('u8', multiply_results[index], right_load[col],
+                        left_load[row])
 
-  for i in range(0, rows * cols):
+  for i in range(left * right):
     emitter.EmitVPadal('u16', aggregators[i], multiply_results[i])
 
   emitter.EmitNewline()
@@ -101,228 +73,135 @@ def GenerateNxMLoadMultiplyAggregate(emitter, registers, left_lanes,
   emitter.EmitBneBack(1)
   emitter.EmitNewline()
 
-  for register in multiply_results:
-    registers.FreeRegister(register)
+  registers.FreeRegisters(left_load + right_load + multiply_results)
 
 
-def Generate3x3LoadMultiplyAggregate(emitter, registers, left_lanes,
-                                     right_lanes, aggregators, count,
-                                     backup_register):
+def Generate3x3LoadMultiplyAggregate(emitter, registers, aggregators, lhs, rhs,
+                                     count):
   """Emit inner loop for 3 rows x 3 cols multiplication (register trick)."""
   emitter.EmitComment('3x3 lanes loop.')
   emitter.EmitNumericalLabel(1)
   emitter.EmitNewline()
-  emitter.EmitComment('Subtract counter.')
-  emitter.EmitSubs(count, count, emitter.ImmediateConstant(8))
-  emitter.EmitNewline()
 
-  emitter.EmitVLoadA('1.8', left_lanes.lanes,
-                     emitter.DereferenceIncrement(left_lanes.input_address, 64))
-  emitter.EmitVLoadA(
-      '1.8', right_lanes.lanes,
-      emitter.DereferenceIncrement(right_lanes.input_address, 64))
+  left_load = [registers.DoubleRegister() for unused_i in range(3)]
+  right_load = [registers.DoubleRegister() for unused_i in range(3)]
 
-  emitter.EmitPldOffset(left_lanes.input_address, emitter.ImmediateConstant(64))
-  emitter.EmitPldOffset(right_lanes.input_address,
-                        emitter.ImmediateConstant(64))
+  emitter.EmitVLoadA(1, 8, right_load, emitter.DereferenceIncrement(rhs, 64))
+  emitter.EmitVLoad(1, 8, left_load[0], emitter.DereferenceIncrement(lhs, 64))
 
-  temp = []
-  for unused_i in range(0, 4):
-    temp.append(registers.QuadRegister())
+  temp = [registers.QuadRegister() for unused_i in range(4)]
 
-  emitter.EmitVMull('u8', temp[0], left_lanes.lanes[0], right_lanes.lanes[0])
-  emitter.EmitVMull('u8', temp[1], left_lanes.lanes[0], right_lanes.lanes[1])
-  emitter.EmitVMull('u8', temp[2], left_lanes.lanes[0], right_lanes.lanes[2])
-  emitter.EmitVMull('u8', temp[3], left_lanes.lanes[1], right_lanes.lanes[0])
+  emitter.EmitVMull('u8', temp[0], left_load[0], right_load[0])
+  emitter.EmitVLoad(1, 8, left_load[1], emitter.DereferenceIncrement(lhs, 64))
+
+  emitter.EmitVMull('u8', temp[1], left_load[0], right_load[1])
+  emitter.EmitVLoad(1, 8, left_load[2], emitter.DereferenceIncrement(lhs, 64))
+
+  emitter.EmitVMull('u8', temp[2], left_load[0], right_load[2])
+  emitter.EmitPldOffset(lhs, emitter.ImmediateConstant(64))
+
+  emitter.EmitVMull('u8', temp[3], left_load[1], right_load[0])
+  emitter.EmitPldOffset(rhs, emitter.ImmediateConstant(64))
 
   emitter.EmitVPadal('u16', aggregators[0], temp[0])
   emitter.EmitVPadal('u16', aggregators[1], temp[1])
   emitter.EmitVPadal('u16', aggregators[2], temp[2])
   emitter.EmitVPadal('u16', aggregators[3], temp[3])
 
-  emitter.EmitVMull('u8', temp[0], left_lanes.lanes[1], right_lanes.lanes[1])
-  emitter.EmitVMull('u8', temp[1], left_lanes.lanes[1], right_lanes.lanes[2])
-  emitter.EmitVMull('u8', temp[2], left_lanes.lanes[2], right_lanes.lanes[0])
-  emitter.EmitVMull('u8', temp[3], left_lanes.lanes[2], right_lanes.lanes[1])
-  emitter.EmitVMull('u8', backup_register, left_lanes.lanes[2],
-                    right_lanes.lanes[2])
+  emitter.EmitVMull('u8', temp[0], left_load[1], right_load[1])
+  emitter.EmitVMull('u8', temp[1], left_load[1], right_load[2])
+
+  registers.FreeRegisters([left_load[0], left_load[1]])
+  temp.append(registers.QuadRegister())
+
+  emitter.EmitVMull('u8', temp[2], left_load[2], right_load[0])
+  emitter.EmitVMull('u8', temp[3], left_load[2], right_load[1])
+
+  emitter.EmitNewline()
+  emitter.EmitComment('Subtract counter.')
+  emitter.EmitSubs(count, count, emitter.ImmediateConstant(8))
+  emitter.EmitNewline()
+
+  emitter.EmitVMull('u8', temp[4], left_load[2], right_load[2])
 
   emitter.EmitVPadal('u16', aggregators[4], temp[0])
   emitter.EmitVPadal('u16', aggregators[5], temp[1])
   emitter.EmitVPadal('u16', aggregators[6], temp[2])
   emitter.EmitVPadal('u16', aggregators[7], temp[3])
-  emitter.EmitVPadal('u16', aggregators[8], backup_register)
+  emitter.EmitVPadal('u16', aggregators[8], temp[4])
 
   emitter.EmitNewline()
   emitter.EmitComment('Loop break.')
   emitter.EmitBneBack(1)
   emitter.EmitNewline()
 
-  for register in temp:
-    registers.FreeRegister(register)
+  registers.FreeRegisters(temp + right_load)
+  registers.FreeRegister(left_load[2])
 
 
-def ReadParams(emitter, registers, input_address, elements, min_reg):
-  if elements == 1 or elements == 2:
-    register = registers.DoubleRegister(min_reg * 2)
-    emitter.EmitVLoad('1.32', register, emitter.Dereference(input_address, 64))
-    return register
-  elif elements == 3 or elements == 4:
-    register = registers.QuadRegister(min_reg)
-    emitter.EmitVLoad('1.32', register, emitter.Dereference(input_address, 64))
-    return register
-  else:
-    raise ConfigurationError('Unsupported elements no: %d' % elements)
+def ReadParams(emitter, registers, input_address, elements, min_register):
+  register = RegisterForCols(registers, elements, min_register)
+  emitter.EmitVLoad(1, 32, register, emitter.Dereference(input_address, 64))
+  return register
 
 
 def Duplicate(emitter, registers, rows, cols, min_register, values):
   """Populate a grid of registers duplicating provided values."""
-  duplicated = []
-  if cols == 1 or cols == 2:
-    for unused_i in range(0, rows):
-      duplicated.append(registers.DoubleRegister(min_register))
-  elif cols == 3 or cols == 4:
-    for unused_i in range(0, rows):
-      duplicated.append(registers.QuadRegister(min_register))
-  else:
-    raise ConfigurationError('Unsupported duplicate amount: %d' % cols)
+  duplicated = [RegisterForCols(registers, cols, min_register)
+                for unused_i in range(rows)]
 
-  if rows == 1:
-    emitter.EmitVDup('32', duplicated[0], emitter.Lane(values, 0))
-  elif rows == 2:
-    emitter.EmitVDup('32', duplicated[0], emitter.Lane(values, 0))
-    emitter.EmitVDup('32', duplicated[1], emitter.Lane(values, 1))
-  elif rows == 3:
-    emitter.EmitVDup('32', duplicated[0], emitter.Lane(
-        registers.Low(values), 0))
-    emitter.EmitVDup('32', duplicated[1], emitter.Lane(
-        registers.Low(values), 1))
-    emitter.EmitVDup('32', duplicated[2], emitter.Lane(
-        registers.High(values), 0))
-  elif rows == 4:
-    emitter.EmitVDup('32', duplicated[0], emitter.Lane(
-        registers.Low(values), 0))
-    emitter.EmitVDup('32', duplicated[1], emitter.Lane(
-        registers.Low(values), 1))
-    emitter.EmitVDup('32', duplicated[2], emitter.Lane(
-        registers.High(values), 0))
-    emitter.EmitVDup('32', duplicated[3], emitter.Lane(
-        registers.High(values), 1))
+  for i in range(rows):
+    emitter.EmitVDup('32', duplicated[i], emitter.Lane(32, values, i))
 
   return duplicated
 
 
 def DuplicateGeneralRegister(emitter, registers, cols, general_register,
                              min_register):
-  if cols == 1 or cols == 2:
-    duplicated = registers.DoubleRegister(min_register)
-  elif cols == 3 or cols == 4:
-    duplicated = registers.QuadRegister(min_register)
-  else:
-    raise ConfigurationError('Unsupported duplicate amount: %d' % cols)
-
+  duplicated = RegisterForCols(registers, cols, min_register)
   emitter.EmitVDup('32', duplicated, general_register)
   return duplicated
 
 
-def ReduceAggregator(emitter, registers, aggregators, row, cols):
-  if cols == 1:
-    register = registers.Low(aggregators[row])
-    emitter.EmitVPadd('u32', register, register, register)
-    return register
-  elif cols == 2:
-    register = registers.Low(aggregators[row * 2])
-    emitter.EmitVPadd('u32', register, register,
-                      registers.Low(aggregators[row * 2 + 1]))
-    return register
-  elif cols == 3:
-    register = aggregators[row * 3]
-    emitter.EmitVPadd('u32', registers.Low(register), registers.Low(register),
-                      registers.Low(aggregators[row * 3 + 1]))
-    emitter.EmitVPadd('u32', registers.High(register),
-                      registers.Low(aggregators[row * 3 + 2]),
-                      registers.Low(aggregators[row * 3 + 2]))
-    return register
-  elif cols == 4:
-    register = aggregators[row * 3]
-    emitter.EmitVPadd('u32', registers.Low(register), registers.Low(register),
-                      registers.Low(aggregators[row * 3 + 1]))
-    emitter.EmitVPadd('u32', registers.High(register),
-                      registers.Low(aggregators[row * 3 + 2]),
-                      registers.Low(aggregators[row * 3 + 3]))
-    return register
+def ReduceAggregators(emitter, registers, aggregators):
+  if len(aggregators) == 1 or len(aggregators) == 2:
+    register = registers.DoubleRegister()
+  elif len(aggregators) == 3 or len(aggregators) == 4:
+    register = aggregators[0]
   else:
-    raise ConfigurationError('Unsupported columns no: %d' % cols)
-
-
-def StoreAggregator(emitter, registers, aggregator, cols, result_address,
-                    result_stride):
-  if cols == 1:
-    emitter.EmitVStoreOffset('1.32', emitter.Lane(aggregator, 0),
-                             emitter.Dereference(result_address, None),
-                             result_stride)
-  elif cols == 2:
-    emitter.EmitVStoreOffset('1.32', aggregator,
-                             emitter.Dereference(result_address, None),
-                             result_stride)
-  elif cols == 3:
-    emitter.EmitVStore('1.32', registers.Low(aggregator),
-                       emitter.DereferenceIncrement(result_address, None))
-    emitter.EmitVStoreOffset('1.32', emitter.Lane(
-        registers.High(aggregator),
-        0), emitter.Dereference(result_address, None), result_stride)
-    emitter.EmitNewline()
-  elif cols == 4:
-    emitter.EmitVStoreOffsetA(
-        '1.32', [registers.Low(aggregator), registers.High(aggregator)],
-        emitter.Dereference(result_address, None), result_stride)
-  else:
-    raise ConfigurationError('Unsupported columns no: %d' % cols)
+    raise ConfigurationError('Unsupported columns no: %d' % len(aggregators))
+  emitter.EmitVSumReduce('u32', len(aggregators), 4, [register], aggregators)
+  return register
 
 
 def GenerateAggregatorReduceStore(emitter, registers, aggregators, result_type,
-                                  lhs_add, rhs_add, left_lanes, right_lanes,
+                                  lhs_add, rhs_add, left, right, lhs, rhs,
                                   results, results_stride):
   """Emit code that reduces 4 lane aggregators to 1 value, and stores them."""
-  rows = len(left_lanes.lanes)
-  cols = len(right_lanes.lanes)
-
   if lhs_add:
-    left_offset = ReadParams(emitter, registers, left_lanes.input_address, rows,
-                             4)
-    left_offsets = Duplicate(emitter, registers, rows, cols, 4, left_offset)
+    left_offset = ReadParams(emitter, registers, lhs, left, 4)
+    left_offsets = Duplicate(emitter, registers, left, right, 4, left_offset)
   else:
     left_offsets = None
 
   if rhs_add:
-    right_offset = ReadParams(emitter, registers, right_lanes.input_address,
-                              cols, 4)
+    right_offset = ReadParams(emitter, registers, rhs, right, 4)
   else:
     right_offset = None
 
   if result_type is 'float':
     result_scale = DuplicateGeneralRegister(
-        emitter, registers, cols, registers.MapParameter('result_scale'), 4)
+        emitter, registers, right, registers.MapParameter('result_scale'), 4)
   else:
     result_scale = None
 
-  if cols == 3:
-    emitter.EmitNewline()
-    emitter.EmitComment('Change stride because storing in two ops.')
-    emitter.EmitSub(results_stride, results_stride,
-                    emitter.ImmediateConstant(8))
-
-  emitter.EmitNewline()
-  emitter.EmitComment('Horizontal reduce aggregators.')
-  for aggregator in aggregators:
-    emitter.EmitVPadd('u32', registers.Low(aggregator),
-                      registers.Low(aggregator), registers.High(aggregator))
-
   emitter.EmitNewline()
   emitter.EmitComment('Reduce rows.')
+
   row_temps = []
-  for i in range(0, rows):
-    row_temps.append(ReduceAggregator(emitter, registers, aggregators, i, cols))
+  for i in range(left):
+    row_temps.append(ReduceAggregators(emitter, registers, aggregators[
+        i * right:(i + 1) * right]))
 
   if lhs_add:
     emitter.EmitNewline()
@@ -347,7 +226,7 @@ def GenerateAggregatorReduceStore(emitter, registers, aggregators, result_type,
   emitter.EmitNewline()
   emitter.EmitComment('Store reduced rows.')
   for row_temp in row_temps:
-    StoreAggregator(emitter, registers, row_temp, cols, results, results_stride)
+    emitter.EmitVStoreOffsetE(32, right, row_temp, results, results_stride)
 
 
 def BuildName(result_type, lhs_add, rhs_add, left, right):
@@ -377,27 +256,25 @@ def GetParameters(result_type):
   return params
 
 
-def GenerateMulNx8Mx8(emitter, result_type, lhs_add, rhs_add, left_lanes_count,
-                      right_lanes_count):
+def GenerateMulNx8Mx8(emitter, result_type, lhs_add, rhs_add, left, right):
   """Emit the multiply code for given rows and cols counts."""
-  if left_lanes_count < 1 or left_lanes_count > 4:
-    raise ConfigurationError('Left_lanes should be: 1, 2, 3 or 4.')
-  if right_lanes_count < 1 or right_lanes_count > 4:
-    raise ConfigurationError('Right_lanes should be: 1, 2, 3 or 4.')
+  if left < 1 or left > 4:
+    raise ConfigurationError('Left should be: 1, 2, 3 or 4.')
+  if right < 1 or right > 4:
+    raise ConfigurationError('Right should be: 1, 2, 3 or 4.')
 
   emitter.EmitFunctionBeginA(
-      BuildName(result_type, lhs_add, rhs_add, left_lanes_count,
-                right_lanes_count), GetParameters(result_type), 'inline void')
-
+      BuildName(result_type, lhs_add, rhs_add, left, right),
+      GetParameters(result_type), 'inline void')
   emitter.EmitAssert('count % 8 == 0')
   emitter.EmitAssert('count >= 8')
   emitter.EmitAsmBegin()
 
-  registers = neon_emitter.NeonRegisters()
+  registers = emitter.CreateRegisters()
 
   count = registers.MapParameter('count')
 
-  size = left_lanes_count * right_lanes_count
+  size = left * right
 
   lhs = registers.MapParameter('lhs')
   rhs = registers.MapParameter('rhs')
@@ -408,25 +285,14 @@ def GenerateMulNx8Mx8(emitter, result_type, lhs_add, rhs_add, left_lanes_count,
   aggregators = GenerateAndClearAggregators(emitter, registers, size)
 
   if size < 9:
-    left_lanes = GenerateMulLanes(registers, left_lanes_count, lhs)
-    right_lanes = GenerateMulLanes(registers, right_lanes_count, rhs)
-
-    GenerateNxMLoadMultiplyAggregate(emitter, registers, left_lanes,
-                                     right_lanes, aggregators, count)
-
+    GenerateNxMLoadMultiplyAggregate(emitter, registers, left, right,
+                                     aggregators, lhs, rhs, count)
   else:  # left == 3 and right == 3
-    backup_register = registers.QuadRegister()
-    left_lanes = Generate3MulLanes(backup_register, registers, lhs)
-    right_lanes = GenerateMulLanes(registers, right_lanes_count, rhs)
-
-    Generate3x3LoadMultiplyAggregate(emitter, registers, left_lanes,
-                                     right_lanes, aggregators, count,
-                                     backup_register)
-  left_lanes.FreeRegisters(registers)
-  right_lanes.FreeRegisters(registers)
+    Generate3x3LoadMultiplyAggregate(emitter, registers, aggregators, lhs, rhs,
+                                     count)
 
   GenerateAggregatorReduceStore(emitter, registers, aggregators, result_type,
-                                lhs_add, rhs_add, left_lanes, right_lanes,
+                                lhs_add, rhs_add, left, right, lhs, rhs,
                                 registers.MapParameter('result'),
                                 registers.MapParameter('result_stride'))
 

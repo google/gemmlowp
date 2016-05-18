@@ -30,7 +30,7 @@ def GenerateCommonTempsCountersAndConsts(emitter):
   emitter.EmitDeclare('std::int32_t*', 'zipped_lhs_offsets',
                       'reinterpret_cast<std::int32_t*>(zipped_lhs + padded_k)')
   emitter.EmitDeclare('std::uint8_t*', 'zipped_rhs_1',
-                      'scratch + padded_k + 16')
+                      'scratch + ((padded_k + 31) / 16) * 16')
   emitter.EmitDeclare('std::uint8_t*', 'zipped_rhs_2',
                       'zipped_rhs_1 + zipped_chunk_size')
   emitter.EmitNewline()
