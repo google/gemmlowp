@@ -343,6 +343,11 @@ class Worker {
 // specific parallelization pattern that we use here:
 // a fixed number of workers can be given work, and one then
 // waits for all of them to finish.
+//
+// See MultiThreadGemmContextBase for how other WorkersPool implementations can
+// be used. Note that in those implementations, StartWorker can be free to
+// ignore the <index> value; that is, the caller of WorkersPool does not rely on
+// <index> to order tasks with equal <index>.
 class WorkersPool {
  public:
   WorkersPool() {}
@@ -353,9 +358,14 @@ class WorkersPool {
     }
   }
 
-  BlockingCounter& counter_to_decrement_when_ready() {
-    return counter_to_decrement_when_ready_;
+  // Called in anticipation of calling StartWorker <workers_count> times.
+  void Prepare(int workers_count) {
+    counter_to_decrement_when_ready_.Reset(workers_count);
   }
+
+  // Wait for the workers prepared by Prepare and given work by StartWorker to
+  // finish.
+  void Wait() { counter_to_decrement_when_ready_.Wait(); }
 
   // Give work to a specific worker.
   void StartWorker(int index, Task* task_) {
@@ -466,32 +476,27 @@ struct GemmWithPackedRhsTask : Task {
   const OutputPipelineType& output_pipeline;
 };
 
-class MultiThreadGemmContext : public SingleThreadGemmContext {
+// This base class for multi-threading allows subclasses to implement their own
+// workers_pool() method.  See MultiThreadGemmContext below for an example;
+// any other implementation of workers_pool() must return an object with the
+// same public methods as WorkersPool.
+class MultiThreadGemmContextBase : public SingleThreadGemmContext {
  public:
-  MultiThreadGemmContext() : max_num_threads_(0) {}
-
   void set_max_num_threads(int n) { max_num_threads_ = n; }
 
   int max_num_threads() const { return max_num_threads_; }
-
-  WorkersPool* workers_pool() { return &workers_pool_; }
 
   Allocator* main_thread_task_allocator() {
     return &main_thread_task_allocator_;
   }
 
  protected:
-  // The workers pool used by MultiThreadGemm. Making
-  // this part of the context allows it to be persistent,
-  // avoiding recreating threads on every Gemm.
-  WorkersPool workers_pool_;
-
   // The maximum number of worker threads to use (in addition
   // to the master thread).
   // The default value 0 means the default behavior of
   // detecting the number of hardware threads. Nonzero values mean
   // skipping and overriding hardware detection.
-  int max_num_threads_;
+  int max_num_threads_ = 0;
 
   // For N-threaded operations, we will use only N-1 worker threads
   // while the last task will be run directly on the main thread.
@@ -502,13 +507,23 @@ class MultiThreadGemmContext : public SingleThreadGemmContext {
   Allocator main_thread_task_allocator_;
 };
 
+class MultiThreadGemmContext : public MultiThreadGemmContextBase {
+ public:
+  WorkersPool* workers_pool() { return &workers_pool_; }
+
+ private:
+  // The workers pool used by MultiThreadGemm. Making
+  // this part of the context allows it to be persistent,
+  // avoiding recreating threads on every Gemm.
+  WorkersPool workers_pool_;
+};
+
 // Determines how many threads should be used for a given Gemm
 // operation.
 template <int KernelRows>
-inline int HowManyThreads(MultiThreadGemmContext* context, int rows, int cols,
-                          int depth) {
+inline int HowManyThreads(int max_num_threads, int rows, int cols, int depth) {
   // First check if the user set an explicit maximum number of threads.
-  int max_count = context->max_num_threads();
+  int max_count = max_num_threads;
   if (!max_count) {
     // No user-set maximum number of threads, so we need to
     // do some hardware detection.
@@ -567,8 +582,8 @@ inline int HowManyThreads(MultiThreadGemmContext* context, int rows, int cols,
 template <typename KernelFormat, typename InputScalar, typename OutputScalar,
           typename BitDepthParams, MapOrder LhsOrder, MapOrder RhsOrder,
           MapOrder ResultOrder, typename LhsOffset, typename RhsOffset,
-          typename OutputPipelineType>
-void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
+          typename OutputPipelineType, typename GemmContextType>
+void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
                      const MatrixMap<const InputScalar, LhsOrder>& lhs,
                      const MatrixMap<const InputScalar, RhsOrder>& rhs,
                      MatrixMap<OutputScalar, ResultOrder>* result,
@@ -586,8 +601,8 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
   assert(cols > 0);
   assert(depth > 0);
 
-  const int thread_count =
-      HowManyThreads<KernelFormat::kRows>(context, rows, cols, depth);
+  const int thread_count = HowManyThreads<KernelFormat::kRows>(
+      context->max_num_threads(), rows, cols, depth);
   if (thread_count == 1) {
     return SingleThreadGemm<KernelFormat, InputScalar, OutputScalar,
                             BitDepthParams>(context, kernel, lhs, rhs, result,
@@ -607,7 +622,7 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
   const int workers_count = thread_count - 1;
 
   Allocator* allocator = context->allocator();
-  WorkersPool* workers_pool = context->workers_pool();
+  auto* workers_pool = context->workers_pool();
 
   workers_pool->CreateWorkers(workers_count);
 
@@ -627,7 +642,7 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
 
     // Give work to each worker.
     int next_start_row = 0;
-    workers_pool->counter_to_decrement_when_ready().Reset(workers_count);
+    workers_pool->Prepare(workers_count);
     for (int thread = 0; thread < thread_count; thread++) {
       int start_row = next_start_row;
       next_start_row = std::min(rows, RoundUp<KernelFormat::kRows>(
@@ -653,7 +668,7 @@ void MultiThreadGemm(MultiThreadGemmContext* context, const KernelBase& kernel,
       }
     }
     // Wait for the workers.
-    workers_pool->counter_to_decrement_when_ready().Wait();
+    workers_pool->Wait();
   }
 
   allocator->Decommit();
