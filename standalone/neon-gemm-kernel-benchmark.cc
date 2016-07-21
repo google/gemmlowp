@@ -807,6 +807,313 @@ struct NEON_32bit_GEMM_Float32_MLA_WithScalar {
   }
 };
 
+// Faster kernel contributed by ARM in 64bit form
+// (see NEON_64bit_GEMM_Float32_WithScalar_A53) then ported to 32bit code.
+// Tuned for A53.
+struct NEON_32bit_GEMM_Float32_WithScalar_A53 {
+  typedef float OperandType;
+  typedef float AccumulatorType;
+  typedef KernelFormat<KernelSideFormat<CellFormat<4, 1, CellOrder::DepthMajor>, 3>,
+                       KernelSideFormat<CellFormat<4, 1, CellOrder::DepthMajor>, 1> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr, AccumulatorType* accum_ptr, int depth) {
+    asm volatile(
+      // Load accumulators
+      "mov r0, %[accum_ptr]\n"
+      "vld1.32 {d8, d9},   [r0]!\n"
+      "vld1.32 {d16, d17}, [r0]!\n"
+      "vld1.32 {d24, d25}, [r0]!\n"
+      "vld1.32 {d10, d11}, [r0]!\n"
+      "vld1.32 {d18, d19}, [r0]!\n"
+      "vld1.32 {d26, d27}, [r0]!\n"
+      "vld1.32 {d12, d13}, [r0]!\n"
+      "vld1.32 {d20, d21}, [r0]!\n"
+      "vld1.32 {d28, d29}, [r0]!\n"
+      "vld1.32 {d14, d15}, [r0]!\n"
+      "vld1.32 {d22, d23}, [r0]!\n"
+      "vld1.32 {d30, d31}, [r0]!\n"
+
+      // Overview of register layout:
+      //
+      // A 1x4 cell of Rhs is stored in d0--d1 (q0).
+      // A 12x1 block of 3 4x1 cells Lhs is stored in d2--d7
+      // (q1--q3).
+      // A 12x4 block of accumulators is stored in q4--q15.
+      //
+      //                   +-----+-----+-----+-----+
+      //             Rhs   |d0[0]|d0[1]|d1[0]|d1[1]|
+      //                   +-----+-----+-----+-----+
+      //
+      //                   |     |     |     |     |
+      //
+      //  Lhs              |     |     |     |     |
+      //
+      //  +--+- - - - - -  +-----+-----+-----+-----+
+      //  |d2|             | q4  | q5  | q6  | q7  |
+      //  |d2|             | q4  | q5  | q6  | q7  |
+      //  |d3|             | q4  | q5  | q6  | q7  |
+      //  |d3|             | q4  | q5  | q6  | q7  |
+      //  +--+- - - - - -  +-----+-----+-----+-----+
+      //  |d4|             | q8  | q9  | q10 | q11 |
+      //  |d4|             | q8  | q9  | q10 | q11 |
+      //  |d5|             | q8  | q9  | q10 | q11 |
+      //  |d5|             | q8  | q9  | q10 | q11 |
+      //  +--+ - - - - - - +-----+-----+-----+-----+
+      //  |d6|             | q12 | q13 | q14 | q15 |
+      //  |d6|             | q12 | q13 | q14 | q15 |
+      //  |d7|             | q12 | q13 | q14 | q15 |
+      //  |d7|             | q12 | q13 | q14 | q15 |
+      //  +--+- - - - - -  +-----+-----+-----+-----+
+      //
+      //                            Accumulator
+
+      // Load Rhs cell
+      "vldr d0, [%[rhs_ptr]]\n"
+      "ldr r2, [%[rhs_ptr], #8]\n"
+      "ldr r3, [%[rhs_ptr], #12]\n"
+
+      // Load 1st Lhs Cell
+      "vld1.32 {d2, d3}, [%[lhs_ptr]]\n"
+
+      "loop_%=:\n" // Loop head
+
+      "vldr d4, [%[lhs_ptr], #16]\n" // Load 1st half of 2nd Lhs cell
+      "vmov d1, r2, r3\n"            // Prepare 2nd half of Rhs cell
+      "vmla.f32 q4, q1, d0[0]\n"     // Multiply 1st Lhs cell with column 0
+      "ldr r2, [%[lhs_ptr], #24]\n"  // Load 2nd half of 2nd Lhs cell, part 1
+      "vmla.f32 q5, q1, d0[1]\n"     // Multiply 1st Lhs cell with column 1
+      "ldr r3, [%[lhs_ptr], #28]\n"  // Load 2nd half of 2nd Lhs cell, part 2
+      "vmla.f32 q6, q1, d1[0]\n"     // Multiply 1st Lhs cell with column 2
+      "subs %[depth], #1\n"
+
+      "vldr d6, [%[lhs_ptr], #32]\n" // Load 1st half of 3rd Lhs cell
+      "vmov d5, r2, r3\n"            // Prepare 2nd half of 2nd Lhs cell
+      "vmla.f32 q7, q1, d1[1]\n"     // Multiply 1st Lhs cell with column 3
+      "ldr r2, [%[lhs_ptr], #40]\n"  // Load 2nd half of 3rd Lhs cell, part 1
+      "vmla.f32 q8, q2, d0[0]\n"     // Multiply 2nd Lhs cell with column 0
+      "ldr r3, [%[lhs_ptr], #44]\n"  // Load 2nd half of 3rd Lhs cell, part 2
+      "vmla.f32 q9, q2, d0[1]\n"     // Multiply 2nd Lhs cell with column 1
+      "add %[rhs_ptr], %[rhs_ptr], #16\n" // Move forward by 1 Rhs cell
+
+      "vldr d2, [%[lhs_ptr], #48]\n" // Load 1st half of 1st Lhs cell of next iteration
+      "vmov d7, r2, r3\n"            // Prepare 2nd half of 3rd Lhs cell
+      "vmla.f32 q10, q2, d1[0]\n"    // Multiply 2nd Lhs cell with column 2
+      "ldr r2, [%[lhs_ptr], #56]\n"  // Load 2nd half of 1st Lhs cell of next iter, part 1
+      "vmla.f32 q12, q3, d0[0]\n"    // Multiply 3rd Lhs cell with column 0
+      "ldr r3, [%[lhs_ptr], #60]\n"  // Load 2nd half of 1st Lhs cell of next iter, part 2
+      "vmla.f32 q13, q3, d0[1]\n"    // Multiply 3rd Lhs cell with column 1
+      "add %[lhs_ptr], %[lhs_ptr], #48\n" // Move forward by 3 Lhs cells
+
+      "vldr d0, [%[rhs_ptr]]\n" // Load 1st half of Rhs cell of next iteration
+      "vmov d3, r2, r3\n"            // Prepare 2nd half of 1st Lhs cell of next iteration
+      "vmla.f32 q11, q2, d1[1]\n"    // Multiply 2nd Lhs cell with column 3
+      "ldr r2, [%[rhs_ptr], #8]\n"  // Load 2nd half of Rhs cell of next iteration, part 1
+      "vmla.f32 q14, q3, d1[0]\n"    // Multiply 3rd Lhs cell with column 2
+      "ldr r3, [%[rhs_ptr], #12]\n"  // Load 2nd half of Rhs cell of next iteration, part 2
+      "vmla.f32 q15, q3, d1[1]\n"    // Multiply 3rd Lhs cell with column 3
+
+      // Loop branch.  This will dual issue in fmla cycle 3 of the 4th block.
+      "bne loop_%=\n"
+
+      // Store accumulators
+      "mov r0, %[accum_ptr]\n"
+      "vst1.32 {d8, d9},   [r0]!\n"
+      "vst1.32 {d16, d17}, [r0]!\n"
+      "vst1.32 {d24, d25}, [r0]!\n"
+      "vst1.32 {d10, d11}, [r0]!\n"
+      "vst1.32 {d18, d19}, [r0]!\n"
+      "vst1.32 {d26, d27}, [r0]!\n"
+      "vst1.32 {d12, d13}, [r0]!\n"
+      "vst1.32 {d20, d21}, [r0]!\n"
+      "vst1.32 {d28, d29}, [r0]!\n"
+      "vst1.32 {d14, d15}, [r0]!\n"
+      "vst1.32 {d22, d23}, [r0]!\n"
+      "vst1.32 {d30, d31}, [r0]!\n"
+      :  // outputs
+      [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+      [depth] "+r"(depth)
+      :  // inputs
+      [accum_ptr] "r"(accum_ptr)
+      :  // clobbers
+      "cc", "memory", "r0", "r2", "r3",
+      "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+      "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
+      "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30",
+      "d31");
+  }
+};
+
+struct NEON_32bit_GEMM_Float32_WithScalar_A53_depth2 {
+  typedef float OperandType;
+  typedef float AccumulatorType;
+  typedef KernelFormat<KernelSideFormat<CellFormat<4, 2, CellOrder::DepthMajor>, 3>,
+                       KernelSideFormat<CellFormat<4, 2, CellOrder::DepthMajor>, 1> >
+      Format;
+    static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr, AccumulatorType* accum_ptr, int depth) {
+    asm volatile(
+      // Load accumulators
+      "mov r0, %[accum_ptr]\n"
+      "vld1.32 {d8, d9},   [r0]!\n"
+      "vld1.32 {d16, d17}, [r0]!\n"
+      "vld1.32 {d24, d25}, [r0]!\n"
+      "vld1.32 {d10, d11}, [r0]!\n"
+      "vld1.32 {d18, d19}, [r0]!\n"
+      "vld1.32 {d26, d27}, [r0]!\n"
+      "vld1.32 {d12, d13}, [r0]!\n"
+      "vld1.32 {d20, d21}, [r0]!\n"
+      "vld1.32 {d28, d29}, [r0]!\n"
+      "vld1.32 {d14, d15}, [r0]!\n"
+      "vld1.32 {d22, d23}, [r0]!\n"
+      "vld1.32 {d30, d31}, [r0]!\n"
+
+      // Overview of register layout:
+      //
+      // A 1x4 cell of Rhs is stored in d0--d1 (q0).
+      // A 12x1 block of 3 4x1 cells Lhs is stored in d2--d7
+      // (q1--q3).
+      // A 12x4 block of accumulators is stored in q4--q15.
+      //
+      //                   +-----+-----+-----+-----+
+      //             Rhs   |d0[0]|d0[1]|d1[0]|d1[1]|
+      //                   +-----+-----+-----+-----+
+      //
+      //                   |     |     |     |     |
+      //
+      //  Lhs              |     |     |     |     |
+      //
+      //  +--+- - - - - -  +-----+-----+-----+-----+
+      //  |d2|             | q4  | q5  | q6  | q7  |
+      //  |d2|             | q4  | q5  | q6  | q7  |
+      //  |d3|             | q4  | q5  | q6  | q7  |
+      //  |d3|             | q4  | q5  | q6  | q7  |
+      //  +--+- - - - - -  +-----+-----+-----+-----+
+      //  |d4|             | q8  | q9  | q10 | q11 |
+      //  |d4|             | q8  | q9  | q10 | q11 |
+      //  |d5|             | q8  | q9  | q10 | q11 |
+      //  |d5|             | q8  | q9  | q10 | q11 |
+      //  +--+ - - - - - - +-----+-----+-----+-----+
+      //  |d6|             | q12 | q13 | q14 | q15 |
+      //  |d6|             | q12 | q13 | q14 | q15 |
+      //  |d7|             | q12 | q13 | q14 | q15 |
+      //  |d7|             | q12 | q13 | q14 | q15 |
+      //  +--+- - - - - -  +-----+-----+-----+-----+
+      //
+      //                            Accumulator
+
+      // Load Rhs cell
+      "vldr d0, [%[rhs_ptr]]\n"
+      "ldr r2, [%[rhs_ptr], #8]\n"
+      "ldr r3, [%[rhs_ptr], #12]\n"
+
+      // Load 1st Lhs Cell
+      "vld1.32 {d2, d3}, [%[lhs_ptr]]\n"
+
+      "loop_%=:\n" // Loop head - handling 2 levels of depth at once
+
+      // Level of depth 1
+
+      "vldr d4, [%[lhs_ptr], #32]\n" // Load 1st half of 2nd Lhs cell
+      "vmov d1, r2, r3\n"            // Prepare 2nd half of Rhs cell
+      "vmla.f32 q4, q1, d0[0]\n"     // Multiply 1st Lhs cell with column 0
+      "ldr r2, [%[lhs_ptr], #40]\n"  // Load 2nd half of 2nd Lhs cell, part 1
+      "vmla.f32 q5, q1, d0[1]\n"     // Multiply 1st Lhs cell with column 1
+      "ldr r3, [%[lhs_ptr], #44]\n"  // Load 2nd half of 2nd Lhs cell, part 2
+      "vmla.f32 q6, q1, d1[0]\n"     // Multiply 1st Lhs cell with column 2
+
+      "vldr d6, [%[lhs_ptr], #64]\n" // Load 1st half of 3rd Lhs cell
+      "vmov d5, r2, r3\n"            // Prepare 2nd half of 2nd Lhs cell
+      "vmla.f32 q7, q1, d1[1]\n"     // Multiply 1st Lhs cell with column 3
+      "ldr r2, [%[lhs_ptr], #72]\n"  // Load 2nd half of 3rd Lhs cell, part 1
+      "vmla.f32 q8, q2, d0[0]\n"     // Multiply 2nd Lhs cell with column 0
+      "ldr r3, [%[lhs_ptr], #76]\n"  // Load 2nd half of 3rd Lhs cell, part 2
+      "vmla.f32 q9, q2, d0[1]\n"     // Multiply 2nd Lhs cell with column 1
+
+      "vldr d2, [%[lhs_ptr], #16]\n" // Load 1st half of 1st Lhs cell of next iteration
+      "vmov d7, r2, r3\n"            // Prepare 2nd half of 3rd Lhs cell
+      "vmla.f32 q10, q2, d1[0]\n"    // Multiply 2nd Lhs cell with column 2
+      "ldr r2, [%[lhs_ptr], #24]\n"  // Load 2nd half of 1st Lhs cell of next iter, part 1
+      "vmla.f32 q12, q3, d0[0]\n"    // Multiply 3rd Lhs cell with column 0
+      "ldr r3, [%[lhs_ptr], #28]\n"  // Load 2nd half of 1st Lhs cell of next iter, part 2
+      "vmla.f32 q13, q3, d0[1]\n"    // Multiply 3rd Lhs cell with column 1
+
+      "vldr d0, [%[rhs_ptr], #16]\n" // Load 1st half of Rhs cell of next iteration
+      "vmov d3, r2, r3\n"            // Prepare 2nd half of 1st Lhs cell of next iteration
+      "vmla.f32 q11, q2, d1[1]\n"    // Multiply 2nd Lhs cell with column 3
+      "ldr r2, [%[rhs_ptr], #24]\n"  // Load 2nd half of Rhs cell of next iteration, part 1
+      "vmla.f32 q14, q3, d1[0]\n"    // Multiply 3rd Lhs cell with column 2
+      "ldr r3, [%[rhs_ptr], #28]\n"  // Load 2nd half of Rhs cell of next iteration, part 2
+      "vmla.f32 q15, q3, d1[1]\n"    // Multiply 3rd Lhs cell with column 3
+
+      // Level of depth 2
+
+      "loop_second_unrolled_iter_%=:\n"
+
+      "vldr d4, [%[lhs_ptr], #48]\n" // Load 1st half of 2nd Lhs cell
+      "vmov d1, r2, r3\n"            // Prepare 2nd half of Rhs cell
+      "vmla.f32 q4, q1, d0[0]\n"     // Multiply 1st Lhs cell with column 0
+      "ldr r2, [%[lhs_ptr], #56]\n"  // Load 2nd half of 2nd Lhs cell, part 1
+      "vmla.f32 q5, q1, d0[1]\n"     // Multiply 1st Lhs cell with column 1
+      "ldr r3, [%[lhs_ptr], #60]\n"  // Load 2nd half of 2nd Lhs cell, part 2
+      "vmla.f32 q6, q1, d1[0]\n"     // Multiply 1st Lhs cell with column 2
+      "subs %[depth], #2\n"          // Decrement depth counter
+
+      "vldr d6, [%[lhs_ptr], #80]\n" // Load 1st half of 3rd Lhs cell
+      "vmov d5, r2, r3\n"            // Prepare 2nd half of 2nd Lhs cell
+      "vmla.f32 q7, q1, d1[1]\n"     // Multiply 1st Lhs cell with column 3
+      "ldr r2, [%[lhs_ptr], #88]\n"  // Load 2nd half of 3rd Lhs cell, part 1
+      "vmla.f32 q8, q2, d0[0]\n"     // Multiply 2nd Lhs cell with column 0
+      "ldr r3, [%[lhs_ptr], #92]\n"  // Load 2nd half of 3rd Lhs cell, part 2
+      "vmla.f32 q9, q2, d0[1]\n"     // Multiply 2nd Lhs cell with column 1
+      "add %[rhs_ptr], %[rhs_ptr], #32\n" // Move forward by 1 Rhs cell
+
+      "vldr d2, [%[lhs_ptr], #96]\n" // Load 1st half of 1st Lhs cell of next iteration
+      "vmov d7, r2, r3\n"            // Prepare 2nd half of 3rd Lhs cell
+      "vmla.f32 q10, q2, d1[0]\n"    // Multiply 2nd Lhs cell with column 2
+      "ldr r2, [%[lhs_ptr], #104]\n"  // Load 2nd half of 1st Lhs cell of next iter, part 1
+      "vmla.f32 q12, q3, d0[0]\n"    // Multiply 3rd Lhs cell with column 0
+      "ldr r3, [%[lhs_ptr], #108]\n"  // Load 2nd half of 1st Lhs cell of next iter, part 2
+      "vmla.f32 q13, q3, d0[1]\n"    // Multiply 3rd Lhs cell with column 1
+      "add %[lhs_ptr], %[lhs_ptr], #96\n" // Move forward by 3 Lhs cells
+
+      "vldr d0, [%[rhs_ptr]]\n" // Load 1st half of Rhs cell of next iteration
+      "vmov d3, r2, r3\n"            // Prepare 2nd half of 1st Lhs cell of next iteration
+      "vmla.f32 q11, q2, d1[1]\n"    // Multiply 2nd Lhs cell with column 3
+      "ldr r2, [%[rhs_ptr], #8]\n"  // Load 2nd half of Rhs cell of next iteration, part 1
+      "vmla.f32 q14, q3, d1[0]\n"    // Multiply 3rd Lhs cell with column 2
+      "ldr r3, [%[rhs_ptr], #12]\n"  // Load 2nd half of Rhs cell of next iteration, part 2
+      "vmla.f32 q15, q3, d1[1]\n"    // Multiply 3rd Lhs cell with column 3
+
+      // Loop branch.  This will dual issue in fmla cycle 3 of the 4th block.
+      "bne loop_%=\n"
+
+      // Store accumulators
+      "mov r0, %[accum_ptr]\n"
+      "vst1.32 {d8, d9},   [r0]!\n"
+      "vst1.32 {d16, d17}, [r0]!\n"
+      "vst1.32 {d24, d25}, [r0]!\n"
+      "vst1.32 {d10, d11}, [r0]!\n"
+      "vst1.32 {d18, d19}, [r0]!\n"
+      "vst1.32 {d26, d27}, [r0]!\n"
+      "vst1.32 {d12, d13}, [r0]!\n"
+      "vst1.32 {d20, d21}, [r0]!\n"
+      "vst1.32 {d28, d29}, [r0]!\n"
+      "vst1.32 {d14, d15}, [r0]!\n"
+      "vst1.32 {d22, d23}, [r0]!\n"
+      "vst1.32 {d30, d31}, [r0]!\n"
+      :  // outputs
+      [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+      [depth] "+r"(depth)
+      :  // inputs
+      [accum_ptr] "r"(accum_ptr)
+      :  // clobbers
+      "cc", "memory", "r0", "r2", "r3",
+      "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7", "d8", "d9", "d10",
+      "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
+      "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30",
+      "d31");
+  }
+};
+
 // This rotating variant performs well when permutations (vext) can be dual-issued
 // with arithmetic instructions.
 struct NEON_32bit_GEMM_Float32_MLA_Rotating {
@@ -1205,6 +1512,250 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators {
   }
 };
 
+
+// Faster kernel by ARM. Not expanding operands before multiplication.
+// Tuned for A57. Compare to NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand
+struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57 {
+  typedef std::uint8_t OperandType;
+  typedef std::uint32_t AccumulatorType;
+  typedef KernelFormat<KernelSideFormat<CellFormat<5, 16, CellOrder::WidthMajor>, 1>,
+                       KernelSideFormat<CellFormat<4, 16, CellOrder::WidthMajor>, 1> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr, AccumulatorType* accum_ptr, int depth) {
+    static const int kLhsWidth = Format::Lhs::kWidth;
+    static const int kRhsWidth = Format::Rhs::kWidth;
+    AccumulatorType rowmajor_accumulator_buffer[kLhsWidth * kRhsWidth];
+    asm volatile(
+      // Clear aggregators
+      "dup v12.4s, wzr\n"
+      "dup v13.4s, wzr\n"
+      "dup v14.4s, wzr\n"
+      "dup v15.4s, wzr\n"
+      "dup v16.4s, wzr\n"
+      "dup v17.4s, wzr\n"
+      "dup v18.4s, wzr\n"
+      "dup v19.4s, wzr\n"
+      "dup v20.4s, wzr\n"
+      "dup v21.4s, wzr\n"
+      "dup v22.4s, wzr\n"
+      "dup v23.4s, wzr\n"
+      "dup v24.4s, wzr\n"
+      "dup v25.4s, wzr\n"
+      "dup v26.4s, wzr\n"
+      "dup v27.4s, wzr\n"
+      "dup v28.4s, wzr\n"
+      "dup v29.4s, wzr\n"
+      "dup v30.4s, wzr\n"
+      "dup v31.4s, wzr\n"
+
+      "loop_%=:\n"
+
+      // Overview of register layout:
+      //
+      // A 4x16 block of Rhs is stored in 8 bit in v0--v3.
+      // A 5x16 block of Lhs is cycled through v4 and v5 in 8 bit.
+      //
+      // A 4x5 block of aggregators is stored in v12-v31 (as 4x32 bit
+      // components which would need to be added at the end)
+      //
+      // The Lhs vectors are multiplied by the Rhs vectors with a widening
+      // multiply to produce an intermediate result which is stored in
+      // v6-v11.  Each intermediate result is 8x16 bits so this happens
+      // twice for each Lhs/Rhs combination (once with UMULL for elements
+      // 0-7 and once with UMULL2 for elements 8-15).
+      //
+      // UADALP is used to accumulate these intermediate results into the
+      // result aggregators.
+      //
+      //
+      //
+      //                               +--------+--------+--------+--------+
+      //                               |v0.b[0] |v1.b[0] |v2.b[0] |v3.b[0] |
+      //                          Rhs  +--------+--------+--------+--------+
+      //                               |  ...   |  ...   |  ...   |  ...   |
+      //                               +--------+--------+--------+--------|
+      //                               |v0.b[15]|v1.b[15]|v2.b[15]|v3.b[15]|
+      //                               +--------+--------+--------+--------+
+      //
+      //                               |        |        |        |        |
+      //
+      //    Lhs                        |        |        |        |        |
+      //
+      //  +-------+-----+--------+ - - +--------+--------+--------+--------+
+      //  |v4.b[0]| ... |v4.b[15]|     | v12.4s | v13.4s | v14.4s | v15.4s |
+      //  |v5.b[0]| ... |v5.b[15]|     | v16.4s | v17.4s | v18.4s | v19.4s |
+      //  |v4.b[0]| ... |v4.b[15]|     | v20.4s | v21.4s | v22.4s | v23.4s |
+      //  |v5.b[0]| ... |v5.b[15]|     | v24.4s | v25.4s | v26.4s | v27.4s |
+      //  |v4.b[0]| ... |v4.b[15]|     | v28.4s | v29.4s | v30.4s | v31.4s |
+      //  +-------+--------------+ - - +--------+--------+--------+--------+
+      //
+      //                                                Accumulator
+      //
+      //
+      // Further possible optimisations (not tried):
+      //   - Move early loads into previous iteration (see Float32_WithScalar for example).
+      //   - Unroll loop 2x to alternate more smoothly between v4 and v5.
+      //   - A different number of temporary registers might work better.
+      //   - Pairing umull with corresponding umull2 might allow better
+      //     register loading (e.g. at the start of the loop)
+      //   - Interleaving umull{2} and uadalp even more aggressively might
+      //     help, (not sure about latency vs. dispatch rate).
+      //
+      //
+      // Start loading Rhs - further loads are interleaved amongst the
+      // multiplies for better dispatch on A57.
+      "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
+
+      // Load first Lhs vector - further loads are interleaved amongst the multiplies
+      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+
+      "umull    v6.8h,  v0.8b,  v4.8b\n"
+      "ld1 {v1.16b}, [%[rhs_ptr]], #16\n" // 2nd RHS element
+      "umull    v7.8h,  v1.8b,  v4.8b\n"
+      "ld1 {v2.16b}, [%[rhs_ptr]], #16\n" // 3rd RHS element
+      "umull    v8.8h,  v2.8b,  v4.8b\n"
+      "ld1 {v3.16b}, [%[rhs_ptr]], #16\n" // 4th RHS element
+      "umull    v9.8h,  v3.8b,  v4.8b\n"
+      "umull2  v10.8h, v0.16b, v4.16b\n"
+      "umull2  v11.8h, v1.16b, v4.16b\n"
+      "ld1 {v5.16b}, [%[lhs_ptr]], #16\n" // 2nd LHS element
+
+      "uadalp  v12.4s, v6.8h\n"
+      "umull2   v6.8h, v2.16b, v4.16b\n"
+      "uadalp  v13.4s, v7.8h\n"
+      "umull2   v7.8h, v3.16b, v4.16b\n"
+      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n" // 1st LHS element done - Reuse v4 for 3rd LHS element
+      "uadalp  v14.4s, v8.8h\n"
+      "umull    v8.8h,  v0.8b,  v5.8b\n"
+      "uadalp  v15.4s, v9.8h\n"
+      "umull    v9.8h,  v1.8b,  v5.8b\n"
+      "uadalp  v12.4s, v10.8h\n"
+      "umull   v10.8h,  v2.8b,  v5.8b\n"
+      "uadalp  v13.4s, v11.8h\n"
+      "umull   v11.8h,  v3.8b,  v5.8b\n"
+
+      "uadalp  v14.4s, v6.8h\n"
+      "umull2   v6.8h, v0.16b, v5.16b\n"
+      "uadalp  v15.4s, v7.8h\n"
+      "umull2   v7.8h, v1.16b, v5.16b\n"
+      "uadalp  v16.4s, v8.8h\n"
+      "umull2   v8.8h, v2.16b, v5.16b\n"
+      "uadalp  v17.4s, v9.8h\n"
+      "umull2   v9.8h, v3.16b, v5.16b\n"
+      "ld1 {v5.16b}, [%[lhs_ptr]], #16\n" // 2nd LHS element done - Reuse v5 for 4th LHS element
+      "uadalp  v18.4s, v10.8h\n"
+      "umull   v10.8h,  v0.8b,  v4.8b\n"
+      "uadalp  v19.4s, v11.8h\n"
+      "umull   v11.8h,  v1.8b,  v4.8b\n"
+
+      "uadalp  v16.4s, v6.8h\n"
+      "umull    v6.8h,  v2.8b,  v4.8b\n"
+      "uadalp  v17.4s, v7.8h\n"
+      "umull    v7.8h,  v3.8b,  v4.8b\n"
+      "uadalp  v18.4s, v8.8h\n"
+      "umull2   v8.8h, v0.16b, v4.16b\n"
+      "uadalp  v19.4s, v9.8h\n"
+      "umull2   v9.8h, v1.16b, v4.16b\n"
+      "uadalp  v20.4s, v10.8h\n"
+      "umull2  v10.8h, v2.16b, v4.16b\n"
+      "uadalp  v21.4s, v11.8h\n"
+      "umull2  v11.8h, v3.16b, v4.16b\n"
+      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n" // 3rd LHS element done - Reuse v4 for 5th LHS element
+
+      "uadalp v22.4s, v6.8h\n"
+      "umull    v6.8h,  v0.8b,  v5.8b\n"
+      "uadalp v23.4s, v7.8h\n"
+      "umull    v7.8h,  v1.8b,  v5.8b\n"
+      "uadalp v20.4s, v8.8h\n"
+      "umull    v8.8h,  v2.8b,  v5.8b\n"
+      "uadalp v21.4s, v9.8h\n"
+      "umull    v9.8h,  v3.8b,  v5.8b\n"
+      "uadalp v22.4s, v10.8h\n"
+      "umull2  v10.8h, v0.16b, v5.16b\n"
+      "uadalp v23.4s, v11.8h\n"
+      "umull2  v11.8h, v1.16b, v5.16b\n"
+
+      "uadalp v24.4s, v6.8h\n"
+      "umull2   v6.8h,  v2.16b, v5.16b\n"
+      "uadalp v25.4s, v7.8h\n"
+      "umull2   v7.8h,  v3.16b, v5.16b\n"
+      "uadalp v26.4s, v8.8h\n"
+      "umull    v8.8h,  v0.8b,  v4.8b\n"
+      "uadalp v27.4s, v9.8h\n"
+      "umull    v9.8h,  v1.8b,  v4.8b\n"
+      "uadalp v24.4s, v10.8h\n"
+      "umull   v10.8h,  v2.8b,  v4.8b\n"
+      "uadalp v25.4s, v11.8h\n"
+      "umull   v11.8h,  v3.8b,  v4.8b\n"
+
+      "uadalp v26.4s, v6.8h\n"
+      "umull2   v6.8h, v0.16b, v4.16b\n"
+      "uadalp v27.4s, v7.8h\n"
+      "umull2   v7.8h, v1.16b, v4.16b\n"
+      "uadalp v28.4s, v8.8h\n"
+      "umull2   v8.8h, v2.16b, v4.16b\n"
+      "uadalp v29.4s, v9.8h\n"
+      "umull2   v9.8h, v3.16b, v4.16b\n"
+      "uadalp v30.4s, v10.8h\n"
+      "uadalp v31.4s, v11.8h\n"
+
+
+      "uadalp v28.4s, v6.8h\n"
+      "uadalp v29.4s, v7.8h\n"
+      // Loop. Decrement loop index (depth) by 16, since we just handled
+      // 16 levels of depth.  Do this subs a bit before the end of the loop
+      // for better dispatch on A57.
+      "subs %[depth], %[depth], #16\n"
+      "uadalp v30.4s, v8.8h\n"
+      "uadalp v31.4s, v9.8h\n"
+
+      "bne loop_%=\n"
+
+      // Reduce aggregators horizontally
+      "addp v0.4s, v12.4s, v13.4s\n"
+      "addp v1.4s, v14.4s, v15.4s\n"
+      "addp v2.4s, v16.4s, v17.4s\n"
+      "addp v3.4s, v18.4s, v19.4s\n"
+      "addp v4.4s, v20.4s, v21.4s\n"
+      "addp v5.4s, v22.4s, v23.4s\n"
+      "addp v6.4s, v24.4s, v25.4s\n"
+      "addp v7.4s, v26.4s, v27.4s\n"
+      "addp v8.4s, v28.4s, v29.4s\n"
+      "addp v9.4s, v30.4s, v31.4s\n"
+
+      "addp v10.4s, v0.4s, v1.4s\n"
+      "addp v11.4s, v2.4s, v3.4s\n"
+      "addp v12.4s, v4.4s, v5.4s\n"
+      "addp v13.4s, v6.4s, v7.4s\n"
+      "addp v14.4s, v8.4s, v9.4s\n"
+
+      "mov x0, %[rowmajor_accumulator_buffer]\n"
+      "st1 {v10.16b}, [x0], #16\n"
+      "st1 {v11.16b}, [x0], #16\n"
+      "st1 {v12.16b}, [x0], #16\n"
+      "st1 {v13.16b}, [x0], #16\n"
+      "st1 {v14.16b}, [x0], #16\n"
+      :  // outputs
+      [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+      [depth] "+r"(depth)
+      :  // inputs
+      [rowmajor_accumulator_buffer] "r"(rowmajor_accumulator_buffer)
+      :  // clobbers
+      "cc", "memory", "x0", "v0", "v1", "v2", "v3", "v4", "v5", "v6",
+      "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16",
+      "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26",
+      "v27", "v28", "v29", "v30", "v31");
+
+    // accumulate row-major accumulators into global (column-major) accumulators
+    for (int l = 0; l < kLhsWidth; l++) {
+      for (int r = 0; r < kRhsWidth; r++) {
+        accum_ptr[l + kLhsWidth * r] +=
+            rowmajor_accumulator_buffer[r + l * kRhsWidth];
+      }
+    }
+  }
+};
+
 // We don't actually use int32*int32 in production. This is just an
 // experiment to help dissociate the effect of integer-vs-float, from the
 // effect of operands width.
@@ -1567,6 +2118,309 @@ struct NEON_64bit_GEMM_Float32_WithScalar {
   }
 };
 
+// Faster kernel contributed by ARM. Tuned for A57.
+struct NEON_64bit_GEMM_Float32_WithScalar_A57 {
+  typedef float OperandType;
+  typedef float AccumulatorType;
+  typedef KernelFormat<KernelSideFormat<CellFormat<4, 1, CellOrder::DepthMajor>, 3>,
+                       KernelSideFormat<CellFormat<4, 1, CellOrder::DepthMajor>, 2> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr, AccumulatorType* accum_ptr, int depth) {
+    asm volatile(
+      // Load accumulators
+      "mov x0, %[accum_ptr]\n"
+      "ld1 {v8.16b}, [x0], #16\n"
+      "ld1 {v16.16b}, [x0], #16\n"
+      "ld1 {v24.16b}, [x0], #16\n"
+      "ld1 {v9.16b}, [x0], #16\n"
+      "ld1 {v17.16b}, [x0], #16\n"
+      "ld1 {v25.16b}, [x0], #16\n"
+      "ld1 {v10.16b}, [x0], #16\n"
+      "ld1 {v18.16b}, [x0], #16\n"
+      "ld1 {v26.16b}, [x0], #16\n"
+      "ld1 {v11.16b}, [x0], #16\n"
+      "ld1 {v19.16b}, [x0], #16\n"
+      "ld1 {v27.16b}, [x0], #16\n"
+      "ld1 {v12.16b}, [x0], #16\n"
+      "ld1 {v20.16b}, [x0], #16\n"
+      "ld1 {v28.16b}, [x0], #16\n"
+      "ld1 {v13.16b}, [x0], #16\n"
+      "ld1 {v21.16b}, [x0], #16\n"
+      "ld1 {v29.16b}, [x0], #16\n"
+      "ld1 {v14.16b}, [x0], #16\n"
+      "ld1 {v22.16b}, [x0], #16\n"
+      "ld1 {v30.16b}, [x0], #16\n"
+      "ld1 {v15.16b}, [x0], #16\n"
+      "ld1 {v23.16b}, [x0], #16\n"
+      "ld1 {v31.16b}, [x0], #16\n"
+
+      // The start of the loop assumes first Rhs cell is already loaded, so
+      // do it here for first iteration.
+      "ld1 {v0.4s}, [%[rhs_ptr]], #16\n"
+
+      // And the same for the first Lhs cell.
+      "ld1 {v2.4s}, [%[lhs_ptr]], #16\n"
+
+
+      "loop_%=:\n" // Loop head
+
+      // Start the MACs at the head of the loop - 1st cell from each side already loaded.
+      "fmla v8.4s, v2.4s, v0.s[0]\n"
+      "fmla v9.4s, v2.4s, v0.s[1]\n"
+      "ld1 {v1.4s}, [%[rhs_ptr]], #16\n" // Load second Rhs cell.
+      "fmla v10.4s, v2.4s, v0.s[2]\n"
+      "fmla v11.4s, v2.4s, v0.s[3]\n"
+      "ld1 {v3.4s}, [%[lhs_ptr]], #16\n" // Load second Lhs cell.
+      "fmla v12.4s, v2.4s, v1.s[0]\n"
+      "fmla v13.4s, v2.4s, v1.s[1]\n"
+      "ld1 {v4.4s}, [%[lhs_ptr]], #16\n" // Load third Lhs cell.
+      "fmla v14.4s, v2.4s, v1.s[2]\n"
+      "fmla v15.4s, v2.4s, v1.s[3]\n"
+      "ld1 {v2.4s}, [%[lhs_ptr]], #16\n" // Done with first Lhs cell - load for the next iteration early.
+      "fmla v16.4s, v3.4s, v0.s[0]\n"
+      "fmla v17.4s, v3.4s, v0.s[1]\n"
+      "fmla v18.4s, v3.4s, v0.s[2]\n"
+      "fmla v19.4s, v3.4s, v0.s[3]\n"
+      "fmla v20.4s, v3.4s, v1.s[0]\n"
+      "fmla v21.4s, v3.4s, v1.s[1]\n"
+      "fmla v22.4s, v3.4s, v1.s[2]\n"
+      "fmla v23.4s, v3.4s, v1.s[3]\n"
+      "fmla v24.4s, v4.4s, v0.s[0]\n"
+      "fmla v25.4s, v4.4s, v0.s[1]\n"
+      "fmla v26.4s, v4.4s, v0.s[2]\n"
+      "fmla v27.4s, v4.4s, v0.s[3]\n"
+      "ld1 {v0.4s}, [%[rhs_ptr]], #16\n" // Done with the first Rhs cell - load for the next iteration early.
+      "fmla v28.4s, v4.4s, v1.s[0]\n"
+      "fmla v29.4s, v4.4s, v1.s[1]\n"
+      // Loop. Decrement loop index (depth) by 1, since we just handled
+      // 1 level of depth.  Do this a bit before the end of the loop for
+      // better dispatch on A57.
+      "subs %[depth], %[depth], #1\n"
+      "fmla v30.4s, v4.4s, v1.s[2]\n"
+      "fmla v31.4s, v4.4s, v1.s[3]\n"
+
+      "bne loop_%=\n"
+
+      // Store accumulators
+      "mov x0, %[accum_ptr]\n"
+      "st1 {v8.16b}, [x0], #16\n"
+      "st1 {v16.16b}, [x0], #16\n"
+      "st1 {v24.16b}, [x0], #16\n"
+      "st1 {v9.16b}, [x0], #16\n"
+      "st1 {v17.16b}, [x0], #16\n"
+      "st1 {v25.16b}, [x0], #16\n"
+      "st1 {v10.16b}, [x0], #16\n"
+      "st1 {v18.16b}, [x0], #16\n"
+      "st1 {v26.16b}, [x0], #16\n"
+      "st1 {v11.16b}, [x0], #16\n"
+      "st1 {v19.16b}, [x0], #16\n"
+      "st1 {v27.16b}, [x0], #16\n"
+      "st1 {v12.16b}, [x0], #16\n"
+      "st1 {v20.16b}, [x0], #16\n"
+      "st1 {v28.16b}, [x0], #16\n"
+      "st1 {v13.16b}, [x0], #16\n"
+      "st1 {v21.16b}, [x0], #16\n"
+      "st1 {v29.16b}, [x0], #16\n"
+      "st1 {v14.16b}, [x0], #16\n"
+      "st1 {v22.16b}, [x0], #16\n"
+      "st1 {v30.16b}, [x0], #16\n"
+      "st1 {v15.16b}, [x0], #16\n"
+      "st1 {v23.16b}, [x0], #16\n"
+      "st1 {v31.16b}, [x0], #16\n"
+      :  // outputs
+      [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+      [depth] "+r"(depth)
+      :  // inputs
+      [accum_ptr] "r"(accum_ptr)
+      :  // clobbers
+      "cc", "memory", "x0", "v0", "v1", "v2", "v3", "v4", "v5", "v6",
+      "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16",
+      "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26",
+      "v27", "v28", "v29", "v30", "v31");
+  }
+};
+
+// Faster kernel contributed by ARM. Tuned for A53.
+struct NEON_64bit_GEMM_Float32_WithScalar_A53 {
+  typedef float OperandType;
+  typedef float AccumulatorType;
+  typedef KernelFormat<KernelSideFormat<CellFormat<4, 1, CellOrder::DepthMajor>, 3>,
+                       KernelSideFormat<CellFormat<4, 1, CellOrder::DepthMajor>, 2> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr, AccumulatorType* accum_ptr, int depth) {
+    asm volatile(
+      // Load accumulators
+      "mov x0, %[accum_ptr]\n"
+      "ld1 {v8.16b}, [x0], #16\n"
+      "ld1 {v16.16b}, [x0], #16\n"
+      "ld1 {v24.16b}, [x0], #16\n"
+      "ld1 {v9.16b}, [x0], #16\n"
+      "ld1 {v17.16b}, [x0], #16\n"
+      "ld1 {v25.16b}, [x0], #16\n"
+      "ld1 {v10.16b}, [x0], #16\n"
+      "ld1 {v18.16b}, [x0], #16\n"
+      "ld1 {v26.16b}, [x0], #16\n"
+      "ld1 {v11.16b}, [x0], #16\n"
+      "ld1 {v19.16b}, [x0], #16\n"
+      "ld1 {v27.16b}, [x0], #16\n"
+      "ld1 {v12.16b}, [x0], #16\n"
+      "ld1 {v20.16b}, [x0], #16\n"
+      "ld1 {v28.16b}, [x0], #16\n"
+      "ld1 {v13.16b}, [x0], #16\n"
+      "ld1 {v21.16b}, [x0], #16\n"
+      "ld1 {v29.16b}, [x0], #16\n"
+      "ld1 {v14.16b}, [x0], #16\n"
+      "ld1 {v22.16b}, [x0], #16\n"
+      "ld1 {v30.16b}, [x0], #16\n"
+      "ld1 {v15.16b}, [x0], #16\n"
+      "ld1 {v23.16b}, [x0], #16\n"
+      "ld1 {v31.16b}, [x0], #16\n"
+
+      // For A53, a very different-looking loop is needed.
+      //
+      // The main reason for this is that on A53 128-bit loads take two
+      // cycles during which no dual issue can occur.  Doing two separate
+      // 64-bit loads avoids this issue - they each take one cycle and are
+      // able to dual issue.  Since vector register loads don't dual issue
+      // with FMLA, we load half the register as normal and the other half
+      // into an integer register.  This second half can then be moved into
+      // place later with an INS instruction - which will dual issue with a
+      // later FP load.
+      //
+      // For this kernel there are approximately 3 times as many multiplies
+      // as loads, so it makes sense to structure the loop into blocks of 4
+      // cycles, with 1 dedicated "load cycle" and 3 "multiply cycles" per
+      // block.  Strictly preserving this structure with NOPs where no load
+      // is needed seems to result in higher performance.
+      //
+      // Choice of x18 to store the upper halves on their way into the
+      // vector registers is arbitrary.  Added to the clobber list so that
+      // the compiler will make it available.
+      //
+      //
+      // At the start of the loop, it is assumed that v0 is "half loaded" -
+      // bottom half in place in d0 and the upper half in x18 ready to
+      // insert.  So set that up here for the first iteration:
+      "ldr d0, [%[rhs_ptr]]\n"           // Bottom half of first Rhs cell
+      "ldr x18, [%[rhs_ptr], #8]\n"      // Upper half
+      "add %[rhs_ptr], %[rhs_ptr], #16\n"  // Separate increment (needed as there is no operation to load at reg
+                                                      // + 8 but then increment reg by 16).
+
+      // v2 should be fully loaded - as it's outside the loop proper it's fine to use a 128-bit load here.
+      "ld1 {v2.4s}, [%[lhs_ptr]], #16\n" // first Lhs cell
+
+
+      "loop_%=:\n" // Loop head
+
+      // First block of four cycles.  Multplies all require v2 and v0; v2 is
+      // loaded earlier and v0 is half loaded and completed in the load
+      // cycle at the start.
+      "ldr d1, [%[rhs_ptr]]\n"                        // "load" cycle - loading bottom half of v1 (second Rhs cell).
+      "ins v0.d[1], x18\n"                            // "load" cycle - moving the upper half of v0 into place.
+      "fmla v8.4s, v2.4s, v0.s[0]\n"                  // "fmla" cycle 1 - first multiply.
+      "ldr x18, [%[rhs_ptr], #8]\n"                   // "fmla" cycle 1 - load upper half of v1 into x18.
+      "fmla v9.4s, v2.4s, v0.s[1]\n"                  // "fmla" cycle 2 - second multiply
+      "add %[rhs_ptr], %[rhs_ptr], #16\n"  // "fmla" cycle 2 - increment Rhs pointer (if needed)
+      "fmla v10.4s, v2.4s, v0.s[2]\n"                 // "fmla" cycle 3 - third multiply.  No more work to dual issue.
+
+      // Second block.  Start loading v3 (second Lhs cell), finish loading v1.
+      "ldr d3, [%[lhs_ptr]]\n"
+      "ins v1.d[1], x18\n"                                // v1 ready here.
+      "fmla v11.4s, v2.4s, v0.s[3]\n"
+      "ldr x18, [%[lhs_ptr], #8]\n"
+      "fmla v12.4s, v2.4s, v1.s[0]\n"                     // First use of v1.
+      "add %[lhs_ptr], %[lhs_ptr], #16\n"
+      "fmla v13.4s, v2.4s, v1.s[1]\n"
+
+      // Third block.  Start loading v4 (third Lhs cell), finish loading v3.
+      "ldr d4, [%[lhs_ptr]]\n"
+      "ins v3.d[1], x18\n"                                // v3 ready here.
+      "fmla v14.4s, v2.4s, v1.s[2]\n"
+      "ldr x18, [%[lhs_ptr], #8]\n"
+      "fmla v15.4s, v2.4s, v1.s[3]\n"
+      "add %[lhs_ptr], %[lhs_ptr], #16\n"
+      "fmla v16.4s, v3.4s, v0.s[0]\n"                     // First use of v3.
+
+      // Fourth block.  v2 (first Lhs cell) is now finished with, so start loading value for next iteration.  Finish loading v4.
+      "ldr d2, [%[lhs_ptr]]\n"
+      "ins v4.d[1], x18\n"                                // v4 ready here.
+      "fmla v17.4s, v3.4s, v0.s[1]\n"
+      "ldr x18, [%[lhs_ptr], #8]\n"
+      "fmla v18.4s, v3.4s, v0.s[2]\n"
+      "add %[lhs_ptr], %[lhs_ptr], #16\n"
+      "fmla v19.4s, v3.4s, v0.s[3]\n"
+
+      // Fifth block, finish loading v2.  No new load to start as the other registers are all still live.
+      "ins v2.d[1], x18\n"
+      "fmla v20.4s, v3.4s, v1.s[0]\n"
+      "fmla v21.4s, v3.4s, v1.s[1]\n"
+      "fmla v22.4s, v3.4s, v1.s[2]\n"
+
+      // Sixth block, nothing to load.  2 nops needed as a single nop would dual issue with the FMLA and break the timing.
+      "nop\n"
+      "nop\n"
+      "fmla v23.4s, v3.4s, v1.s[3]\n"
+      "fmla v24.4s, v4.4s, v0.s[0]\n"                     // First use of v4.
+      "fmla v25.4s, v4.4s, v0.s[1]\n"
+
+      // Seventh block, nothing to load.  Decrement the loop counter in this block as the last block is very full.
+      "nop\n"
+      "nop\n"
+      "fmla v26.4s, v4.4s, v0.s[2]\n"
+      "subs %[depth], %[depth], #1\n"
+      "fmla v27.4s, v4.4s, v0.s[3]\n"
+      "fmla v28.4s, v4.4s, v1.s[0]\n"
+
+      // Eighth block - start loading v0 for next iteration.
+      "ldr d0, [%[rhs_ptr]]\n"
+      "fmla v29.4s, v4.4s, v1.s[1]\n"
+      "ldr x18, [%[rhs_ptr], #8]\n"
+      "fmla v30.4s, v4.4s, v1.s[2]\n"
+      "add %[rhs_ptr], %[rhs_ptr], #16\n"
+      "fmla v31.4s, v4.4s, v1.s[3]\n"
+
+      // Loop branch.  This will dual issue in fmla cycle 3 of the 8th block.
+      "bne loop_%=\n"
+
+      // Store accumulators
+      "mov x0, %[accum_ptr]\n"
+      "st1 {v8.16b}, [x0], #16\n"
+      "st1 {v16.16b}, [x0], #16\n"
+      "st1 {v24.16b}, [x0], #16\n"
+      "st1 {v9.16b}, [x0], #16\n"
+      "st1 {v17.16b}, [x0], #16\n"
+      "st1 {v25.16b}, [x0], #16\n"
+      "st1 {v10.16b}, [x0], #16\n"
+      "st1 {v18.16b}, [x0], #16\n"
+      "st1 {v26.16b}, [x0], #16\n"
+      "st1 {v11.16b}, [x0], #16\n"
+      "st1 {v19.16b}, [x0], #16\n"
+      "st1 {v27.16b}, [x0], #16\n"
+      "st1 {v12.16b}, [x0], #16\n"
+      "st1 {v20.16b}, [x0], #16\n"
+      "st1 {v28.16b}, [x0], #16\n"
+      "st1 {v13.16b}, [x0], #16\n"
+      "st1 {v21.16b}, [x0], #16\n"
+      "st1 {v29.16b}, [x0], #16\n"
+      "st1 {v14.16b}, [x0], #16\n"
+      "st1 {v22.16b}, [x0], #16\n"
+      "st1 {v30.16b}, [x0], #16\n"
+      "st1 {v15.16b}, [x0], #16\n"
+      "st1 {v23.16b}, [x0], #16\n"
+      "st1 {v31.16b}, [x0], #16\n"
+      :  // outputs
+      [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+      [depth] "+r"(depth)
+      :  // inputs
+      [accum_ptr] "r"(accum_ptr)
+      :  // clobbers
+      "cc", "memory", "x0", "x18", "v0", "v1", "v2", "v3", "v4", "v5", "v6",
+      "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16",
+      "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26",
+      "v27", "v28", "v29", "v30", "v31");
+  }
+};
+
 #endif  // __aarch64__
 
 // BEGIN code copied from gemmlowp/internal/kernel_reference.h
@@ -1722,7 +2576,7 @@ void test_kernel(int depth, const char* kernel_name)
   FillRandom(&accum_initial);
   Copy(&accum, accum_initial);
   Copy(&accum_reference, accum_initial);
-  
+
 
   ReferenceKernel::Run(lhs.data(), rhs.data(), accum_reference.data(), depth);
   Kernel::Run(lhs.data(), rhs.data(), accum.data(), depth);
@@ -1918,6 +2772,8 @@ int main() {
   BENCHMARK(NEON_32bit_GEMM_Float32_FMA_WithVectorDuplicatingScalar);
 #endif
   BENCHMARK(NEON_32bit_GEMM_Float32_MLA_WithScalar);
+  BENCHMARK(NEON_32bit_GEMM_Float32_WithScalar_A53);
+  BENCHMARK(NEON_32bit_GEMM_Float32_WithScalar_A53_depth2);
   BENCHMARK(NEON_32bit_GEMM_Float32_MLA_Rotating);
 #ifdef __ARM_FEATURE_FMA
   BENCHMARK(NEON_32bit_GEMM_Float32_FMA_Rotating);
@@ -1927,8 +2783,11 @@ int main() {
 #ifdef __aarch64__
   std::cout << "CPU architecture: ARM 64bit" << std::endl;
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators);
+  BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57);
   BENCHMARK(NEON_64bit_GEMM_Int32_WithScalar);
   BENCHMARK(NEON_64bit_GEMM_Float32_WithVectorDuplicatingScalar);
   BENCHMARK(NEON_64bit_GEMM_Float32_WithScalar);
+  BENCHMARK(NEON_64bit_GEMM_Float32_WithScalar_A57);
+  BENCHMARK(NEON_64bit_GEMM_Float32_WithScalar_A53);
 #endif
 }
