@@ -49,7 +49,7 @@
 #endif
 // posix_memalign is missing on some 4.1 x86 devices
 #if __ANDROID_API__ == 16
-#if __i386__
+#ifdef GEMMLOWP_X86_32
 #include <malloc.h>
 #define GEMMLOWP_USE_MEMALIGN
 #endif
