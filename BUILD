@@ -112,6 +112,17 @@ cc_library(
     ],
 )
 
+cc_library(
+    name = "profiler",
+    hdrs = [
+        "profiling/instrumentation.h",
+        "profiling/profiler.h",
+    ],
+    visibility = [
+        "//visibility:public",
+    ],
+)
+
 # The main gemmlowp unit test
 cc_test(
     name = "test",
