@@ -73,7 +73,8 @@ struct OutputStageQuantizeDownInt32ToUint8ScalePC {
 // This "quantization down" process depends on 3 parameters,
 //   result_offset, result_fixedpoint_multiplier, result_shift,
 // and the result is:
-//   (FixedPointMul(input + result_offset, result_fixedpoint_multiplier) + rounding) >> result_shift
+//   (FixedPointMul(input + result_offset, result_fixedpoint_multiplier) +
+//   rounding) >> result_shift
 // where
 //   rounding = (result_shift < 1) ? 0 : (1 << (result_shift - 1));
 // and where FixedPointMul(x, y) is the nearest integer to the following
@@ -140,11 +141,10 @@ MakeStandardOutputPipeline(std::int32_t result_offset,
 template <VectorShape tShape>
 inline std::tuple<OutputStageQuantizeDownInt32ToUint8ScalePC<tShape>,
                   OutputStageSaturatingCastToUint8>
-MakeStandardOutputPipeline(const VectorMap<const std::int32_t, tShape>&
-                               result_offset,
-                           const VectorMap<const std::int32_t, tShape>&
-                               result_mult_int,
-                           std::int32_t result_shift) {
+MakeStandardOutputPipeline(
+    const VectorMap<const std::int32_t, tShape>& result_offset,
+    const VectorMap<const std::int32_t, tShape>& result_mult_int,
+    std::int32_t result_shift) {
   OutputStageQuantizeDownInt32ToUint8ScalePC<tShape> quantize_down_stage;
   quantize_down_stage.result_offset = result_offset;
   quantize_down_stage.result_mult_int = result_mult_int;

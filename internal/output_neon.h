@@ -159,20 +159,19 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
 
   OutputType Eval(InputType input, int, int) const {
     const std::int32_t result_shift = output_stage.result_shift;
-    const std::int32_t result_fixedpoint_multiplier = output_stage.result_fixedpoint_multiplier;
+    const std::int32_t result_fixedpoint_multiplier =
+        output_stage.result_fixedpoint_multiplier;
     const std::int32_t result_offset = output_stage.result_offset;
     const std::int32_t preshift_offset =
         (result_shift < 1) ? 0 : (1 << (result_shift - 1));
     const int32x4_t a = vaddq_s32(input, vdupq_n_s32(result_offset));
     const int32x4_t m = vqrdmulhq_n_s32(a, result_fixedpoint_multiplier);
-    const int32x4_t b =
-        vaddq_s32(m, vdupq_n_s32(preshift_offset));
+    const int32x4_t b = vaddq_s32(m, vdupq_n_s32(preshift_offset));
     return vshlq_s32(b, vdupq_n_s32(-result_shift));
   }
 
   const OutputStage& output_stage;
 };
-
 
 // Implementation of OutputStageSaturatingCastToUint8 for NEONFragmentInt32x4x1
 template <>
