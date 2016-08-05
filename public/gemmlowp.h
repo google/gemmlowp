@@ -38,8 +38,9 @@ class GemmContext : public MultiThreadGemmContext {};
 // This is a version that supports per channel quantization.
 template <typename InputScalar, typename OutputScalar, typename BitDepthParams,
           MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder,
-          typename LhsOffset, typename RhsOffset, typename OutputPipelineType>
-void GemmWithOutputPipelinePC(GemmContext* context,
+          typename LhsOffset, typename RhsOffset, typename OutputPipelineType,
+          typename GemmContextType>
+void GemmWithOutputPipelinePC(GemmContextType* context,
                               const MatrixMap<const InputScalar, LhsOrder>& lhs,
                               const MatrixMap<const InputScalar, RhsOrder>& rhs,
                               MatrixMap<OutputScalar, ResultOrder>* result,
@@ -96,8 +97,8 @@ void GemmWithOutputPipelinePC(GemmContext* context,
 // (which is also implemented in the eight_bit_int_gemm directory).
 template <typename InputScalar, typename OutputScalar, typename BitDepthParams,
           MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder,
-          typename OutputPipelineType>
-void GemmWithOutputPipeline(GemmContext* context,
+          typename OutputPipelineType, typename GemmContextType>
+void GemmWithOutputPipeline(GemmContextType* context,
                             const MatrixMap<const InputScalar, LhsOrder>& lhs,
                             const MatrixMap<const InputScalar, RhsOrder>& rhs,
                             MatrixMap<OutputScalar, ResultOrder>* result,
@@ -115,8 +116,9 @@ void GemmWithOutputPipeline(GemmContext* context,
 // parameters is the same as in the standard EightBitIntGemm interface
 // (which is also implemented in the eight_bit_int_gemm directory).
 template <typename Scalar, typename BitDepthParams, MapOrder LhsOrder,
-          MapOrder RhsOrder, MapOrder ResultOrder>
-void Gemm(GemmContext* context, const MatrixMap<const Scalar, LhsOrder>& lhs,
+          MapOrder RhsOrder, MapOrder ResultOrder, typename GemmContextType>
+void Gemm(GemmContextType* context,
+          const MatrixMap<const Scalar, LhsOrder>& lhs,
           const MatrixMap<const Scalar, RhsOrder>& rhs,
           MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
           int rhs_offset, int result_offset, int result_mult_int,

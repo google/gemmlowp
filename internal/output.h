@@ -169,6 +169,31 @@ struct OutputStageEvalImpl<
   const OutputStage& output_stage;
 };
 
+// Implementation of OutputStageQuantizeDownInt32ToUint8Scale for scalar data
+template <>
+struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
+                           FragmentInt32x1x1> {
+  typedef FragmentInt32x1x1 InputType;
+  typedef FragmentInt32x1x1 OutputType;
+  typedef OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint OutputStage;
+
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
+
+  OutputType Eval(InputType input, int, int) const {
+    const std::int32_t result_shift = output_stage.result_shift;
+    const std::int32_t result_fixedpoint_multiplier =
+        output_stage.result_fixedpoint_multiplier;
+    const std::int32_t result_offset = output_stage.result_offset;
+    const std::int32_t mulhigh_val = SaturatingRoundingDoublingHighMul(
+        input + result_offset, result_fixedpoint_multiplier);
+    const std::int32_t kRoundingTerm =
+        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
+    return (mulhigh_val + kRoundingTerm) >> result_shift;
+  }
+
+  const OutputStage& output_stage;
+};
+
 // Implementation of OutputStageSaturatingCastToUint8 for scalar data
 template <>
 struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
