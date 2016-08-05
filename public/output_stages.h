@@ -85,9 +85,9 @@ struct OutputStageQuantizeDownInt32ToUint8ScalePC {
 // such as VQRDMULH on ARM. See in fixedpoint.h the generic function,
 // SaturatingRoundingDoublingHighMul.
 struct OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint {
-  std::int32_t result_offset;
   std::int32_t result_fixedpoint_multiplier;
   std::int32_t result_shift;
+  std::int32_t result_offset_after_shift;
 };
 
 // This output stage takes int32 values that are expected to be already
