@@ -81,10 +81,8 @@ filegroup(
 
 cc_library(
     name = "gemmlowp",
-    srcs = [
-        ":gemmlowp_headers",
-    ],
     hdrs = [
+        "gemmlowp_headers",
         ":gemmlowp_public_headers",
     ],
     linkopts = LIB_LINKOPTS,
