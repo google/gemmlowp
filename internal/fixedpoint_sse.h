@@ -118,23 +118,33 @@ inline __m128i MaskIfLessThanOrEqual(__m128i a, __m128i b) {
   return BitNot(MaskIfGreaterThan(a, b));
 }
 
+
+/* Assumptions:
+   - All and Any are used on masks.
+   - masks are all_ones for true lanes, all_zeroes otherwise.
+Hence, All means all 128bits set, and Any means any bit set.
+*/
 template <>
 inline bool All(__m128i a) {
-  return _mm_test_all_ones(a);
+  return _mm_testc_si128(a, a);
 }
 
 template <>
 inline bool Any(__m128i a) {
-  return _mm_testc_si128(a, _mm_set1_epi32(-1));
+  return _mm_testnzc_si128(a, a);
 }
 
 template <>
 inline __m128i RoundingHalfSum(__m128i a, __m128i b) {
-  __m128i sum, carry, sticky_bit;
-  sum = _mm_add_epi32(a,b);
-  carry = _mm_slli_epi32(_mm_cmplt_epi32(sum, a), 31);
-  sticky_bit = BitAnd(sum, _mm_set1_epi32(1));
-  return Add(Add(_mm_srli_epi32(sum, 1), sticky_bit), carry);
+  __m128i round_bit_mask, a_over_2, b_over_2, round_bit, sum;
+  /* We divide the inputs before the add to avoid the overflow and costly test */
+  /* of checking if an overflow occured on signed add */
+  round_bit_mask = _mm_set1_epi32(1);
+  a_over_2 = _mm_srai_epi32(a, 1);
+  b_over_2 = _mm_srai_epi32(b, 1);
+  sum = Add(a_over_2, b_over_2);
+  round_bit = BitAnd(BitOr(a,b), round_bit_mask);
+  return Add(sum, round_bit);
 }
 
 template <>

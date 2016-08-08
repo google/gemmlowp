@@ -176,6 +176,35 @@ void test_int32x4(const std::vector<int32_t>& testvals_int32) {
 }
 #endif  // GEMMLOWP_NEON
 
+#ifdef GEMMLOWP_SSE4
+#define LOAD_SI128(ptr) \
+  ( ((unsigned long)(ptr) & 15) == 0 ) ? _mm_load_si128((__m128i*)(ptr)) : _mm_loadu_si128((__m128i*)(ptr))
+#define STORE_SI128(ptr, val) \
+  (((unsigned long)(ptr) & 15) == 0 ) ? _mm_store_si128 ((__m128i*)(ptr), val) : _mm_storeu_si128 ((__m128i*)(ptr), val)
+
+void test_m128i(const std::vector<int32_t>& testvals_int32) {
+  size_t n = testvals_int32.size();
+  size_t n4 = n - (n % 4);
+  std::vector<int32_t> results_int32(n4);
+  std::vector<int32_t> results_m128i(n4);
+
+  for (size_t i = 0; i < n4; i++) {
+    results_int32[i] =
+        tanh(FixedPoint<int32_t, 4>::FromRaw(testvals_int32[i])).raw();
+  }
+  for (size_t i = 0; i < n4; i++) {
+    STORE_SI128(
+        &results_m128i[i],
+        tanh(FixedPoint<__m128i, 4>::FromRaw(LOAD_SI128(&testvals_int32[i])))
+            .raw());
+  }
+
+  for (size_t i = 0; i < n4; i++) {
+    Check(results_int32[i] == results_m128i[i]);
+  }
+}
+#endif  // GEMMLOWP_SSE4
+
 int main() {
   std::vector<int32_t> testvals_int32;
 
@@ -258,5 +287,10 @@ int main() {
   test_int32x4(testvals_int32);
 #endif  // GEMMLOWP_NEON
 
+#ifdef GEMMLOWP_SSE4
+  test_m128i(testvals_int32);
+#endif  // GEMMLOWP_SSE4
+
+  
   std::cerr << "All tests passed." << std::endl;
 }
