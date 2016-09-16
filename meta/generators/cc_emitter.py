@@ -18,6 +18,10 @@ class HeaderError(Error):
   """Invalid cc header structure."""
 
 
+class ClassError(Error):
+  """Invalid class syntax."""
+
+
 class CCEmitter(object):
   """Emits c++ code."""
 
@@ -25,6 +29,7 @@ class CCEmitter(object):
     self.indent = ''
     self.debug = debug
     self.namespaces = []
+    self.classes = []
     self.header_name = None
 
   def PushIndent(self):
@@ -57,7 +62,9 @@ class CCEmitter(object):
   def EmitBinaryOp(self, operand_1, op, operand_2):
     self.EmitCode('%s %s %s' % (operand_1, op, operand_2))
 
-  def EmitCall(self, function, params=[]):
+  def EmitCall(self, function, params=None):
+    if not params:
+      params = []
     self.EmitCode('%s(%s)' % (function, ', '.join(map(str, params))))
 
   def EmitCode(self, code):
@@ -94,7 +101,22 @@ class CCEmitter(object):
                            ' // %s' % (self.header_name + '_H_').upper())
     self.header_name = None
 
-  def EmitFunctionBeginA(self, function_name, params, return_type):
+  def EmitMemberFunctionBegin(self, class_name, class_template_params,
+                              class_specializations, function_name,
+                              function_params, return_type):
+    """Emit member function of a template/specialized class."""
+    if class_template_params or class_specializations:
+      self.EmitIndented('template<%s>' % ', '.join(class_template_params))
+
+    if class_specializations:
+      class_name += '<%s>' % ', '.join(map(str, class_specializations))
+
+    self.EmitIndented('%s %s::%s(%s) {' % (
+        return_type, class_name, function_name,
+        ', '.join(['%s %s' % (t, n) for (t, n) in function_params])))
+    self.PushIndent()
+
+  def EmitFunctionBegin(self, function_name, params, return_type):
     self.EmitIndented('%s %s(%s) {' %
                       (return_type, function_name,
                        ', '.join(['%s %s' % (t, n) for (t, n) in params])))
@@ -103,6 +125,37 @@ class CCEmitter(object):
   def EmitFunctionEnd(self):
     self.PopIndent()
     self.EmitIndented('}')
+    self.EmitNewline()
+
+  def EmitClassBegin(self, class_name, template_params, specializations,
+                     base_classes):
+    """Emit class block header."""
+    self.classes.append(class_name)
+    if template_params or specializations:
+      self.EmitIndented('template<%s>' % ', '.join(template_params))
+
+    class_name_extended = class_name
+    if specializations:
+      class_name_extended += '<%s>' % ', '.join(map(str, specializations))
+    if base_classes:
+      class_name_extended += ' : ' + ', '.join(base_classes)
+    self.EmitIndented('class %s {' % class_name_extended)
+    self.PushIndent()
+
+  def EmitClassEnd(self):
+    if not self.classes:
+      raise ClassError('No class on stack.')
+    self.classes.pop()
+    self.PopIndent()
+    self.EmitIndented('};')
+    self.EmitNewline()
+
+  def EmitAccessModifier(self, modifier):
+    if not self.classes:
+      raise ClassError('No class on stack.')
+    self.PopIndent()
+    self.EmitIndented(' %s:' % modifier)
+    self.PushIndent()
 
   def EmitNamespaceBegin(self, namespace):
     self.EmitCodeNoSemicolon('namespace %s {' % namespace)

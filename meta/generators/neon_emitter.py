@@ -73,10 +73,19 @@ class _NeonRegisters32Bit(object):
     self.double_ever = set()
     self.general = set()
     self.general_ever = set()
-    self.parameters = set()
+    self.parameters = dict()
+    self.output_parameters = dict()
 
-  def MapParameter(self, parameter):
-    self.parameters.add(parameter)
+  def MapParameter(self, parameter, parameter_value=None):
+    if not parameter_value:
+      parameter_value = parameter
+    self.parameters[parameter] = parameter_value
+    return '%%[%s]' % parameter
+
+  def MapOutputParameter(self, parameter, parameter_value=None):
+    if not parameter_value:
+      parameter_value = parameter
+    self.output_parameters[parameter] = parameter_value
     return '%%[%s]' % parameter
 
   def DoubleRegister(self, min_val=0):
@@ -106,7 +115,10 @@ class _NeonRegisters32Bit(object):
     raise RegisterAllocationError('Not enough general registers.')
 
   def MappedParameters(self):
-    return [x for x in self.parameters]
+    return [(k, v) for (k, v) in self.parameters.items()]
+
+  def MappedOutputParameters(self):
+    return [(k, v) for (k, v) in self.output_parameters.items()]
 
   def Clobbers(self):
     return (['r%d' % i
@@ -147,11 +159,11 @@ class NeonEmitter(object):
     self.indent = ''
     self.debug = debug
 
-  def PushIndent(self):
-    self.indent += '  '
+  def PushIndent(self, delta='  '):
+    self.indent += delta
 
-  def PopIndent(self):
-    self.indent = self.indent[:-2]
+  def PopIndent(self, delta=2):
+    self.indent = self.indent[:-delta]
 
   def EmitIndented(self, what):
     print self.indent + what
@@ -215,8 +227,8 @@ class NeonEmitter(object):
 
   def EmitAsmMapping(self, elements, modifier):
     if elements:
-      self.EmitIndented(': ' + ', '.join(['[%s] "%s"(%s)' % (d, modifier, d)
-                                          for d in elements]))
+      self.EmitIndented(': ' + ', '.join(['[%s] "%s"(%s)' % (d, modifier, v)
+                                          for (d, v) in elements]))
     else:
       self.EmitIndented(':')
 
@@ -226,10 +238,10 @@ class NeonEmitter(object):
     else:
       self.EmitIndented(':')
 
-  def EmitAsmEnd(self, outputs, inputs, clobbers):
-    self.EmitAsmMapping(outputs, '+r')
-    self.EmitAsmMapping(inputs, 'r')
-    self.EmitClobbers(clobbers)
+  def EmitAsmEnd(self, registers):
+    self.EmitAsmMapping(registers.MappedOutputParameters(), '+r')
+    self.EmitAsmMapping(registers.MappedParameters(), 'r')
+    self.EmitClobbers(registers.Clobbers() + ['cc', 'memory'])
     self.PopIndent()
     self.EmitIndented(');')
 
@@ -271,6 +283,18 @@ class NeonEmitter(object):
 
   def EmitBeqFront(self, label):
     self.EmitOp1('beq', '%df' % label)
+
+  def EmitBgtBack(self, label):
+    self.EmitOp1('bgt', '%db' % label)
+
+  def EmitBgtFront(self, label):
+    self.EmitOp1('bgt', '%df' % label)
+
+  def EmitBleBack(self, label):
+    self.EmitOp1('ble', '%db' % label)
+
+  def EmitBleFront(self, label):
+    self.EmitOp1('ble', '%df' % label)
 
   def EmitBneBack(self, label):
     self.EmitOp1('bne', '%db' % label)
@@ -417,6 +441,14 @@ class NeonEmitter(object):
     else:
       destinations.append(self.AllLanes(destination))
     self.EmitVLoadA(load_no, load_type, destinations, source)
+
+  def EmitVLoadOffset(self, load_no, load_type, destination, source, offset):
+    self.EmitVLoadOffsetA(load_no, load_type, [destination], source, offset)
+
+  def EmitVLoadOffsetA(self, load_no, load_type, destinations, source, offset):
+    assert len(destinations) <= 4
+    self.EmitOp3('vld%d.%d' % (load_no, load_type),
+                 '{%s}' % ', '.join(_ExpandQuads(destinations)), source, offset)
 
   def EmitPld(self, load_address_register):
     self.EmitOp1('pld', '[%s]' % load_address_register)
@@ -577,7 +609,7 @@ class NeonEmitter(object):
         sources.append(sources[-1])
 
       if reduce_count == 2:
-        for i in range(len(destinations)):
+        for i in range(len(sources) / 2):
           self.EmitVPadd(reduce_type, destinations[i], sources[2 * i],
                          sources[2 * i + 1])
         return
@@ -589,6 +621,104 @@ class NeonEmitter(object):
           sources_2.append(sources[2 * i])
         reduce_count /= 2
         sources = sources_2
+
+  def EmitVUzp(self, uzp_type, operand_1, operand_2):
+    self.EmitOp2('vuzp.%d' % uzp_type, operand_1, operand_2)
+
+  def EmitVTrn(self, trn_type, operand_1, operand_2):
+    self.EmitOp2('vtrn.%d' % trn_type, operand_1, operand_2)
+
+  def EmitColBlockStride(self, cols, stride, new_stride):
+    assert cols in [1, 2, 3, 4, 5, 6, 7, 8]
+    if cols in [5, 6, 7]:
+      self.EmitSub(new_stride, stride, self.ImmediateConstant(4))
+
+  def EmitLoadColBlock(self, unused_registers, load_type, cols, elements, block,
+                       input_address, stride):
+    """Load a block of column major data."""
+    assert cols is len(block)
+    assert load_type is 8
+
+    input_deref = self.Dereference(input_address, None)
+    input_deref_increment = self.DereferenceIncrement(input_address, None)
+
+    if cols is 1:
+      for i in range(elements):
+        self.EmitVLoadOffset(1, 8, self.Lane(8, block[0], i), input_deref,
+                             stride)
+      self.EmitPld(input_address)
+    elif cols is 2:
+      for i in range(elements):
+        self.EmitVLoadOffset(1, 16, self.Lane(16, block[i / 4], i % 4),
+                             input_deref, stride)
+      self.EmitPld(input_address)
+      self.EmitVUzp(8, block[0], block[1])
+    elif cols is 3:
+      for i in range(elements):
+        self.EmitVLoadOffsetA(3, 8, [self.Lane(8, row, i) for row in block],
+                              input_deref, stride)
+    elif cols is 4:
+      for i in range(elements):
+        self.EmitVLoadOffset(1, 32, self.Lane(32, block[i % 4], i / 4),
+                             input_deref, stride)
+      self.EmitPld(input_address)
+      self.EmitVTrn(16, block[0], block[2])
+      self.EmitVTrn(16, block[1], block[3])
+      self.EmitVTrn(8, block[0], block[1])
+      self.EmitVTrn(8, block[2], block[3])
+    elif cols is 5:
+      for i in range(elements):
+        self.EmitVLoad(1, 32, self.Lane(32, block[i % 4], i / 4),
+                       input_deref_increment)
+        self.EmitVLoadOffset(1, 8, self.Lane(8, block[4], i), input_deref,
+                             stride)
+      self.EmitPld(input_address)
+      self.EmitVTrn(16, block[0], block[2])
+      self.EmitVTrn(16, block[1], block[3])
+      self.EmitVTrn(8, block[0], block[1])
+      self.EmitVTrn(8, block[2], block[3])
+    elif cols is 6:
+      for i in range(elements):
+        self.EmitVLoad(1, 32, self.Lane(32, block[i % 4], i / 4),
+                       input_deref_increment)
+        self.EmitVLoadOffset(1, 16, self.Lane(16, block[4 + i / 4], i % 4),
+                             input_deref, stride)
+      self.EmitPld(input_address)
+      self.EmitVTrn(16, block[0], block[2])
+      self.EmitVTrn(16, block[1], block[3])
+      self.EmitVUzp(8, block[4], block[5])
+      self.EmitVTrn(8, block[0], block[1])
+      self.EmitVTrn(8, block[2], block[3])
+    elif cols is 7:
+      for i in range(elements):
+        self.EmitVLoad(1, 32, self.Lane(32, block[i % 4], i / 4),
+                       input_deref_increment)
+        self.EmitVLoadOffsetA(3, 8, [self.Lane(8, row, i) for row in block[4:]],
+                              input_deref, stride)
+      self.EmitPld(input_address)
+      self.EmitVTrn(16, block[0], block[2])
+      self.EmitVTrn(16, block[1], block[3])
+      self.EmitVTrn(8, block[0], block[1])
+      self.EmitVTrn(8, block[2], block[3])
+    elif cols is 8:
+      for i in range(elements):
+        self.EmitVLoadOffset(1, 32, block[i], input_deref, stride)
+      self.EmitPld(input_address)
+      self.EmitVTrn(8, block[0], block[1])
+      self.EmitVTrn(8, block[2], block[3])
+      self.EmitVTrn(8, block[4], block[5])
+      self.EmitVTrn(8, block[6], block[7])
+      self.EmitVTrn(16, block[0], block[2])
+      self.EmitVTrn(16, block[1], block[3])
+      self.EmitVTrn(16, block[4], block[6])
+      self.EmitVTrn(16, block[5], block[7])
+      self.EmitVTrn(32, block[0], block[4])
+      self.EmitVTrn(32, block[1], block[5])
+      self.EmitVTrn(32, block[2], block[6])
+      self.EmitVTrn(32, block[3], block[7])
+    else:
+      assert False
+    return block
 
   def Dereference(self, value, alignment=None):
     if alignment:

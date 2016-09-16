@@ -24,8 +24,8 @@
 #include <map>
 #include <vector>
 
+#include "../meta/legacy_multi_thread_gemm.h"
 #include "../public/gemmlowp.h"
-#include "../meta/multi_thread_gemm.h"
 #include "test.h"
 
 #if defined(__arm__) && !defined(GEMMLOWP_NEON)
@@ -55,8 +55,17 @@ void prepare_test_data(std::uint8_t* data, std::int32_t rows, std::int32_t cols,
   }
 }
 
+#ifdef VERBOSE
+bool verbose = VERBOSE;
+#else
 bool verbose = false;
+#endif
+
+#ifdef QUIET
+bool quiet = QUIET;
+#else
 bool quiet = true;
+#endif
 
 void check_result(std::uint8_t* left, std::uint8_t* right, std::uint8_t* result,
                   std::int32_t rows, std::int32_t cols, std::int32_t depth,
@@ -108,7 +117,9 @@ void check_result(std::uint8_t* left, std::uint8_t* right, std::uint8_t* result,
     }
   }
   if (wrong > 0) {
-    std::cout << "Wrong: " << wrong << std::endl;
+    std::cout << "Wrong: " << rows << "x" << cols << "x" << depth << " : "
+              << wrong << "/" << (rows * cols) << std::endl
+              << std::flush;
   } else {
     std::cout << "." << std::flush;
   }
@@ -153,7 +164,7 @@ void check_result_f(std::uint8_t* left, std::uint8_t* right, float* result,
     }
   }
   if (wrong > 0) {
-    std::cout << "Wrong: " << wrong << std::endl;
+    std::cout << "Wrong: " << wrong << std::endl << std::flush;
   } else {
     std::cout << "." << std::flush;
   }
@@ -172,7 +183,7 @@ void check_result_i32(std::uint8_t* left, std::uint8_t* right,
             (static_cast<std::int32_t>(left[depth * i + k]) + lhs_offset) *
             (static_cast<std::int32_t>(right[depth * j + k]) + rhs_offset);
       }
-      float actual = result[i * cols + j];
+      int32_t actual = result[i * cols + j];
       if (actual == expected) {
         if (!quiet) {
           if (verbose) {
@@ -193,11 +204,12 @@ void check_result_i32(std::uint8_t* left, std::uint8_t* right,
       }
     }
     if (!quiet) {
-      std::cout << std::endl;
+      std::cout << std::endl
+                << "row: " << i << " wrong: " << wrong << std::endl;
     }
   }
   if (wrong > 0) {
-    std::cout << "Wrong: " << wrong << std::endl;
+    std::cout << "Wrong: " << wrong << std::endl << std::flush;
   } else {
     std::cout << "." << std::flush;
   }
@@ -248,14 +260,53 @@ void test_i32(std::uint8_t* scratch, std::uint8_t* lhs, std::uint8_t* rhs,
   check_result_i32(lhs, rhs, result, m, n, k, -127, -127);
 }
 
+void q_suite(int mi, int ni, int ki, int mx, int nx, int kx, int md, int nd,
+             int kd, uint8_t* scratch, uint8_t* left, uint8_t* right,
+             uint8_t* result, gemmlowp::WorkersPool* pool, int t) {
+  for (int m = mi; m < mx; m += md) {
+    for (int n = ni; n < nx; n += nd) {
+      for (int k = ki; k < kx; k += kd) {
+        test(scratch, left, right, m, n, k, result, pool, t);
+      }
+    }
+  }
+  std::cout << std::endl;
+}
+
+void f_suite(int mi, int ni, int ki, int mx, int nx, int kx, int md, int nd,
+             int kd, uint8_t* scratch, uint8_t* left, uint8_t* right,
+             float* result, gemmlowp::WorkersPool* pool, int t) {
+  for (int m = mi; m < mx; m += md) {
+    for (int n = ni; n < nx; n += nd) {
+      for (int k = ki; k < kx; k += kd) {
+        test_f(scratch, left, right, m, n, k, result, pool, t);
+      }
+    }
+  }
+  std::cout << std::endl;
+}
+
+void i32_suite(int mi, int ni, int ki, int mx, int nx, int kx, int md, int nd,
+               int kd, uint8_t* scratch, uint8_t* left, uint8_t* right,
+               int32_t* result, gemmlowp::WorkersPool* pool, int t) {
+  for (int m = mi; m < mx; m += md) {
+    for (int n = ni; n < nx; n += nd) {
+      for (int k = ki; k < kx; k += kd) {
+        test_i32(scratch, left, right, m, n, k, result, pool, t);
+      }
+    }
+  }
+  std::cout << std::endl;
+}
+
 int main() {
   const std::int32_t min_n = 1;
   const std::int32_t min_m = 1;
-  const std::int32_t min_k = 256;
+  const std::int32_t min_k = 8;
 
   const std::int32_t max_n = 1024;
   const std::int32_t max_m = 1024;
-  const std::int32_t max_k = 512;
+  const std::int32_t max_k = 2048;
 
   std::uint8_t* left = new std::uint8_t[max_m * max_k];
   std::uint8_t* right = new std::uint8_t[max_n * max_k];
@@ -273,62 +324,51 @@ int main() {
 
     std::cout << "Quantized 8 bit." << std::endl << std::flush;
 
-    for (int m = min_m; m < max_m; m += 128) {
-      for (int n = min_n; n < max_n; n += 128) {
-        for (int k = min_k; k < max_k; k += 13) {
-          test(scratch, left, right, m, n, k, result, &pool, t);
-        }
-      }
-    }
+    std::cout << "Small." << std::endl << std::flush;
+    q_suite(1, 1, 8, 16, 16, 32, 1, 1, 1, scratch, left, right, result, &pool,
+            t);
+
+    std::cout << "Big." << std::endl << std::flush;
+    q_suite(1, 1, 8, 512, 512, 2048, 111, 111, 111, scratch, left, right,
+            result, &pool, t);
+
+    std::cout << "Gemv." << std::endl << std::flush;
+    q_suite(1, 1, 8, 2, 512, 2048, 1, 111, 111, scratch, left, right, result,
+            &pool, t);
+    q_suite(1, 1, 8, 512, 2, 2048, 111, 1, 111, scratch, left, right, result,
+            &pool, t);
 
     std::cout << std::endl << "Floats." << std::endl << std::flush;
 
-    for (int m = min_m; m < max_m; m += 128) {
-      for (int n = min_n; n < max_n; n += 128) {
-        for (int k = min_k; k < max_k; k += 13) {
-          test_f(scratch, left, right, m, n, k, result_float, &pool, t);
-        }
-      }
-    }
+    std::cout << "Small." << std::endl << std::flush;
+    f_suite(1, 1, 8, 16, 16, 32, 1, 1, 1, scratch, left, right, result_float,
+            &pool, t);
+
+    std::cout << "Big." << std::endl << std::flush;
+    f_suite(1, 1, 8, 512, 512, 2048, 111, 111, 111, scratch, left, right,
+            result_float, &pool, t);
+
+    std::cout << "Gemv." << std::endl << std::flush;
+    f_suite(1, 1, 8, 2, 512, 2048, 1, 111, 111, scratch, left, right,
+            result_float, &pool, t);
+    f_suite(1, 1, 8, 512, 2, 2048, 111, 1, 111, scratch, left, right,
+            result_float, &pool, t);
 
     std::cout << std::endl << "Int32." << std::endl << std::flush;
 
-    for (int m = min_m; m < max_m; m += 128) {
-      for (int n = min_n; n < max_n; n += 128) {
-        for (int k = min_k; k < max_k; k += 13) {
-          test_i32(scratch, left, right, m, n, k, result_i32, &pool, t);
-        }
-      }
-    }
+    std::cout << "Small." << std::endl << std::flush;
+    i32_suite(1, 1, 8, 16, 16, 32, 1, 1, 1, scratch, left, right, result_i32,
+              &pool, t);
 
-    std::cout << std::endl
-              << "Quantized 8 bit gemv." << std::endl
-              << std::flush;
+    std::cout << "Big." << std::endl << std::flush;
+    i32_suite(1, 1, 8, 512, 512, 2048, 111, 111, 111, scratch, left, right,
+              result_i32, &pool, t);
 
-    for (int n = min_n; n < max_n; n += 17) {
-      for (int k = min_k; k < max_k; k += 23) {
-        test(scratch, left, right, 1, n, k, result, &pool, t);
-        test(scratch, left, right, n, 1, k, result, &pool, t);
-      }
-    }
-
-    std::cout << std::endl << "Float gemv." << std::endl << std::flush;
-
-    for (int n = min_n; n < max_n; n += 17) {
-      for (int k = min_k; k < max_k; k += 23) {
-        test_f(scratch, left, right, 1, n, k, result_float, &pool, t);
-        test_f(scratch, left, right, n, 1, k, result_float, &pool, t);
-      }
-    }
-
-    std::cout << std::endl << "Int32 gemv." << std::endl << std::flush;
-
-    for (int n = min_n; n < max_n; n += 17) {
-      for (int k = min_k; k < max_k; k += 23) {
-        test_i32(scratch, left, right, 1, n, k, result_i32, &pool, t);
-        test_i32(scratch, left, right, n, 1, k, result_i32, &pool, t);
-      }
-    }
+    std::cout << "Gemv." << std::endl << std::flush;
+    i32_suite(1, 1, 8, 2, 512, 2048, 1, 111, 111, scratch, left, right,
+              result_i32, &pool, t);
+    i32_suite(1, 1, 8, 512, 2, 2048, 111, 1, 111, scratch, left, right,
+              result_i32, &pool, t);
 
     std::cout << std::endl << std::flush;
   }

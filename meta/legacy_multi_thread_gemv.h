@@ -20,9 +20,9 @@
 
 #ifdef GEMMLOWP_NEON
 
-#include "multi_thread_common.h"
-#include "operations_common.h"
-#include "single_thread_gemm.h"
+#include "legacy_multi_thread_common.h"
+#include "legacy_operations_common.h"
+#include "legacy_single_thread_gemm.h"
 
 namespace gemmlowp {
 namespace meta {

@@ -31,7 +31,7 @@
 // low-memory situations.
 
 #if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON)
-#include "../meta/multi_thread_gemm.h"
+#include "../meta/legacy_multi_thread_gemm.h"
 #else
 
 #if defined(GEMMLOWP_USE_META_FASTPATH)
