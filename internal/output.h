@@ -180,15 +180,13 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
   OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
   OutputType Eval(InputType input, int, int) const {
-    const std::int32_t result_shift = output_stage.result_shift;
-    const std::int32_t result_fixedpoint_multiplier =
-        output_stage.result_fixedpoint_multiplier;
-    const std::int32_t result_offset = output_stage.result_offset;
     const std::int32_t mulhigh_val = SaturatingRoundingDoublingHighMul(
-        input + result_offset, result_fixedpoint_multiplier);
+        input.data, output_stage.result_fixedpoint_multiplier);
+    const std::int32_t result_shift = output_stage.result_shift;
     const std::int32_t kRoundingTerm =
         (result_shift < 1) ? 0 : (1 << (result_shift - 1));
-    return (mulhigh_val + kRoundingTerm) >> result_shift;
+    const std::int32_t shifted_val = (mulhigh_val + kRoundingTerm) >> result_shift;
+    return shifted_val + output_stage.result_offset_after_shift;
   }
 
   const OutputStage& output_stage;
