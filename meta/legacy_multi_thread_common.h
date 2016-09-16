@@ -25,7 +25,7 @@ namespace meta {
 namespace internal {
 
 const std::int32_t kMinTaskSize = 16000;
-const std::int32_t kMinTaskDimension = 6;
+const std::int32_t kMinTaskDimension = 4;
 
 struct TaskRect {
   std::int32_t m_offset;
