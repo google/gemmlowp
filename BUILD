@@ -9,82 +9,73 @@ exports_files(["LICENSE"])
 
 load("flags", "LIB_LINKOPTS", "BIN_LINKOPTS")
 
-gemmlowp_private_headers = glob([
-    "internal/*.h",
-    "meta/*.h",
-])
-
-gemmlowp_public_headers = glob([
-    "public/*.h",
-    "profiling/*.h",
-])
-
 filegroup(
     name = "gemmlowp_private_headers",
-    srcs = gemmlowp_private_headers,
+    srcs = glob([
+        "internal/*.h",
+        "meta/*.h",
+    ]),
     visibility = ["//visibility:private"],
 )
 
 filegroup(
     name = "gemmlowp_public_headers",
-    srcs = gemmlowp_public_headers,
+    srcs = glob([
+        "public/*.h",
+        "profiling/*.h",
+    ]),
     visibility = ["//visibility:public"],
 )
-
-gemmlowp_headers = gemmlowp_private_headers + gemmlowp_public_headers
 
 filegroup(
     name = "gemmlowp_headers",
-    srcs = gemmlowp_headers,
+    srcs = [
+        ":gemmlowp_private_headers",
+        ":gemmlowp_public_headers",
+    ],
     visibility = ["//visibility:private"],
 )
 
-eight_bit_int_gemm_headers = glob([
-    "eight_bit_int_gemm/*.h",
-])
-
-eight_bit_int_gemm_public_headers = eight_bit_int_gemm_headers + gemmlowp_public_headers
+filegroup(
+    name = "eight_bit_int_gemm_headers",
+    srcs = glob(["eight_bit_int_gemm/*.h"]),
+    visibility = ["//visibility:private"],
+)
 
 filegroup(
     name = "eight_bit_int_gemm_public_headers",
-    srcs = eight_bit_int_gemm_public_headers,
+    srcs = [
+        ":eight_bit_int_gemm_headers",
+        ":gemmlowp_public_headers",
+    ],
     visibility = ["//visibility:public"],
 )
 
-eight_bit_int_gemm_sources_with_no_headers = glob([
-    "eight_bit_int_gemm/*.cc",
-])
-
-eight_bit_int_gemm_sources_and_headers = eight_bit_int_gemm_sources_with_no_headers + eight_bit_int_gemm_headers + gemmlowp_headers
-
 filegroup(
     name = "eight_bit_int_gemm_sources_with_no_headers",
-    srcs = eight_bit_int_gemm_sources_with_no_headers,
+    srcs = glob(["eight_bit_int_gemm/*.cc"]),
     visibility = ["//visibility:private"],
 )
 
 filegroup(
     name = "eight_bit_int_gemm_sources",
-    srcs = eight_bit_int_gemm_sources_and_headers,
+    srcs = [
+        ":eight_bit_int_gemm_headers",
+        ":eight_bit_int_gemm_sources_with_no_headers",
+        ":gemmlowp_headers",
+    ],
     visibility = ["//visibility:public"],
 )
 
-gemmlowp_test_headers = glob([
-    "test/*.h",
-]) + gemmlowp_headers
-
 filegroup(
     name = "gemmlowp_test_headers",
-    srcs = gemmlowp_test_headers,
+    srcs = [":gemmlowp_headers"] + glob(["test/*.h"]),
     visibility = ["//visibility:private"],
 )
 
 cc_library(
     name = "gemmlowp",
-    hdrs = [
-        "gemmlowp_headers",
-        ":gemmlowp_public_headers",
-    ],
+    hdrs = [":gemmlowp_headers"],
     linkopts = LIB_LINKOPTS,
     # Blaze warning:
     # "setting 'linkstatic=1' is recommended if there are no object files."
@@ -94,20 +85,15 @@ cc_library(
 
 cc_library(
     name = "eight_bit_int_gemm",
-    srcs = [
-        ":eight_bit_int_gemm_sources_with_no_headers",
-    ],
+    srcs = [":eight_bit_int_gemm_sources_with_no_headers"],
     hdrs = [
-        ":eight_bit_int_gemm_public_headers",
-        ":gemmlowp_headers",
+        ":eight_bit_int_gemm_headers",
+        ":gemmlowp_private_headers",
+        ":gemmlowp_public_headers",
     ],
     linkopts = LIB_LINKOPTS,
-    visibility = [
-        "//visibility:public",
-    ],
-    deps = [
-        ":gemmlowp",
-    ],
+    visibility = ["//visibility:public"],
+    deps = [":gemmlowp"],
 )
 
 cc_library(
@@ -116,9 +102,7 @@ cc_library(
         "profiling/instrumentation.h",
         "profiling/profiler.h",
     ],
-    visibility = [
-        "//visibility:public",
-    ],
+    visibility = ["//visibility:public"],
 )
 
 # The main gemmlowp unit test
@@ -130,12 +114,8 @@ cc_test(
         "test/test_data.cc",
         ":gemmlowp_test_headers",
     ],
-    copts = [
-        "-O3",
-    ],
-    deps = [
-        ":eight_bit_int_gemm",
-    ],
+    copts = ["-O3"],
+    deps = [":eight_bit_int_gemm"],
 )
 
 # Math helpers test
