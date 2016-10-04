@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 The Gemmlowp Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -65,6 +65,58 @@ struct OutputStageQuantizeDownInt32ToUint8ScalePC {
   std::int32_t result_shift;
 };
 
+// This output stage takes int32 values and returns still int32 values,
+// but "quantized down" to the uint8 scale; in other words, its output
+// is typically what one would then clamp to [0..255] and cast to uint8
+// (see OutputStageSaturatingCastToUint8).
+//
+// This "quantization down" process depends on 3 parameters,
+//   result_offset, result_fixedpoint_multiplier, result_shift,
+// and the result is:
+//   ((FixedPointMul(input, result_fixedpoint_multiplier) +
+//   rounding) >> result_shift) + result_offset_after_shift
+// where
+//   rounding = (result_shift < 1) ? 0 : (1 << (result_shift - 1));
+// and where FixedPointMul(x, y) is the nearest integer to the following
+// mathematical expression, evaluated without overflow or intermediate
+// rounding:
+//   (x * y) / 2^31
+// In practice, it is expected that FixedPointMul will be implemented
+// using hardware "rounding doubling int32 multiply high" instructions,
+// such as VQRDMULH on ARM. See in fixedpoint.h the generic function,
+// SaturatingRoundingDoublingHighMul.
+//
+// Notice that the other difference from
+// OutputStageQuantizeDownInt32ToUint8Scale is that the result offset
+// is applied after the multiplier and shift, not before. This ensures
+// that no matter what the multiplier and shift are, the result offset
+// is effectively integral: offsetting the final result by an integer.
+// The motivation for this is to faithfully support quantization schemes
+// where the formula linking quantized values to the real mathematical
+// values that they represent, is of the form
+//
+//   real_value = scale * (quantized_value - zero_point)
+//
+// where scale is a real number (represented in quantized form by
+// result_fixedpoint_multiplier and result_shift) and zero_point
+// is an integer telling which quantized value correspond to the
+// real value 0, and is represented here by (the opposite of)
+// result_offset_after_shift.
+// The motivation for such a quantization scheme, designed to
+// ensure that 0 is always a representable value, is that in
+// many applications, we need to 0-pad arrays and that can only be
+// done for quantized arrays if 0 is a representable value in
+// quantized form. In particular, convolution-like operations
+// are often implemented using 0-padding, or "im2col"-like
+// expansions that implicitly rely on 0-padding. If 0 were not
+// a representable value, such operations would have to pad
+// using a nonzero value, introducing bias in the computation.
+struct OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint {
+  std::int32_t result_fixedpoint_multiplier;
+  std::int32_t result_shift;
+  std::int32_t result_offset_after_shift;
+};
+
 // This output stage takes int32 values that are expected to be already
 // on the final uint8 scale, but not necessarily in the [0..255] range.
 // It clamps them to the [0..255] range and returns them casted to uint8.
@@ -116,11 +168,10 @@ MakeStandardOutputPipeline(std::int32_t result_offset,
 template <VectorShape tShape>
 inline std::tuple<OutputStageQuantizeDownInt32ToUint8ScalePC<tShape>,
                   OutputStageSaturatingCastToUint8>
-MakeStandardOutputPipeline(const VectorMap<const std::int32_t, tShape>&
-                               result_offset,
-                           const VectorMap<const std::int32_t, tShape>&
-                               result_mult_int,
-                           std::int32_t result_shift) {
+MakeStandardOutputPipeline(
+    const VectorMap<const std::int32_t, tShape>& result_offset,
+    const VectorMap<const std::int32_t, tShape>& result_mult_int,
+    std::int32_t result_shift) {
   OutputStageQuantizeDownInt32ToUint8ScalePC<tShape> quantize_down_stage;
   quantize_down_stage.result_offset = result_offset;
   quantize_down_stage.result_mult_int = result_mult_int;

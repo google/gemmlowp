@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 The Gemmlowp Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1422,6 +1422,76 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
           result_shift;
       std::uint8_t expected = std::min(std::max(quantized, 0), 255);
       Check(expected == result_biased_clamped_quantized_casted(r, c));
+    }
+  }
+
+  // Test a pipeline with the fixed-point-multiplier variant stage for the
+  // quantizing down of 32bit accumulators.
+  //
+  // First, figure appropriate fixedpoint multiplier and shift values.
+  std::int32_t result_fixedpoint_multiplier = result_mult_int;
+  std::int32_t result_fixedpoint_shift = result_shift;
+  Check(result_mult_int > 0);
+  Check(result_shift > 0);
+  result_fixedpoint_multiplier = result_mult_int;
+  result_fixedpoint_shift = result_shift - 31;
+  while (result_fixedpoint_multiplier < (1 << 30)) {
+    result_fixedpoint_multiplier <<= 1;
+    result_fixedpoint_shift++;
+  }
+  Check(result_fixedpoint_shift >= 0);
+  // Now test OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint
+  OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint
+      quantize_down_by_fixedpoint_stage;
+  quantize_down_by_fixedpoint_stage.result_offset_after_shift =
+    static_cast<std::int32_t>(std::round(static_cast<double>(result_offset * result_mult_int) / (1 << result_shift)));
+  quantize_down_by_fixedpoint_stage.result_fixedpoint_multiplier =
+      result_fixedpoint_multiplier;
+  quantize_down_by_fixedpoint_stage.result_shift = result_fixedpoint_shift;
+  auto quantize_down_by_fixedpoint_pipeline =
+      std::make_tuple(quantize_down_by_fixedpoint_stage);
+  Matrix<std::int32_t, ResultOrder>
+      result_quantized_down_by_fixedpoint_int32(rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::int32_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(),
+      &result_quantized_down_by_fixedpoint_int32,
+      lhs_offset, rhs_offset, quantize_down_by_fixedpoint_pipeline);
+
+  std::vector<std::int32_t> diffs_caused_by_fixedpoint;
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t diff = result_quantized_down_int32(r, c) -
+          result_quantized_down_by_fixedpoint_int32(r, c);
+      Check(std::abs(diff) <= 1);
+      diffs_caused_by_fixedpoint.push_back(diff);
+    }
+  }
+  // For large enough matrices, check that most diffs are 0
+  std::sort(diffs_caused_by_fixedpoint.begin(), diffs_caused_by_fixedpoint.end());
+  Check(diffs_caused_by_fixedpoint[
+      diffs_caused_by_fixedpoint.size() * 1 / 100] == 0);
+  Check(diffs_caused_by_fixedpoint[
+      diffs_caused_by_fixedpoint.size() * 99 / 100] == 0);
+
+  // Test the variant of the familiar default pipeline consisting of quantize-down and
+  // clamp-and-cast-to-uint8, where we used fixedpoint multipliers for the downscaling.
+  auto quantize_down_by_fixedpoint_and_saturating_cast_pipeline =
+      std::make_tuple(quantize_down_by_fixedpoint_stage,
+                      saturating_cast_stage);
+  Matrix<std::uint8_t, ResultOrder>
+      result_quantized_down_by_fixedpoint_saturated_uint8(rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::uint8_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(),
+      &result_quantized_down_by_fixedpoint_saturated_uint8, lhs_offset,
+      rhs_offset,
+      quantize_down_by_fixedpoint_and_saturating_cast_pipeline);
+
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t quantized = result_quantized_down_by_fixedpoint_int32(r, c);
+      std::uint8_t expected = std::min(std::max(quantized, 0), 255);
+      Check(expected ==
+          result_quantized_down_by_fixedpoint_saturated_uint8(r, c));
     }
   }
 

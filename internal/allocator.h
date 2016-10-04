@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 The Gemmlowp Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +46,13 @@
 #if __ANDROID_API__ < 16
 #include <malloc.h>
 #define GEMMLOWP_USE_MEMALIGN
+#endif
+// posix_memalign is missing on some 4.1 x86 devices
+#if __ANDROID_API__ == 16
+#ifdef GEMMLOWP_X86_32
+#include <malloc.h>
+#define GEMMLOWP_USE_MEMALIGN
+#endif
 #endif
 #endif
 

@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 The Gemmlowp Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ namespace meta {
 namespace internal {
 
 const std::int32_t kMinTaskSize = 16000;
-const std::int32_t kMinTaskDimension = 6;
+const std::int32_t kMinTaskDimension = 4;
 
 struct TaskRect {
   std::int32_t m_offset;

@@ -31,7 +31,7 @@
 // low-memory situations.
 
 #if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON)
-#include "../meta/multi_thread_gemm.h"
+#include "../meta/legacy_multi_thread_gemm.h"
 #else
 
 #if defined(GEMMLOWP_USE_META_FASTPATH)
@@ -142,25 +142,30 @@ void EightBitIntGemmInt32Impl(GemmContext* context, int m, int n, int k,
 
 class Scratch {
  public:
-  Scratch() : buffer_(), size_(0) {}
+  Scratch() : buffer_(), buffer_32_(nullptr), size_(0) {}
 
   void AssureSize(std::int32_t required_size) {
     if (size_ >= required_size) {
       return;
     }
-    buffer_.reset(new std::uint8_t[required_size]);
+    buffer_.reset(new std::uint8_t[required_size + 32]);
+    buffer_32_ = buffer_.get() +
+        ((32 - (reinterpret_cast<uintptr_t>(buffer_.get()) % 32)) % 32);
+    assert((reinterpret_cast<uintptr_t>(buffer_32_) % 32) == 0);
     size_ = required_size;
   }
 
   void Clear() {
     buffer_.reset(nullptr);
+    buffer_32_ = nullptr;
     size_ = 0;
   }
 
-  std::uint8_t* buffer() { return buffer_.get(); }
+  std::uint8_t* buffer() { return buffer_32_; }
 
  private:
   std::unique_ptr<std::uint8_t[]> buffer_;
+  std::uint8_t* buffer_32_;
   std::int32_t size_;
 };
 

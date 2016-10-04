@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 The Gemmlowp Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -164,6 +164,29 @@ struct OutputStageEvalImpl<
         (result_shift < 1) ? 0 : (1 << (result_shift - 1));
     return ((input + result_offset) * result_mult_int + kRoundingTerm) >>
            result_shift;
+  }
+
+  const OutputStage& output_stage;
+};
+
+// Implementation of OutputStageQuantizeDownInt32ToUint8Scale for scalar data
+template <>
+struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
+                           FragmentInt32x1x1> {
+  typedef FragmentInt32x1x1 InputType;
+  typedef FragmentInt32x1x1 OutputType;
+  typedef OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint OutputStage;
+
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
+
+  OutputType Eval(InputType input, int, int) const {
+    const std::int32_t mulhigh_val = SaturatingRoundingDoublingHighMul(
+        input.data, output_stage.result_fixedpoint_multiplier);
+    const std::int32_t result_shift = output_stage.result_shift;
+    const std::int32_t kRoundingTerm =
+        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
+    const std::int32_t shifted_val = (mulhigh_val + kRoundingTerm) >> result_shift;
+    return shifted_val + output_stage.result_offset_after_shift;
   }
 
   const OutputStage& output_stage;

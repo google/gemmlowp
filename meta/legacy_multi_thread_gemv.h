@@ -1,4 +1,4 @@
-// Copyright 2015 Google Inc. All Rights Reserved.
+// Copyright 2015 The Gemmlowp Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,9 +20,9 @@
 
 #ifdef GEMMLOWP_NEON
 
-#include "multi_thread_common.h"
-#include "operations_common.h"
-#include "single_thread_gemm.h"
+#include "legacy_multi_thread_common.h"
+#include "legacy_operations_common.h"
+#include "legacy_single_thread_gemm.h"
 
 namespace gemmlowp {
 namespace meta {
