@@ -1,6 +1,6 @@
 """."""
 
-_HEADER_COPYRIGHT = """// Copyright 2015 Google Inc. All Rights Reserved.
+_HEADER_COPYRIGHT = """// Copyright 2015 The Gemmlowp Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
