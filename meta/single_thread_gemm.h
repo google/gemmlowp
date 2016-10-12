@@ -399,9 +399,9 @@ class GemmExecutorPackLHS {
 
 namespace internal {
 
-int CalculateCacheFriendlyTasksCount(int cache_size, int constant_memory,
-                                     int per_chunk_memory, int total_dim,
-                                     int chunk_dim) {
+inline int CalculateCacheFriendlyTasksCount(int cache_size, int constant_memory,
+                                            int per_chunk_memory, int total_dim,
+                                            int chunk_dim) {
   assert(constant_memory + per_chunk_memory < cache_size);
   const int available_cache = cache_size - constant_memory;
   const int available_chunks = available_cache / per_chunk_memory;
@@ -410,8 +410,8 @@ int CalculateCacheFriendlyTasksCount(int cache_size, int constant_memory,
 }
 
 template <typename Params>
-void UpdateCacheFriendlyTask(int m_offset, int m, int n_offset, int n,
-                             const Params& params, Params* task_params) {
+inline void UpdateCacheFriendlyTask(int m_offset, int m, int n_offset, int n,
+                                    const Params& params, Params* task_params) {
   task_params->m = m;
   task_params->lhs =
       StreamUtil<typename Params::InType, typename Params::LeftStream>::Offset(
@@ -671,7 +671,7 @@ struct Dispatch3DStage1<E, P, dim_m, dim_n, dim_k, 0> {
 
 template <typename Executor, typename Params, int kernel_m, int kernel_n,
           int kernel_k>
-void Gemm(const Params& params) {
+inline void Gemm(const Params& params) {
   internal::Dispatch3DStage1<Executor, Params, kernel_m, kernel_n, kernel_k,
                              kernel_m - 1>::Execute(params, params.m % kernel_m,
                                                     params.n % kernel_n,

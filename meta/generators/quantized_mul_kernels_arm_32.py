@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """Generates the arm32 headers used by the gemm/gemv lib."""
 
 import cc_emitter
@@ -33,7 +32,8 @@ def Main():
   shapes = [(1, 1), (1, 2), (1, 3), (1, 4), (1, 5), (1, 6), (1, 7), (1, 8),
             (2, 1), (2, 2), (2, 3), (2, 4), (3, 1), (3, 2), (3, 3)]
 
-  quantized_mul_kernels_common.GenerateKernels(cc, neon_emitter.NeonEmitter(),
+  quantized_mul_kernels_common.GenerateKernels(cc,
+                                               neon_emitter.NeonEmitter(),
                                                shapes)
 
   cc.EmitNamespaceEnd()

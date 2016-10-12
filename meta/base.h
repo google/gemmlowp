@@ -1,4 +1,4 @@
-// Copyright 2015 The Gemmlowp Authors. All Rights Reserved.
+// Copyright 2016 The Gemmlowp Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,11 +24,11 @@ namespace gemmlowp {
 namespace meta {
 
 template <int align>
-int AlignTo(int value) {
+inline int AlignTo(int value) {
   return ((value + align - 1) / align) * align;
 }
 
-int AlignTo(int align, int value) {
+inline int AlignTo(int align, int value) {
   return ((value + align - 1) / align) * align;
 }
 
@@ -104,6 +104,39 @@ class MulKernel {
   static void Multiply(const InType* lhs, const InType* rhs,
                        const FusedKernelParams<Kernel, OutputStream>& params,
                        OutType* result);
+};
+
+template <typename InType_, typename OutType_, typename Kernel_>
+struct Transform1DParams {
+  typedef InType_ InType;
+  typedef OutType_ OutType;
+  typedef Kernel_ Kernel;
+
+  const InType* input;
+  OutType* output;
+  uint8_t* scratch;
+
+  Kernel kernel;
+};
+
+template <typename InType, typename OutType, typename Kernel, int kernel_size,
+          int leftovers>
+class Transform1DKernel {
+ public:
+  static void Transform(const InType* input, const Kernel& params,
+                        OutType* output);
+};
+
+template <typename InType, typename OutType, typename Transform>
+class Transform1DUtil {
+ public:
+  static int EstimateComputeCost(const Transform& params);
+
+  static const InType* OffsetInput(const Transform& params, const InType* input,
+                                   int offset);
+
+  static OutType* OffsetOutput(const Transform& params, OutType* output,
+                               int offset);
 };
 
 }  // namespace meta

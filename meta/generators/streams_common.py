@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """."""
 
 import common
@@ -87,8 +86,8 @@ def _GenerateAggregatorReduction(emitter, registers, aggregators,
   emitter.EmitComment('Aggregator Reduction.')
 
   multiplier = registers.DoubleRegister()
-  emitter.EmitVMov('32', emitter.Lane(32, multiplier, 0),
-                   multiplicative_sum_offset)
+  emitter.EmitVMov('32',
+                   emitter.Lane(32, multiplier, 0), multiplicative_sum_offset)
 
   offset = registers.QuadRegister()
   emitter.EmitVDup('32', offset, additive_sum_offset)
