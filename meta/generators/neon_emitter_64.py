@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """64bit ARM/NEON assembly emitter.
 
 Used by code generators to produce ARM assembly with NEON simd code.
@@ -21,64 +20,70 @@ to generating assembly.
 
 """
 
-_WIDE_TYPES = {8: 16,
-               16: 32,
-               32: 64,
-               '8': '16',
-               '16': '32',
-               '32': '64',
-               'i8': 'i16',
-               'i16': 'i32',
-               'i32': 'i64',
-               'u8': 'u16',
-               'u16': 'u32',
-               'u32': 'u64',
-               's8': 's16',
-               's16': 's32',
-               's32': 's64'}
+_WIDE_TYPES = {
+    8: 16,
+    16: 32,
+    32: 64,
+    '8': '16',
+    '16': '32',
+    '32': '64',
+    'i8': 'i16',
+    'i16': 'i32',
+    'i32': 'i64',
+    'u8': 'u16',
+    'u16': 'u32',
+    'u32': 'u64',
+    's8': 's16',
+    's16': 's32',
+    's32': 's64'
+}
 
-_NARROW_TYPES = {64: 32,
-                 32: 16,
-                 16: 8,
-                 '64': '32',
-                 '32': '16',
-                 '16': '8',
-                 'i64': 'i32',
-                 'i32': 'i16',
-                 'i16': 'i8',
-                 'u64': 'u32',
-                 'u32': 'u16',
-                 'u16': 'u8',
-                 's64': 's32',
-                 's32': 's16',
-                 's16': 's8'}
+_NARROW_TYPES = {
+    64: 32,
+    32: 16,
+    16: 8,
+    '64': '32',
+    '32': '16',
+    '16': '8',
+    'i64': 'i32',
+    'i32': 'i16',
+    'i16': 'i8',
+    'u64': 'u32',
+    'u32': 'u16',
+    'u16': 'u8',
+    's64': 's32',
+    's32': 's16',
+    's16': 's8'
+}
 
-_TYPE_BITS = {8: 8,
-              16: 16,
-              32: 32,
-              64: 64,
-              '8': 8,
-              '16': 16,
-              '32': 32,
-              '64': 64,
-              'i8': 8,
-              'i16': 16,
-              'i32': 32,
-              'i64': 64,
-              'u8': 8,
-              'u16': 16,
-              'u32': 32,
-              'u64': 64,
-              's8': 8,
-              's16': 16,
-              's32': 32,
-              's64': 64,
-              'f32': 32,
-              'f64': 64,
-              'b': 8,
-              'h': 16,
-              's': 32,
-              'd': 64}
+_TYPE_BITS = {
+    8: 8,
+    16: 16,
+    32: 32,
+    64: 64,
+    '8': 8,
+    '16': 16,
+    '32': 32,
+    '64': 64,
+    'i8': 8,
+    'i16': 16,
+    'i32': 32,
+    'i64': 64,
+    'u8': 8,
+    'u16': 16,
+    'u32': 32,
+    'u64': 64,
+    's8': 8,
+    's16': 16,
+    's32': 32,
+    's64': 64,
+    'f32': 32,
+    'f64': 64,
+    'b': 8,
+    'h': 16,
+    's': 32,
+    'd': 64
+}
 
 
 class Error(Exception):
@@ -334,13 +339,19 @@ class _NeonRegisters64Bit(object):
   def MapParameter(self, parameter, parameter_value=None):
     if not parameter_value:
       parameter_value = parameter
-    self.parameters[parameter] = parameter_value
+    self.parameters[parameter] = (parameter_value, 'r')
+    return _MappedParameter(parameter)
+
+  def MapMemoryParameter(self, parameter, parameter_value=None):
+    if not parameter_value:
+      parameter_value = parameter
+    self.parameters[parameter] = (parameter_value, 'm')
     return _MappedParameter(parameter)
 
   def MapOutputParameter(self, parameter, parameter_value=None):
     if not parameter_value:
       parameter_value = parameter
-    self.output_parameters[parameter] = parameter_value
+    self.output_parameters[parameter] = (parameter_value, '+r')
     return _MappedParameter(parameter)
 
   def _VectorRegisterNum(self, min_val=0):
@@ -372,9 +383,9 @@ class _NeonRegisters64Bit(object):
     return [x for x in self.output_parameters.items()]
 
   def Clobbers(self):
-    return (['x%d' % i
-             for i in self.general_ever] + ['v%d' % i
-                                            for i in self.vector_ever])
+    return (
+        ['x%d' % i
+         for i in self.general_ever] + ['v%d' % i for i in self.vector_ever])
 
   def FreeRegister(self, register):
     if register.register_type == 'v':
@@ -466,10 +477,10 @@ class NeonEmitter64(object):
     self.EmitIndented('asm volatile(')
     self.PushIndent()
 
-  def EmitAsmMapping(self, elements, modifier):
+  def EmitAsmMapping(self, elements):
     if elements:
-      self.EmitIndented(': ' + ', '.join(['[%s] "%s"(%s)' % (k, modifier, v)
-                                          for (k, v) in elements]))
+      self.EmitIndented(': ' + ', '.join(
+          ['[%s] "%s"(%s)' % (k, v[1], v[0]) for (k, v) in elements]))
     else:
       self.EmitIndented(':')
 
@@ -480,8 +491,8 @@ class NeonEmitter64(object):
       self.EmitIndented(':')
 
   def EmitAsmEnd(self, registers):
-    self.EmitAsmMapping(registers.MappedOutputParameters(), '+r')
-    self.EmitAsmMapping(registers.MappedParameters(), 'r')
+    self.EmitAsmMapping(registers.MappedOutputParameters())
+    self.EmitAsmMapping(registers.MappedParameters())
     self.EmitClobbers(registers.Clobbers() + ['cc', 'memory'])
     self.PopIndent()
     self.EmitIndented(');')
@@ -519,6 +530,61 @@ class NeonEmitter64(object):
   def EmitMov(self, param1, param2):
     self.EmitOp2('mov', param1, param2)
 
+  def EmitVMovl(self, mov_type, destination, source):
+    wide_type = _WideType(mov_type)
+    destination = _AppendType(wide_type, destination)
+    source = _AppendType(mov_type, _Cast(source.register_bits / 2, source))
+    if _UnsignedType(mov_type):
+      self.EmitOp2('uxtl', destination, source)
+    else:
+      self.EmitOp2('sxtl', destination, source)
+
+  def EmitVMovl2(self, mov_type, destination_1, destination_2, source):
+    wide_type = _WideType(mov_type)
+    if (destination_1.register_bits != source.register_bits or
+        destination_2.register_bits != source.register_bits):
+      raise ArgumentError('Register sizes do not match.')
+    if _UnsignedType(mov_type):
+      self.EmitOp2('uxtl2',
+                   _AppendType(wide_type, destination_2),
+                   _AppendType(mov_type, source))
+      self.EmitOp2('uxtl',
+                   _AppendType(wide_type, destination_1),
+                   _AppendType(mov_type,
+                               _Cast(source.register_bits / 2, source)))
+    else:
+      self.EmitOp2('sxtl2',
+                   _AppendType(wide_type, destination_2),
+                   _AppendType(mov_type, source))
+      self.EmitOp2('sxtl',
+                   _AppendType(wide_type, destination_1),
+                   _AppendType(mov_type,
+                               _Cast(source.register_bits / 2, source)))
+
+  def EmitVMax(self, max_type, destination, source_1, source_2):
+    if _UnsignedType(max_type):
+      self.EmitOp3('umax',
+                   _AppendType(max_type, destination),
+                   _AppendType(max_type, source_1),
+                   _AppendType(max_type, source_2))
+    else:
+      self.EmitOp3('smax',
+                   _AppendType(max_type, destination),
+                   _AppendType(max_type, source_1),
+                   _AppendType(max_type, source_2))
+
+  def EmitVMin(self, min_type, destination, source_1, source_2):
+    if _UnsignedType(min_type):
+      self.EmitOp3('umin',
+                   _AppendType(min_type, destination),
+                   _AppendType(min_type, source_1),
+                   _AppendType(min_type, source_2))
+    else:
+      self.EmitOp3('smin',
+                   _AppendType(min_type, destination),
+                   _AppendType(min_type, source_1),
+                   _AppendType(min_type, source_2))
+
   def EmitBeqBack(self, label):
     self.EmitOp1('beq', '%db' % label)
 
@@ -546,9 +612,16 @@ class NeonEmitter64(object):
   def EmitVAdd(self, add_type, destination, source_1, source_2):
     destination, source_1, source_2 = _MakeCompatibleDown(destination, source_1,
                                                           source_2)
-    self.EmitOp3('add', _AppendType(add_type, destination),
-                 _AppendType(add_type, source_1),
-                 _AppendType(add_type, source_2))
+    if _FloatType(add_type):
+      self.EmitOp3('fadd',
+                   _AppendType(add_type, destination),
+                   _AppendType(add_type, source_1),
+                   _AppendType(add_type, source_2))
+    else:
+      self.EmitOp3('add',
+                   _AppendType(add_type, destination),
+                   _AppendType(add_type, source_1),
+                   _AppendType(add_type, source_2))
 
   def EmitVAddw(self, add_type, destination, source_1, source_2):
     wide_type = _WideType(add_type)
@@ -560,13 +633,30 @@ class NeonEmitter64(object):
     else:
       self.EmitOp3('saddw', destination, source_1, source_2)
 
+  def EmitVSub(self, sub_type, destination, source_1, source_2):
+    destination, source_1, source_2 = _MakeCompatibleDown(destination, source_1,
+                                                          source_2)
+    if _FloatType(sub_type):
+      self.EmitOp3('fsub',
+                   _AppendType(sub_type, destination),
+                   _AppendType(sub_type, source_1),
+                   _AppendType(sub_type, source_2))
+    else:
+      self.EmitOp3('sub',
+                   _AppendType(sub_type, destination),
+                   _AppendType(sub_type, source_1),
+                   _AppendType(sub_type, source_2))
+
   def EmitVCvt(self, cvt_to, cvt_from, destination, source):
     if cvt_to == 'f32' and cvt_from == 's32':
-      self.EmitOp2('scvtf', _AppendType('s32', destination),
-                   _AppendType('s32', source))
+      self.EmitOp2('scvtf',
+                   _AppendType('f32', destination), _AppendType('s32', source))
     elif cvt_to == 'f32' and cvt_from == 'u32':
-      self.EmitOp2('ucvtf', _AppendType('u32', destination),
-                   _AppendType('u32', source))
+      self.EmitOp2('ucvtf',
+                   _AppendType('f32', destination), _AppendType('u32', source))
+    elif cvt_to == 's32' and cvt_from == 'f32':
+      self.EmitOp2('fcvtzs',
+                   _AppendType('s32', destination), _AppendType('f32', source))
     else:
       raise ArgumentError('Convert not supported, to: %s from: %s' % (cvt_to,
                                                                       cvt_from))
@@ -574,10 +664,12 @@ class NeonEmitter64(object):
   def EmitVDup(self, dup_type, destination, source):
     if (isinstance(source, _GeneralRegister) or
         isinstance(source, _MappedParameter)):
-      self.EmitOp2('dup', _AppendType(dup_type, destination),
+      self.EmitOp2('dup',
+                   _AppendType(dup_type, destination),
                    _Cast(_TypeBits(dup_type), source))
     else:
-      self.EmitOp2('dup', _AppendType(dup_type, destination),
+      self.EmitOp2('dup',
+                   _AppendType(dup_type, destination),
                    _AppendType(dup_type, source))
 
   def EmitVMov(self, mov_type, destination, source):
@@ -585,7 +677,8 @@ class NeonEmitter64(object):
       self.EmitOp2('movi', _AppendType(mov_type, destination), source)
     elif (isinstance(source, _GeneralRegister) or
           isinstance(source, _MappedParameter)):
-      self.EmitOp2('mov', _AppendType(mov_type, destination),
+      self.EmitOp2('mov',
+                   _AppendType(mov_type, destination),
                    _Cast(_TypeBits(mov_type), source))
     else:
       self.EmitOp2('mov', _AppendType(8, destination), _AppendType(8, source))
@@ -593,12 +686,14 @@ class NeonEmitter64(object):
   def EmitVQmovn(self, mov_type, destination, source):
     narrow_type = _NarrowType(mov_type)
     if destination.register_bits * 2 == source.register_bits:
-      self.EmitOp2('sqxtn', _AppendType(narrow_type, destination),
+      self.EmitOp2('sqxtn',
+                   _AppendType(narrow_type, destination),
                    _AppendType(mov_type, source))
     elif destination.register_bits == source.register_bits:
-      self.EmitOp2('sqxtn', _AppendType(narrow_type,
-                                        _Cast(destination.register_bits / 2,
-                                              destination)),
+      self.EmitOp2('sqxtn',
+                   _AppendType(narrow_type,
+                               _Cast(destination.register_bits / 2,
+                                     destination)),
                    _AppendType(mov_type, source))
 
   def EmitVQmovn2(self, mov_type, destination, source_1, source_2):
@@ -606,82 +701,111 @@ class NeonEmitter64(object):
     if (destination.register_bits != source_1.register_bits or
         destination.register_bits != source_2.register_bits):
       raise ArgumentError('Register sizes do not match.')
-    self.EmitOp2('sqxtn', _AppendType(narrow_type,
-                                      _Cast(destination.register_bits / 2,
-                                            destination)),
+    self.EmitOp2('sqxtn',
+                 _AppendType(narrow_type,
+                             _Cast(destination.register_bits / 2, destination)),
                  _AppendType(mov_type, source_1))
-    self.EmitOp2('sqxtn2', _AppendType(narrow_type, destination),
+    self.EmitOp2('sqxtn2',
+                 _AppendType(narrow_type, destination),
                  _AppendType(mov_type, source_2))
 
   def EmitVQmovun(self, mov_type, destination, source):
     narrow_type = _NarrowType(mov_type)
     if destination.register_bits * 2 == source.register_bits:
-      self.EmitOp2('sqxtun', _AppendType(narrow_type, destination),
+      self.EmitOp2('sqxtun',
+                   _AppendType(narrow_type, destination),
                    _AppendType(mov_type, source))
     elif destination.register_bits == source.register_bits:
-      self.EmitOp2('sqxtun', _AppendType(narrow_type,
-                                         _Cast(destination.register_bits / 2,
-                                               destination)),
+      self.EmitOp2('sqxtun',
+                   _AppendType(narrow_type,
+                               _Cast(destination.register_bits / 2,
+                                     destination)),
                    _AppendType(mov_type, source))
+
+  def EmitVQmovun2(self, mov_type, destination, source_1, source_2):
+    narrow_type = _NarrowType(mov_type)
+    if (destination.register_bits != source_1.register_bits or
+        destination.register_bits != source_2.register_bits):
+      raise ArgumentError('Register sizes do not match.')
+    self.EmitOp2('sqxtun',
+                 _AppendType(narrow_type,
+                             _Cast(destination.register_bits / 2, destination)),
+                 _AppendType(mov_type, source_1))
+    self.EmitOp2('sqxtun2',
+                 _AppendType(narrow_type, destination),
+                 _AppendType(mov_type, source_2))
 
   def EmitVMul(self, mul_type, destination, source_1, source_2):
     destination, source_1, source_2 = _MakeCompatibleDown(destination, source_1,
                                                           source_2)
     if _FloatType(mul_type):
-      self.EmitOp3('fmul', _AppendType(mul_type, destination),
+      self.EmitOp3('fmul',
+                   _AppendType(mul_type, destination),
                    _AppendType(mul_type, source_1),
                    _AppendType(mul_type, source_2))
     else:
-      self.EmitOp3('mul', _AppendType(mul_type, destination),
+      self.EmitOp3('mul',
+                   _AppendType(mul_type, destination),
                    _AppendType(mul_type, source_1),
                    _AppendType(mul_type, source_2))
 
   def EmitVMulScalar(self, mul_type, destination, source_1, source_2):
-    self.EmitOp3('mul', _AppendType(mul_type, destination),
+    self.EmitOp3('mul',
+                 _AppendType(mul_type, destination),
                  _AppendType(mul_type, source_1),
                  _AppendType(mul_type, source_2))
 
   def EmitVMull(self, mul_type, destination, source_1, source_2):
     wide_type = _WideType(mul_type)
     if _UnsignedType(mul_type):
-      self.EmitOp3('umull', _AppendType(wide_type, destination),
+      self.EmitOp3('umull',
+                   _AppendType(wide_type, destination),
                    _AppendType(mul_type, source_1),
                    _AppendType(mul_type, source_2))
     else:
-      self.EmitOp3('smull', _AppendType(wide_type, destination),
+      self.EmitOp3('smull',
+                   _AppendType(wide_type, destination),
                    _AppendType(mul_type, source_1),
                    _AppendType(mul_type, source_2))
 
   def EmitVPadd(self, add_type, destination, source_1, source_2):
-    self.EmitOp3('addp', _AppendType(add_type, destination),
+    self.EmitOp3('addp',
+                 _AppendType(add_type, destination),
                  _AppendType(add_type, source_1),
                  _AppendType(add_type, source_2))
 
   def EmitVPaddl(self, add_type, destination, source):
     wide_type = _WideType(add_type)
     if _UnsignedType(add_type):
-      self.EmitOp2('uaddlp', _AppendType(wide_type, destination),
+      self.EmitOp2('uaddlp',
+                   _AppendType(wide_type, destination),
                    _AppendType(add_type, source))
     else:
-      self.EmitOp2('saddlp', _AppendType(wide_type, destination),
+      self.EmitOp2('saddlp',
+                   _AppendType(wide_type, destination),
                    _AppendType(add_type, source))
 
   def EmitVPadal(self, add_type, destination, source):
     wide_type = _WideType(add_type)
     if _UnsignedType(add_type):
-      self.EmitOp2('uadalp', _AppendType(wide_type, destination),
+      self.EmitOp2('uadalp',
+                   _AppendType(wide_type, destination),
                    _AppendType(add_type, source))
     else:
-      self.EmitOp2('sadalp', _AppendType(wide_type, destination),
+      self.EmitOp2('sadalp',
+                   _AppendType(wide_type, destination),
                    _AppendType(add_type, source))
+
+  def EmitLdr(self, register, value):
+    self.EmitOp2('ldr', register, value)
 
   def EmitVLoad(self, load_no, load_type, destination, source):
     self.EmitVLoadA(load_no, load_type, [destination], source)
 
   def EmitVLoadA(self, load_no, load_type, destinations, source):
     if source.dereference_increment:
-      increment = sum([_LoadStoreSize(destination)
-                       for destination in destinations]) / 8
+      increment = sum(
+          [_LoadStoreSize(destination) for destination in destinations]) / 8
       self.EmitVLoadAPostIncrement(load_no, load_type, destinations, source,
                                    self.ImmediateConstant(increment))
     else:
@@ -746,7 +870,8 @@ class NeonEmitter64(object):
         bits_to_load -= min_bits
         destinations = destinations[1:]
       elif bits_to_load >= 64:
-        self.EmitVLoad(1, 32, _Cast(64, destinations[0]),
+        self.EmitVLoad(1, 32,
+                       _Cast(64, destinations[0]),
                        self.DereferenceIncrement(source))
         bits_to_load -= 64
         leftover_loaded += 64
@@ -763,7 +888,8 @@ class NeonEmitter64(object):
         bits_to_load -= 16
         leftover_loaded += 16
       elif bits_to_load is 8:
-        self.EmitVLoad(1, 8, self.Lane(8, destinations[0], leftover_loaded / 8),
+        self.EmitVLoad(1, 8,
+                       self.Lane(8, destinations[0], leftover_loaded / 8),
                        self.DereferenceIncrement(source))
         bits_to_load -= 8
         leftover_loaded += 8
@@ -784,8 +910,8 @@ class NeonEmitter64(object):
 
   def EmitVLoadOffsetA(self, load_no, load_type, destinations, source, offset):
     assert len(destinations) <= 4
-    self.EmitOp3('ld%d' % load_no, _RegisterList(load_type, destinations),
-                 source, offset)
+    self.EmitOp3('ld%d' % load_no,
+                 _RegisterList(load_type, destinations), source, offset)
 
   def EmitPld(self, load_address_register):
     self.EmitOp2('prfm', 'pldl1keep', '[%s]' % load_address_register)
@@ -795,7 +921,8 @@ class NeonEmitter64(object):
                  '[%s, %s]' % (load_address_register, offset))
 
   def EmitVShl(self, shift_type, destination, source, shift):
-    self.EmitOp3('sshl', _AppendType(shift_type, destination),
+    self.EmitOp3('sshl',
+                 _AppendType(shift_type, destination),
                  _AppendType(shift_type, source), _AppendType('i32', shift))
 
   def EmitVStore(self, store_no, store_type, source, destination):
@@ -859,22 +986,26 @@ class NeonEmitter64(object):
         bits_to_store -= min_bits
         sources = sources[1:]
       elif bits_to_store >= 64:
-        self.EmitVStore(1, 32, _Cast(64, sources[0]),
+        self.EmitVStore(1, 32,
+                        _Cast(64, sources[0]),
                         self.DereferenceIncrement(destination, alignment))
         bits_to_store -= 64
         leftover_stored += 64
       elif bits_to_store >= 32:
-        self.EmitVStore(1, 32, self.Lane(32, sources[0], leftover_stored / 32),
+        self.EmitVStore(1, 32,
+                        self.Lane(32, sources[0], leftover_stored / 32),
                         self.DereferenceIncrement(destination))
         bits_to_store -= 32
         leftover_stored += 32
       elif bits_to_store >= 16:
-        self.EmitVStore(1, 16, self.Lane(16, sources[0], leftover_stored / 16),
+        self.EmitVStore(1, 16,
+                        self.Lane(16, sources[0], leftover_stored / 16),
                         self.DereferenceIncrement(destination))
         bits_to_store -= 16
         leftover_stored += 16
       elif bits_to_store >= 8:
-        self.EmitVStore(1, 8, self.Lane(8, sources[0], leftover_stored / 8),
+        self.EmitVStore(1, 8,
+                        self.Lane(8, sources[0], leftover_stored / 8),
                         self.DereferenceIncrement(destination))
         bits_to_store -= 8
         leftover_stored += 8
@@ -889,28 +1020,32 @@ class NeonEmitter64(object):
 
   def EmitVStoreOffsetA(self, store_no, store_type, sources, destination,
                         offset):
-    self.EmitOp3('st%d' % store_no, _RegisterList(store_type, sources),
-                 destination, offset)
+    self.EmitOp3('st%d' % store_no,
+                 _RegisterList(store_type, sources), destination, offset)
 
   def EmitVStoreOffsetE(self, store_type, count, source, destination, offset):
     if store_type is not 32:
       raise ArgumentError('Unsupported store_type: %d' % store_type)
 
     if count == 1:
-      self.EmitVStoreOffset(1, 32, self.Lane(32, source, 0),
+      self.EmitVStoreOffset(1, 32,
+                            self.Lane(32, source, 0),
                             self.Dereference(destination, None), offset)
     elif count == 2:
-      self.EmitVStoreOffset(1, 32, _Cast(64, source),
+      self.EmitVStoreOffset(1, 32,
+                            _Cast(64, source),
                             self.Dereference(destination, None), offset)
     elif count == 3:
-      self.EmitVStore(1, 32, _Cast(64, source),
+      self.EmitVStore(1, 32,
+                      _Cast(64, source),
                       self.DereferenceIncrement(destination, None))
-      self.EmitVStoreOffset(1, 32, self.Lane(32, source, 2),
+      self.EmitVStoreOffset(1, 32,
+                            self.Lane(32, source, 2),
                             self.Dereference(destination, None), offset)
       self.EmitSub(destination, destination, self.ImmediateConstant(8))
     elif count == 4:
-      self.EmitVStoreOffset(1, 32, source, self.Dereference(destination, None),
-                            offset)
+      self.EmitVStoreOffset(1, 32, source,
+                            self.Dereference(destination, None), offset)
     else:
       raise ArgumentError('To many elements: %d' % count)
 
@@ -952,12 +1087,14 @@ class NeonEmitter64(object):
         sources = sources_2
 
   def EmitVUzp1(self, uzp_type, destination, source_1, source_2):
-    self.EmitOp3('uzp1', _AppendType(uzp_type, destination),
+    self.EmitOp3('uzp1',
+                 _AppendType(uzp_type, destination),
                  _AppendType(uzp_type, source_1),
                  _AppendType(uzp_type, source_2))
 
   def EmitVUzp2(self, uzp_type, destination, source_1, source_2):
-    self.EmitOp3('uzp2', _AppendType(uzp_type, destination),
+    self.EmitOp3('uzp2',
+                 _AppendType(uzp_type, destination),
                  _AppendType(uzp_type, source_1),
                  _AppendType(uzp_type, source_2))
 
@@ -967,12 +1104,14 @@ class NeonEmitter64(object):
     self.EmitVUzp2(uzp_type, destination_2, source_1, source_2)
 
   def EmitVTrn1(self, trn_type, destination, source_1, source_2):
-    self.EmitOp3('trn1', _AppendType(trn_type, destination),
+    self.EmitOp3('trn1',
+                 _AppendType(trn_type, destination),
                  _AppendType(trn_type, source_1),
                  _AppendType(trn_type, source_2))
 
   def EmitVTrn2(self, trn_type, destination, source_1, source_2):
-    self.EmitOp3('trn2', _AppendType(trn_type, destination),
+    self.EmitOp3('trn2',
+                 _AppendType(trn_type, destination),
                  _AppendType(trn_type, source_1),
                  _AppendType(trn_type, source_2))
 
@@ -996,15 +1135,16 @@ class NeonEmitter64(object):
 
     if cols is 1:
       for i in range(elements):
-        self.EmitVLoadOffset(1, 8, self.Lane(8, block[0], i), input_deref,
-                             stride)
+        self.EmitVLoadOffset(1, 8,
+                             self.Lane(8, block[0], i), input_deref, stride)
       self.EmitPld(input_address)
       return block
     elif cols is 2:
       temp = [registers.DoubleRegister() for unused_i in range(2)]
       for i in range(elements):
-        self.EmitVLoadOffset(1, 16, self.Lane(16, block[i / 4], i % 4),
-                             input_deref, stride)
+        self.EmitVLoadOffset(1, 16,
+                             self.Lane(16, block[i / 4], i % 4), input_deref,
+                             stride)
       self.EmitPld(input_address)
       self.EmitVUzp(8, temp[0], temp[1], block[0], block[1])
       registers.FreeRegisters(block)
@@ -1018,8 +1158,9 @@ class NeonEmitter64(object):
     elif cols is 4:
       temp = [registers.DoubleRegister() for unused_i in range(4)]
       for i in range(elements):
-        self.EmitVLoadOffset(1, 32, self.Lane(32, block[i % 4], i / 4),
-                             input_deref, stride)
+        self.EmitVLoadOffset(1, 32,
+                             self.Lane(32, block[i % 4], i / 4), input_deref,
+                             stride)
       self.EmitPld(input_address)
       self.EmitVTrn(16, temp[0], temp[2], block[0], block[2])
       self.EmitVTrn(16, temp[1], temp[3], block[1], block[3])
@@ -1030,10 +1171,11 @@ class NeonEmitter64(object):
     elif cols is 5:
       temp = [registers.DoubleRegister() for unused_i in range(4)]
       for i in range(elements):
-        self.EmitVLoad(1, 32, self.Lane(32, block[i % 4], i / 4),
+        self.EmitVLoad(1, 32,
+                       self.Lane(32, block[i % 4], i / 4),
                        input_deref_increment)
-        self.EmitVLoadOffset(1, 8, self.Lane(8, block[4], i), input_deref,
-                             stride)
+        self.EmitVLoadOffset(1, 8,
+                             self.Lane(8, block[4], i), input_deref, stride)
       self.EmitPld(input_address)
       self.EmitVTrn(16, temp[0], temp[2], block[0], block[2])
       self.EmitVTrn(16, temp[1], temp[3], block[1], block[3])
@@ -1044,9 +1186,11 @@ class NeonEmitter64(object):
     elif cols is 6:
       temp = [registers.DoubleRegister() for unused_i in range(6)]
       for i in range(elements):
-        self.EmitVLoad(1, 32, self.Lane(32, block[i % 4], i / 4),
+        self.EmitVLoad(1, 32,
+                       self.Lane(32, block[i % 4], i / 4),
                        input_deref_increment)
-        self.EmitVLoadOffset(1, 16, self.Lane(16, block[4 + i / 4], i % 4),
+        self.EmitVLoadOffset(1, 16,
+                             self.Lane(16, block[4 + i / 4], i % 4),
                              input_deref, stride)
       self.EmitPld(input_address)
       self.EmitVTrn(16, temp[0], temp[2], block[0], block[2])
@@ -1054,15 +1198,17 @@ class NeonEmitter64(object):
       self.EmitVUzp(8, temp[4], temp[5], block[4], block[5])
       self.EmitVTrn(8, block[0], block[1], temp[0], temp[1])
       self.EmitVTrn(8, block[2], block[3], temp[2], temp[3])
-      registers.FreeRegisters([block[4], block[5], temp[0], temp[1], temp[2],
-                               temp[3]])
+      registers.FreeRegisters(
+          [block[4], block[5], temp[0], temp[1], temp[2], temp[3]])
       return [block[0], block[1], block[2], block[3], temp[4], temp[5]]
     elif cols is 7:
       temp = [registers.DoubleRegister() for unused_i in range(4)]
       for i in range(elements):
-        self.EmitVLoad(1, 32, self.Lane(32, block[i % 4], i / 4),
+        self.EmitVLoad(1, 32,
+                       self.Lane(32, block[i % 4], i / 4),
                        input_deref_increment)
-        self.EmitVLoadOffsetA(3, 8, [self.Lane(8, row, i) for row in block[4:]],
+        self.EmitVLoadOffsetA(3, 8,
+                              [self.Lane(8, row, i) for row in block[4:]],
                               input_deref, stride)
       self.EmitPld(input_address)
       self.EmitVTrn1(16, temp[0], block[0], block[2])

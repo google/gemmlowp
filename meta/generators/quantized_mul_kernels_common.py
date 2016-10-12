@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """."""
 
 import common
@@ -19,8 +18,10 @@ import common
 
 def _ReadParams(emitter, registers, input_address, elements, min_register):
   registers_count = (elements + 3) / 4
-  registers = [registers.QuadRegister(min_register)
-               for unused_i in range(registers_count)]
+  registers = [
+      registers.QuadRegister(min_register)
+      for unused_i in range(registers_count)
+  ]
   emitter.EmitVLoadAE(registers_count * 4, 32, registers, input_address, 64)
   return registers
 
@@ -426,8 +427,9 @@ def _GenerateNxMLoadMultiplyAggregate(emitter, registers, kernel_m, kernel_n,
   emitter.EmitPldOffset(lhs, emitter.ImmediateConstant(64))
   emitter.EmitPldOffset(rhs, emitter.ImmediateConstant(64))
 
-  results = [registers.QuadRegister()
-             for unused_i in range(kernel_m * kernel_n)]
+  results = [
+      registers.QuadRegister() for unused_i in range(kernel_m * kernel_n)
+  ]
 
   for row in range(kernel_m):
     for col in range(kernel_n):

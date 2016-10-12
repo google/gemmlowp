@@ -11,7 +11,6 @@
 # WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 # See the License for the specific language governing permissions and
 # limitations under the License.
-
 """32bit ARM/NEON assembly emitter.
 
 Used by code generators to produce ARM assembly with NEON simd code.
@@ -93,13 +92,19 @@ class _NeonRegisters32Bit(object):
   def MapParameter(self, parameter, parameter_value=None):
     if not parameter_value:
       parameter_value = parameter
-    self.parameters[parameter] = parameter_value
+    self.parameters[parameter] = (parameter_value, 'r')
+    return '%%[%s]' % parameter
+
+  def MapMemoryParameter(self, parameter, parameter_value=None):
+    if not parameter_value:
+      parameter_value = parameter
+    self.parameters[parameter] = (parameter_value, 'm')
     return '%%[%s]' % parameter
 
   def MapOutputParameter(self, parameter, parameter_value=None):
     if not parameter_value:
       parameter_value = parameter
-    self.output_parameters[parameter] = parameter_value
+    self.output_parameters[parameter] = (parameter_value, '+r')
     return '%%[%s]' % parameter
 
   def DoubleRegister(self, min_val=0):
@@ -135,9 +140,8 @@ class _NeonRegisters32Bit(object):
     return [(k, v) for (k, v) in self.output_parameters.items()]
 
   def Clobbers(self):
-    return (['r%d' % i
-             for i in self.general_ever] + ['d%d' % i
-                                            for i in self.DoubleClobbers()])
+    return (['r%d' % i for i in self.general_ever] +
+            ['d%d' % i for i in self.DoubleClobbers()])
 
   def DoubleClobbers(self):
     return sorted(self.double_ever)
@@ -239,10 +243,10 @@ class NeonEmitter(object):
     self.EmitIndented('asm volatile(')
     self.PushIndent()
 
-  def EmitAsmMapping(self, elements, modifier):
+  def EmitAsmMapping(self, elements):
     if elements:
-      self.EmitIndented(': ' + ', '.join(['[%s] "%s"(%s)' % (d, modifier, v)
-                                          for (d, v) in elements]))
+      self.EmitIndented(': ' + ', '.join(
+          ['[%s] "%s"(%s)' % (d, v[1], v[0]) for (d, v) in elements]))
     else:
       self.EmitIndented(':')
 
@@ -253,8 +257,8 @@ class NeonEmitter(object):
       self.EmitIndented(':')
 
   def EmitAsmEnd(self, registers):
-    self.EmitAsmMapping(registers.MappedOutputParameters(), '+r')
-    self.EmitAsmMapping(registers.MappedParameters(), 'r')
+    self.EmitAsmMapping(registers.MappedOutputParameters())
+    self.EmitAsmMapping(registers.MappedParameters())
     self.EmitClobbers(registers.Clobbers() + ['cc', 'memory'])
     self.PopIndent()
     self.EmitIndented(');')
@@ -324,14 +328,34 @@ class NeonEmitter(object):
   def EmitVAddw(self, add_type, destination, source_1, source_2):
     self.EmitOp3('vaddw.%s' % add_type, destination, source_1, source_2)
 
+  def EmitVSub(self, sub_type, destination, source_1, source_2):
+    destination, source_1, source_2 = _MakeCompatible(destination, source_1,
+                                                      source_2)
+    self.EmitOp3('vsub.%s' % sub_type, destination, source_1, source_2)
+
   def EmitVCvt(self, cvt_to, cvt_from, destination, source):
     self.EmitOp2('vcvt.%s.%s' % (cvt_to, cvt_from), destination, source)
 
   def EmitVDup(self, dup_type, destination, source):
     self.EmitOp2('vdup.%s' % dup_type, destination, source)
 
+  def EmitVMax(self, size, destination, source_1, source_2):
+    self.EmitOp3('vmax.%s' % size, destination, source_1, source_2)
+
+  def EmitVMin(self, size, destination, source_1, source_2):
+    self.EmitOp3('vmin.%s' % size, destination, source_1, source_2)
+
   def EmitVMov(self, mov_type, destination, source):
     self.EmitOp2('vmov.%s' % mov_type, destination, source)
+
+  def EmitVMovl(self, mov_type, destination, source):
+    if source[0] == 'q':
+      source = _Low(source)
+    self.EmitOp2('vmovl.%s' % mov_type, destination, source)
+
+  def EmitVMovl2(self, mov_type, destination_1, destination_2, source):
+    self.EmitVMovl(mov_type, destination_2, _High(source))
+    self.EmitVMovl(mov_type, destination_1, _Low(source))
 
   def EmitVQmovn(self, mov_type, destination, source):
     if destination[0] == 'q':
@@ -346,6 +370,10 @@ class NeonEmitter(object):
     if destination[0] == 'q':
       destination = _Low(destination)
     self.EmitOp2('vqmovun.%s' % mov_type, destination, source)
+
+  def EmitVQmovun2(self, mov_type, destination, source_1, source_2):
+    self.EmitVQmovun(mov_type, _Low(destination), source_1)
+    self.EmitVQmovun(mov_type, _High(destination), source_2)
 
   def EmitVMul(self, mul_type, destination, source_1, source_2):
     destination, source_1, source_2 = _MakeCompatible(destination, source_1,
@@ -366,6 +394,9 @@ class NeonEmitter(object):
 
   def EmitVPadal(self, add_type, destination, source):
     self.EmitOp2('vpadal.%s' % add_type, destination, source)
+
+  def EmitLdr(self, register, value):
+    self.EmitOp2('ldr', register, value)
 
   def EmitVLoad(self, load_no, load_type, destination, source):
     self.EmitVLoadA(load_no, load_type, [destination], source)
@@ -410,35 +441,47 @@ class NeonEmitter(object):
       else:
         destination = destinations[0]
         if bits_to_load == 56:
-          self.EmitVLoad(1, 32, self.Lane(32, destination, 0),
+          self.EmitVLoad(1, 32,
+                         self.Lane(32, destination, 0),
                          self.DereferenceIncrement(source))
-          self.EmitVLoad(1, 16, self.Lane(16, destination, 2),
+          self.EmitVLoad(1, 16,
+                         self.Lane(16, destination, 2),
                          self.DereferenceIncrement(source))
-          self.EmitVLoad(1, 8, self.Lane(8, destination, 6),
+          self.EmitVLoad(1, 8,
+                         self.Lane(8, destination, 6),
                          self.DereferenceIncrement(source))
         elif bits_to_load == 48:
-          self.EmitVLoad(1, 32, self.Lane(32, destination, 0),
+          self.EmitVLoad(1, 32,
+                         self.Lane(32, destination, 0),
                          self.DereferenceIncrement(source))
-          self.EmitVLoad(1, 16, self.Lane(16, destination, 2),
+          self.EmitVLoad(1, 16,
+                         self.Lane(16, destination, 2),
                          self.DereferenceIncrement(source))
         elif bits_to_load == 40:
-          self.EmitVLoad(1, 32, self.Lane(32, destination, 0),
+          self.EmitVLoad(1, 32,
+                         self.Lane(32, destination, 0),
                          self.DereferenceIncrement(source))
-          self.EmitVLoad(1, 8, self.Lane(8, destination, 4),
+          self.EmitVLoad(1, 8,
+                         self.Lane(8, destination, 4),
                          self.DereferenceIncrement(source))
         elif bits_to_load == 32:
-          self.EmitVLoad(1, 32, self.Lane(32, destination, 0),
+          self.EmitVLoad(1, 32,
+                         self.Lane(32, destination, 0),
                          self.DereferenceIncrement(source))
         elif bits_to_load == 24:
-          self.EmitVLoad(1, 16, self.Lane(16, destination, 0),
+          self.EmitVLoad(1, 16,
+                         self.Lane(16, destination, 0),
                          self.DereferenceIncrement(source))
-          self.EmitVLoad(1, 8, self.Lane(8, destination, 2),
+          self.EmitVLoad(1, 8,
+                         self.Lane(8, destination, 2),
                          self.DereferenceIncrement(source))
         elif bits_to_load == 16:
-          self.EmitVLoad(1, 16, self.Lane(16, destination, 0),
+          self.EmitVLoad(1, 16,
+                         self.Lane(16, destination, 0),
                          self.DereferenceIncrement(source))
         elif bits_to_load == 8:
-          self.EmitVLoad(1, 8, self.Lane(8, destination, 0),
+          self.EmitVLoad(1, 8,
+                         self.Lane(8, destination, 0),
                          self.DereferenceIncrement(source))
         else:
           raise ArgumentError('Wrong leftover: %d' % bits_to_load)
@@ -467,8 +510,14 @@ class NeonEmitter(object):
   def EmitPld(self, load_address_register):
     self.EmitOp1('pld', '[%s]' % load_address_register)
 
+  def EmitPldw(self, store_address_register):
+    self.EmitOp1('pldw', '[%s]' % store_address_register)
+
   def EmitPldOffset(self, load_address_register, offset):
     self.EmitOp1('pld', '[%s, %s]' % (load_address_register, offset))
+
+  def EmitPldwOffset(self, store_address_register, offset):
+    self.EmitOp1('pldw', '[%s, %s]' % (store_address_register, offset))
 
   def EmitVShl(self, shift_type, destination, source, shift):
     self.EmitOp3('vshl.%s' % shift_type, destination, source, shift)
@@ -516,35 +565,47 @@ class NeonEmitter(object):
       else:
         source = sources[0]
         if bits_to_store == 56:
-          self.EmitVStore(1, 32, self.Lane(32, source, 0),
+          self.EmitVStore(1, 32,
+                          self.Lane(32, source, 0),
                           self.DereferenceIncrement(destination))
-          self.EmitVStore(1, 16, self.Lane(16, source, 2),
+          self.EmitVStore(1, 16,
+                          self.Lane(16, source, 2),
                           self.DereferenceIncrement(destination))
-          self.EmitVStore(1, 8, self.Lane(8, source, 6),
+          self.EmitVStore(1, 8,
+                          self.Lane(8, source, 6),
                           self.DereferenceIncrement(destination))
         elif bits_to_store == 48:
-          self.EmitVStore(1, 32, self.Lane(32, source, 0),
+          self.EmitVStore(1, 32,
+                          self.Lane(32, source, 0),
                           self.DereferenceIncrement(destination))
-          self.EmitVStore(1, 16, self.Lane(16, source, 2),
+          self.EmitVStore(1, 16,
+                          self.Lane(16, source, 2),
                           self.DereferenceIncrement(destination))
         elif bits_to_store == 40:
-          self.EmitVStore(1, 32, self.Lane(32, source, 0),
+          self.EmitVStore(1, 32,
+                          self.Lane(32, source, 0),
                           self.DereferenceIncrement(destination))
-          self.EmitVStore(1, 8, self.Lane(8, source, 4),
+          self.EmitVStore(1, 8,
+                          self.Lane(8, source, 4),
                           self.DereferenceIncrement(destination))
         elif bits_to_store == 32:
-          self.EmitVStore(1, 32, self.Lane(32, source, 0),
+          self.EmitVStore(1, 32,
+                          self.Lane(32, source, 0),
                           self.DereferenceIncrement(destination))
         elif bits_to_store == 24:
-          self.EmitVStore(1, 16, self.Lane(16, source, 0),
+          self.EmitVStore(1, 16,
+                          self.Lane(16, source, 0),
                           self.DereferenceIncrement(destination))
-          self.EmitVStore(1, 8, self.Lane(8, source, 2),
+          self.EmitVStore(1, 8,
+                          self.Lane(8, source, 2),
                           self.DereferenceIncrement(destination))
         elif bits_to_store == 16:
-          self.EmitVStore(1, 16, self.Lane(16, source, 0),
+          self.EmitVStore(1, 16,
+                          self.Lane(16, source, 0),
                           self.DereferenceIncrement(destination))
         elif bits_to_store == 8:
-          self.EmitVStore(1, 8, self.Lane(8, source, 0),
+          self.EmitVStore(1, 8,
+                          self.Lane(8, source, 0),
                           self.DereferenceIncrement(destination))
         else:
           raise ArgumentError('Wrong leftover: %d' % bits_to_store)
@@ -580,7 +641,8 @@ class NeonEmitter(object):
                             (store_type, count))
 
     if count == 1:
-      self.EmitVStoreOffset(1, store_type, self.Lane(store_type, sources[0], 0),
+      self.EmitVStoreOffset(1, store_type,
+                            self.Lane(store_type, sources[0], 0),
                             self.Dereference(destination, None), offset)
     elif count == 2:
       self.EmitVStoreOffset(1, store_type, sources[0],
@@ -588,7 +650,8 @@ class NeonEmitter(object):
     elif count == 3:
       self.EmitVStore(1, store_type, sources[0],
                       self.DereferenceIncrement(destination, None))
-      self.EmitVStoreOffset(1, store_type, self.Lane(store_type, sources[1], 0),
+      self.EmitVStoreOffset(1, store_type,
+                            self.Lane(store_type, sources[1], 0),
                             self.Dereference(destination, None), offset)
       self.EmitSub(destination, destination, self.ImmediateConstant(8))
     elif count == 4:
@@ -658,13 +721,14 @@ class NeonEmitter(object):
 
     if cols is 1:
       for i in range(elements):
-        self.EmitVLoadOffset(1, 8, self.Lane(8, block[0], i), input_deref,
-                             stride)
+        self.EmitVLoadOffset(1, 8,
+                             self.Lane(8, block[0], i), input_deref, stride)
       self.EmitPld(input_address)
     elif cols is 2:
       for i in range(elements):
-        self.EmitVLoadOffset(1, 16, self.Lane(16, block[i / 4], i % 4),
-                             input_deref, stride)
+        self.EmitVLoadOffset(1, 16,
+                             self.Lane(16, block[i / 4], i % 4), input_deref,
+                             stride)
       self.EmitPld(input_address)
       self.EmitVUzp(8, block[0], block[1])
     elif cols is 3:
@@ -673,8 +737,9 @@ class NeonEmitter(object):
                               input_deref, stride)
     elif cols is 4:
       for i in range(elements):
-        self.EmitVLoadOffset(1, 32, self.Lane(32, block[i % 4], i / 4),
-                             input_deref, stride)
+        self.EmitVLoadOffset(1, 32,
+                             self.Lane(32, block[i % 4], i / 4), input_deref,
+                             stride)
       self.EmitPld(input_address)
       self.EmitVTrn(16, block[0], block[2])
       self.EmitVTrn(16, block[1], block[3])
@@ -682,10 +747,11 @@ class NeonEmitter(object):
       self.EmitVTrn(8, block[2], block[3])
     elif cols is 5:
       for i in range(elements):
-        self.EmitVLoad(1, 32, self.Lane(32, block[i % 4], i / 4),
+        self.EmitVLoad(1, 32,
+                       self.Lane(32, block[i % 4], i / 4),
                        input_deref_increment)
-        self.EmitVLoadOffset(1, 8, self.Lane(8, block[4], i), input_deref,
-                             stride)
+        self.EmitVLoadOffset(1, 8,
+                             self.Lane(8, block[4], i), input_deref, stride)
       self.EmitPld(input_address)
       self.EmitVTrn(16, block[0], block[2])
       self.EmitVTrn(16, block[1], block[3])
@@ -693,9 +759,11 @@ class NeonEmitter(object):
       self.EmitVTrn(8, block[2], block[3])
     elif cols is 6:
       for i in range(elements):
-        self.EmitVLoad(1, 32, self.Lane(32, block[i % 4], i / 4),
+        self.EmitVLoad(1, 32,
+                       self.Lane(32, block[i % 4], i / 4),
                        input_deref_increment)
-        self.EmitVLoadOffset(1, 16, self.Lane(16, block[4 + i / 4], i % 4),
+        self.EmitVLoadOffset(1, 16,
+                             self.Lane(16, block[4 + i / 4], i % 4),
                              input_deref, stride)
       self.EmitPld(input_address)
       self.EmitVTrn(16, block[0], block[2])
@@ -705,9 +773,11 @@ class NeonEmitter(object):
       self.EmitVTrn(8, block[2], block[3])
     elif cols is 7:
       for i in range(elements):
-        self.EmitVLoad(1, 32, self.Lane(32, block[i % 4], i / 4),
+        self.EmitVLoad(1, 32,
+                       self.Lane(32, block[i % 4], i / 4),
                        input_deref_increment)
-        self.EmitVLoadOffsetA(3, 8, [self.Lane(8, row, i) for row in block[4:]],
+        self.EmitVLoadOffsetA(3, 8,
+                              [self.Lane(8, row, i) for row in block[4:]],
                               input_deref, stride)
       self.EmitPld(input_address)
       self.EmitVTrn(16, block[0], block[2])
