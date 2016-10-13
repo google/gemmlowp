@@ -547,6 +547,8 @@ FixedPoint<tRawType, 0> tanh(FixedPoint<tRawType, tIntegerBits> a) {
 
 #ifdef GEMMLOWP_NEON
 #include "fixedpoint_neon.h"
+#elif defined(GEMMLOWP_SSE4)
+#include "fixedpoint_sse.h"
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_FIXEDPOINT_H_
