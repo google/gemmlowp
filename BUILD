@@ -7,6 +7,13 @@ licenses(["notice"])  # Apache 2.0
 
 exports_files(["LICENSE"])
 
+config_setting(
+    name = "android",
+    values = {
+        "crosstool_top": "//external:android/crosstool",
+    },
+)
+
 load("flags", "LIB_LINKOPTS", "BIN_LINKOPTS")
 
 filegroup(
