@@ -509,24 +509,18 @@ FixedPoint<tRawType, 0> one_minus_x_over_one_plus_x_for_x_in_0_1(
     FixedPoint<tRawType, 0> a) {
   typedef FixedPoint<tRawType, 0> F0;
   typedef FixedPoint<tRawType, 2> F2;
-  /* Computes an approximation of the 2/(1+a) using Newton-Raphson division */
-  /* half_denominator= (1 + a)/2 */
   F0 half_denominator = RoundingHalfSum(a, F0::One());
   const F2 constant_48_over_17 =
       GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(F2, 1515870810, 48.0 / 17.0);
   const F2 constant_neg_32_over_17 =
       GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(F2, -1010580540, -32.0 / 17.0);
-  /* First approx of 2/(1+a) */
   F2 x = constant_48_over_17 + half_denominator * constant_neg_32_over_17;
-  /* Newton iteration x_{i+1} = x_i + x_i*(1 - half_denominator * x_i) */
   for (int i = 0; i < 3; i++) {
     F2 half_denominator_times_x = half_denominator * x;
     F2 one_minus_half_denominator_times_x =
         F2::One() - half_denominator_times_x;
     x = x + Rescale<2>(x * one_minus_half_denominator_times_x);
   }
-  /* x ~= 2/(1+a) */
-  /* return x - 1 ~= (1-a)/(1+a) */
   return Rescale<0>(x - F2::One());
 }
 
