@@ -49,6 +49,11 @@ inline __m128i Add(__m128i a, __m128i b) {
 }
 
 template <>
+inline __m128i Mul(__m128i a, __m128i b) {
+  return _mm_mullo_epi32(a, b);
+}
+ 
+template <>
 inline __m128i Sub(__m128i a, __m128i b) {
   return _mm_sub_epi32(a, b);
 }
