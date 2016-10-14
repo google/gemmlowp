@@ -28,6 +28,14 @@
 #include "pack.h"
 #include "unpack.h"
 
+#ifdef GEMMLOWP_PROFILING_SIZES
+#ifndef GEMMLOWP_PROFILING
+#error GEMMLOWP_PROFILING_SIZES without GEMMLOWP_PROFILING
+#endif
+#include <unordered_map>
+#include <string>
+#endif
+
 namespace gemmlowp {
 
 class SingleThreadGemmContext {
@@ -71,6 +79,19 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
   BlockParams block_params;
   block_params.Init<KernelFormat>(rows, cols, depth, 1);
 
+#ifdef GEMMLOWP_PROFILING_SIZES
+  // Using a static map of label strings. Not reentrant at all!
+  static std::unordered_map<std::uint64_t, std::string> labels_map;
+  std::uint64_t sizes_hash = static_cast<std::uint64_t>(rows) ^ (static_cast<std::uint64_t>(depth) << 16) ^ (static_cast<std::uint64_t>(cols) << 32);
+  if (!labels_map.count(sizes_hash)) {
+    char label[256];
+    snprintf(label, sizeof(label), "(rows = %d, depth = %d, cols = %d, l2_rows = %d, l2_depth = %d, l2_cols = %d, l1_rows = %d, l1_depth = %d, l1_cols = %d)",
+             rows, depth, cols, block_params.l2_rows, block_params.l2_depth, block_params.l2_cols, block_params.l1_rows, block_params.l1_depth, block_params.l1_cols);
+    labels_map[sizes_hash] = label;
+  }
+  ScopedProfilingLabel size_label(labels_map[sizes_hash].c_str());
+#endif
+
   PackedSideBlock<typename KernelFormat::Lhs> packed_lhs(
       Side::Lhs, allocator, block_params);
   PackedSideBlock<typename KernelFormat::Rhs> packed_rhs(
@@ -80,7 +101,7 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
 
   allocator->Commit();
 
-  const bool pack_rhs_once = block_params.l2_cols == cols;
+  const bool pack_rhs_once = block_params.l2_cols >= cols;
 
   if (pack_rhs_once) {
     PackRhs<BitDepthParams>(&packed_rhs, rhs);
