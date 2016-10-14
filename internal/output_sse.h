@@ -276,14 +276,16 @@ inline void StoreFinalOutput(SSE4FragmentUint8x16x1 value, DstType* dst,
   _mm_storeu_si128((__m128i*) (dst->data(row, col)), value);
 }
 
-// Specialization of StoreFinalOutput for SSE4FragmentInt32x4x1.
+// Specialization of StoreFinalOutput for SSE4FragmentInt32x4x1, storing into
+// a int32 destination.
 template <typename DstType>
 inline void StoreFinalOutput(SSE4FragmentInt32x4x1 value, DstType* dst, int row,
                              int col) {
   _mm_storeu_si128((__m128i*) (dst->data(row, col)), value);
 }
 
-// Specialization of StoreFinalOutput for SSE4FragmentInt32x16x1.
+// Specialization of StoreFinalOutput for SSE4FragmentInt32x16x1, storing into
+// a int32 destination.
 template <typename DstType>
 inline void StoreFinalOutput(SSE4FragmentInt32x16x1 value, DstType* dst,
                              int row, int col) {
