@@ -288,7 +288,8 @@ template <typename DstType>
 inline void StoreFinalOutput(SSE4FragmentInt32x16x1 value, DstType* dst,
                              int row, int col) {
   for (int i = 0; i < 4; i++) {
-    _mm_storeu_si128((__m128i*) (dst->data(row, col)), value);
+    _mm_storeu_si128( (__m128 *) (dst->data(row + 4*i, col)),
+		      value.data.val[i]);
   }
 }
 
