@@ -166,6 +166,44 @@ void test_tanh(const std::vector<int32_t>& testvals_int32) {
   }
 }
 
+void test_one_over_one_plus_x_for_x_in_0_1(FixedPoint<int32_t, 0> a) {
+  double a_double = ToDouble(a);
+  double expected = 1. / (1 + a_double);
+  FixedPoint<int32_t, 0> retval = one_over_one_plus_x_for_x_in_0_1(a);
+  double actual = ToDouble(retval);
+  double error = expected - actual;
+  Check(std::abs(error) < 3e-9);
+}
+
+void test_one_over_one_plus_x_for_x_in_0_1(
+    const std::vector<int32_t>& testvals_int32) {
+  for (auto a : testvals_int32) {
+    if (a > 0) {
+      FixedPoint<int32_t, 0> aq;
+      aq.raw() = a;
+      test_one_over_one_plus_x_for_x_in_0_1(aq);
+    }
+  }
+}
+
+template <int tIntegerBits>
+void test_logistic(FixedPoint<int32_t, tIntegerBits> a) {
+  double a_double = ToDouble(a);
+  double expected = 1. / (1 + std::exp(-a_double));
+  double actual = ToDouble(logistic(a));
+  double error = expected - actual;
+  Check(std::abs(error) < 8e-8);
+}
+
+template <int tIntegerBits>
+void test_logistic(const std::vector<int32_t>& testvals_int32) {
+  for (auto a : testvals_int32) {
+    FixedPoint<int32_t, tIntegerBits> aq;
+    aq.raw() = a;
+    test_logistic(aq);
+  }
+}
+
 #ifdef GEMMLOWP_NEON
 void test_int32x4(const std::vector<int32_t>& testvals_int32) {
   size_t n = testvals_int32.size();
@@ -251,7 +289,6 @@ int main() {
   test_ExactMulByPot<-2, 6>(testvals_int32);
 
   test_exp_on_interval_between_negative_one_quarter_and_0_excl(testvals_int32);
-
   test_exp_on_negative_values<1>(testvals_int32);
   test_exp_on_negative_values<2>(testvals_int32);
   test_exp_on_negative_values<3>(testvals_int32);
@@ -260,13 +297,20 @@ int main() {
   test_exp_on_negative_values<6>(testvals_int32);
 
   test_one_minus_x_over_one_plus_x_for_x_in_0_1(testvals_int32);
-
   test_tanh<1>(testvals_int32);
   test_tanh<2>(testvals_int32);
   test_tanh<3>(testvals_int32);
   test_tanh<4>(testvals_int32);
   test_tanh<5>(testvals_int32);
   test_tanh<6>(testvals_int32);
+
+  test_one_over_one_plus_x_for_x_in_0_1(testvals_int32);
+  test_logistic<1>(testvals_int32);
+  test_logistic<2>(testvals_int32);
+  test_logistic<3>(testvals_int32);
+  test_logistic<4>(testvals_int32);
+  test_logistic<5>(testvals_int32);
+  test_logistic<6>(testvals_int32);  
 
 #ifdef GEMMLOWP_NEON
   test_int32x4(testvals_int32);
