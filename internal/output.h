@@ -272,7 +272,8 @@ struct OutputStageTanhEvalImpl {
       inverse_amplitude_neg_exponent++;
     }
     inverse_amplitude_normalized =
-        ToFixedPoint<DataType, 0>(inverse_amplitude_normalized_double);
+        FixedPoint<DataType, 0>::FromDouble(
+            inverse_amplitude_normalized_double);
 
     double amplitude_normalized_double = real_amplitude_as_int32;
     amplitude_exponent = 0;
@@ -281,7 +282,7 @@ struct OutputStageTanhEvalImpl {
       amplitude_exponent++;
     }
     amplitude_normalized =
-        ToFixedPoint<DataType, 0>(amplitude_normalized_double);
+        FixedPoint<DataType, 0>::FromDouble(amplitude_normalized_double);
   }
 
   OutputType Eval(InputType input, int, int) const {

@@ -23,7 +23,7 @@ using namespace gemmlowp;
 template <int tIntegerBits>
 void test_convert(FixedPoint<int32_t, tIntegerBits> x) {
   typedef FixedPoint<int32_t, tIntegerBits> F;
-  F y = ToFixedPoint<int32_t, tIntegerBits>(ToDouble(x));
+  F y = F::FromDouble(ToDouble(x));
   Check(y == x);
 }
 
@@ -31,7 +31,7 @@ template <int tIntegerBits_a, int tIntegerBits_b>
 void test_Rescale(FixedPoint<int32_t, tIntegerBits_a> a) {
   FixedPoint<int32_t, tIntegerBits_b> actual = Rescale<tIntegerBits_b>(a);
   FixedPoint<int32_t, tIntegerBits_b> expected =
-      ToFixedPoint<int32_t, tIntegerBits_b>(ToDouble(a));
+      FixedPoint<int32_t, tIntegerBits_b>::FromDouble(ToDouble(a));
   Check(actual == expected);
 }
 
@@ -47,14 +47,14 @@ void test_Rescale(const std::vector<int32_t>& testvals_int32) {
 template <int tIntegerBits_a, int tIntegerBits_b>
 void test_mul(FixedPoint<int32_t, tIntegerBits_a> a,
               FixedPoint<int32_t, tIntegerBits_b> b) {
-  static const int IntegerBits_ab = tIntegerBits_a + tIntegerBits_b;
-  FixedPoint<int32_t, IntegerBits_ab> ab;
+  static const int ProductIntegerBits = tIntegerBits_a + tIntegerBits_b;
+  using ProductFixedPoint = FixedPoint<int32_t, ProductIntegerBits>;
+  ProductFixedPoint ab;
   ab = a * b;
   double a_double = ToDouble(a);
   double b_double = ToDouble(b);
   double ab_double = a_double * b_double;
-  FixedPoint<int32_t, IntegerBits_ab> expected =
-      ToFixedPoint<int32_t, IntegerBits_ab>(ab_double);
+  ProductFixedPoint expected = ProductFixedPoint::FromDouble(ab_double);
   int64_t diff = int64_t(ab.raw()) - int64_t(expected.raw());
   Check(std::abs(diff) <= 1);
 }

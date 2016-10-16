@@ -390,6 +390,15 @@ class FixedPoint {
                              : (ScalarRawType(1) << kFractionalBits));
   }
 
+  static FixedPoint FromDouble(double x) {
+    const double min_bound = static_cast<double>(ScalarRawMin());
+    const double max_bound = static_cast<double>(ScalarRawMax());
+    return FromScalarRaw(static_cast<int32_t>(
+        std::min(std::max(std::round(x * double(1ll << kFractionalBits)),
+                          min_bound),
+                 max_bound)));
+  }
+
   RawType raw() const { return i_; }
   RawType& raw() { return i_; }
 
@@ -506,23 +515,13 @@ bool operator!=(FixedPoint<tRawType, tIntegerBits> a,
   return !(a == b);
 }
 
-// Conversions.
-
+// Conversion to floating-point.
 template <typename tRawType, int tIntegerBits>
 double ToDouble(FixedPoint<tRawType, tIntegerBits> x) {
   static_assert(FixedPointRawTypeTraits<tRawType>::kLanes == 1,
                 "not applicable to SIMD types");
   typedef FixedPoint<tRawType, tIntegerBits> F;
   return x.raw() / double(1ll << F::kFractionalBits);
-}
-
-template <typename tRawType, int tIntegerBits>
-FixedPoint<tRawType, tIntegerBits> ToFixedPoint(double x) {
-  typedef FixedPoint<tRawType, tIntegerBits> F;
-  return F::FromScalarRaw(static_cast<int32_t>(
-      std::min(std::max(round(x * double(1ll << F::kFractionalBits)),
-                        double(F::ScalarRawMin())),
-               double(F::ScalarRawMax()))));
 }
 
 // Rescale changes the number of IntegerBits and updates the underlying
@@ -546,8 +545,8 @@ FixedPointType CheckedFixedPointConstant(
     typename FixedPointType::ScalarRawType raw_value, double double_value) {
   typedef typename FixedPointType::RawType RawType;
   static const int kIntegerBits = FixedPointType::kIntegerBits;
-  FixedPointType ref = FixedPointType::FromScalarRaw(raw_value);
-  FixedPointType check = ToFixedPoint<RawType, kIntegerBits>(double_value);
+  const FixedPointType ref = FixedPointType::FromScalarRaw(raw_value);
+  const FixedPointType check = FixedPointType::FromDouble(double_value);
   assert(ref == check);
   return ref;
 }
