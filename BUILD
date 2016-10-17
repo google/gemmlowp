@@ -14,7 +14,7 @@ config_setting(
     },
 )
 
-load("flags", "LIB_LINKOPTS", "BIN_LINKOPTS")
+load(":flags.bzl", "LIB_COPTS", "LIB_LINKOPTS", "BIN_LINKOPTS")
 
 filegroup(
     name = "gemmlowp_private_headers",
@@ -119,6 +119,7 @@ cc_library(
         ":gemmlowp_private_headers",
         ":gemmlowp_public_headers",
     ],
+    copts = LIB_COPTS,
     linkopts = LIB_LINKOPTS,
     visibility = ["//visibility:public"],
     deps = [":gemmlowp"],
