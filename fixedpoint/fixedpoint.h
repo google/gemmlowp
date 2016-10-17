@@ -18,7 +18,7 @@
 #ifndef GEMMLOWP_INTERNAL_FIXEDPOINT_H_
 #define GEMMLOWP_INTERNAL_FIXEDPOINT_H_
 
-#include "common.h"
+#include "../internal/common.h"
 
 #include <limits>
 #include <cassert>
@@ -544,7 +544,6 @@ template <typename FixedPointType>
 FixedPointType CheckedFixedPointConstant(
     typename FixedPointType::ScalarRawType raw_value, double double_value) {
   typedef typename FixedPointType::RawType RawType;
-  static const int kIntegerBits = FixedPointType::kIntegerBits;
   const FixedPointType ref = FixedPointType::FromScalarRaw(raw_value);
   const FixedPointType check = FixedPointType::FromDouble(double_value);
   assert(ref == check);

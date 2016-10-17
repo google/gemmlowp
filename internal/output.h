@@ -24,7 +24,7 @@
 #include <type_traits>
 
 #include "../public/output_stages.h"
-#include "fixedpoint.h"
+#include "../fixedpoint/fixedpoint.h"
 
 namespace gemmlowp {
 

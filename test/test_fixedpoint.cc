@@ -16,7 +16,7 @@
 
 #include "test.h"
 
-#include "../internal/fixedpoint.h"
+#include "../fixedpoint/fixedpoint.h"
 
 using namespace gemmlowp;
 

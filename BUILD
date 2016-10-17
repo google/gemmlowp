@@ -80,6 +80,25 @@ filegroup(
     visibility = ["//visibility:private"],
 )
 
+filegroup(
+    name = "fixedpoint_private_headers",
+    srcs = glob([
+        "fixedpoint/*.h"
+    ]),
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "fixedpoint",
+    hdrs = [
+        "fixedpoint/fixedpoint.h",
+    ],
+    srcs = [
+        ":fixedpoint_private_headers",
+    ],
+    visibility = ["//visibility:public"],
+)
+
 cc_library(
     name = "gemmlowp",
     hdrs = [":gemmlowp_headers"],
@@ -88,6 +107,7 @@ cc_library(
     # "setting 'linkstatic=1' is recommended if there are no object files."
     linkstatic = 1,
     visibility = ["//visibility:public"],
+    deps = [":fixedpoint"],
 )
 
 cc_library(
