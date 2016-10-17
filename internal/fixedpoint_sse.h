@@ -178,9 +178,9 @@ inline __m128i SaturatingRoundingDoublingHighMul(__m128i a, __m128i b) {
   //a = a0 | a1 | a2 | a3
   //b = b0 | b1 | b2 | b3
   a0_a2 = a;
-  a1_a3 = _mm_bsrli_si128(a, 4);
+  a1_a3 = _mm_srli_si128(a, 4);
   b0_b2 = b;
-  b1_b3 = _mm_bsrli_si128(b, 4);
+  b1_b3 = _mm_srli_si128(b, 4);
   
   a0b0_a2b2 =_mm_mul_epi32(a0_a2, b0_b2);
   a1b1_a3b3 =_mm_mul_epi32(a1_a3, b1_b3);
@@ -207,7 +207,7 @@ inline __m128i SaturatingRoundingDoublingHighMul(__m128i a, __m128i b) {
   a1b1_a3b3_rounded_2x = _mm_slli_epi64(a1b1_a3b3_rounded, 1);
   
   //getting the high part of the products
-  result = _mm_blend_epi16(_mm_bsrli_si128(a0b0_a2b2_rounded_2x, 4),
+  result = _mm_blend_epi16(_mm_srli_si128(a0b0_a2b2_rounded_2x, 4),
 			   a1b1_a3b3_rounded_2x,
 			   0xcc);
   

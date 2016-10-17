@@ -62,6 +62,12 @@ tIntegerType Add(tIntegerType a, tIntegerType b) {
 }
 
 template <typename tIntegerType>
+tIntegerType Mul(tIntegerType a, tIntegerType b) {
+  return a * b;
+}
+
+ 
+template <typename tIntegerType>
 tIntegerType Sub(tIntegerType a, tIntegerType b) {
   return a - b;
 }
