@@ -83,7 +83,8 @@ filegroup(
 filegroup(
     name = "fixedpoint_private_headers",
     srcs = glob([
-        "fixedpoint/*.h"
+        "fixedpoint/*.h",
+        "internal/common.h",
     ]),
     visibility = ["//visibility:private"],
 )
