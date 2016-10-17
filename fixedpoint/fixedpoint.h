@@ -726,7 +726,6 @@ FixedPoint<tRawType, 0> logistic(FixedPoint<tRawType, tIntegerBits> a) {
   return SelectUsingMask(mask_if_zero, one_half,
                          SelectUsingMask(mask_if_positive, result_if_positive,
                                          result_if_negative));
-  return logistic_on_positive_values(a);
 }
 
 }  // end namespace gemmlowp
