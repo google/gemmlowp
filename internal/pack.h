@@ -51,8 +51,7 @@ class PackedSideBlock {
 
   PackedSideBlock(Side side, Allocator* allocator,
                   const BlockParams& block_params)
-      : allocator_(allocator),
-        pos_(0) {
+      : allocator_(allocator), pos_(0) {
     GetSideBlockParams(side, &params_, block_params);
     data_handle_ =
         allocator_->Reserve<std::uint8_t>(params_.l2_width * params_.l2_depth);

@@ -24,11 +24,13 @@ enum class VectorShape;
 
 // ConstIterator is a forward only constant iterator that can be made
 // architecture specific e.g. to return 4 values at once for NEON.
-template <typename VectorType> class ConstIterator {
+template <typename VectorType>
+class ConstIterator {
   // Unused default case.
 };
 
-template <typename tScalar, VectorShape tShape> class VectorMap;
+template <typename tScalar, VectorShape tShape>
+class VectorMap;
 
 template <typename tScalar, VectorShape tShape>
 class ConstIterator<VectorMap<tScalar, tShape>> {
@@ -39,19 +41,23 @@ class ConstIterator<VectorMap<tScalar, tShape>> {
       : pointer_(vector_map.data() + start_offset) {}
   const Scalar operator*() const { return *pointer_; }
   const Scalar* get() const { return pointer_; }
-  ConstIterator& operator+=(int inc) { pointer_ += inc; return *this; }
+  ConstIterator& operator+=(int inc) {
+    pointer_ += inc;
+    return *this;
+  }
+
  private:
   const Scalar* pointer_;
 };
 
 template <typename tScalar, VectorShape tShape>
 ConstIterator<VectorMap<tScalar, tShape>> const_iterator(
-    const VectorMap<tScalar, tShape>& vector_map,
-    const int start_offset) {
+    const VectorMap<tScalar, tShape>& vector_map, const int start_offset) {
   return ConstIterator<VectorMap<tScalar, tShape>>(vector_map, start_offset);
 }
 
-template <typename tScalar, VectorShape tShape> class VectorDup;
+template <typename tScalar, VectorShape tShape>
+class VectorDup;
 
 template <typename tScalar, VectorShape tShape>
 class ConstIterator<VectorDup<tScalar, tShape>> {
@@ -62,14 +68,14 @@ class ConstIterator<VectorDup<tScalar, tShape>> {
   const Scalar operator*() const { return data_; }
   const Scalar* get() const { return &data_; }
   ConstIterator& operator+=(int inc) { return *this; }
+
  private:
   Scalar data_;
 };
 
 template <typename tScalar, VectorShape tShape>
 ConstIterator<VectorDup<tScalar, tShape>> const_iterator(
-    const VectorDup<tScalar, tShape>& vector_map,
-    const int start_offset) {
+    const VectorDup<tScalar, tShape>& vector_map, const int start_offset) {
   return ConstIterator<VectorDup<tScalar, tShape>>(vector_map);
 }
 

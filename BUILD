@@ -19,6 +19,7 @@ load(":flags.bzl", "LIB_COPTS", "LIB_LINKOPTS", "BIN_LINKOPTS")
 filegroup(
     name = "gemmlowp_private_headers",
     srcs = glob([
+        "fixedpoint/*.h",
         "internal/*.h",
         "meta/*.h",
     ]),
@@ -91,12 +92,15 @@ filegroup(
 
 cc_library(
     name = "fixedpoint",
-    hdrs = [
-        "fixedpoint/fixedpoint.h",
-    ],
     srcs = [
         ":fixedpoint_private_headers",
     ],
+    hdrs = [
+        "fixedpoint/fixedpoint.h",
+    ],
+    # Blaze warning:
+    # "setting 'linkstatic=1' is recommended if there are no object files."
+    linkstatic = 1,
     visibility = ["//visibility:public"],
 )
 

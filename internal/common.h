@@ -112,7 +112,6 @@
 #define GEMMLOWP_SSE3_64
 #endif
 
-
 #endif  // GEMMLOWP_ALLOW_INLINE_ASM
 
 // Detect Android. Don't conflate with ARM - we care about tuning

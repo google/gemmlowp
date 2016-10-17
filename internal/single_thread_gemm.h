@@ -32,8 +32,8 @@
 #ifndef GEMMLOWP_PROFILING
 #error GEMMLOWP_PROFILING_SIZES without GEMMLOWP_PROFILING
 #endif
-#include <unordered_map>
 #include <string>
+#include <unordered_map>
 #endif
 
 namespace gemmlowp {
@@ -82,20 +82,26 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
 #ifdef GEMMLOWP_PROFILING_SIZES
   // Using a static map of label strings. Not reentrant at all!
   static std::unordered_map<std::uint64_t, std::string> labels_map;
-  std::uint64_t sizes_hash = static_cast<std::uint64_t>(rows) ^ (static_cast<std::uint64_t>(depth) << 16) ^ (static_cast<std::uint64_t>(cols) << 32);
+  std::uint64_t sizes_hash = static_cast<std::uint64_t>(rows) ^
+                             (static_cast<std::uint64_t>(depth) << 16) ^
+                             (static_cast<std::uint64_t>(cols) << 32);
   if (!labels_map.count(sizes_hash)) {
     char label[256];
-    snprintf(label, sizeof(label), "(rows = %d, depth = %d, cols = %d, l2_rows = %d, l2_depth = %d, l2_cols = %d, l1_rows = %d, l1_depth = %d, l1_cols = %d)",
-             rows, depth, cols, block_params.l2_rows, block_params.l2_depth, block_params.l2_cols, block_params.l1_rows, block_params.l1_depth, block_params.l1_cols);
+    snprintf(label, sizeof(label),
+             "(rows = %d, depth = %d, cols = %d, l2_rows = %d, l2_depth = %d, "
+             "l2_cols = %d, l1_rows = %d, l1_depth = %d, l1_cols = %d)",
+             rows, depth, cols, block_params.l2_rows, block_params.l2_depth,
+             block_params.l2_cols, block_params.l1_rows, block_params.l1_depth,
+             block_params.l1_cols);
     labels_map[sizes_hash] = label;
   }
   ScopedProfilingLabel size_label(labels_map[sizes_hash].c_str());
 #endif
 
-  PackedSideBlock<typename KernelFormat::Lhs> packed_lhs(
-      Side::Lhs, allocator, block_params);
-  PackedSideBlock<typename KernelFormat::Rhs> packed_rhs(
-      Side::Rhs, allocator, block_params);
+  PackedSideBlock<typename KernelFormat::Lhs> packed_lhs(Side::Lhs, allocator,
+                                                         block_params);
+  PackedSideBlock<typename KernelFormat::Rhs> packed_rhs(Side::Rhs, allocator,
+                                                         block_params);
 
   PackedResult packed_result(allocator, block_params);
 
@@ -121,11 +127,10 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
 
       Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
 
-      UnpackResult<BitDepthParams>(result, MatrixBlockBounds(r, c, rs, cs),
-                                   packed_result, depth,
-                                   packed_lhs.sums_of_each_slice(),
-                                   packed_rhs.sums_of_each_slice(),
-                                   lhs_offset, rhs_offset, output_pipeline);
+      UnpackResult<BitDepthParams>(
+          result, MatrixBlockBounds(r, c, rs, cs), packed_result, depth,
+          packed_lhs.sums_of_each_slice(), packed_rhs.sums_of_each_slice(),
+          lhs_offset, rhs_offset, output_pipeline);
     }
   }
 

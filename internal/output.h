@@ -23,8 +23,8 @@
 #include <tuple>
 #include <type_traits>
 
-#include "../public/output_stages.h"
 #include "../fixedpoint/fixedpoint.h"
+#include "../public/output_stages.h"
 
 namespace gemmlowp {
 
@@ -185,7 +185,8 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
     const std::int32_t result_shift = output_stage.result_shift;
     const std::int32_t kRoundingTerm =
         (result_shift < 1) ? 0 : (1 << (result_shift - 1));
-    const std::int32_t shifted_val = (mulhigh_val + kRoundingTerm) >> result_shift;
+    const std::int32_t shifted_val =
+        (mulhigh_val + kRoundingTerm) >> result_shift;
     return shifted_val + output_stage.result_offset_after_shift;
   }
 
@@ -271,9 +272,8 @@ struct OutputStageTanhEvalImpl {
       inverse_amplitude_normalized_double *= 2;
       inverse_amplitude_neg_exponent++;
     }
-    inverse_amplitude_normalized =
-        FixedPoint<DataType, 0>::FromDouble(
-            inverse_amplitude_normalized_double);
+    inverse_amplitude_normalized = FixedPoint<DataType, 0>::FromDouble(
+        inverse_amplitude_normalized_double);
 
     double amplitude_normalized_double = real_amplitude_as_int32;
     amplitude_exponent = 0;

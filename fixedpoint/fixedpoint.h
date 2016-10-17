@@ -18,10 +18,10 @@
 #ifndef GEMMLOWP_INTERNAL_FIXEDPOINT_H_
 #define GEMMLOWP_INTERNAL_FIXEDPOINT_H_
 
-#include "../internal/common.h"
-
-#include <limits>
 #include <cassert>
+#include <limits>
+
+#include "../internal/common.h"
 
 namespace gemmlowp {
 
@@ -259,9 +259,9 @@ struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32_t, 1> {
   static int32_t eval(int32_t x) {
     const int64_t min = std::numeric_limits<int32_t>::min();
     const int64_t max = std::numeric_limits<int32_t>::max();
-    return x >= (1 << (31 - Exponent)) ? max : x <= -(1 << (31 - Exponent))
-                                                   ? min
-                                                   : x * (1 << Exponent);
+    return x >= (1 << (31 - Exponent))
+               ? max
+               : x <= -(1 << (31 - Exponent)) ? min : x * (1 << Exponent);
   }
 };
 
@@ -393,10 +393,10 @@ class FixedPoint {
   static FixedPoint FromDouble(double x) {
     const double min_bound = static_cast<double>(ScalarRawMin());
     const double max_bound = static_cast<double>(ScalarRawMax());
-    return FromScalarRaw(static_cast<int32_t>(
-        std::min(std::max(std::round(x * double(1ll << kFractionalBits)),
-                          min_bound),
-                 max_bound)));
+    return FromScalarRaw(static_cast<int32_t>(std::min(
+        std::max(round(x * static_cast<double>(1ll << kFractionalBits)),
+                 min_bound),
+        max_bound)));
   }
 
   RawType raw() const { return i_; }
@@ -521,7 +521,7 @@ double ToDouble(FixedPoint<tRawType, tIntegerBits> x) {
   static_assert(FixedPointRawTypeTraits<tRawType>::kLanes == 1,
                 "not applicable to SIMD types");
   typedef FixedPoint<tRawType, tIntegerBits> F;
-  return x.raw() / double(1ll << F::kFractionalBits);
+  return x.raw() / static_cast<double>(1ll << F::kFractionalBits);
 }
 
 // Rescale changes the number of IntegerBits and updates the underlying
@@ -544,10 +544,9 @@ template <typename FixedPointType>
 FixedPointType CheckedFixedPointConstant(
     typename FixedPointType::ScalarRawType raw_value, double double_value) {
   typedef typename FixedPointType::RawType RawType;
-  const FixedPointType ref = FixedPointType::FromScalarRaw(raw_value);
-  const FixedPointType check = FixedPointType::FromDouble(double_value);
-  assert(ref == check);
-  return ref;
+  const FixedPointType result = FixedPointType::FromScalarRaw(raw_value);
+  assert(result == FixedPointType::FromDouble(double_value));
+  return result;
 }
 #define GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(FixedPointType, ScalarRawValue, \
                                              DoubleValue)                    \
@@ -604,9 +603,10 @@ FixedPoint<tRawType, 0> exp_on_negative_values(
   if (kIntegerBits > Exponent) {                                            \
     const ResultF kMultiplier = GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(       \
         ResultF, FixedPointMultiplier, std::exp(-std::pow(2.0, Exponent))); \
+    static constexpr int kShiftAmount =                                     \
+        kIntegerBits > Exponent ? kFractionalBits + Exponent : 0;           \
     result = SelectUsingMask(                                               \
-        MaskIfNonZero(BitAnd(                                               \
-            remainder, Dup<tRawType>(1 << (kFractionalBits + Exponent)))),  \
+        MaskIfNonZero(BitAnd(remainder, Dup<tRawType>(1 << kShiftAmount))), \
         result * kMultiplier, result);                                      \
   }
 
@@ -708,8 +708,7 @@ FixedPoint<tRawType, 0> one_over_one_plus_x_for_x_in_0_1(
 template <typename tRawType, int tIntegerBits>
 FixedPoint<tRawType, 0> logistic_on_positive_values(
     FixedPoint<tRawType, tIntegerBits> a) {
-  return one_over_one_plus_x_for_x_in_0_1(
-      exp_on_negative_values(-a));
+  return one_over_one_plus_x_for_x_in_0_1(exp_on_negative_values(-a));
 }
 
 // Returns logistic(x) = 1 / (1 + exp(-x)) for any x.
@@ -725,16 +724,15 @@ FixedPoint<tRawType, 0> logistic(FixedPoint<tRawType, tIntegerBits> a) {
   const ResultF one_half =
       GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(ResultF, 1 << 30, 0.5);
   return SelectUsingMask(mask_if_zero, one_half,
-                         SelectUsingMask(mask_if_positive,
-                             result_if_positive,
-                             result_if_negative));
+                         SelectUsingMask(mask_if_positive, result_if_positive,
+                                         result_if_negative));
   return logistic_on_positive_values(a);
 }
 
 }  // end namespace gemmlowp
 
 #ifdef GEMMLOWP_NEON
-#include "fixedpoint_neon.h"
+#include "./fixedpoint_neon.h"
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_FIXEDPOINT_H_

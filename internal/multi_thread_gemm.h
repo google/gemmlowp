@@ -453,9 +453,8 @@ struct GemmWithPackedRhsTask : Task {
 
         Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
 
-        auto curr_result_block = MatrixBlockBounds(result_block.start_row + r,
-                                                   result_block.start_col + c,
-                                                   rs, cs);
+        auto curr_result_block = MatrixBlockBounds(
+            result_block.start_row + r, result_block.start_col + c, rs, cs);
         UnpackResult<BitDepthParams>(&result, curr_result_block, packed_result,
                                      depth, packed_lhs.sums_of_each_slice(),
                                      packed_rhs.sums_of_each_slice(),
@@ -629,8 +628,8 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
   BlockParams block_params;
   block_params.Init<KernelFormat>(rows, cols, depth, workers_count);
 
-  PackedSideBlock<typename KernelFormat::Rhs> packed_rhs(
-      Side::Rhs, allocator, block_params);
+  PackedSideBlock<typename KernelFormat::Rhs> packed_rhs(Side::Rhs, allocator,
+                                                         block_params);
   allocator->Commit();
 
   // We loop over large blocks of the RHS.
@@ -650,10 +649,9 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
 
       int block_rows = next_start_row - start_row;
       auto lhs_block = lhs.block(start_row, 0, block_rows, depth);
-      typedef GemmWithPackedRhsTask<KernelFormat, InputScalar, OutputScalar,
-                                    BitDepthParams, LhsOrder, RhsOrder,
-                                    ResultOrder, LhsOffset, RhsOffset,
-                                    OutputPipelineType>
+      typedef GemmWithPackedRhsTask<
+          KernelFormat, InputScalar, OutputScalar, BitDepthParams, LhsOrder,
+          RhsOrder, ResultOrder, LhsOffset, RhsOffset, OutputPipelineType>
           TaskType;
       auto task = new TaskType(kernel, lhs_block, packed_rhs, result,
                                MatrixBlockBounds(start_row, c, block_rows, cs),

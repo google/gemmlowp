@@ -94,8 +94,10 @@ struct MatrixBlockBounds {
   int cols;
 
   MatrixBlockBounds(int start_row_, int start_col_, int rows_, int cols_)
-      : start_row(start_row_), start_col(start_col_), rows(rows_), cols(cols_) {
-  }
+      : start_row(start_row_),
+        start_col(start_col_),
+        rows(rows_),
+        cols(cols_) {}
 };
 
 template <typename BitDepthParams, typename ResultBlockType,
@@ -168,10 +170,13 @@ void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
                   const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                   const OutputPipelineType& output_pipeline) {
   ScopedProfilingLabel label("unpack");
-  UnpackResultImpl<BitDepthParams, ResultBlockType, PackedResultType,
-                   LhsOffset, RhsOffset, OutputPipelineType>::Unpack(
-      dst, dst_block, src, depth, lhs_sums_of_each_slice,
-      rhs_sums_of_each_slice, lhs_offset, rhs_offset, output_pipeline);
+  UnpackResultImpl<BitDepthParams, ResultBlockType, PackedResultType, LhsOffset,
+                   RhsOffset,
+                   OutputPipelineType>::Unpack(dst, dst_block, src, depth,
+                                               lhs_sums_of_each_slice,
+                                               rhs_sums_of_each_slice,
+                                               lhs_offset, rhs_offset,
+                                               output_pipeline);
 }
 
 }  // namespace gemmlowp

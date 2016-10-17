@@ -68,10 +68,9 @@ int32x4_t get_int32x4_t_and_inc(
 template <typename BitDepthParams, typename PackedResultType,
           typename OutputScalar, typename LhsOffset, typename RhsOffset,
           typename OutputPipelineType>
-struct UnpackResultImpl<BitDepthParams,
-                        MatrixMap<OutputScalar, MapOrder::ColMajor>,
-                        PackedResultType, LhsOffset, RhsOffset,
-                        OutputPipelineType> {
+struct UnpackResultImpl<
+    BitDepthParams, MatrixMap<OutputScalar, MapOrder::ColMajor>,
+    PackedResultType, LhsOffset, RhsOffset, OutputPipelineType> {
   typedef MatrixMap<OutputScalar, MapOrder::ColMajor> ResultBlockType;
   static void Unpack(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
                      const PackedResultType& src, int depth,
@@ -178,8 +177,8 @@ struct UnpackResultImpl<BitDepthParams,
             RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
         const int32x4_t term_11 =
             vmulq_n_s32(lhs_offsets, rhs_offset_c * depth);
-        int32x4_t q = vaddq_s32(vaddq_s32(term_xx, term_x1),
-                                vaddq_s32(term_1x, term_11));
+        int32x4_t q =
+            vaddq_s32(vaddq_s32(term_xx, term_x1), vaddq_s32(term_1x, term_11));
         NEONFragmentInt32x4x1 f(q);
         output_pipeline_executor_int32x4x1.Execute(f, dst, r_dst, c_dst);
       }

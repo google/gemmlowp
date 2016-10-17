@@ -149,7 +149,8 @@ class Scratch {
       return;
     }
     buffer_.reset(new std::uint8_t[required_size + 32]);
-    buffer_32_ = buffer_.get() +
+    buffer_32_ =
+        buffer_.get() +
         ((32 - (reinterpret_cast<uintptr_t>(buffer_.get()) % 32)) % 32);
     assert((reinterpret_cast<uintptr_t>(buffer_32_) % 32) == 0);
     size_ = required_size;
@@ -256,16 +257,16 @@ void MetaGemmQuantized8Bit(GemmContext* context, const std::uint8_t* lhs,
   const std::int32_t max_num_threads = context->max_num_threads();
   if (IsRowMajorOrVector(result_transpose, result_stride, m, n)) {
     scratch->AssureSize(meta::gemm_q8_scratch(m, n, k, max_num_threads));
-    meta::multi_thread_gemm_q8(
-        context->workers_pool(), max_num_threads, scratch->buffer(),
-        lhs, rhs, m, n, k, lhs_offset, rhs_offset, sum_offset,
-        multiplicative_offset, shift, result);
+    meta::multi_thread_gemm_q8(context->workers_pool(), max_num_threads,
+                               scratch->buffer(), lhs, rhs, m, n, k, lhs_offset,
+                               rhs_offset, sum_offset, multiplicative_offset,
+                               shift, result);
   } else {
     scratch->AssureSize(meta::gemm_q8_scratch(n, m, k, max_num_threads));
-    meta::multi_thread_gemm_q8(
-        context->workers_pool(), max_num_threads, scratch->buffer(),
-        rhs, lhs, n, m, k, rhs_offset, lhs_offset, sum_offset,
-        multiplicative_offset, shift, result);
+    meta::multi_thread_gemm_q8(context->workers_pool(), max_num_threads,
+                               scratch->buffer(), rhs, lhs, n, m, k, rhs_offset,
+                               lhs_offset, sum_offset, multiplicative_offset,
+                               shift, result);
   }
 }
 
@@ -280,14 +281,14 @@ void MetaGemmFloat(GemmContext* context, const std::uint8_t* lhs,
   const std::int32_t max_num_threads = context->max_num_threads();
   if (IsRowMajorOrVector(result_transpose, result_stride, m, n)) {
     scratch->AssureSize(meta::gemm_f_scratch(m, n, k, max_num_threads));
-    meta::multi_thread_gemm_f(
-        context->workers_pool(), max_num_threads, scratch->buffer(),
-        lhs, rhs, m, n, k, lhs_offset, rhs_offset, result_offset, result);
+    meta::multi_thread_gemm_f(context->workers_pool(), max_num_threads,
+                              scratch->buffer(), lhs, rhs, m, n, k, lhs_offset,
+                              rhs_offset, result_offset, result);
   } else {
     scratch->AssureSize(meta::gemm_f_scratch(n, m, k, max_num_threads));
-    meta::multi_thread_gemm_f(
-        context->workers_pool(), max_num_threads, scratch->buffer(),
-        rhs, lhs, n, m, k, rhs_offset, lhs_offset, result_offset, result);
+    meta::multi_thread_gemm_f(context->workers_pool(), max_num_threads,
+                              scratch->buffer(), rhs, lhs, n, m, k, rhs_offset,
+                              lhs_offset, result_offset, result);
   }
 }
 

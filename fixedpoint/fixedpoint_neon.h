@@ -18,8 +18,6 @@
 #ifndef GEMMLOWP_INTERNAL_FIXEDPOINT_NEON_H_
 #define GEMMLOWP_INTERNAL_FIXEDPOINT_NEON_H_
 
-#include "fixedpoint.h"
-
 #include <arm_neon.h>
 
 namespace gemmlowp {

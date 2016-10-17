@@ -310,7 +310,7 @@ int main() {
   test_logistic<3>(testvals_int32);
   test_logistic<4>(testvals_int32);
   test_logistic<5>(testvals_int32);
-  test_logistic<6>(testvals_int32);  
+  test_logistic<6>(testvals_int32);
 
 #ifdef GEMMLOWP_NEON
   test_int32x4(testvals_int32);
