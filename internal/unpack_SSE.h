@@ -110,7 +110,7 @@ struct UnpackResultImpl<BitDepthParams,
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     __m128i depth_xmm = _mm_set1_epi32((int32_t)depth);
 #ifdef ACTIVATE_SSE_OUTPUT
-    OutputPipelineExecutor<OutputPipelineType, SSEFragmentInt32x4x1>
+    OutputPipelineExecutor<OutputPipelineType, SSE4FragmentInt32x4x1>
             int32x4x1_output_pipeline_executor(output_pipeline);
 #endif
     OutputPipelineExecutor<OutputPipelineType, FragmentInt32x1x1>
@@ -157,7 +157,7 @@ struct UnpackResultImpl<BitDepthParams,
             _mm_add_epi32(term_xx_xmm, term_x1_xmm), 
             _mm_add_epi32(term_1x_xmm, term_11_xmm));
 #ifdef ACTIVATE_SSE_OUTPUT
-        SSEFragmentInt32x4x1 f(sum_xmm);
+        SSE4FragmentInt32x4x1 f(sum_xmm);
         int32x4x1_output_pipeline_executor.Execute(f, dst, r_dst, c_dst);
 #else
         std::int32_t* sum_array = reinterpret_cast<int32_t*>(&sum_xmm);
