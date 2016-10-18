@@ -18,7 +18,7 @@
 #ifndef GEMMLOWP_INTERNAL_UNPACK_SSE_H_
 #define GEMMLOWP_INTERNAL_UNPACK_SSE_H_
 
-#define ACTIVATE_SSE_OUTPUT
+//#define ACTIVATE_SSE_OUTPUT
 
 #include "allocator.h"
 #include "block_params.h"
@@ -67,6 +67,9 @@ __m128i get_m128i_and_inc(
 
 template <typename vectype>
 __m128i mul32i_xdup_y(vectype x, vectype y) {
+#if 1
+  return _mm_mullo_epi32(x,y);
+#else
   __m128i y1 = _mm_shuffle_epi32(y, 0x50);
   vectype res1 = _mm_mul_epi32(x, y1);
   __m128i y2 = _mm_shuffle_epi32(y, 0xfa);
@@ -74,6 +77,7 @@ __m128i mul32i_xdup_y(vectype x, vectype y) {
   vectype res  = _mm_castps_si128(_mm_shuffle_ps(
         _mm_castsi128_ps(res1), _mm_castsi128_ps(res2), 0x88));
   return res;
+#endif
 }
 
 
