@@ -22,14 +22,14 @@
 
 #include "allocator.h"
 #include "block_params.h"
-#include "output_sse.h"
 #ifdef ACTIVATE_SSE_OUTPUT
-#include "pack_SSE.h"
+#include "output_sse.h"
 #else
-#include "pack.h"
+#include "output.h"
 #endif
+#include "pack_SSE.h"
 
-#include <iostream>
+//#include <iostream>
 
 #include <cmath>
 
@@ -92,7 +92,7 @@ struct UnpackResultImpl<BitDepthParams,
                      const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                      const OutputPipelineType& output_pipeline) {
     ScopedProfilingLabel label("optimized path (SSE)");
-    std::cout << "SSE unpack code is activated" << std::endl;
+    //std::cout << "SSE unpack code is activated" << std::endl;
     assert(dst_block.start_row >= 0);
     assert(dst_block.start_row + dst_block.rows <= dst->rows());
     assert(dst_block.start_col >= 0);
@@ -141,14 +141,13 @@ struct UnpackResultImpl<BitDepthParams,
         __m128i lhs_offset_xmm = get_m128i_and_inc(&lhs_offset_iter);
         //__m128i term_1x_xmm = _mm_mul_epi32(rhs_sums_xmm, lhs_offset_xmm);
         __m128i term_1x_xmm = mul32i_xdup_y(rhs_sums_xmm, lhs_offset_xmm);
-        SSERoundingMultiplyByConstantFraction<255, kLhsMax> (&term_1x_xmm);
+        SSERoundingMultiplyByConstantFraction<255, kRhsMax> (&term_1x_xmm);
         // 11 term: lhs_offset(r_dst:r_dst+4) * rhs_offset(c_dst) * depth
         //__m128i term_11_xmm = _mm_mul_epi32(depth_xmm,
         //_mm_mul_epi32(lhs_offset_xmm, rhs_offset_xmm));
         __m128i term_11_xmm_ = mul32i_xdup_y(rhs_offset_xmm, lhs_offset_xmm);
         __m128i term_11_xmm  = mul32i_xdup_y(depth_xmm, term_11_xmm_);
 
-        SSERoundingMultiplyByConstantFraction<255, kLhsMax> (&term_11_xmm);
         // sum xx, x1, 1x, 11
         __m128i sum_xmm = _mm_add_epi32(
             _mm_add_epi32(term_xx_xmm, term_x1_xmm), 
