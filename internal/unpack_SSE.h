@@ -42,10 +42,12 @@ void SSERoundingMultiplyByConstantFraction(__m128i* x) {
   if (numerator == denominator) {
     return; 
   }
-  std::int32_t *x_array = reinterpret_cast<int32_t*>(x);
+  std::int32_t x_array[4];
+  _mm_storeu_si128((__m128i*) &x_array[0], *x);
   for (int i=0; i<4; ++i) {
     x_array[i] = RoundingMultiplyByConstantFraction<numerator, denominator>(x_array[i]);
   }
+  *x = _mm_lddqu_si128((__m128i*) &x_array[0]);
 }
 
 template <typename tScalar, VectorShape tShape>
@@ -160,7 +162,8 @@ struct UnpackResultImpl<BitDepthParams,
         SSE4FragmentInt32x4x1 f(sum_xmm);
         int32x4x1_output_pipeline_executor.Execute(f, dst, r_dst, c_dst);
 #else
-        std::int32_t* sum_array = reinterpret_cast<int32_t*>(&sum_xmm);
+        std::int32_t sum_array[4];
+        _mm_storeu_si128((__m128i*) &sum_array[0], sum_xmm);
         for(int isse = 0; isse < 4; ++isse) {
           FragmentInt32x1x1 sum = sum_array[isse];
           output_pipeline_executor.Execute(sum, dst, r_dst + isse, c_dst);
