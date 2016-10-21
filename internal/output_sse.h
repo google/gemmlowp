@@ -185,7 +185,7 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
   const OutputStage& output_stage;
 };
 
-    
+
 // Implementation of OutputStageSaturatingCastToUint8 for SSE4FragmentInt32x4x1
 template <>
 struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
@@ -200,7 +200,7 @@ struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
     const __m128i zero = _mm_set1_epi32(0);
     __m128i res_16 = _mm_packs_epi32(input, zero);
     __m128i res_8  = _mm_packus_epi16(res_16, zero);
-    return  _mm_cvtsi128_si32(res_8);
+    return _mm_cvtsi128_si32(res_8);
   }
 };
 
