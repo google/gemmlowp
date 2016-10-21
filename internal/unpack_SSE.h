@@ -29,8 +29,6 @@
 #endif
 #include "pack_SSE.h"
 
-//#include <iostream>
-
 #include <cmath>
 
 namespace gemmlowp {
@@ -67,22 +65,6 @@ __m128i get_m128i_and_inc(
   return result;
 }
 
-template <typename vectype>
-__m128i mul32i_xdup_y(vectype x, vectype y) {
-#if 1
-  return _mm_mullo_epi32(x,y);
-#else
-  __m128i y1 = _mm_shuffle_epi32(y, 0x50);
-  vectype res1 = _mm_mul_epi32(x, y1);
-  __m128i y2 = _mm_shuffle_epi32(y, 0xfa);
-  vectype res2 = _mm_mul_epi32(x, y2);
-  vectype res  = _mm_castps_si128(_mm_shuffle_ps(
-        _mm_castsi128_ps(res1), _mm_castsi128_ps(res2), 0x88));
-  return res;
-#endif
-}
-
-
 template <typename BitDepthParams, typename PackedResultType, 
           typename OutputScalar, typename LhsOffset, typename RhsOffset,
           typename OutputPipelineType>
@@ -98,7 +80,6 @@ struct UnpackResultImpl<BitDepthParams,
                      const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                      const OutputPipelineType& output_pipeline) {
     ScopedProfilingLabel label("optimized path (SSE)");
-    //std::cout << "SSE unpack code is activated" << std::endl;
     assert(dst_block.start_row >= 0);
     assert(dst_block.start_row + dst_block.rows <= dst->rows());
     assert(dst_block.start_col >= 0);
@@ -111,13 +92,14 @@ struct UnpackResultImpl<BitDepthParams,
     const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     __m128i depth_xmm = _mm_set1_epi32((int32_t)depth);
+
 #ifdef ACTIVATE_SSE_OUTPUT
     OutputPipelineExecutor<OutputPipelineType, SSE4FragmentInt32x4x1>
             int32x4x1_output_pipeline_executor(output_pipeline);
 #endif
     OutputPipelineExecutor<OutputPipelineType, FragmentInt32x1x1>
         output_pipeline_executor(output_pipeline);
-#if 1
+
     for (int c = 0; c < dst_block.cols; c++) {
       int c_dst = c + dst_block.start_col;
       const std::int32_t* src_ptr = src_map.data(0, c);
@@ -140,19 +122,15 @@ struct UnpackResultImpl<BitDepthParams,
         SSERoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax> (&term_xx_xmm);
         // x1 term: lhs_sums_of_each_slice[r:r+4] * rhs_offset(c_dst)
         __m128i term_x1_xmm = _mm_loadu_si128(reinterpret_cast<const __m128i*>(lhs_sums_of_each_slice_ptr));
-        // term_x1_xmm = _mm_mul_epi32(term_x1_xmm, rhs_offset_xmm);
-        term_x1_xmm = mul32i_xdup_y(rhs_offset_xmm, term_x1_xmm);
+        term_x1_xmm = _mm_mullo_epi32(rhs_offset_xmm, term_x1_xmm);
         SSERoundingMultiplyByConstantFraction<255, kLhsMax> (&term_x1_xmm);
-        // 1x term: rhs_sums_of_each_slice[c] * lhs_offset(r_dst:r_dst+4)
+        // 1x term: rhs_sums_of_each_slice[c] * lhs_offset(r_dst:r_dst+3)
         __m128i lhs_offset_xmm = get_m128i_and_inc(&lhs_offset_iter);
-        //__m128i term_1x_xmm = _mm_mul_epi32(rhs_sums_xmm, lhs_offset_xmm);
-        __m128i term_1x_xmm = mul32i_xdup_y(rhs_sums_xmm, lhs_offset_xmm);
+        __m128i term_1x_xmm = _mm_mullo_epi32(rhs_sums_xmm, lhs_offset_xmm);
         SSERoundingMultiplyByConstantFraction<255, kRhsMax> (&term_1x_xmm);
-        // 11 term: lhs_offset(r_dst:r_dst+4) * rhs_offset(c_dst) * depth
-        //__m128i term_11_xmm = _mm_mul_epi32(depth_xmm,
-        //_mm_mul_epi32(lhs_offset_xmm, rhs_offset_xmm));
-        __m128i term_11_xmm_ = mul32i_xdup_y(rhs_offset_xmm, lhs_offset_xmm);
-        __m128i term_11_xmm  = mul32i_xdup_y(depth_xmm, term_11_xmm_);
+        // 11 term: lhs_offset(r_dst:r_dst+3) * rhs_offset(c_dst) * depth
+        __m128i term_11_xmm_ = _mm_mullo_epi32(rhs_offset_xmm, lhs_offset_xmm);
+        __m128i term_11_xmm  = _mm_mullo_epi32(depth_xmm, term_11_xmm_);
 
         // sum xx, x1, 1x, 11
         __m128i sum_xmm = _mm_add_epi32(
@@ -195,35 +173,6 @@ struct UnpackResultImpl<BitDepthParams,
         output_pipeline_executor.Execute(sum, dst, r_dst, c_dst);
       }
     }
-#else
-    for (int c = 0; c < dst_block.cols; c++) {
-      int c_dst = c + dst_block.start_col;
-      for (int r = 0; r < dst_block.rows; r++) {
-        int r_dst = r + dst_block.start_row;
-        // To understand this code, read
-        //   doc/low-precision.txt
-        //   doc/less-than-8-bit.txt
-        // We have 4 terms to sum: xx, x1, 1x, 11.
-        // In case of requantization, we first need to scale them back
-        // to the original scale, using RoundingMultiplyByConstantFraction.
-        std::int32_t raw_xx = src_map(r, c);
-        std::int32_t raw_x1 = lhs_sums_of_each_slice[r] * rhs_offset(c_dst);
-        std::int32_t raw_1x = rhs_sums_of_each_slice[c] * lhs_offset(r_dst);
-        std::int32_t term_xx =
-            RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
-                raw_xx);
-        std::int32_t term_x1 =
-            RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
-        std::int32_t term_1x =
-            RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
-        std::int32_t term_11 = lhs_offset(r_dst) * rhs_offset(c_dst) * depth;
-        // Sum the 4 terms.
-        FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x + term_11;
-
-        output_pipeline_executor.Execute(sum, dst, r_dst, c_dst);
-      }
-    }
-#endif
   }
 };
 }  // namespace gemmlowp
