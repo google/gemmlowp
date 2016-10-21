@@ -17,9 +17,6 @@
 #ifndef GEMMLOWP_INTERNAL_OUTPUT_SSE4_H_
 #define GEMMLOWP_INTERNAL_OUTPUT_SSE4_H_
 
-#include <iostream>
-#include <string>
-
 #include <smmintrin.h>
 #include "output.h"
 #include "fixedpoint.h"
