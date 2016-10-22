@@ -117,11 +117,11 @@ struct UnpackResultImpl<BitDepthParams,
            r += 4, src_ptr += 4, lhs_sums_of_each_slice_ptr += 4) {
         int r_dst = r + dst_block.start_row;
 
-        // xx term: src_map(r:r+3,c)
-        __m128i term_xx_xmm = _mm_loadu_si128((const __m128i*) src_ptr);
+        // xx term: src_map(r:r+4,c)
+        __m128i term_xx_xmm = _mm_loadu_si128(reinterpret_cast<const __m128i*>(src_ptr));
         SSERoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax> (&term_xx_xmm);
-        // x1 term: lhs_sums_of_each_slice[r:r+3] * rhs_offset(c_dst)
-        __m128i term_x1_xmm = _mm_loadu_si128((const __m128i*) lhs_sums_of_each_slice_ptr);
+        // x1 term: lhs_sums_of_each_slice[r:r+4] * rhs_offset(c_dst)
+        __m128i term_x1_xmm = _mm_loadu_si128(reinterpret_cast<const __m128i*>(lhs_sums_of_each_slice_ptr));
         term_x1_xmm = _mm_mullo_epi32(rhs_offset_xmm, term_x1_xmm);
         SSERoundingMultiplyByConstantFraction<255, kLhsMax> (&term_x1_xmm);
         // 1x term: rhs_sums_of_each_slice[c] * lhs_offset(r_dst:r_dst+3)

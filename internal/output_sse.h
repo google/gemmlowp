@@ -81,10 +81,11 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
     const __m128i result_offset = _mm_set1_epi32(output_stage.result_offset);
     const std::int32_t kRoundingTerm =
         (result_shift < 1) ? 0 : (1 << (result_shift - 1));
-    const __m128i a = Add(
-			  Mul(_mm_add_epi32(input, result_offset),
-			      result_mult_int),
-			  _mm_set1_epi32(kRoundingTerm));
+    const __m128i a = _mm_add_epi32(
+		        _mm_mullo_epi32(
+			  _mm_add_epi32(input, result_offset),
+			  result_mult_int),
+			_mm_set1_epi32(kRoundingTerm));
     return ShiftRight(a, result_shift);
   }
 
@@ -181,7 +182,7 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
   const OutputStage& output_stage;
 };
 
- 
+
 // Implementation of OutputStageSaturatingCastToUint8 for SSE4FragmentInt32x4x1
 template <>
 struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
@@ -194,7 +195,7 @@ struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
 
   OutputType Eval(InputType input, int, int) const {
     const __m128i zero = _mm_set1_epi32(0);
-    __m128i res_16 = _mm_packus_epi32(input, zero);
+    __m128i res_16 = _mm_packs_epi32(input, zero);
     __m128i res_8  = _mm_packus_epi16(res_16, zero);
     return _mm_cvtsi128_si32(res_8);
   }
@@ -279,8 +280,7 @@ struct OutputStageEvalImpl<OutputStageTanh, SSE4FragmentInt32x4x1>
 template <typename DstType>
 inline void StoreFinalOutput(SSE4FragmentUint8x4x1 value, DstType* dst, int row,
                              int col) {
-  __m128i input_value = _mm_cvtsi32_si128(value);
-  float* tmp = reinterpret_cast<float *>(dst->data(row,col));
+  uint32_t *tmp = reinterpret_cast<uint32_t *>(dst->data(row,col));
   *tmp = value;
 }
 
