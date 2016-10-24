@@ -21,7 +21,6 @@ filegroup(
     srcs = glob([
         "fixedpoint/*.h",
         "internal/*.h",
-        "meta/*.h",
     ]),
     visibility = ["//visibility:private"],
 )
@@ -29,6 +28,7 @@ filegroup(
 filegroup(
     name = "gemmlowp_public_headers",
     srcs = glob([
+        "meta/*.h",
         "public/*.h",
         "profiling/*.h",
     ]),
