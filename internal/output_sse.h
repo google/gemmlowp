@@ -108,14 +108,14 @@ struct OutputStageEvalImpl<
   OutputType Eval(InputType input, int row, int col) const {
     const std::int32_t result_shift = output_stage.result_shift;
     const __m128i result_mult_int =
-      _mm_lddqu_si128(reinterpret_cast<__m128i*>(output_stage.result_mult_int(row)));
+      _mm_lddqu_si128(reinterpret_cast<const __m128i*>(output_stage.result_mult_int.data(row)));
     const __m128i result_offset =
-      _mm_lddqu_si128(reinterpret_cast<__m128i*>(output_stage.result_offset(row)));
+      _mm_lddqu_si128(reinterpret_cast<const __m128i*>(output_stage.result_offset.data(row)));
     const std::int32_t kRoundingTerm =
         (result_shift < 1) ? 0 : (1 << (result_shift - 1));
-    const __m128i a = Add(
-			  Mul(_mm_add_epi32(input, result_offset),
-			      result_mult_int),
+    const __m128i a = _mm_add_epi32(
+			  _mm_mullo_epi32(_mm_add_epi32(input, result_offset),
+					  result_mult_int),
 			  _mm_set1_epi32(kRoundingTerm));
     return ShiftRight(a, result_shift);
   }
@@ -139,14 +139,14 @@ struct OutputStageEvalImpl<
   OutputType Eval(InputType input, int row, int col) const {
     const std::int32_t result_shift = output_stage.result_shift;
     const __m128i result_mult_int =
-      _mm_lddqu_si128(reinterpret_cast<__m128i*>(output_stage.result_mult_int(col)));
+      _mm_lddqu_si128(reinterpret_cast<const __m128i*>(output_stage.result_mult_int.data(col)));
     const __m128i result_offset =
-      _mm_lddqu_si128(reinterpret_cast<__m128i*>(output_stage.result_offset(col)));
+      _mm_lddqu_si128(reinterpret_cast<const __m128i*>(output_stage.result_offset.data(row)));
     const std::int32_t kRoundingTerm =
         (result_shift < 1) ? 0 : (1 << (result_shift - 1));
-    const __m128i a = Add(
-			  Mul(_mm_add_epi32(input, result_offset),
-			      result_mult_int),
+    const __m128i a = _mm_add_epi32(
+			  _mm_mullo_epi32(_mm_add_epi32(input, result_offset),
+					  result_mult_int),
 			  _mm_set1_epi32(kRoundingTerm));
     return ShiftRight(a, result_shift);
   }
