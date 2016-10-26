@@ -797,7 +797,7 @@ class NeonEmitter64(object):
                    _AppendType(add_type, source))
 
   def EmitLdr(self, register, value):
-    self.EmitOp2('ldr', register, value)
+    self.EmitOp2('ldr', _Cast(32, register), value)
 
   def EmitVLoad(self, load_no, load_type, destination, source):
     self.EmitVLoadA(load_no, load_type, [destination], source)
