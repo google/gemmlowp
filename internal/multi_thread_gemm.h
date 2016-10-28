@@ -574,7 +574,7 @@ inline int HowManyThreads(int max_num_threads, int rows, int cols, int depth) {
 }
 
 // The main multi-threaded Gemm function.
-// To understand it, first read the code of SingleThreadedGemm().
+// To understand it, first read the code of SingleThreadGemm().
 // The parallelization scheme used here is to have this master function
 // pack a block of RHS and then start worker threads to pack a block of LHS
 // each, and accumulate the corresponding products.
