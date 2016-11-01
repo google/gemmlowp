@@ -260,4 +260,4 @@ inline __m128i Dup<__m128i>(int32_t x) {
 
 }  // end namespace gemmlowp
 
-#endif  // GEMMLOWP_INTERNAL_FIXEDPOINT_NEON_H_
+#endif  // GEMMLOWP_INTERNAL_FIXEDPOINT_SSE_H_

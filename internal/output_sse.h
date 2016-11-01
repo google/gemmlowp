@@ -33,16 +33,6 @@ typedef Fragment<int32x16x1_t, 16, 1, MapOrder::ColMajor> SSE4FragmentInt32x16x1
 typedef Fragment<uint32_t, 4, 1, MapOrder::ColMajor> SSE4FragmentUint8x4x1;
 typedef Fragment<__m128i, 16, 1, MapOrder::ColMajor> SSE4FragmentUint8x16x1;
 
-// The code in unpack_neon.h will whenever possible process
-// 16 entries at once (4 SIMD vectors of 4 entries each at once),
-// to offer the compiler better optimization opportunities, reducing
-// register dependencies. From the perspective of interfacing with the output
-// pipeline, this takes the form of passing Fragment types wrapping int32x4x4_t
-// data. In most cases, such data is handled simply by handling separately its
-// 4 __m128i components. This partial specialization handles that for
-// arbitrary output stages implementing a __m128i path. Only some output
-// stages below will override this to use custom code to handle int32x4x4_t
-// data all at once (see OutputStageSaturatingCastToUint8 below).
 template <typename OutputStageType>
 struct OutputStageEvalImpl<OutputStageType, SSE4FragmentInt32x16x1> {
   typedef SSE4FragmentInt32x16x1 InputType;

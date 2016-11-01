@@ -18,23 +18,17 @@
 #ifndef GEMMLOWP_INTERNAL_UNPACK_SSE_H_
 #define GEMMLOWP_INTERNAL_UNPACK_SSE_H_
 
-//#define ACTIVATE_SSE_OUTPUT
-
 #include "allocator.h"
 #include "block_params.h"
-#ifdef ACTIVATE_SSE_OUTPUT
 #include "output_sse.h"
-#else
-#include "output.h"
-#endif
-#include "pack_SSE.h"
+#include "pack_sse.h"
 
 #include <cmath>
 
 namespace gemmlowp {
 
 // Non-optimized rounding routine since SSE does not have
-// optimized kernels for less than 8bit input values
+// optimized kernels for less than 8bit input values. 
 template <std::uint32_t numerator, std::uint32_t denominator>
 void SSERoundingMultiplyByConstantFraction(__m128i* x) {
   if (numerator == denominator) {
@@ -45,13 +39,13 @@ void SSERoundingMultiplyByConstantFraction(__m128i* x) {
   for (int i=0; i<4; ++i) {
     x_array[i] = RoundingMultiplyByConstantFraction<numerator, denominator>(x_array[i]);
   }
-  *x = _mm_lddqu_si128((__m128i*) &x_array[0]);
+  *x = _mm_lddqu_si128(reinterpret_cast<__m128i*>(&x_array[0]));
 }
 
 template <typename tScalar, VectorShape tShape>
 __m128i get_m128i_and_inc(
     ConstIterator<VectorMap<tScalar, tShape>>* iterator) {
-  const __m128i result = _mm_loadu_si128((const __m128i*) iterator->get());
+  const __m128i result = _mm_loadu_si128(reinterpret_cast<const __m128i*>(iterator->get()));
   *iterator += 4;
   return result;
 }
@@ -93,12 +87,10 @@ struct UnpackResultImpl<BitDepthParams,
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     __m128i depth_xmm = _mm_set1_epi32((int32_t)depth);
 
-#ifdef ACTIVATE_SSE_OUTPUT
     OutputPipelineExecutor<OutputPipelineType, SSE4FragmentInt32x4x1>
-            int32x4x1_output_pipeline_executor(output_pipeline);
-#endif
+      int32x4x1_output_pipeline_executor(output_pipeline);
     OutputPipelineExecutor<OutputPipelineType, FragmentInt32x1x1>
-        output_pipeline_executor(output_pipeline);
+      output_pipeline_executor(output_pipeline);
 
     for (int c = 0; c < dst_block.cols; c++) {
       int c_dst = c + dst_block.start_col;
@@ -136,17 +128,8 @@ struct UnpackResultImpl<BitDepthParams,
         __m128i sum_xmm = _mm_add_epi32(
             _mm_add_epi32(term_xx_xmm, term_x1_xmm), 
             _mm_add_epi32(term_1x_xmm, term_11_xmm));
-#ifdef ACTIVATE_SSE_OUTPUT
         SSE4FragmentInt32x4x1 f(sum_xmm);
         int32x4x1_output_pipeline_executor.Execute(f, dst, r_dst, c_dst);
-#else
-        std::int32_t sum_array[4];
-        _mm_storeu_si128((__m128i*) &sum_array[0], sum_xmm);
-        for(int isse = 0; isse < 4; ++isse) {
-          FragmentInt32x1x1 sum = sum_array[isse];
-          output_pipeline_executor.Execute(sum, dst, r_dst + isse, c_dst);
-        }
-#endif
       }
 
       for (int r = dst_rows_aligned4; r < dst_block.rows; r++) {
