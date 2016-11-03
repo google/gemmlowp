@@ -19,7 +19,6 @@
 
 #include <smmintrin.h>
 #include "output.h"
-#include "fixedpoint.h"
 
 namespace gemmlowp {
 
