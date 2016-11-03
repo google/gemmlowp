@@ -228,6 +228,39 @@ void test_int32x4(const std::vector<int32_t>& testvals_int32) {
 }
 #endif  // GEMMLOWP_NEON
 
+#ifdef GEMMLOWP_SSE4
+#define LOAD_SI128(ptr) \
+  ( ((unsigned long)(ptr) & 15) == 0 ) ? _mm_load_si128((__m128i*)(ptr)) : _mm_loadu_si128((__m128i*)(ptr))
+#define STORE_SI128(ptr, val) \
+  (((unsigned long)(ptr) & 15) == 0 ) ? _mm_store_si128 ((__m128i*)(ptr), val) : _mm_storeu_si128 ((__m128i*)(ptr), val)
+
+
+template <int tIntegerBits>
+void test_tanh_m128i(const std::vector<int32_t>& testvals_int32) {
+  size_t n = testvals_int32.size();
+  size_t n4 = n / 4;
+  uint32_t results_m128i[4];
+
+  for (size_t i = 0; i < n4; i+=4) {
+    typedef FixedPoint<int32_t, tIntegerBits> F_input;
+    typedef FixedPoint<__m128i, tIntegerBits> F4_input;
+    typedef FixedPoint<int32_t, 0> F_output;
+    typedef FixedPoint<__m128i, 0> F4_output;
+	
+    __m128i arguments = LOAD_SI128(&testvals_int32[i]);
+    F4_output results = tanh(F4_input::FromRaw(arguments));
+
+    STORE_SI128(results_m128i, results.raw());
+    for (size_t j=0; j<4; j++) {
+      double expected = std::tanh(ToDouble(F_input::FromRaw(testvals_int32[i + j])));
+      double computed = ToDouble(F_output::FromRaw(results_m128i[j]));
+      double error = std::abs(expected - computed);
+      Check(error < 1.5e-7);
+    }
+  }
+}
+#endif  // GEMMLOWP_SSE4
+
 int main() {
   std::vector<int32_t> testvals_int32;
 
@@ -316,5 +349,15 @@ int main() {
   test_int32x4(testvals_int32);
 #endif  // GEMMLOWP_NEON
 
+#ifdef GEMMLOWP_SSE4
+  test_tanh_m128i<1>(testvals_int32);
+  test_tanh_m128i<2>(testvals_int32);
+  test_tanh_m128i<3>(testvals_int32);
+  test_tanh_m128i<4>(testvals_int32);
+  test_tanh_m128i<5>(testvals_int32);
+  test_tanh_m128i<6>(testvals_int32);
+#endif  // GEMMLOWP_SSE4
+
+  
   std::cerr << "All tests passed." << std::endl;
 }
