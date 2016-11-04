@@ -185,28 +185,16 @@ inline __m128i SaturatingRoundingDoublingHighMul(__m128i a, __m128i b) {
   a0b0_a2b2 =_mm_mul_epi32(a0_a2, b0_b2);
   a1b1_a3b3 =_mm_mul_epi32(a1_a3, b1_b3);
 
-  //do the rounding and take into account that it will be doubled, so add 1<<30 or (1 - (1 << 30)) if negative
+  //do the rounding and take into account that it will be doubled
   nudge = _mm_set1_epi64x(1 << 30);
-  /* positive_nudge = _mm_set1_epi64x(1 << 30); */
-  /* negative_nudge = _mm_set1_epi64x((1 << 30)); */
-  
-  /* nudge_mask1 = _mm_cmpgt_epi64(_mm_set1_epi64x(0), a0b0_a2b2); */
-  /* nudge1 = SelectUsingMask(nudge_mask1, */
-  /* 			   negative_nudge, */
-  /* 			   positive_nudge); */
   a0b0_a2b2_rounded = _mm_add_epi64(a0b0_a2b2, nudge);
-  
-  /* nudge_mask2 = _mm_cmpgt_epi64(_mm_set1_epi64x(0), a1b1_a3b3); */
-  /* nudge2 = SelectUsingMask(nudge_mask2, */
-  /* 			   negative_nudge, */
-  /* 			   positive_nudge); */
   a1b1_a3b3_rounded = _mm_add_epi64(a1b1_a3b3, nudge);
   
   //do the doubling
   a0b0_a2b2_rounded_2x = _mm_slli_epi64(a0b0_a2b2_rounded, 1);
   a1b1_a3b3_rounded_2x = _mm_slli_epi64(a1b1_a3b3_rounded, 1);
   
-  //getting the high part of the products
+  //get the high part of the products
   result = _mm_blend_epi16(_mm_srli_si128(a0b0_a2b2_rounded_2x, 4),
 			   a1b1_a3b3_rounded_2x,
 			   0xcc);
