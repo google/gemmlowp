@@ -71,6 +71,12 @@ tIntegerType Add(tIntegerType a, tIntegerType b) {
 
 // Integer subtraction. Not saturating. Overflow is undefined behavior.
 template <typename tIntegerType>
+tIntegerType Mul(tIntegerType a, tIntegerType b) {
+  return a * b;
+}
+
+ 
+template <typename tIntegerType>
 tIntegerType Sub(tIntegerType a, tIntegerType b) {
   return a - b;
 }
@@ -732,6 +738,8 @@ FixedPoint<tRawType, 0> logistic(FixedPoint<tRawType, tIntegerBits> a) {
 
 #ifdef GEMMLOWP_NEON
 #include "./fixedpoint_neon.h"
+#elif defined(GEMMLOWP_SSE4)
+#include "./fixedpoint_sse.h"
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_FIXEDPOINT_H_
