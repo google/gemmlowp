@@ -269,9 +269,10 @@ struct OutputStageEvalImpl<OutputStageTanh, SSE4FragmentInt32x4x1>
 template <typename DstType>
 inline void StoreFinalOutput(SSE4FragmentUint8x4x1 value, DstType* dst, int row,
                              int col) {
-  uint32_t *tmp = reinterpret_cast<uint32_t *>(dst->data(row,col));
-  *tmp = value;
-}
+  unsigned char *tmp = dst->data(row,col);
+  for (int i=0; i<4; i++)
+    tmp[i] = (value >> (i*8)) & 0xff;
+ }
 
 // Specialization of StoreFinalOutput for SSE4FragmentUint8x16x1.
 template <typename DstType>
