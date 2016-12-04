@@ -114,7 +114,7 @@ class VectorDup {
   VectorDup(const VectorDup& other) : data_(other.data_), size_(other.size_) {}
 
   int size() const { return size_; }
-  Scalar& operator()(int index) const { return data_; }
+  Scalar& operator()(int) const { return data_; }
 };
 
 }  // namespace gemmlowp

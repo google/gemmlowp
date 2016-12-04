@@ -132,7 +132,7 @@ struct OutputStageEvalImpl<
 
   OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
-  OutputType Eval(InputType input, int row, int col) const {
+  OutputType Eval(InputType input, int row, int) const {
     const std::int32_t result_shift = output_stage.result_shift;
     const std::int32_t result_mult_int = output_stage.result_mult_int(row);
     const std::int32_t result_offset = output_stage.result_offset(row);
@@ -156,7 +156,7 @@ struct OutputStageEvalImpl<
 
   OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
-  OutputType Eval(InputType input, int row, int col) const {
+  OutputType Eval(InputType input, int, int col) const {
     const std::int32_t result_shift = output_stage.result_shift;
     const std::int32_t result_mult_int = output_stage.result_mult_int(col);
     const std::int32_t result_offset = output_stage.result_offset(col);
