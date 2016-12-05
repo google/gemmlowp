@@ -32,8 +32,9 @@ struct DefaultKernelImpl : DefaultKernelImpl<Family, ProductBits + 1> {
 
 template <KernelFamily Family, typename BitDepthParams>
 struct DefaultKernel
-    : DefaultKernelImpl<Family, BitDepthParams::LhsBitDepth::kBits +
-                                    BitDepthParams::RhsBitDepth::kBits> {};
+    : DefaultKernelImpl<Family,
+                        BitDepthParams::LhsBitDepth::kBits +
+                            BitDepthParams::RhsBitDepth::kBits> {};
 
 }  // end namespace gemmlowp
 
@@ -62,6 +63,13 @@ GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, SSE4_32_Kernel4x4Depth2)
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, SSE4_64_Kernel12x4Depth2)
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, SSE4_64_Kernel12x4Depth2)
 #else
+#ifndef ALLOW_SLOW_SCALAR_FALLBACK
+#error \
+    "SIMD not enabled, you'd be getting a slow software fallback. Consider \
+enabling SIMD extensions (for example using -msse4.2 if you're on modern x86). \
+If that's not an option, and you would like to continue with the \
+slow fallback, define ALLOW_SLOW_SCALAR_FALLBACK."
+#endif
 #include "kernel_reference.h"
 namespace gemmlowp {
 typedef ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<4, 4>, 2>,
