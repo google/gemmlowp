@@ -61,14 +61,14 @@ We also have a partial set of optimized code paths (only kernels
 at the moment) for Intel SSE. It supports both x86 and x86-64 but
 only targets SSE4. The lack of packing/unpacking code paths means
 that performance isn't optimal yet. If you are building on a PC, it's
-important that you pass in the -msse4.2 compiler flag when building,
+important that you pass in the -msse4.1 compiler flag when building,
 or you'll end up using slow reference code. If you're building with
 Bazel, you can do this by running
-`bazel build gemmlowp:all --copt -msse4.2`.
+`bazel build gemmlowp:all --copt=-msse4.1`.
 If you're building for a machine with no SIMD support in gemmlowp then
 by default you'll see an error. If you want to run with the reference
 implementations anyway, you can override the error by specifying
-ALLOW_SLOW_SCALAR_FALLBACK as a build define.
+GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK as a build define.
 
 Details of what it takes to make an efficient port of gemmlowp, namely
 writing a suitable GEMM kernel and accompanying packing code, are
