@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// unpack_SSE.h: SSE-specialized unpacking the result blocks computed by 
+// unpack_SSE.h: SSE-specialized unpacking the result blocks computed by
 // compute.h, storing them into the destination matrix.
 
 #ifndef GEMMLOWP_INTERNAL_UNPACK_SSE_H_
@@ -28,44 +28,43 @@
 namespace gemmlowp {
 
 // Non-optimized rounding routine since SSE does not have
-// optimized kernels for less than 8bit input values. 
+// optimized kernels for less than 8bit input values.
 template <std::uint32_t numerator, std::uint32_t denominator>
 void SSERoundingMultiplyByConstantFraction(__m128i* x) {
   if (numerator == denominator) {
-    return; 
+    return;
   }
   std::int32_t x_array[4];
-  _mm_storeu_si128((__m128i*) &x_array[0], *x);
-  for (int i=0; i<4; ++i) {
-    x_array[i] = RoundingMultiplyByConstantFraction<numerator, denominator>(x_array[i]);
+  _mm_storeu_si128((__m128i*)&x_array[0], *x);
+  for (int i = 0; i < 4; ++i) {
+    x_array[i] =
+        RoundingMultiplyByConstantFraction<numerator, denominator>(x_array[i]);
   }
   *x = _mm_lddqu_si128(reinterpret_cast<__m128i*>(&x_array[0]));
 }
 
 template <typename tScalar, VectorShape tShape>
-__m128i get_m128i_and_inc(
-    ConstIterator<VectorMap<tScalar, tShape>>* iterator) {
-  const __m128i result = _mm_loadu_si128(reinterpret_cast<const __m128i*>(iterator->get()));
+__m128i get_m128i_and_inc(ConstIterator<VectorMap<tScalar, tShape>>* iterator) {
+  const __m128i result =
+      _mm_loadu_si128(reinterpret_cast<const __m128i*>(iterator->get()));
   *iterator += 4;
   return result;
 }
 
 template <typename tScalar, VectorShape tShape>
-__m128i get_m128i_and_inc(
-    ConstIterator<VectorDup<tScalar, tShape>>* iterator) {
+__m128i get_m128i_and_inc(ConstIterator<VectorDup<tScalar, tShape>>* iterator) {
   const __m128i result = _mm_set1_epi32(**iterator);
   // Increment really does nothing for VectorDup.
   *iterator += 4;
   return result;
 }
 
-template <typename BitDepthParams, typename PackedResultType, 
+template <typename BitDepthParams, typename PackedResultType,
           typename OutputScalar, typename LhsOffset, typename RhsOffset,
           typename OutputPipelineType>
-struct UnpackResultImpl<BitDepthParams,
-                        MatrixMap<OutputScalar, MapOrder::ColMajor>,
-                        PackedResultType, LhsOffset, RhsOffset,
-                        OutputPipelineType> {
+struct UnpackResultImpl<
+    BitDepthParams, MatrixMap<OutputScalar, MapOrder::ColMajor>,
+    PackedResultType, LhsOffset, RhsOffset, OutputPipelineType> {
   typedef MatrixMap<OutputScalar, MapOrder::ColMajor> ResultBlockType;
   static void Unpack(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
                      const PackedResultType& src, int depth,
@@ -88,9 +87,9 @@ struct UnpackResultImpl<BitDepthParams,
     __m128i depth_xmm = _mm_set1_epi32((int32_t)depth);
 
     OutputPipelineExecutor<OutputPipelineType, SSE4FragmentInt32x4x1>
-      int32x4x1_output_pipeline_executor(output_pipeline);
+        int32x4x1_output_pipeline_executor(output_pipeline);
     OutputPipelineExecutor<OutputPipelineType, FragmentInt32x1x1>
-      output_pipeline_executor(output_pipeline);
+        output_pipeline_executor(output_pipeline);
 
     for (int c = 0; c < dst_block.cols; c++) {
       int c_dst = c + dst_block.start_col;
@@ -101,33 +100,36 @@ struct UnpackResultImpl<BitDepthParams,
       const std::int32_t rhs_sums_of_each_slice_c = rhs_sums_of_each_slice[c];
 
       __m128i rhs_offset_xmm = _mm_set1_epi32(rhs_offset_c);
-      __m128i rhs_sums_xmm   = _mm_set1_epi32(rhs_sums_of_each_slice_c);
+      __m128i rhs_sums_xmm = _mm_set1_epi32(rhs_sums_of_each_slice_c);
 
       // Handle 4 values at once for higher performance
       int dst_rows_aligned4 = RoundDown<4>(dst_block.rows);
-      for (int r = 0; r < dst_rows_aligned4; 
+      for (int r = 0; r < dst_rows_aligned4;
            r += 4, src_ptr += 4, lhs_sums_of_each_slice_ptr += 4) {
         int r_dst = r + dst_block.start_row;
 
         // xx term: src_map(r:r+4,c)
-        __m128i term_xx_xmm = _mm_loadu_si128(reinterpret_cast<const __m128i*>(src_ptr));
-        SSERoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax> (&term_xx_xmm);
+        __m128i term_xx_xmm =
+            _mm_loadu_si128(reinterpret_cast<const __m128i*>(src_ptr));
+        SSERoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
+            &term_xx_xmm);
         // x1 term: lhs_sums_of_each_slice[r:r+4] * rhs_offset(c_dst)
-        __m128i term_x1_xmm = _mm_loadu_si128(reinterpret_cast<const __m128i*>(lhs_sums_of_each_slice_ptr));
+        __m128i term_x1_xmm = _mm_loadu_si128(
+            reinterpret_cast<const __m128i*>(lhs_sums_of_each_slice_ptr));
         term_x1_xmm = _mm_mullo_epi32(rhs_offset_xmm, term_x1_xmm);
-        SSERoundingMultiplyByConstantFraction<255, kLhsMax> (&term_x1_xmm);
+        SSERoundingMultiplyByConstantFraction<255, kLhsMax>(&term_x1_xmm);
         // 1x term: rhs_sums_of_each_slice[c] * lhs_offset(r_dst:r_dst+3)
         __m128i lhs_offset_xmm = get_m128i_and_inc(&lhs_offset_iter);
         __m128i term_1x_xmm = _mm_mullo_epi32(rhs_sums_xmm, lhs_offset_xmm);
-        SSERoundingMultiplyByConstantFraction<255, kRhsMax> (&term_1x_xmm);
+        SSERoundingMultiplyByConstantFraction<255, kRhsMax>(&term_1x_xmm);
         // 11 term: lhs_offset(r_dst:r_dst+3) * rhs_offset(c_dst) * depth
         __m128i term_11_xmm_ = _mm_mullo_epi32(rhs_offset_xmm, lhs_offset_xmm);
-        __m128i term_11_xmm  = _mm_mullo_epi32(depth_xmm, term_11_xmm_);
+        __m128i term_11_xmm = _mm_mullo_epi32(depth_xmm, term_11_xmm_);
 
         // sum xx, x1, 1x, 11
-        __m128i sum_xmm = _mm_add_epi32(
-            _mm_add_epi32(term_xx_xmm, term_x1_xmm), 
-            _mm_add_epi32(term_1x_xmm, term_11_xmm));
+        __m128i sum_xmm =
+            _mm_add_epi32(_mm_add_epi32(term_xx_xmm, term_x1_xmm),
+                          _mm_add_epi32(term_1x_xmm, term_11_xmm));
         SSE4FragmentInt32x4x1 f(sum_xmm);
         int32x4x1_output_pipeline_executor.Execute(f, dst, r_dst, c_dst);
       }
@@ -159,6 +161,5 @@ struct UnpackResultImpl<BitDepthParams,
   }
 };
 }  // namespace gemmlowp
-
 
 #endif  // GEMMLOWP_INTERNAL_UNPACK_H_
