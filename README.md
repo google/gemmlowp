@@ -62,7 +62,7 @@ reference implementations anyway, you can override the error by specifying
 
 Details of what it takes to make an efficient port of gemmlowp, namely writing a
 suitable GEMM kernel and accompanying packing code, are explained in this file:
-[doc/kernels.md](doc/kernels.md).
+[doc/kernel.md](doc/kernel.md).
 
 ## Public interfaces
 

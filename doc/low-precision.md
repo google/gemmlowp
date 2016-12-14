@@ -63,12 +63,14 @@ be interpreted during the matrix computation: - lhs_offset - rhs_offset -
 result_offset - result_mult_int - result_shift
 
 In that legacy paradigm, the mathematical expression to be computed is the
-result of the following steps: 1. Cast lhs entries from uint8 to int32 and add
-lhs_offset to each of them. 2. Cast rhs entries from uint8 to int32 and add
-rhs_offset to each of them. 3. Compute the int32 matrix product of the resulting
-lhs times rhs. 4. Add result_offset to each entry of the result. 5. Multiply
-each entry of the result by the following fraction, and round to the nearest
-integer:
+result of the following steps:
+
+1.  Cast lhs entries from uint8 to int32 and add lhs_offset to each of them.
+2.  Cast rhs entries from uint8 to int32 and add rhs_offset to each of them.
+3.  Compute the int32 matrix product of the resulting lhs times rhs.
+4.  Add result_offset to each entry of the result.
+5.  Multiply each entry of the result by the following fraction, and round to
+    the nearest integer:
 
 ```
 result_mult_int

@@ -155,7 +155,7 @@ class MatrixWithStorage {
  public:
   MatrixWithStorage(int rows, int cols)
       : storage(rows * cols), matrix_map(storage.data(), rows, cols) {}
-  void MakeRandomStorage() {
+  void MakeRandom() {
     static std::mt19937 random_engine;
     std::uniform_real_distribution<float> distribution(-1, 1);
     for (auto& x : storage) {
@@ -252,9 +252,9 @@ int main() {
             << "and compute their product.\n"
             << std::endl;
   MatrixWithStorage<float, kOrder> float_lhs(rows, depth);
-  float_lhs.MakeRandomStorage();
+  float_lhs.MakeRandom();
   MatrixWithStorage<float, kOrder> float_rhs(depth, cols);
-  float_rhs.MakeRandomStorage();
+  float_rhs.MakeRandom();
   MatrixWithStorage<float, kOrder> reference_float_result(rows, cols);
   auto reference_float_result_map = reference_float_result.Map();
   FloatMatrixMultiplication(float_lhs.ConstMap(), float_rhs.ConstMap(),
