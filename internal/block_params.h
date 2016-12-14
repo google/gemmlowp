@@ -83,8 +83,9 @@ struct BlockParams {
       l2_rows = RoundUp<KernelFormat::kRows>(rows);
     } else {
       int max_cache_friendly_l2_rows =
-          std::max(1, (l2_bytes_to_use - l2_depth * l2_cols) /
-                          (num_threads * (l2_depth + 4 * l2_cols)));
+          std::max(1,
+                   (l2_bytes_to_use - l2_depth * l2_cols) /
+                       (num_threads * (l2_depth + 4 * l2_cols)));
       int min_l2_rows_blocks =
           std::max(1, CeilQuotient(rows, max_cache_friendly_l2_rows));
       l2_rows =
@@ -116,8 +117,9 @@ struct BlockParams {
 
     {
       int max_cache_friendly_l1_depth = std::max(
-          1, (l1_bytes_to_use - 4 * KernelFormat::kRows * KernelFormat::kCols) /
-                 (KernelFormat::kRows + KernelFormat::kCols));
+          1,
+          (l1_bytes_to_use - 4 * KernelFormat::kRows * KernelFormat::kCols) /
+              (KernelFormat::kRows + KernelFormat::kCols));
       int min_l1_depth_blocks =
           std::max(1, CeilQuotient(depth, max_cache_friendly_l1_depth));
       l1_depth =

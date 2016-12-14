@@ -41,6 +41,9 @@ class MatrixMap {
 
  public:
   MatrixMap() : data_(nullptr), rows_(0), cols_(0), stride_(0) {}
+  MatrixMap(Scalar* data, int rows, int cols)
+      : data_(data), rows_(rows), cols_(cols),
+      stride_(kOrder == MapOrder::ColMajor ? rows : cols) {}
   MatrixMap(Scalar* data, int rows, int cols, int stride)
       : data_(data), rows_(rows), cols_(cols), stride_(stride) {}
   MatrixMap(const MatrixMap& other)

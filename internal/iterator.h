@@ -67,7 +67,7 @@ class ConstIterator<VectorDup<tScalar, tShape>> {
       : data_(vector_dup(0)) {}
   const Scalar operator*() const { return data_; }
   const Scalar* get() const { return &data_; }
-  ConstIterator& operator+=(int inc) { return *this; }
+  ConstIterator& operator+=(int /*inc*/) { return *this; }
 
  private:
   Scalar data_;
@@ -75,7 +75,7 @@ class ConstIterator<VectorDup<tScalar, tShape>> {
 
 template <typename tScalar, VectorShape tShape>
 ConstIterator<VectorDup<tScalar, tShape>> const_iterator(
-    const VectorDup<tScalar, tShape>& vector_map, const int start_offset) {
+    const VectorDup<tScalar, tShape>& vector_map, const int /*start_offset*/) {
   return ConstIterator<VectorDup<tScalar, tShape>>(vector_map);
 }
 

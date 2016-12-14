@@ -22,13 +22,12 @@
 
 namespace gemmlowp {
 
-  typedef struct _int32x16x1_t {
-    __m128i val[4];
-  } int32x16x1_t;
-  
+typedef struct _int32x16x1_t { __m128i val[4]; } int32x16x1_t;
+
 // Definitions of Fragment types wrapping SSE4.2 vector types.
 typedef Fragment<__m128i, 4, 1, MapOrder::ColMajor> SSE4FragmentInt32x4x1;
-typedef Fragment<int32x16x1_t, 16, 1, MapOrder::ColMajor> SSE4FragmentInt32x16x1;
+typedef Fragment<int32x16x1_t, 16, 1, MapOrder::ColMajor>
+    SSE4FragmentInt32x16x1;
 typedef Fragment<uint32_t, 4, 1, MapOrder::ColMajor> SSE4FragmentUint8x4x1;
 typedef Fragment<__m128i, 16, 1, MapOrder::ColMajor> SSE4FragmentUint8x16x1;
 
@@ -66,15 +65,14 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
 
   OutputType Eval(InputType input, int, int) const {
     const std::int32_t result_shift = output_stage.result_shift;
-    const __m128i result_mult_int = _mm_set1_epi32(output_stage.result_mult_int);
+    const __m128i result_mult_int =
+        _mm_set1_epi32(output_stage.result_mult_int);
     const __m128i result_offset = _mm_set1_epi32(output_stage.result_offset);
     const std::int32_t kRoundingTerm =
         (result_shift < 1) ? 0 : (1 << (result_shift - 1));
     const __m128i a = _mm_add_epi32(
-		        _mm_mullo_epi32(
-			  _mm_add_epi32(input, result_offset),
-			  result_mult_int),
-			_mm_set1_epi32(kRoundingTerm));
+        _mm_mullo_epi32(_mm_add_epi32(input, result_offset), result_mult_int),
+        _mm_set1_epi32(kRoundingTerm));
     return ShiftRight(a, result_shift);
   }
 
@@ -94,18 +92,18 @@ struct OutputStageEvalImpl<
 
   OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
-  OutputType Eval(InputType input, int row, int col) const {
+  OutputType Eval(InputType input, int row, int /*col*/) const {
     const std::int32_t result_shift = output_stage.result_shift;
     const __m128i result_mult_int =
-      _mm_lddqu_si128(reinterpret_cast<const __m128i*>(output_stage.result_mult_int.data(row)));
-    const __m128i result_offset =
-      _mm_lddqu_si128(reinterpret_cast<const __m128i*>(output_stage.result_offset.data(row)));
+        _mm_lddqu_si128(reinterpret_cast<const __m128i*>(
+            output_stage.result_mult_int.data(row)));
+    const __m128i result_offset = _mm_lddqu_si128(
+        reinterpret_cast<const __m128i*>(output_stage.result_offset.data(row)));
     const std::int32_t kRoundingTerm =
         (result_shift < 1) ? 0 : (1 << (result_shift - 1));
     const __m128i a = _mm_add_epi32(
-			  _mm_mullo_epi32(_mm_add_epi32(input, result_offset),
-					  result_mult_int),
-			  _mm_set1_epi32(kRoundingTerm));
+        _mm_mullo_epi32(_mm_add_epi32(input, result_offset), result_mult_int),
+        _mm_set1_epi32(kRoundingTerm));
     return ShiftRight(a, result_shift);
   }
 
@@ -128,15 +126,15 @@ struct OutputStageEvalImpl<
   OutputType Eval(InputType input, int row, int col) const {
     const std::int32_t result_shift = output_stage.result_shift;
     const __m128i result_mult_int =
-      _mm_lddqu_si128(reinterpret_cast<const __m128i*>(output_stage.result_mult_int.data(col)));
-    const __m128i result_offset =
-      _mm_lddqu_si128(reinterpret_cast<const __m128i*>(output_stage.result_offset.data(row)));
+        _mm_lddqu_si128(reinterpret_cast<const __m128i*>(
+            output_stage.result_mult_int.data(col)));
+    const __m128i result_offset = _mm_lddqu_si128(
+        reinterpret_cast<const __m128i*>(output_stage.result_offset.data(row)));
     const std::int32_t kRoundingTerm =
         (result_shift < 1) ? 0 : (1 << (result_shift - 1));
     const __m128i a = _mm_add_epi32(
-			  _mm_mullo_epi32(_mm_add_epi32(input, result_offset),
-					  result_mult_int),
-			  _mm_set1_epi32(kRoundingTerm));
+        _mm_mullo_epi32(_mm_add_epi32(input, result_offset), result_mult_int),
+        _mm_set1_epi32(kRoundingTerm));
     return ShiftRight(a, result_shift);
   }
 
@@ -155,22 +153,20 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
   OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
   OutputType Eval(InputType input, int, int) const {
-    const __m128i mulhigh_val =
-      SaturatingRoundingDoublingHighMul(input.data,
-					_mm_set1_epi32(output_stage.result_fixedpoint_multiplier));
+    const __m128i mulhigh_val = SaturatingRoundingDoublingHighMul(
+        input.data, _mm_set1_epi32(output_stage.result_fixedpoint_multiplier));
     const std::int32_t result_shift = output_stage.result_shift;
     const std::int32_t kRoundingTerm =
-      (result_shift < 1) ? 0 : (1 << (result_shift - 1));
-    
-    const __m128i shifted_val = ShiftRight(Add(mulhigh_val,
-					      _mm_set1_epi32(kRoundingTerm)),
-					  result_shift);
-    return Add(shifted_val, _mm_set1_epi32(output_stage.result_offset_after_shift));
+        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
+
+    const __m128i shifted_val = ShiftRight(
+        Add(mulhigh_val, _mm_set1_epi32(kRoundingTerm)), result_shift);
+    return Add(shifted_val,
+               _mm_set1_epi32(output_stage.result_offset_after_shift));
   }
 
   const OutputStage& output_stage;
 };
-
 
 // Implementation of OutputStageSaturatingCastToUint8 for SSE4FragmentInt32x4x1
 template <>
@@ -185,7 +181,7 @@ struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
   OutputType Eval(InputType input, int, int) const {
     const __m128i zero = _mm_set1_epi32(0);
     __m128i res_16 = _mm_packs_epi32(input, zero);
-    __m128i res_8  = _mm_packus_epi16(res_16, zero);
+    __m128i res_8 = _mm_packus_epi16(res_16, zero);
     return _mm_cvtsi128_si32(res_8);
   }
 };
@@ -208,8 +204,8 @@ struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
   OutputType Eval(InputType input, int, int) const {
     __m128i q16[2];
     for (int i = 0; i < 2; i++) {
-      q16[i] = _mm_packus_epi32(input.data.val[2 * i],
-				input.data.val[2 * i + 1]);
+      q16[i] =
+          _mm_packus_epi32(input.data.val[2 * i], input.data.val[2 * i + 1]);
     }
     return _mm_packus_epi16(q16[0], q16[1]);
   }
@@ -230,8 +226,8 @@ struct OutputStageEvalImpl<OutputStageBiasAddition<VectorType>,
     if (VectorType::kShape == VectorShape::Row) {
       bias = _mm_set1_epi32(output_stage.bias_vector(col));
     } else {
-      bias = _mm_lddqu_si128(reinterpret_cast<__m128i*>
-			     (output_stage.bias_vector.data(row)));
+      bias = _mm_lddqu_si128(
+          reinterpret_cast<__m128i*>(output_stage.bias_vector.data(row)));
     }
     return _mm_add_epi32(input, bias);
   }
@@ -269,10 +265,9 @@ struct OutputStageEvalImpl<OutputStageTanh, SSE4FragmentInt32x4x1>
 template <typename DstType>
 inline void StoreFinalOutput(SSE4FragmentUint8x4x1 value, DstType* dst, int row,
                              int col) {
-  unsigned char *tmp = dst->data(row,col);
-  for (int i=0; i<4; i++)
-    tmp[i] = (value >> (i*8)) & 0xff;
- }
+  unsigned char* tmp = dst->data(row, col);
+  for (int i = 0; i < 4; i++) tmp[i] = (value >> (i * 8)) & 0xff;
+}
 
 // Specialization of StoreFinalOutput for SSE4FragmentUint8x16x1.
 template <typename DstType>
@@ -286,7 +281,7 @@ inline void StoreFinalOutput(SSE4FragmentUint8x16x1 value, DstType* dst,
 template <typename DstType>
 inline void StoreFinalOutput(SSE4FragmentInt32x4x1 value, DstType* dst, int row,
                              int col) {
-  _mm_storeu_si128(reinterpret_cast<__m128i*> (dst->data(row, col)), value);
+  _mm_storeu_si128(reinterpret_cast<__m128i*>(dst->data(row, col)), value);
 }
 
 // Specialization of StoreFinalOutput for SSE4FragmentInt32x16x1, storing into
@@ -295,8 +290,8 @@ template <typename DstType>
 inline void StoreFinalOutput(SSE4FragmentInt32x16x1 value, DstType* dst,
                              int row, int col) {
   for (int i = 0; i < 4; i++) {
-    _mm_storeu_si128( reinterpret_cast<__m128i*>(dst->data(row + 4*i, col)),
-		      value.data.val[i]);
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(dst->data(row + 4 * i, col)),
+                     value.data.val[i]);
   }
 }
 
