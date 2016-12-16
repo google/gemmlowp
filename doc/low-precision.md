@@ -86,7 +86,7 @@ Again, this paradigm is not recommended for new usage. See
 [quantization.md](quantization.md) for how reasoning from first principles, one
 arrives to a substantially different quantization paradigm.
 
-In addition, note the the integer multiplication by the numerator in the above
+In addition, note that the integer multiplication by the numerator in the above
 step 5. risks overflowing. That concern is avoided in the currently recommended
 output stages by performing a fixed-point multiplication instead of an ordinary
 integer multiplication.
@@ -159,7 +159,7 @@ single column-vector, and later multiplying these sums by rhs_offset.
 
 The fourth term is a single constant, repeated into all the entries of the
 matrix. The matrix `P * Q` is filled with the single constant value 'depth' (the
-depth the the matrix product i.e. the number of columns of the lhs). Thus the
+depth of the matrix product i.e. the number of columns of the lhs). Thus the
 fourth term is simply the rank zero update adding this constant to each matrix
 entry:
 
