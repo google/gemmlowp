@@ -227,7 +227,7 @@ struct OutputStageEvalImpl<OutputStageBiasAddition<VectorType>,
       bias = _mm_set1_epi32(output_stage.bias_vector(col));
     } else {
       bias = _mm_lddqu_si128(
-          reinterpret_cast<__m128i*>(output_stage.bias_vector.data(row)));
+          reinterpret_cast<const __m128i*>(output_stage.bias_vector.data(row)));
     }
     return _mm_add_epi32(input, bias);
   }
