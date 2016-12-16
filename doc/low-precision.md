@@ -35,17 +35,19 @@ real-world quantized calculations.
 For the scope of the present document, it suffices to say that quantized matrix
 multiplication takes the following parameters:
 
--   the lhs matrix of uint8 quantized values.
--   the rhs matrix of uint8 quantized values.
--   a int32 lhs_offset, that will be added to each entry of the lhs matrix.
--   a int32 rhs_offset, that will be added to each entry of the rhs matrix.
--   an output pipeline, that will process int32 accumulators into final outputs.
+-   The lhs matrix of uint8 quantized values.
+-   The rhs matrix of uint8 quantized values.
+-   A int32 lhs_offset, that will be added to each entry of the lhs matrix.
+-   A int32 rhs_offset, that will be added to each entry of the rhs matrix.
+-   An output pipeline, that will process int32 accumulators into final outputs.
 
-The overall computation goes through the following steps: 1. Cast lhs entries
-from uint8 to int32 and add lhs_offset to each of them. 2. Cast rhs entries from
-uint8 to int32 and add rhs_offset to each of them. 3. Compute the int32 matrix
-product of the resulting lhs times rhs. 4. Apply the output pipeline on these
-int32 accumulators, to obtain the final outputs.
+The overall computation goes through the following steps:
+
+1.  Cast lhs entries from uint8 to int32 and add lhs_offset to each of them.
+2.  Cast rhs entries from uint8 to int32 and add rhs_offset to each of them.
+3.  Compute the int32 matrix product of the resulting lhs times rhs.
+4.  Apply the output pipeline on these int32 accumulators, to obtain the final
+    outputs.
 
 ### The legacy low-precision paradigm
 

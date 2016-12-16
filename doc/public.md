@@ -10,6 +10,22 @@ The primary public entry point is: `GemmWithOutputPipeline`.
 A usage example is given in
 [doc/quantization_example.cc](quantization_example.cc).
 
+The high-level overview of how this specifies a low-precision matrix
+multiplication is explained in [low-precision.md](low-precision.md). The
+rationale for a specific quantization paradigm is given in
+[quantization.md](quantization.md). That specific quantization paradigm is
+implemented at two different stages of the computation: as pre-processing ont
+the operands and as post-processing on the result:
+
+*   Pre-processing on the LHS, RHS operands, in the form of adding constant
+    `lhs_offset`, `rhs_offset` to them, is explained in
+    [low-precision.md](low-precision.md).
+
+*   Post-processing on the result, in the form of a flexible "output pipeline",
+    is explained in [output.md](output.md).
+
+More details on this below as we discuss specific function parameters.
+
 The prototype is:
 
 ```
