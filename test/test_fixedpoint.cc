@@ -229,16 +229,14 @@ void test_int32x4(const std::vector<int32_t>& testvals_int32) {
 #endif  // GEMMLOWP_NEON
 
 #ifdef GEMMLOWP_SSE4
-#define LOAD_SI128(ptr)                                              \
-  (((unsigned long)(ptr)&15) == 0) ? _mm_load_si128( \
-                                         reinterpret_cast<__m128i*>(ptr)) \
-                                   : _mm_loadu_si128( \
-                                         reinterpret_cast<__m128i*>(ptr))
-#define STORE_SI128(ptr, val)                                              \
-  (((unsigned long)(ptr)&15) == 0) ? _mm_store_si128( \
-                                         reinterpret_cast<__m128i*>(ptr), val) \
-                                   : _mm_storeu_si128( \
-                                         reinterpret_cast<__m128i*>(ptr), val)
+#define LOAD_SI128(ptr)                                       \
+  (((unsigned long)(ptr)&15) == 0)                            \
+      ? _mm_load_si128(reinterpret_cast<const __m128i*>(ptr)) \
+      : _mm_loadu_si128(reinterpret_cast<const __m128i*>(ptr))
+#define STORE_SI128(ptr, val)                                 \
+  (((unsigned long)(ptr)&15) == 0)                            \
+      ? _mm_store_si128(reinterpret_cast<__m128i*>(ptr), val) \
+      : _mm_storeu_si128(reinterpret_cast<__m128i*>(ptr), val)
 
 template <int tIntegerBits>
 void test_tanh_m128i(const std::vector<int32_t>& testvals_int32) {
