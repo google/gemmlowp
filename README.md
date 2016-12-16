@@ -72,11 +72,13 @@ gemmlowp's main public interface is in the `public/` subdirectory.
 
 This is a headers-only library, so there is nothing to link to.
 
-Usage documentation may be found in [doc/public.md](doc/public.md) .
+Usage documentation, and comments on the deprecation status of each public entry
+point, may be found in [doc/public.md](doc/public.md) .
 
-A full, self-contained usage example, showing how to quantize float matrices
-and perform a quantized matrix multiplication approximating a float matrix
-multiplication, is given in `doc/quantization_example.cc`.
+A full, self-contained usage example, showing how to quantize float matrices and
+perform a quantized matrix multiplication approximating a float matrix
+multiplication, is given in
+[doc/quantization_example.cc](doc/quantization_example.cc).
 
 ### Old EightBitIntGemm legacy deprecated interface
 
@@ -212,7 +214,7 @@ arm-linux-androideabi-g++ that does include NEON.
 The main benchmark is
 
 ```
-benchmark.cc
+test/benchmark.cc
 ```
 
 It doesn't need to be linked to any other source file. We recommend building

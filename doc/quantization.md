@@ -1,7 +1,7 @@
 # Building a quantization paradigm from first principles
 
 **TLDR:** If you prefer example code over theory, look at
-`doc/quantization_example.cc`.
+[doc/quantization_example.cc](quantization_example.cc).
 
 ## Overview
 
@@ -304,7 +304,8 @@ paradigm, i.e. implementing the precise computation detailed in the previous
 section (equation (5)), is
 `OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint`.
 
-Please refer to the comment explaining it in `public/output_stages.h`.
+Please refer to the comment explaining it in
+[public/output_stages.h](../public/output_stages.h).
 
 ## How this differs from the older legacy gemmlowp quantization paradigm
 
@@ -315,8 +316,9 @@ implementing it, `OutputStageQuantizeDownInt32ToUint8Scale`, and the new output
 stage implementing the new paradigm,
 `OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint`.
 
-Please refer to the comments in `public/output_stages.h` for details about these
-two output stages and how they differ.
+Please refer to the comments in
+[public/output_stages.h](../public/output_stages.h) for details about these two
+output stages and how they differ.
 
 Issues with the old output stage `OutputStageQuantizeDownInt32ToUint8Scale` are:
 
@@ -341,4 +343,5 @@ Issues with the old output stage `OutputStageQuantizeDownInt32ToUint8Scale` are:
 ## Example code illustrating the new quantization paradigm
 
 Example code showing how to perfom a quantized matrix multiplication in the
-quantization paradigm discussed here is in `doc/quantization_example.cc`.
+quantization paradigm discussed here is in
+[doc/quantization_example.cc](quantization_example.cc).

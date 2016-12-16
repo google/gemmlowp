@@ -135,19 +135,31 @@ for (int r = 0; r < rows; r += block_params.l2_rows) {
 
 The files in `internal/` fall into a few categories:
 
-There are two top-level GEMM implementations, * single_thread_gemm.h *
-multi_thread_gemm.h
+There are two top-level GEMM implementations,
+
+*   [internal/single_thread_gemm.h](../internal/single_thread_gemm.h)
+*   [internal/multi_thread_gemm.h](../internal/multi_thread_gemm.h)
 
 They both call into pack/compute/unpack stages (see [kernel.md](kernel.md) and
-[packing.md](packing.md)) implemented in the following files: * pack.h *
-compute.h * unpack.h * unpack.h in turn calls into output.h for the output
-pipeline (see [output.md](output.md))
+[packing.md](packing.md)) implemented in the following files:
+
+*   [internal/pack.h](../internal/pack.h)
+*   [internal/compute.h](../internal/compute.h)
+*   [internal/unpack.h](../internal/unpack.h)
+    *   This in turn calls into [internal/output.h](../internal/output.h) for
+        the output pipeline (see [output.md](output.md))
 
 The pack.h and unpack.h files contain generic templated code that can be
-overridden by optimized code in template specializations; see the NEON optimized
-code here: * pack_neon.h * unpack_neon.h
+overridden by optimized code in template specializations; for example, see the
+NEON optimized code here:
+
+*   [internal/pack_neon.h](../internal/pack_neon.h)
+*   [internal/unpack_neon.h](../internal/unpack_neon.h)
+    *   This in turn calls into
+        [internal/output_neon.h](../internal/output_neon.h)
 
 The compute stage contains generic code in compute.h that only calls into
 optimized code through the Kernel::Run() entry point. Each kernel is basically
-just as struct offering a Run() implementation; see the NEON kernels in: *
-kernel_neon.h
+just as struct offering a Run() implementation; see the NEON kernels in:
+
+*   [internal/kernel_neon.h](../internal/kernel_neon.h)

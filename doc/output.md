@@ -24,12 +24,13 @@ output pipeline.
 ## Usage
 
 The gemmlowp entry point allowing to use an arbitrary output pipeline is
-`GemmWithOutputPipeline` in `public/gemmlowp.h`.
+`GemmWithOutputPipeline` in [public/gemmlowp.h](../public/gemmlowp.h).
 
 The output pipeline is specified as a `std::tuple` of "output stages", each of
 which defining an elementary arithmetic transformation.
 
-All available output stages are defined in `public/output_stages.h`.
+All available output stages are defined in
+[public/output_stages.h](../public/output_stages.h).
 
 ## Example usage
 
@@ -49,4 +50,4 @@ TestOutputStages
 Separately, a self-contained example showing how to use gemmlowp to compute a
 quantized matrix multiplication with a sounds quantization paradigm, is here:
 
-`doc/quantization_example.cc`
+[doc/quantization_example.cc](quantization_example.cc)

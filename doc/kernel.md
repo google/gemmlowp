@@ -144,8 +144,8 @@ lhs and rhs matrices for optimally efficient traversal by the kernel. This
 depends on fine details of the kernel format, in ways that can only be
 efficiently handled by knowing these kernel format details at compile-time.
 
-This is the reason why all the code in `internal/pack.h` is templated in the
-corresponding kernel format.
+This is the reason why all the code in [internal/pack.h](../internal/pack.h) is
+templated in the corresponding kernel format.
 
 The code in internal/pack.h isn't tightly optimized by itself, but it is
 structured in such a way that the critical code is in a template,
@@ -153,9 +153,9 @@ structured in such a way that the critical code is in a template,
 generic code with fast specific packing code for specific formats, on specific
 platforms.
 
-See `internal/pack_neon.h` which provides NEON specializations of the packing
-code for the particular kernel formats that are used by the NEON kernels in
-`internal/kernel_neon.h`.
+See [internal/pack_neon.h](../internal/pack_neon.h) which provides NEON
+specializations of the packing code for the particular kernel formats that are
+used by the NEON kernels in [internal/kernel_neon.h](../internal/kernel_neon.h).
 
 ## Wrapping up: how to optimize gemmlowp for a CPU architecture
 
@@ -166,5 +166,7 @@ dictate its required data layout; each data layout then also needs optimized
 packing code. The steps are thus:
 
 1.  Freely design a GEMM kernel with a freely chosen data layout.
-2.  Implement the GEMM kernel, similar to `internal/kernel_neon.h`.
-3.  Implement the optimized packing code, similar to `internal/pack_neon.h`.
+2.  Implement the GEMM kernel, similar to
+    [internal/kernel_neon.h](../internal/kernel_neon.h).
+3.  Implement the optimized packing code, similar to
+    [internal/pack_neon.h](../internal/pack_neon.h).

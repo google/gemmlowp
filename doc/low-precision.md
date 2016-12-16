@@ -25,8 +25,8 @@ mechanism by which gemmlowp becomes generic enough to support multiple 8bit
 computation paradigms, by allowing the user to set up a chain of transformations
 to be performed on internal 32bit accumulators to obtain the final outputs.
 
-The public entry point in `public/gemmlowp.h` allowing to set un an arbitrary
-output pipeline is `GemmWithOutputPipeline`.
+The public entry point in [public/gemmlowp.h](../public/gemmlowp.h) allowing to
+set un an arbitrary output pipeline is `GemmWithOutputPipeline`.
 
 Refer to [quantization.md](quantization.md) for details of how one gets from
 first principles to the actual output pipelines to assemble for successful
@@ -51,7 +51,7 @@ int32 accumulators, to obtain the final outputs.
 
 This older paradigm is the one exposed by the following entry points:
 
-*   In `public/gemmlowp.h`, the `Gemm` entry point.
+*   In [public/gemmlowp.h](../public/gemmlowp.h), the `Gemm` entry point.
 *   The deprecateed `eight_bit_int_gemm` directory.
 
 Originally, gemmlowp started an implementation of the (now deprecated)
@@ -171,7 +171,8 @@ In gemmlowp, at the packing stage (where we traverse blocks of the lhs and rhs
 to prepare them for efficient repeated traversal by the kernel), we compute the
 sum of each row of the lhs block and the sum of each column of the rhs block.
 
-See in `internal/pack.h`, in the PackedSideBlock class, the following member:
+See in [internal/pack.h](../internal/pack.h), in the PackedSideBlock class, the
+following member:
 
 ```
 // Handle on the additional buffer backing the vector of sums of slices
@@ -186,4 +187,4 @@ After these rank one updates have been computed at the packing stage, they are
 ignored at the compute kernel stage, since that stage is only concerned with the
 first of the four terms in (2); they are only used at the unpacking stage. See
 the default/reference implementation, `UnpackResultImpl`, in
-`internal/unpack.h`.
+[internal/unpack.h](../internal/unpack.h).
