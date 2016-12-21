@@ -12,6 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+#define GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK
 #include "eight_bit_int_gemm.h"
 
 #include <memory>
