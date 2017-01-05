@@ -84,7 +84,7 @@ struct UnpackResultImpl<
     const int kRhsBits = BitDepthParams::RhsBitDepth::kBits;
     const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
     const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
-    __m128i depth_xmm = _mm_set1_epi32((int32_t)depth);
+    __m128i depth_xmm = _mm_set1_epi32((std::int32_t)depth);
 
     OutputPipelineExecutor<OutputPipelineType, SSE4FragmentInt32x4x1>
         int32x4x1_output_pipeline_executor(output_pipeline);

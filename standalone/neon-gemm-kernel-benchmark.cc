@@ -2701,11 +2701,11 @@ double benchmark() {
   CacheLineAlignedBuffer<OperandType> rhs(Kernel::Format::Rhs::kWidth * depth);
   CacheLineAlignedBuffer<AccumulatorType> accum(Kernel::Format::Lhs::kWidth * Kernel::Format::Rhs::kWidth);
 
-  uint64_t iters_at_a_time = 1;
+  std::uint64_t iters_at_a_time = 1;
 
-  for (uint64_t iters_at_a_time = 1; ; iters_at_a_time *= 2) {
+  for (std::uint64_t iters_at_a_time = 1; ; iters_at_a_time *= 2) {
     const double t_start = current_time_in_seconds();
-    for (uint64_t i = 0; i < iters_at_a_time; i++) {
+    for (std::uint64_t i = 0; i < iters_at_a_time; i++) {
       Kernel::Run(lhs.data(), rhs.data(), accum.data(), depth);
     }
     const double t_end = current_time_in_seconds();

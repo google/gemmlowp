@@ -26,8 +26,8 @@ const std::int32_t kMinGemmTaskSize = 16000;
 const std::int32_t kMinGemmTaskDimension = 4;
 
 template <typename Executor, typename Params>
-uint8_t* PrepareGemmTask(const Params& params, int kernel_m, int kernel_n,
-                         int kernel_k, uint8_t* scratch, int m_start, int m,
+std::uint8_t* PrepareGemmTask(const Params& params, int kernel_m, int kernel_n,
+                         int kernel_k, std::uint8_t* scratch, int m_start, int m,
                          int n_start, int n, std::vector<Params>* tasks) {
   tasks->push_back(params);
   Params& task = tasks->back();
@@ -71,7 +71,7 @@ bool PrepareGemmTasks(MultiThreadingContext* context, const Params& params,
     return false;
   }
 
-  uint8_t* scratch = params.scratch;
+  std::uint8_t* scratch = params.scratch;
 
   if (max_tasks_m > max_tasks_n) {
     const int m_chunk = params.m / real_tasks;

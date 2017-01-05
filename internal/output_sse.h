@@ -28,7 +28,7 @@ typedef struct _int32x16x1_t { __m128i val[4]; } int32x16x1_t;
 typedef Fragment<__m128i, 4, 1, MapOrder::ColMajor> SSE4FragmentInt32x4x1;
 typedef Fragment<int32x16x1_t, 16, 1, MapOrder::ColMajor>
     SSE4FragmentInt32x16x1;
-typedef Fragment<uint32_t, 4, 1, MapOrder::ColMajor> SSE4FragmentUint8x4x1;
+typedef Fragment<std::uint32_t, 4, 1, MapOrder::ColMajor> SSE4FragmentUint8x4x1;
 typedef Fragment<__m128i, 16, 1, MapOrder::ColMajor> SSE4FragmentUint8x16x1;
 
 template <typename OutputStageType>

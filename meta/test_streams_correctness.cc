@@ -33,7 +33,7 @@
 
 using namespace gemmlowp::meta;
 
-void prepare_row_major_data(int rows, int elements, int stride, uint8_t* data) {
+void prepare_row_major_data(int rows, int elements, int stride, std::uint8_t* data) {
   for (int i = 0; i < rows * stride; ++i) {
     data[i] = 255;
   }
@@ -45,7 +45,7 @@ void prepare_row_major_data(int rows, int elements, int stride, uint8_t* data) {
 }
 
 void prepare_column_major_data(int columns, int elements, int stride,
-                               uint8_t* data) {
+                               std::uint8_t* data) {
   for (int i = 0; i < elements * stride; ++i) {
     data[i] = 255;
   }
@@ -56,7 +56,7 @@ void prepare_column_major_data(int columns, int elements, int stride,
   }
 }
 
-void print_out(uint8_t* result, int rows, int elements) {
+void print_out(std::uint8_t* result, int rows, int elements) {
   int size = rows * ((elements + 7) / 8) * 8;
   for (int i = 0; i < size; ++i) {
     std::cout << static_cast<int>(result[i]) << " ";
@@ -64,7 +64,7 @@ void print_out(uint8_t* result, int rows, int elements) {
   std::cout << std::endl << std::flush;
 }
 
-bool check(uint8_t* result, int rows, int elements) {
+bool check(std::uint8_t* result, int rows, int elements) {
   int chunks = elements / 8;
   int leftover = elements % 8;
   for (int i = 0; i < chunks; ++i) {
@@ -92,7 +92,7 @@ bool check(uint8_t* result, int rows, int elements) {
   int expected_sum =
       ((elements * (elements - 1)) / 2) * MUL_OFFSET + ADD_OFFSET;
   int sums_offset = rows * ((elements + 7) / 8) * 8;
-  int32_t* sums = reinterpret_cast<int32_t*>(result + sums_offset);
+  std::int32_t* sums = reinterpret_cast<std::int32_t*>(result + sums_offset);
   for (int i = 0; i < rows; ++i) {
     if (sums[i] != expected_sum) {
       return false;
@@ -103,7 +103,7 @@ bool check(uint8_t* result, int rows, int elements) {
 }
 
 template <int lanes, int leftover>
-void test_2(uint8_t* in, uint8_t* out) {
+void test_2(std::uint8_t* in, std::uint8_t* out) {
   for (int elements = 8; elements < 64; elements += 8) {
     int all_elements = elements + leftover;
     for (int stride = all_elements; stride < all_elements + 4; ++stride) {
@@ -114,7 +114,7 @@ void test_2(uint8_t* in, uint8_t* out) {
       params.additive_sum_offset = ADD_OFFSET;
 
       prepare_row_major_data(lanes, all_elements, stride, in);
-      Stream<uint8_t, lanes, 8, leftover, RowMajorWithSum>::Pack(in, params,
+      Stream<std::uint8_t, lanes, 8, leftover, RowMajorWithSum>::Pack(in, params,
                                                                  out);
       if (check(out, lanes, all_elements)) {
         //        std::cout << "Row: " << lanes << "x8x" << leftover << " : "
@@ -136,7 +136,7 @@ void test_2(uint8_t* in, uint8_t* out) {
       params.additive_sum_offset = ADD_OFFSET;
 
       prepare_column_major_data(lanes, all_elements, stride, in);
-      Stream<uint8_t, lanes, 8, leftover, ColumnMajorWithSum>::Pack(in, params,
+      Stream<std::uint8_t, lanes, 8, leftover, ColumnMajorWithSum>::Pack(in, params,
                                                                     out);
       if (check(out, lanes, all_elements)) {
         //        std::cout << "Column: " << lanes << "x8x" << leftover << " : "
@@ -153,7 +153,7 @@ void test_2(uint8_t* in, uint8_t* out) {
 }
 
 template <int lanes>
-void test(uint8_t* in, uint8_t* out) {
+void test(std::uint8_t* in, std::uint8_t* out) {
   test_2<lanes, 0>(in, out);
   test_2<lanes, 1>(in, out);
   test_2<lanes, 2>(in, out);
@@ -165,8 +165,8 @@ void test(uint8_t* in, uint8_t* out) {
 }
 
 int main() {
-  std::unique_ptr<uint8_t> in(new uint8_t[128 * 1024]);
-  std::unique_ptr<uint8_t> out(new uint8_t[128 * 1024]);
+  std::unique_ptr<std::uint8_t> in(new std::uint8_t[128 * 1024]);
+  std::unique_ptr<std::uint8_t> out(new std::uint8_t[128 * 1024]);
 
   test<1>(in.get(), out.get());
   test<2>(in.get(), out.get());

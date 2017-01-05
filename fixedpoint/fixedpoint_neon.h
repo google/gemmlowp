@@ -149,12 +149,12 @@ struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32x4_t, -1> {
 
 template <>
 struct FixedPointRawTypeTraits<int32x4_t> {
-  typedef int32_t ScalarRawType;
+  typedef std::int32_t ScalarRawType;
   static const int kLanes = 4;
 };
 
 template <>
-inline int32x4_t Dup<int32x4_t>(int32_t x) {
+inline int32x4_t Dup<int32x4_t>(std::int32_t x) {
   return vdupq_n_s32(x);
 }
 

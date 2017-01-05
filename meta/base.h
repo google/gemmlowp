@@ -64,7 +64,7 @@ struct GemmParams {
   const InType* lhs;
   const InType* rhs;
   OutType* result;
-  uint8_t* scratch;
+  std::uint8_t* scratch;
 
   // Specialized parameters.
 
@@ -114,7 +114,7 @@ struct Transform1DParams {
 
   const InType* input;
   OutType* output;
-  uint8_t* scratch;
+  std::uint8_t* scratch;
 
   Kernel kernel;
 };
