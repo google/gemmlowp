@@ -23,6 +23,12 @@
 namespace gemmlowp {
 
 template <>
+struct FixedPointRawTypeTraits<int32x4_t> {
+  typedef std::int32_t ScalarRawType;
+  static const int kLanes = 4;
+};
+
+template <>
 inline int32x4_t BitAnd(int32x4_t a, int32x4_t b) {
   return vandq_s32(a, b);
 }
@@ -150,12 +156,6 @@ struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32x4_t, 1> {
 template <int Exponent>
 struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32x4_t, -1> {
   static int32x4_t eval(int32x4_t x) { return vrshrq_n_s32(x, -Exponent); }
-};
-
-template <>
-struct FixedPointRawTypeTraits<int32x4_t> {
-  typedef std::int32_t ScalarRawType;
-  static const int kLanes = 4;
 };
 
 template <>

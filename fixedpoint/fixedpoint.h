@@ -294,14 +294,23 @@ struct ImplSaturatingRoundingMultiplyByPOT<Exponent, IntegerType, 0> {
   static IntegerType eval(IntegerType x) { return x; }
 };
 
-template <int Exponent>
-struct ImplSaturatingRoundingMultiplyByPOT<Exponent, std::int32_t, 1> {
-  static std::int32_t eval(std::int32_t x) {
-    const std::int64_t min = std::numeric_limits<std::int32_t>::min();
-    const std::int64_t max = std::numeric_limits<std::int32_t>::max();
-    return x >= (1 << (31 - Exponent))
-               ? max
-               : x <= -(1 << (31 - Exponent)) ? min : x * (1 << Exponent);
+template <int Exponent, typename IntegerType>
+struct ImplSaturatingRoundingMultiplyByPOT<Exponent, IntegerType, 1> {
+  static IntegerType eval(IntegerType x) {
+    using ScalarIntegerType = typename FixedPointRawTypeTraits<IntegerType>::ScalarRawType;
+    static_assert(std::is_same<ScalarIntegerType, std::int32_t>::value,
+        "Currently only supporting int32 scalar and SIMD types");
+    const IntegerType min = Dup<IntegerType>(std::numeric_limits<std::int32_t>::min());
+    const IntegerType max = Dup<IntegerType>(std::numeric_limits<std::int32_t>::max());
+
+    const std::int32_t threshold = ((1 << (31 - Exponent)) - 1);
+    const IntegerType positive_mask = MaskIfGreaterThan(x, Dup<IntegerType>(threshold));
+    const IntegerType negative_mask = MaskIfLessThan(x, Dup<IntegerType>(-threshold));
+
+    IntegerType result = ShiftLeft(x, Exponent);
+    result = SelectUsingMask(positive_mask, max, result);
+    result = SelectUsingMask(negative_mask, min, result);
+    return result;
   }
 };
 
