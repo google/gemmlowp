@@ -222,17 +222,6 @@ struct ImplSaturatingRoundingMultiplyByPOT<Exponent, __m128i, 1> {
   }
 };
 
-template <int Exponent>
-struct ImplSaturatingRoundingMultiplyByPOT<Exponent, __m128i, -1> {
-  static __m128i eval(__m128i x) {
-    __m128i nudge, result;
-    nudge = _mm_set1_epi64x(1 << (-Exponent - 1));
-    result = Add(x, nudge);
-    result = _mm_srai_epi32(x, -Exponent);
-    return result;
-  }
-};
-
 template <>
 struct FixedPointRawTypeTraits<__m128i> {
   typedef std::int32_t ScalarRawType;

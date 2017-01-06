@@ -137,6 +137,11 @@ inline int32x4_t SaturatingRoundingDoublingHighMul(int32x4_t a, int32x4_t b) {
   return vqrdmulhq_s32(a, b);
 }
 
+template <>
+inline int32x4_t RoundingDivideByPOT(int32x4_t x, int exponent) {
+  return vrshlq_s32(x, vdupq_n_s32(-exponent));
+}
+
 template <int Exponent>
 struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32x4_t, 1> {
   static int32x4_t eval(int32x4_t x) { return vqshlq_n_s32(x, Exponent); }

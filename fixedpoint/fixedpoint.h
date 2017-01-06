@@ -39,6 +39,23 @@ namespace gemmlowp {
 //    fixed-point computations, e.g. the fixed-point implementation
 //    of math functions such as tanh.
 
+// Some compile-time traits around raw types to handle SIMD aspects:
+// number of lanes, underlying scalar type.
+template <typename tIntegerType>
+struct FixedPointRawTypeTraits {};
+
+template <>
+struct FixedPointRawTypeTraits<std::int32_t> {
+  typedef std::int32_t ScalarRawType;
+  static const int kLanes = 1;
+};
+
+// Returns a SIMD value duplicating a scalar value across all lanes.
+template <typename tRawType>
+tRawType Dup(typename FixedPointRawTypeTraits<tRawType>::ScalarRawType x) {
+  return x;
+}
+
 // Plain bit-wise AND
 template <typename tIntegerType>
 tIntegerType BitAnd(tIntegerType a, tIntegerType b) {
@@ -90,14 +107,15 @@ tIntegerType Neg(tIntegerType a) {
 // power of two. Not saturating. Overflow is undefined behavior.
 template <typename tIntegerType>
 tIntegerType ShiftLeft(tIntegerType a, int offset) {
-  return a * (1 << offset);
+  return a << offset;
 }
 
-// Integer arithmetic right-shift, equivalent to dividing by a
-// power of two. Rounds towards zero, like an ordinary integer division.
+// Integer arithmetic right-shift. Not rounding.
+// Relying on implementation-defined, but in-practice-consistent,
+// C++ compiler behavior.
 template <typename tIntegerType>
 tIntegerType ShiftRight(tIntegerType a, int offset) {
-  return a / (1 << offset);
+  return a >> offset;
 }
 
 // Each bit of the result is set to the corresponding bit of either then_val or
@@ -246,6 +264,23 @@ inline std::int32_t SaturatingRoundingDoublingHighMul(std::int32_t a, std::int32
   return overflow ? std::numeric_limits<std::int32_t>::max() : ab_x2_high32;
 }
 
+// Correctly-rounded-to-nearest division by a power-of-two.
+// Also known as a rounding arithmetic right shift.
+template <typename IntegerType>
+inline IntegerType RoundingDivideByPOT(IntegerType x, int exponent) {
+  using ScalarIntegerType = typename FixedPointRawTypeTraits<IntegerType>::ScalarRawType;
+  static_assert(std::is_same<ScalarIntegerType, std::int32_t>::value,
+      "Currently only supporting int32 scalar and SIMD types");
+  assert(exponent >= 0);
+  assert(exponent <= 31);
+  const IntegerType mask = Dup<IntegerType>((1ll << exponent) - 1);
+  const IntegerType zero = Dup<IntegerType>(0);
+  const IntegerType one = Dup<IntegerType>(1);
+  const IntegerType remainder = BitAnd(x, mask);
+  const IntegerType threshold = Add(ShiftRight(mask, 1), BitAnd(MaskIfLessThan(x, zero), one));
+  return Add(ShiftRight(x, exponent), BitAnd(MaskIfGreaterThan(remainder, threshold), one));
+}
+
 // Returns the product of a run-time integer value by a compile-time power
 // of two, with either a positive exponent (equivalent to an arithmetic
 // left shift, saturating) or a negative exponent (equivalent to an arithmetic
@@ -270,35 +305,16 @@ struct ImplSaturatingRoundingMultiplyByPOT<Exponent, std::int32_t, 1> {
   }
 };
 
-template <int Exponent>
-struct ImplSaturatingRoundingMultiplyByPOT<Exponent, std::int32_t, -1> {
-  static std::int32_t eval(std::int32_t x) {
-    std::int32_t b = (std::abs(x) & (1 << (-Exponent - 1))) >> (-Exponent - 1);
-    std::int32_t nudge = x >= 0 ? b : -b;
-    return x / (1 << -Exponent) + nudge;
+template <int Exponent, typename IntegerType>
+struct ImplSaturatingRoundingMultiplyByPOT<Exponent, IntegerType, -1> {
+  static IntegerType eval(IntegerType x) {
+    return RoundingDivideByPOT<IntegerType>(x, -Exponent);
   }
 };
 
 template <int Exponent, typename IntegerType>
 IntegerType SaturatingRoundingMultiplyByPOT(IntegerType x) {
   return ImplSaturatingRoundingMultiplyByPOT<Exponent, IntegerType>::eval(x);
-}
-
-// Some compile-time traits around raw types to handle SIMD aspects:
-// number of lanes, underlying scalar type.
-template <typename tIntegerType>
-struct FixedPointRawTypeTraits {};
-
-template <>
-struct FixedPointRawTypeTraits<std::int32_t> {
-  typedef std::int32_t ScalarRawType;
-  static const int kLanes = 1;
-};
-
-// Returns a SIMD value duplicating a scalar value across all lanes.
-template <typename tRawType>
-tRawType Dup(typename FixedPointRawTypeTraits<tRawType>::ScalarRawType x) {
-  return x;
 }
 
 // Part 2: the FixedPoint class.

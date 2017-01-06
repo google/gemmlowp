@@ -20,6 +20,23 @@
 
 using namespace gemmlowp;
 
+void test_RoundingDivideByPOT(std::int32_t x) {
+  double d = x;
+  for (int s = 0; s < 32; s++) {
+    const std::int32_t actual = RoundingDivideByPOT(x, s);
+    const std::int32_t expected = std::round(d);
+    Check(actual == expected);
+    d /= 2;
+  }
+}
+
+void test_RoundingDivideByPOT(const std::vector<std::int32_t>& testvals_int32) {
+  for (auto a : testvals_int32) {
+    test_RoundingDivideByPOT(a);
+  }
+}
+
+
 template <int tIntegerBits>
 void test_convert(FixedPoint<std::int32_t, tIntegerBits> x) {
   typedef FixedPoint<std::int32_t, tIntegerBits> F;
@@ -294,6 +311,8 @@ int main() {
   }
 
   std::sort(testvals_int32.begin(), testvals_int32.end());
+
+  test_RoundingDivideByPOT(testvals_int32);
 
   for (auto a : testvals_int32) {
     FixedPoint<std::int32_t, 4> x;
