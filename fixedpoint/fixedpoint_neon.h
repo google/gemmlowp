@@ -143,10 +143,16 @@ inline int32x4_t SaturatingRoundingDoublingHighMul(int32x4_t a, int32x4_t b) {
   return vqrdmulhq_s32(a, b);
 }
 
+/* This attempt to use the RSHL (rounding shift) instruction failed
+ * because even though these are arithmetic shifts with rounding-to-nearest,
+ * the mid-points are always rounded upwards. This is correct for positive values
+ * and incorrect for negative values, resulting in bias. Accordingly,
+ * uncommenting this specialization causes test_fixedpoint to fail.
 template <>
 inline int32x4_t RoundingDivideByPOT(int32x4_t x, int exponent) {
   return vrshlq_s32(x, vdupq_n_s32(-exponent));
 }
+*/
 
 template <int Exponent>
 struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32x4_t, 1> {
