@@ -35,9 +35,10 @@ namespace gemmlowp {
 
 void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
                               bool transpose_c, int m, int n, int k,
-                              const std::uint8_t* a, std::int32_t a_offset, int lda,
-                              const std::uint8_t* b, std::int32_t b_offset, int ldb,
-                              std::uint8_t* c, std::int32_t c_offset, std::int32_t c_mult_int,
+                              const std::uint8_t* a, std::int32_t a_offset,
+                              int lda, const std::uint8_t* b,
+                              std::int32_t b_offset, int ldb, std::uint8_t* c,
+                              std::int32_t c_offset, std::int32_t c_mult_int,
                               std::int32_t c_shift, int ldc) {
   assert((c_shift >= 0) && (c_shift <= 32));
 
@@ -82,10 +83,12 @@ void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
       for (l = 0; l < k; l++) {
         const int a_index = i * a_i_stride + l * a_l_stride;
         const std::uint8_t a_as_byte = a[a_index];
-        const std::int32_t a_as_int = static_cast<std::int32_t>(a_as_byte) + a_offset;
+        const std::int32_t a_as_int =
+            static_cast<std::int32_t>(a_as_byte) + a_offset;
         const int b_index = j * b_j_stride + l * b_l_stride;
         const std::uint8_t b_as_byte = b[b_index];
-        const std::int32_t b_as_int = static_cast<std::int32_t>(b_as_byte) + b_offset;
+        const std::int32_t b_as_int =
+            static_cast<std::int32_t>(b_as_byte) + b_offset;
         const std::int32_t mult_as_int = a_as_int * b_as_int;
         total += mult_as_int;
       }
@@ -181,9 +184,10 @@ struct PublicGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    gemmlowp::Gemm<std::uint8_t, BitDepthParams, LhsOrder, RhsOrder, ResultOrder>(
-        context, lhs, rhs, result, lhs_offset, rhs_offset, result_offset,
-        result_mult_int, result_shift);
+    gemmlowp::Gemm<std::uint8_t, BitDepthParams, LhsOrder, RhsOrder,
+                   ResultOrder>(context, lhs, rhs, result, lhs_offset,
+                                rhs_offset, result_offset, result_mult_int,
+                                result_shift);
   }
 };
 
@@ -712,8 +716,9 @@ void TestWithSmallDataPerChannelQuantization() {
   const int k = 12;
 
   // 12 x 2, columnwise.
-  const std::uint8_t a_data[] = {0,  0,  0,  0,  0,  0,  0, 0, 0, 255, 255, 255,
-                            64, 64, 64, 64, 64, 64, 0, 0, 0, 255, 255, 255};
+  const std::uint8_t a_data[] = {0,  0,   0,   0,   0,  0,   0,   0,
+                                 0,  255, 255, 255, 64, 64,  64,  64,
+                                 64, 64,  0,   0,   0,  255, 255, 255};
   const int lda = k;
   int a_offset[] = {0, -64};
   MatrixMap<const std::uint8_t, MapOrder::RowMajor> lhs(a_data, m, k, lda);
@@ -736,8 +741,8 @@ void TestWithSmallDataPerChannelQuantization() {
 
   // 2 x 9, columnwise.
   const std::uint8_t expected_c_data[] = {255, 255, 0,   0,   127, 159,
-                                     0,   64,  0,   64,  127, 159,
-                                     127, 127, 127, 127, 127, 127};
+                                          0,   64,  0,   64,  127, 159,
+                                          127, 127, 127, 127, 127, 127};
   const int ldc = m;
   int c_offset[] = {97155, 97346};
   int c_mult_int[] = {2741, 2741};
@@ -754,7 +759,8 @@ void TestWithSmallDataPerChannelQuantization() {
   GemmContext gemm_context;
   auto output_pipeline = MakeStandardOutputPipeline<VectorShape::Col>(
       result_offset, result_mult_int, result_shift);
-  GemmWithOutputPipelinePC<std::uint8_t, std::uint8_t, DefaultL8R8BitDepthParams>(
+  GemmWithOutputPipelinePC<std::uint8_t, std::uint8_t,
+                           DefaultL8R8BitDepthParams>(
       &gemm_context, lhs, rhs, &result, lhs_offset, rhs_offset,
       output_pipeline);
 
@@ -950,7 +956,8 @@ void TestWithLargeDataPerChannelQuantization() {
   GemmContext gemm_context;
   auto output_pipeline = MakeStandardOutputPipeline<VectorShape::Col>(
       result_offset, result_mult_int, result_shift);
-  GemmWithOutputPipelinePC<std::uint8_t, std::uint8_t, DefaultL8R8BitDepthParams>(
+  GemmWithOutputPipelinePC<std::uint8_t, std::uint8_t,
+                           DefaultL8R8BitDepthParams>(
       &gemm_context, lhs, rhs, &result, lhs_offset, rhs_offset,
       output_pipeline);
 
@@ -1062,7 +1069,8 @@ void TestMultithreadedPerChannelQuantization() {
   GemmContext gemm_context;
   auto output_pipeline = MakeStandardOutputPipeline<VectorShape::Col>(
       result_offset, result_mult_int, result_shift);
-  GemmWithOutputPipelinePC<std::uint8_t, std::uint8_t, DefaultL8R8BitDepthParams>(
+  GemmWithOutputPipelinePC<std::uint8_t, std::uint8_t,
+                           DefaultL8R8BitDepthParams>(
       &gemm_context, lhs, rhs, &result, lhs_offset, rhs_offset,
       output_pipeline);
 
@@ -1141,7 +1149,8 @@ void TestWithSmallData() {
 // captured from an actual neural network run.
 void TestWithRealData(eight_bit_int_gemm::BitDepthSetting BitDepth,
                       int tolerance_median, int tolerance_max) {
-  std::unique_ptr<std::uint8_t[]> output_data(new std::uint8_t[test_data::c_count]);
+  std::unique_ptr<std::uint8_t[]> output_data(
+      new std::uint8_t[test_data::c_count]);
   gemmlowp::eight_bit_int_gemm::EightBitIntGemm(
       test_data::is_a_transposed, test_data::is_b_transposed,
       test_data::is_c_transposed, test_data::m, test_data::n, test_data::k,
@@ -1479,7 +1488,8 @@ void TestExhaustively() {
       std::uint8_t, DefaultL8R8BitDepthParams>>(&context);
 
   // Test the public GEMM interfaces
-  test_gemm<PublicGemmWrapper<std::uint8_t, DefaultL8R8BitDepthParams>>(&context);
+  test_gemm<PublicGemmWrapper<std::uint8_t, DefaultL8R8BitDepthParams>>(
+      &context);
 
   test_gemm<EightBitIntGemmWrapper<std::uint8_t,
                                    eight_bit_int_gemm::BitDepthSetting::A8B8>>(
@@ -1495,7 +1505,8 @@ void TestExhaustively() {
       std::uint8_t, DefaultL8R8BitDepthParams>>(&context);
 
   // Test GEMV cases (public interfaces)
-  test_gemv<PublicGemmWrapper<std::uint8_t, DefaultL8R8BitDepthParams>>(&context);
+  test_gemv<PublicGemmWrapper<std::uint8_t, DefaultL8R8BitDepthParams>>(
+      &context);
 
   test_gemv<EightBitIntGemmWrapper<std::uint8_t,
                                    eight_bit_int_gemm::BitDepthSetting::A8B8>>(

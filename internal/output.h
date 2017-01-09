@@ -30,13 +30,15 @@ namespace gemmlowp {
 
 // A Fragment is a small fixed-size matrix typically stored in one or
 // a few architecture-specific SIMD vectors. Besides plain old scalar types
-// such as std::int32_t, Fragment types are what can be used as input/output data
+// such as std::int32_t, Fragment types are what can be used as input/output
+// data
 // types for output pipeline stages.
 //
 // More details:
 //
 // In the generic scalar code in this file, we have only implemented
-// evaluation of output stages for scalar inputs (e.g. plain std::int32_t values).
+// evaluation of output stages for scalar inputs (e.g. plain std::int32_t
+// values).
 // Other files (e.g. output_neon.h) are to provide SIMD paths by implementing
 // evaluation of output stages for SIMD vector types. However, this raises
 // the question of how the different values ("lanes") in a SIMD vector

@@ -145,7 +145,8 @@ inline int32x4_t SaturatingRoundingDoublingHighMul(int32x4_t a, int32x4_t b) {
 
 /* This attempt to use the RSHL (rounding shift) instruction failed
  * because even though these are arithmetic shifts with rounding-to-nearest,
- * the mid-points are always rounded upwards. This is correct for positive values
+ * the mid-points are always rounded upwards. This is correct for positive
+values
  * and incorrect for negative values, resulting in bias. Accordingly,
  * uncommenting this specialization causes test_fixedpoint to fail.
 template <>

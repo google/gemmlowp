@@ -254,13 +254,15 @@ IntegerType SaturatingRoundingDoublingHighMul(IntegerType a, IntegerType b) {
 // This function implements the same computation as the ARMv7 NEON VQRDMULH
 // instruction.
 template <>
-inline std::int32_t SaturatingRoundingDoublingHighMul(std::int32_t a, std::int32_t b) {
+inline std::int32_t SaturatingRoundingDoublingHighMul(std::int32_t a,
+                                                      std::int32_t b) {
   bool overflow = a == b && a == std::numeric_limits<std::int32_t>::min();
   std::int64_t a_64(a);
   std::int64_t b_64(b);
   std::int64_t ab_64 = a_64 * b_64;
   std::int32_t nudge = ab_64 >= 0 ? (1 << 30) : (1 - (1 << 30));
-  std::int32_t ab_x2_high32 = static_cast<std::int32_t>((ab_64 + nudge) / (1ll << 31));
+  std::int32_t ab_x2_high32 =
+      static_cast<std::int32_t>((ab_64 + nudge) / (1ll << 31));
   return overflow ? std::numeric_limits<std::int32_t>::max() : ab_x2_high32;
 }
 
@@ -268,17 +270,20 @@ inline std::int32_t SaturatingRoundingDoublingHighMul(std::int32_t a, std::int32
 // Also known as a rounding arithmetic right shift.
 template <typename IntegerType>
 inline IntegerType RoundingDivideByPOT(IntegerType x, int exponent) {
-  using ScalarIntegerType = typename FixedPointRawTypeTraits<IntegerType>::ScalarRawType;
+  using ScalarIntegerType =
+      typename FixedPointRawTypeTraits<IntegerType>::ScalarRawType;
   static_assert(std::is_same<ScalarIntegerType, std::int32_t>::value,
-      "Currently only supporting int32 scalar and SIMD types");
+                "Currently only supporting int32 scalar and SIMD types");
   assert(exponent >= 0);
   assert(exponent <= 31);
   const IntegerType mask = Dup<IntegerType>((1ll << exponent) - 1);
   const IntegerType zero = Dup<IntegerType>(0);
   const IntegerType one = Dup<IntegerType>(1);
   const IntegerType remainder = BitAnd(x, mask);
-  const IntegerType threshold = Add(ShiftRight(mask, 1), BitAnd(MaskIfLessThan(x, zero), one));
-  return Add(ShiftRight(x, exponent), BitAnd(MaskIfGreaterThan(remainder, threshold), one));
+  const IntegerType threshold =
+      Add(ShiftRight(mask, 1), BitAnd(MaskIfLessThan(x, zero), one));
+  return Add(ShiftRight(x, exponent),
+             BitAnd(MaskIfGreaterThan(remainder, threshold), one));
 }
 
 // Returns the product of a run-time integer value by a compile-time power
@@ -297,15 +302,20 @@ struct ImplSaturatingRoundingMultiplyByPOT<Exponent, IntegerType, 0> {
 template <int Exponent, typename IntegerType>
 struct ImplSaturatingRoundingMultiplyByPOT<Exponent, IntegerType, 1> {
   static IntegerType eval(IntegerType x) {
-    using ScalarIntegerType = typename FixedPointRawTypeTraits<IntegerType>::ScalarRawType;
+    using ScalarIntegerType =
+        typename FixedPointRawTypeTraits<IntegerType>::ScalarRawType;
     static_assert(std::is_same<ScalarIntegerType, std::int32_t>::value,
-        "Currently only supporting int32 scalar and SIMD types");
-    const IntegerType min = Dup<IntegerType>(std::numeric_limits<std::int32_t>::min());
-    const IntegerType max = Dup<IntegerType>(std::numeric_limits<std::int32_t>::max());
+                  "Currently only supporting int32 scalar and SIMD types");
+    const IntegerType min =
+        Dup<IntegerType>(std::numeric_limits<std::int32_t>::min());
+    const IntegerType max =
+        Dup<IntegerType>(std::numeric_limits<std::int32_t>::max());
 
     const std::int32_t threshold = ((1 << (31 - Exponent)) - 1);
-    const IntegerType positive_mask = MaskIfGreaterThan(x, Dup<IntegerType>(threshold));
-    const IntegerType negative_mask = MaskIfLessThan(x, Dup<IntegerType>(-threshold));
+    const IntegerType positive_mask =
+        MaskIfGreaterThan(x, Dup<IntegerType>(threshold));
+    const IntegerType negative_mask =
+        MaskIfLessThan(x, Dup<IntegerType>(-threshold));
 
     IntegerType result = ShiftLeft(x, Exponent);
     result = SelectUsingMask(positive_mask, max, result);

@@ -14,11 +14,11 @@
 
 #define GEMMLOWP_ENABLE_FIXEDPOINT_CONSTANTS_CHECKS
 
-#include "test.h"
+#include <algorithm>
 #include <cmath>
 #include <random>
 #include <vector>
-#include <algorithm>
+#include "test.h"
 
 #include "../fixedpoint/fixedpoint.h"
 
@@ -37,32 +37,22 @@ namespace {
 #ifdef GEMMLOWP_NEON
 using SimdVector = int32x4_t;
 constexpr std::size_t SimdVectorSize = 4;
-SimdVector LoadSimdVector(const std::int32_t* src) {
-  return vld1q_s32(src);
-}
-void StoreSimdVector(std::int32_t* dst, SimdVector v) {
-  vst1q_s32(dst, v);
-}
+SimdVector LoadSimdVector(const std::int32_t* src) { return vld1q_s32(src); }
+void StoreSimdVector(std::int32_t* dst, SimdVector v) { vst1q_s32(dst, v); }
 #elif defined(GEMMLOWP_SSE4)
 using SimdVector = __m128i;
 constexpr std::size_t SimdVectorSize = 4;
 SimdVector LoadSimdVector(const std::int32_t* src) {
-  return _mm_loadu_si128(
-            reinterpret_cast<const __m128i*>(src));
+  return _mm_loadu_si128(reinterpret_cast<const __m128i*>(src));
 }
 void StoreSimdVector(std::int32_t* dst, SimdVector v) {
-  _mm_storeu_si128(
-            reinterpret_cast<__m128i*>(dst), v);
+  _mm_storeu_si128(reinterpret_cast<__m128i*>(dst), v);
 }
 #else
 using SimdVector = std::int32_t;
 constexpr std::size_t SimdVectorSize = 1;
-SimdVector LoadSimdVector(const std::int32_t* src) {
-  return *src;
-}
-void StoreSimdVector(std::int32_t* dst, SimdVector v) {
-  *dst = v;
-}
+SimdVector LoadSimdVector(const std::int32_t* src) { return *src; }
+void StoreSimdVector(std::int32_t* dst, SimdVector v) { *dst = v; }
 #endif
 
 // Explanation of UnaryOpBase, its *Op subclasses below, and TestUnaryOp:
@@ -79,10 +69,11 @@ void StoreSimdVector(std::int32_t* dst, SimdVector v) {
 // as higher-level FixedPoint objects. The motivation for this design is 1) to
 // avoid having to templatize everything in the tIntegerBits parameter of
 // class FixedPoint, and 2) to allow directly testing low-level functions
-// operating on raw types (e.g. RoundingDivideByPOT) without needlessly requiring
+// operating on raw types (e.g. RoundingDivideByPOT) without needlessly
+// requiring
 // wrapping raw values in FixedPoint objects.
 class UnaryOpBase {
-public:
+ public:
   // Min bound of the input range of this op. For example, an op only handling
   // nonnegative values would return 0.
   std::int32_t MinInput() const {
@@ -95,19 +86,17 @@ public:
   }
   // Tolerated difference between actual and reference int32 values.
   // Note that the corresponding real-numbers tolerance depends on the number
-  // of integer bits of the fixed-point representation of the results of this op.
+  // of integer bits of the fixed-point representation of the results of this
+  // op.
   // For example, for an op returning fixed-point values with 0 integer bits,
   // the correspondence between real-number values and raw values is
   // real_number = (2^31) * raw_value.
-  std::int32_t Tolerance() const {
-    return 0;
-  }
+  std::int32_t Tolerance() const { return 0; }
 };
-
 
 // Op wrapping RoundingDivideByPOT
 class RoundingDivideByPOTOp final : public UnaryOpBase {
-public:
+ public:
   RoundingDivideByPOTOp(int exponent) : exponent_(exponent) {}
   std::int32_t ReferenceOp(std::int32_t x) const {
     const double d = static_cast<double>(x) / (1ll << exponent_);
@@ -117,22 +106,18 @@ public:
   tRawType Op(tRawType x) const {
     return RoundingDivideByPOT(x, exponent_);
   }
-private:
+
+ private:
   const int exponent_;
 };
 
 // Op wrapping exp_on_interval_between_negative_one_quarter_and_0_excl
-class ExpOnIntervalBetweenNegativeOneQuarterAnd0ExclOp final : public UnaryOpBase {
-public:
-  std::int32_t MinInput() const {
-    return -(1 << 29);
-  }
-  std::int32_t MaxInput() const {
-    return 0;
-  }
-  std::int32_t Tolerance() const {
-    return 500;
-  }
+class ExpOnIntervalBetweenNegativeOneQuarterAnd0ExclOp final
+    : public UnaryOpBase {
+ public:
+  std::int32_t MinInput() const { return -(1 << 29); }
+  std::int32_t MaxInput() const { return 0; }
+  std::int32_t Tolerance() const { return 500; }
   std::int32_t ReferenceOp(std::int32_t x) const {
     using F = FixedPoint<std::int32_t, 0>;
     const double d = ToDouble(F::FromRaw(x));
@@ -151,13 +136,9 @@ public:
 // Op wrapping exp_on_negative_values
 template <int tIntegerBits>
 class ExpOnNegativeValuesOp final : public UnaryOpBase {
-public:
-  std::int32_t MaxInput() const {
-    return 0;
-  }
-  std::int32_t Tolerance() const {
-    return 500;
-  }
+ public:
+  std::int32_t MaxInput() const { return 0; }
+  std::int32_t Tolerance() const { return 500; }
   std::int32_t ReferenceOp(std::int32_t x) const {
     using F = FixedPoint<std::int32_t, tIntegerBits>;
     using F0 = FixedPoint<std::int32_t, 0>;
@@ -175,13 +156,9 @@ public:
 
 // Op wrapping one_minus_x_over_one_plus_x_for_x_in_0_1
 class OneMinusXOverOnePlusXForXIn01Op final : public UnaryOpBase {
-public:
-  std::int32_t MinInput() const {
-    return 0;
-  }
-  std::int32_t Tolerance() const {
-    return 12;
-  }
+ public:
+  std::int32_t MinInput() const { return 0; }
+  std::int32_t Tolerance() const { return 12; }
   std::int32_t ReferenceOp(std::int32_t x) const {
     using F = FixedPoint<std::int32_t, 0>;
     const double d = ToDouble(F::FromRaw(x));
@@ -199,10 +176,8 @@ public:
 // Op wrapping tanh
 template <int tIntegerBits>
 class TanhOp final : public UnaryOpBase {
-public:
-  std::int32_t Tolerance() const {
-    return 310;
-  }
+ public:
+  std::int32_t Tolerance() const { return 310; }
   std::int32_t ReferenceOp(std::int32_t x) const {
     using F = FixedPoint<std::int32_t, tIntegerBits>;
     using F0 = FixedPoint<std::int32_t, 0>;
@@ -220,13 +195,9 @@ public:
 
 // Op wrapping one_over_one_plus_x_for_x_in_0_1
 class OneOverOnePlusXForXIn01Op final : public UnaryOpBase {
-public:
-  std::int32_t MinInput() const {
-    return 0;
-  }
-  std::int32_t Tolerance() const {
-    return 6;
-  }
+ public:
+  std::int32_t MinInput() const { return 0; }
+  std::int32_t Tolerance() const { return 6; }
   std::int32_t ReferenceOp(std::int32_t x) const {
     using F = FixedPoint<std::int32_t, 0>;
     const double d = ToDouble(F::FromRaw(x));
@@ -244,10 +215,8 @@ public:
 // Op wrapping logistic
 template <int tIntegerBits>
 class LogisticOp final : public UnaryOpBase {
-public:
-  std::int32_t Tolerance() const {
-    return 155;
-  }
+ public:
+  std::int32_t Tolerance() const { return 155; }
   std::int32_t ReferenceOp(std::int32_t x) const {
     using F = FixedPoint<std::int32_t, tIntegerBits>;
     using F0 = FixedPoint<std::int32_t, 0>;
@@ -265,7 +234,8 @@ public:
 
 // Tests a given op, on a given list of int32 input values.
 template <typename tUnaryOpType>
-void TestUnaryOp(const tUnaryOpType& unary_op, const std::vector<std::int32_t>& testvals_int32) {
+void TestUnaryOp(const tUnaryOpType& unary_op,
+                 const std::vector<std::int32_t>& testvals_int32) {
   Check(0 == (testvals_int32.size() % SimdVectorSize));
   for (std::size_t i = 0; i < testvals_int32.size(); i += SimdVectorSize) {
     // First, clamp input int32 values accoding to the MinInput() and MaxInput()
@@ -273,7 +243,8 @@ void TestUnaryOp(const tUnaryOpType& unary_op, const std::vector<std::int32_t>& 
     std::int32_t input[SimdVectorSize] = {0};
     for (std::size_t j = 0; j < SimdVectorSize; j++) {
       const std::int32_t raw_input = testvals_int32[i + j];
-      input[j] = std::min(unary_op.MaxInput(), std::max(unary_op.MinInput(), raw_input));
+      input[j] = std::min(unary_op.MaxInput(),
+                          std::max(unary_op.MinInput(), raw_input));
     }
     // Compute reference results and check that the actual results on
     // scalar inputs agree with them, to the Tolerance() returned by the op.
@@ -282,11 +253,13 @@ void TestUnaryOp(const tUnaryOpType& unary_op, const std::vector<std::int32_t>& 
     for (std::size_t j = 0; j < SimdVectorSize; j++) {
       reference[j] = unary_op.ReferenceOp(input[j]);
       actual_scalar[j] = unary_op.Op(input[j]);
-      const std::int64_t diff = static_cast<std::int64_t>(actual_scalar[j]) - static_cast<std::int64_t>(reference[j]);
+      const std::int64_t diff = static_cast<std::int64_t>(actual_scalar[j]) -
+                                static_cast<std::int64_t>(reference[j]);
       Check(std::abs(diff) <= unary_op.Tolerance());
     }
     // Check that the actual results on SIMD inputs agree *exactly* with the
-    // actual results on scalar inputs. I.e. SIMD must make absolutely no difference
+    // actual results on scalar inputs. I.e. SIMD must make absolutely no
+    // difference
     // to the results, regardless of the fact that both scalar and SIMD results
     // may differ from the reference results.
     std::int32_t actual_simd[SimdVectorSize] = {0};
@@ -390,8 +363,8 @@ std::vector<std::int32_t> MakeTestValsInt32() {
 
   std::mt19937 random_engine;
   std::uniform_int_distribution<std::int32_t> uniform_distribution(
-    std::numeric_limits<std::int32_t>::min(),
-    std::numeric_limits<std::int32_t>::max());
+      std::numeric_limits<std::int32_t>::min(),
+      std::numeric_limits<std::int32_t>::max());
   for (int i = 0; i < 1000; i++) {
     testvals_int32.push_back(uniform_distribution(random_engine));
   }
@@ -419,7 +392,8 @@ int main() {
     TestUnaryOp(RoundingDivideByPOTOp(s), testvals_int32);
   }
 
-  TestUnaryOp(ExpOnIntervalBetweenNegativeOneQuarterAnd0ExclOp(), testvals_int32);
+  TestUnaryOp(ExpOnIntervalBetweenNegativeOneQuarterAnd0ExclOp(),
+              testvals_int32);
   TestUnaryOp(ExpOnNegativeValuesOp<0>(), testvals_int32);
   TestUnaryOp(ExpOnNegativeValuesOp<1>(), testvals_int32);
   TestUnaryOp(ExpOnNegativeValuesOp<2>(), testvals_int32);
