@@ -111,6 +111,23 @@ class RoundingDivideByPOTOp final : public UnaryOpBase {
   const int exponent_;
 };
 
+// Op wrapping SaturatingRoundingMultiplyByPOT
+template <int tExponent>
+class SaturatingRoundingMultiplyByPOTOp final : public UnaryOpBase {
+ public:
+  std::int32_t ReferenceOp(std::int32_t x) const {
+    const double d = static_cast<double>(x) * std::pow(2., tExponent);
+    const double clamp_min = std::numeric_limits<std::int32_t>::min();
+    const double clamp_max = std::numeric_limits<std::int32_t>::max();
+    const double clamped = std::min(clamp_max, std::max(clamp_min, d));
+    return static_cast<std::int32_t>(std::round(clamped));
+  }
+  template <typename tRawType>
+  tRawType Op(tRawType x) const {
+    return SaturatingRoundingMultiplyByPOT<tExponent>(x);
+  }
+};
+
 // Op wrapping exp_on_interval_between_negative_one_quarter_and_0_excl
 class ExpOnIntervalBetweenNegativeOneQuarterAnd0ExclOp final
     : public UnaryOpBase {
@@ -391,6 +408,28 @@ int main() {
   for (int s = 0; s < 32; s++) {
     TestUnaryOp(RoundingDivideByPOTOp(s), testvals_int32);
   }
+
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<-31>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<-30>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<-29>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<-17>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<-16>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<-15>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<-4>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<-3>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<-2>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<-1>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<0>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<1>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<2>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<3>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<4>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<15>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<16>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<17>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<29>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<30>(), testvals_int32);
+  TestUnaryOp(SaturatingRoundingMultiplyByPOTOp<31>(), testvals_int32);
 
   TestUnaryOp(ExpOnIntervalBetweenNegativeOneQuarterAnd0ExclOp(),
               testvals_int32);
