@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// test_fixedpoint.cc: unit tests covering the fixedpoint/ directory.
+
 #define GEMMLOWP_ENABLE_FIXEDPOINT_CONSTANTS_CHECKS
 
 #include <algorithm>

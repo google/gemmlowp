@@ -227,7 +227,7 @@ inline std::int32_t RoundingHalfSum(std::int32_t a, std::int32_t b) {
 //
 // The mapping between IntegerType and the interval [-1, 1) is unique and
 // implied by IntegerType, which is assumed to be signed. For example,
-// for IntergerType==std::int32_t, the mapping is
+// for IntegerType==std::int32_t, the mapping is
 //   real_value = integer_value / 2^31.
 // So in this case, and leaving aside rounding and saturating, this
 // function computes ((a / 2^31) * (b / 2^31)) * 2^31, which simplifies to
