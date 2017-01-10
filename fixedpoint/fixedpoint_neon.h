@@ -145,10 +145,8 @@ inline int32x4_t SaturatingRoundingDoublingHighMul(int32x4_t a, int32x4_t b) {
 
 template <>
 inline int32x4_t RoundingDivideByPOT(int32x4_t x, int exponent) {
-  const int32x4_t zero = vdupq_n_s32(0);
   const int32x4_t shift_vec = vdupq_n_s32(-exponent);
-  const int32x4_t fixup =
-      vreinterpretq_s32_u32(vcltq_s32(vandq_s32(x, shift_vec), zero));
+  const int32x4_t fixup = vshrq_n_s32(vandq_s32(x, shift_vec), 31);
   const int32x4_t fixed_up_x = vqaddq_s32(x, fixup);
   return vrshlq_s32(fixed_up_x, shift_vec);
 }
@@ -161,8 +159,7 @@ struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32x4_t, 1> {
 template <int Exponent>
 struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32x4_t, -1> {
   static int32x4_t eval(int32x4_t x) {
-    const int32x4_t zero = vdupq_n_s32(0);
-    const int32x4_t fixup = vreinterpretq_s32_u32(vcltq_s32(x, zero));
+    const int32x4_t fixup = vshrq_n_s32(x, 31);
     const int32x4_t fixed_up_x = vqaddq_s32(x, fixup);
     return vrshrq_n_s32(fixed_up_x, -Exponent);
   }
