@@ -146,8 +146,7 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
   typedef NEONFragmentInt32x4x1 OutputType;
   typedef OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint OutputStage;
 
-  OutputStageEvalImpl(const OutputStage& s)
-      : output_stage(s) {}
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
   OutputType Eval(InputType input, int, int) const {
     const std::int32_t result_shift = output_stage.result_shift;

@@ -115,7 +115,7 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
     const std::int32_t result_mult_int = output_stage.result_mult_int;
     const std::int32_t result_offset = output_stage.result_offset;
     return RoundingDivideByPOT((input + result_offset) * result_mult_int,
-        result_shift);
+                               result_shift);
   }
 
   const OutputStage& output_stage;
@@ -137,7 +137,7 @@ struct OutputStageEvalImpl<
     const std::int32_t result_mult_int = output_stage.result_mult_int(row);
     const std::int32_t result_offset = output_stage.result_offset(row);
     return RoundingDivideByPOT((input + result_offset) * result_mult_int,
-        result_shift);
+                               result_shift);
   }
 
   const OutputStage& output_stage;
@@ -159,7 +159,7 @@ struct OutputStageEvalImpl<
     const std::int32_t result_mult_int = output_stage.result_mult_int(col);
     const std::int32_t result_offset = output_stage.result_offset(col);
     return RoundingDivideByPOT((input + result_offset) * result_mult_int,
-        result_shift);
+                               result_shift);
   }
 
   const OutputStage& output_stage;
@@ -179,7 +179,7 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
     const std::int32_t mulhigh_val = SaturatingRoundingDoublingHighMul(
         input.data, output_stage.result_fixedpoint_multiplier);
     return RoundingDivideByPOT(mulhigh_val, output_stage.result_shift) +
-        output_stage.result_offset_after_shift;
+           output_stage.result_offset_after_shift;
   }
 
   const OutputStage& output_stage;

@@ -1428,10 +1428,14 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
   std::vector<std::int32_t> diffs_caused_by_fixedpoint;
   for (int r = 0; r < rows; r++) {
     for (int c = 0; c < cols; c++) {
-      const std::int32_t actual = result_quantized_down_by_fixedpoint_int32(r, c);
+      const std::int32_t actual =
+          result_quantized_down_by_fixedpoint_int32(r, c);
       const std::int32_t raw = result_raw_int32(r, c);
-      const std::int32_t expected = quantize_down_by_fixedpoint_stage.result_offset_after_shift +
-      RoundingDivideByPOT(SaturatingRoundingDoublingHighMul(raw, result_fixedpoint_multiplier), result_fixedpoint_shift);
+      const std::int32_t expected =
+          quantize_down_by_fixedpoint_stage.result_offset_after_shift +
+          RoundingDivideByPOT(SaturatingRoundingDoublingHighMul(
+                                  raw, result_fixedpoint_multiplier),
+                              result_fixedpoint_shift);
       Check(actual == expected);
     }
   }
@@ -1580,7 +1584,6 @@ void test() {
   TestOutputStages<MapOrder::ColMajor>(63, 10, 127, 5, 17, 14);
   TestOutputStages<MapOrder::RowMajor>(630, 10, 1270, 5, 17, 14);
   TestOutputStages<MapOrder::ColMajor>(630, 10, 1270, 5, 17, 14);
-
 
   // Test per channel quantization.
   TestWithSmallDataPerChannelQuantization();
