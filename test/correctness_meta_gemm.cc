@@ -46,7 +46,7 @@ double time() {
 
 void prepare_test_data(std::uint8_t* data, std::int32_t rows, std::int32_t cols,
                        std::int32_t seed, std::int32_t seed_2) {
-  int32_t value = seed;
+  std::int32_t value = seed;
   for (int i = 0; i < rows; ++i) {
     for (int j = 0; j < cols; ++j) {
       data[i * cols + j] = static_cast<std::uint8_t>(value);
@@ -183,7 +183,7 @@ void check_result_i32(std::uint8_t* left, std::uint8_t* right,
             (static_cast<std::int32_t>(left[depth * i + k]) + lhs_offset) *
             (static_cast<std::int32_t>(right[depth * j + k]) + rhs_offset);
       }
-      int32_t actual = result[i * cols + j];
+      std::int32_t actual = result[i * cols + j];
       if (actual == expected) {
         if (!quiet) {
           if (verbose) {
@@ -261,8 +261,9 @@ void test_i32(std::uint8_t* scratch, std::uint8_t* lhs, std::uint8_t* rhs,
 }
 
 void q_suite(int mi, int ni, int ki, int mx, int nx, int kx, int md, int nd,
-             int kd, uint8_t* scratch, uint8_t* left, uint8_t* right,
-             uint8_t* result, gemmlowp::WorkersPool* pool, int t) {
+             int kd, std::uint8_t* scratch, std::uint8_t* left,
+             std::uint8_t* right, std::uint8_t* result,
+             gemmlowp::WorkersPool* pool, int t) {
   for (int m = mi; m < mx; m += md) {
     for (int n = ni; n < nx; n += nd) {
       for (int k = ki; k < kx; k += kd) {
@@ -274,8 +275,9 @@ void q_suite(int mi, int ni, int ki, int mx, int nx, int kx, int md, int nd,
 }
 
 void f_suite(int mi, int ni, int ki, int mx, int nx, int kx, int md, int nd,
-             int kd, uint8_t* scratch, uint8_t* left, uint8_t* right,
-             float* result, gemmlowp::WorkersPool* pool, int t) {
+             int kd, std::uint8_t* scratch, std::uint8_t* left,
+             std::uint8_t* right, float* result, gemmlowp::WorkersPool* pool,
+             int t) {
   for (int m = mi; m < mx; m += md) {
     for (int n = ni; n < nx; n += nd) {
       for (int k = ki; k < kx; k += kd) {
@@ -287,8 +289,9 @@ void f_suite(int mi, int ni, int ki, int mx, int nx, int kx, int md, int nd,
 }
 
 void i32_suite(int mi, int ni, int ki, int mx, int nx, int kx, int md, int nd,
-               int kd, uint8_t* scratch, uint8_t* left, uint8_t* right,
-               int32_t* result, gemmlowp::WorkersPool* pool, int t) {
+               int kd, std::uint8_t* scratch, std::uint8_t* left,
+               std::uint8_t* right, std::int32_t* result,
+               gemmlowp::WorkersPool* pool, int t) {
   for (int m = mi; m < mx; m += md) {
     for (int n = ni; n < nx; n += nd) {
       for (int k = ki; k < kx; k += kd) {

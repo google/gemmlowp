@@ -37,7 +37,7 @@ void gemm_q8_strided(std::uint8_t* scratch, const std::uint8_t* lhs,
   std::cout << "Legacy::GemmQ8." << std::endl;
 #endif
 #endif
-  typedef GemmParams<uint8_t, uint8_t, RowMajorWithSum, RowMajorWithSum,
+  typedef GemmParams<std::uint8_t, std::uint8_t, RowMajorWithSum, RowMajorWithSum,
                      QuantizedStaticPreprocessed, RowMajor>
       Params;
   Params params;
@@ -81,7 +81,7 @@ void gemv_q8(std::uint8_t* scratch, const std::uint8_t* lhs,
   std::cout << "Legacy::GemvQ8." << std::endl;
 #endif
 #endif
-  typedef GemmParams<uint8_t, uint8_t, RowMajorWithSum, RowMajorWithSum,
+  typedef GemmParams<std::uint8_t, std::uint8_t, RowMajorWithSum, RowMajorWithSum,
                      QuantizedStaticPreprocessed, RowMajor>
       Params;
   Params params;
@@ -129,7 +129,7 @@ void gemm_i32_strided(std::uint8_t* scratch, const std::uint8_t* lhs,
   std::cout << "Legacy::GemmI32." << std::endl;
 #endif
 #endif
-  typedef GemmParams<uint8_t, int32_t, RowMajorWithSum, RowMajorWithSum,
+  typedef GemmParams<std::uint8_t, std::int32_t, RowMajorWithSum, RowMajorWithSum,
                      QuantizedStaticPreprocessedAsInt32, RowMajor>
       Params;
   Params params;
@@ -168,7 +168,7 @@ void gemv_i32(std::uint8_t* scratch, const std::uint8_t* lhs,
   std::cout << "Legacy::GemvI32." << std::endl;
 #endif
 #endif
-  typedef GemmParams<uint8_t, int32_t, RowMajorWithSum, RowMajorWithSum,
+  typedef GemmParams<std::uint8_t, std::int32_t, RowMajorWithSum, RowMajorWithSum,
                      QuantizedStaticPreprocessedAsInt32, RowMajor>
       Params;
   Params params;
@@ -212,7 +212,7 @@ void gemm_f_strided(std::uint8_t* scratch, const std::uint8_t* lhs,
   std::cout << "Legacy::GemmF." << std::endl;
 #endif
 #endif
-  typedef GemmParams<uint8_t, float, RowMajorWithSum, RowMajorWithSum,
+  typedef GemmParams<std::uint8_t, float, RowMajorWithSum, RowMajorWithSum,
                      QuantizedStaticPreprocessedAsFloat, RowMajor>
       Params;
   Params params;
@@ -252,7 +252,7 @@ void gemv_f(std::uint8_t* scratch, const std::uint8_t* lhs,
   std::cout << "Legacy::GemvF." << std::endl;
 #endif
 #endif
-  typedef GemmParams<uint8_t, float, RowMajorWithSum, RowMajorWithSum,
+  typedef GemmParams<std::uint8_t, float, RowMajorWithSum, RowMajorWithSum,
                      QuantizedStaticPreprocessedAsFloat, RowMajor>
       Params;
   Params params;

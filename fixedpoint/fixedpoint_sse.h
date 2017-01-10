@@ -24,6 +24,12 @@
 namespace gemmlowp {
 
 template <>
+struct FixedPointRawTypeTraits<__m128i> {
+  typedef std::int32_t ScalarRawType;
+  static const int kLanes = 4;
+};
+
+template <>
 inline __m128i BitAnd(__m128i a, __m128i b) {
   return _mm_and_si128(a, b);
 }
@@ -172,7 +178,7 @@ inline __m128i SaturatingRoundingDoublingHighMul(__m128i a, __m128i b) {
   __m128i nudge;
 
   // saturation only happen if a == b == INT_MIN
-  min = _mm_set1_epi32(std::numeric_limits<int32_t>::min());
+  min = _mm_set1_epi32(std::numeric_limits<std::int32_t>::min());
   saturation_mask = BitAnd(MaskIfEqual(a, b), MaskIfEqual(a, min));
 
   // a = a0 | a1 | a2 | a3
@@ -202,45 +208,8 @@ inline __m128i SaturatingRoundingDoublingHighMul(__m128i a, __m128i b) {
   return SelectUsingMask(saturation_mask, min, result);
 }
 
-template <int Exponent>
-struct ImplSaturatingRoundingMultiplyByPOT<Exponent, __m128i, 1> {
-  static __m128i eval(__m128i x) {
-    __m128i min, max, result;
-    __m128i positive_mask, negative_mask;
-
-    min = _mm_set1_epi32(std::numeric_limits<int32_t>::min());
-    max = _mm_set1_epi32(std::numeric_limits<int32_t>::max());
-
-    int32_t threshold = ((1 << (31 - Exponent)) - 1);
-    positive_mask = MaskIfGreaterThan(x, _mm_set1_epi32(threshold));
-    negative_mask = MaskIfLessThan(x, _mm_set1_epi32(-threshold));
-
-    result = ShiftLeft(x, Exponent);
-    result = SelectUsingMask(positive_mask, max, result);
-    result = SelectUsingMask(negative_mask, min, result);
-    return result;
-  }
-};
-
-template <int Exponent>
-struct ImplSaturatingRoundingMultiplyByPOT<Exponent, __m128i, -1> {
-  static __m128i eval(__m128i x) {
-    __m128i nudge, result;
-    nudge = _mm_set1_epi64x(1 << (-Exponent - 1));
-    result = Add(x, nudge);
-    result = _mm_srai_epi32(x, -Exponent);
-    return result;
-  }
-};
-
 template <>
-struct FixedPointRawTypeTraits<__m128i> {
-  typedef int32_t ScalarRawType;
-  static const int kLanes = 4;
-};
-
-template <>
-inline __m128i Dup<__m128i>(int32_t x) {
+inline __m128i Dup<__m128i>(std::int32_t x) {
   return _mm_set1_epi32(x);
 }
 

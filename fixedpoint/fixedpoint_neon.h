@@ -23,6 +23,12 @@
 namespace gemmlowp {
 
 template <>
+struct FixedPointRawTypeTraits<int32x4_t> {
+  typedef std::int32_t ScalarRawType;
+  static const int kLanes = 4;
+};
+
+template <>
 inline int32x4_t BitAnd(int32x4_t a, int32x4_t b) {
   return vandq_s32(a, b);
 }
@@ -137,6 +143,14 @@ inline int32x4_t SaturatingRoundingDoublingHighMul(int32x4_t a, int32x4_t b) {
   return vqrdmulhq_s32(a, b);
 }
 
+template <>
+inline int32x4_t RoundingDivideByPOT(int32x4_t x, int exponent) {
+  const int32x4_t shift_vec = vdupq_n_s32(-exponent);
+  const int32x4_t fixup = vshrq_n_s32(vandq_s32(x, shift_vec), 31);
+  const int32x4_t fixed_up_x = vqaddq_s32(x, fixup);
+  return vrshlq_s32(fixed_up_x, shift_vec);
+}
+
 template <int Exponent>
 struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32x4_t, 1> {
   static int32x4_t eval(int32x4_t x) { return vqshlq_n_s32(x, Exponent); }
@@ -144,17 +158,15 @@ struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32x4_t, 1> {
 
 template <int Exponent>
 struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32x4_t, -1> {
-  static int32x4_t eval(int32x4_t x) { return vrshrq_n_s32(x, -Exponent); }
+  static int32x4_t eval(int32x4_t x) {
+    const int32x4_t fixup = vshrq_n_s32(x, 31);
+    const int32x4_t fixed_up_x = vqaddq_s32(x, fixup);
+    return vrshrq_n_s32(fixed_up_x, -Exponent);
+  }
 };
 
 template <>
-struct FixedPointRawTypeTraits<int32x4_t> {
-  typedef int32_t ScalarRawType;
-  static const int kLanes = 4;
-};
-
-template <>
-inline int32x4_t Dup<int32x4_t>(int32_t x) {
+inline int32x4_t Dup<int32x4_t>(std::int32_t x) {
   return vdupq_n_s32(x);
 }
 

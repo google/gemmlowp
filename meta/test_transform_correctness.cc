@@ -33,17 +33,17 @@
 
 using namespace gemmlowp::meta;
 
-typedef Transform1DParams<int32_t, uint8_t, Requantize> RequantizeParams;
-typedef Transform1DParams<float, uint8_t, Quantize> QuantizeParams;
-typedef Transform1DParams<uint8_t, float, Dequantize> DequantizeParams;
-typedef Transform1DParams<uint8_t, uint8_t, MinMax<uint8_t>> MinMaxParams;
-typedef Transform1DParams<uint8_t, int32_t, BiasAdd<uint8_t>> BiasAddParams;
+typedef Transform1DParams<std::int32_t, std::uint8_t, Requantize> RequantizeParams;
+typedef Transform1DParams<float, std::uint8_t, Quantize> QuantizeParams;
+typedef Transform1DParams<std::uint8_t, float, Dequantize> DequantizeParams;
+typedef Transform1DParams<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>> MinMaxParams;
+typedef Transform1DParams<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>> BiasAddParams;
 
-void prepare_data_requantize(int count, int32_t* data) {
+void prepare_data_requantize(int count, std::int32_t* data) {
   float scale = 4000000000.0f / static_cast<float>(count - 1);
   for (int i = 0; i < count; ++i) {
     float temp = -2000000000.0f + scale * i;
-    data[i] = static_cast<int32_t>(temp);
+    data[i] = static_cast<std::int32_t>(temp);
   }
 }
 
@@ -54,27 +54,27 @@ void prepare_data_quantize(int count, float* data) {
   }
 }
 
-void prepare_data_dequantize(int count, uint8_t* data) {
+void prepare_data_dequantize(int count, std::uint8_t* data) {
   for (int i = 0; i < count; ++i) {
-    data[i] = static_cast<uint8_t>(i % 256);
+    data[i] = static_cast<std::uint8_t>(i % 256);
   }
 }
 
-void prepare_data_minmax(int count, uint8_t* data) {
+void prepare_data_minmax(int count, std::uint8_t* data) {
   for (int i = 0; i < count; ++i) {
-    data[i] = static_cast<uint8_t>(i % 256);
+    data[i] = static_cast<std::uint8_t>(i % 256);
   }
 }
 
-void prepare_data_biasadd(int count, uint8_t* data) {
+void prepare_data_biasadd(int count, std::uint8_t* data) {
   for (int i = 0; i < count; ++i) {
-    data[i] = static_cast<uint8_t>(i % 256);
+    data[i] = static_cast<std::uint8_t>(i % 256);
   }
 }
 
 void verify_requantize(const RequantizeParams& params) {
   for (int i = 0; i < params.kernel.count; ++i) {
-    uint8_t actual = params.output[i];
+    std::uint8_t actual = params.output[i];
     float expected = static_cast<float>(params.input[i]);
     expected -= params.kernel.input_range_offset;
     expected *= params.kernel.input_range_scale;
@@ -82,7 +82,7 @@ void verify_requantize(const RequantizeParams& params) {
     expected -= params.kernel.output_range_min;
     expected *= params.kernel.one_over_output_range_scale;
     expected += params.kernel.output_range_offset;
-    uint8_t expected_uint8 = static_cast<uint8_t>(expected);
+    std::uint8_t expected_uint8 = static_cast<std::uint8_t>(expected);
 
     if (actual != expected_uint8) {
       std::cout << "Wrong: " << i << " : " << actual << " vs. "
@@ -95,12 +95,12 @@ void verify_requantize(const RequantizeParams& params) {
 
 void verify_quantize(const QuantizeParams& params) {
   for (int i = 0; i < params.kernel.count; ++i) {
-    uint8_t actual = params.output[i];
+    std::uint8_t actual = params.output[i];
     float expected = params.input[i];
     expected -= params.kernel.range_min;
     expected *= params.kernel.range_scale;
     expected += params.kernel.range_offset;
-    uint8_t expected_uint8 = static_cast<uint8_t>(expected);
+    std::uint8_t expected_uint8 = static_cast<std::uint8_t>(expected);
 
     if (actual != expected_uint8) {
       std::cout << "Wrong: " << i << " : " << actual << " vs. "
@@ -129,8 +129,8 @@ void verify_dequantize(const DequantizeParams& params) {
 
 void verify_minmax(const MinMaxParams& params) {
   for (int i = 0; i < params.kernel.count; ++i) {
-    uint8_t actual = params.output[i];
-    uint8_t expected = params.input[i];
+    std::uint8_t actual = params.output[i];
+    std::uint8_t expected = params.input[i];
     expected = std::min(expected, params.kernel.max);
     expected = std::max(expected, params.kernel.min);
 
@@ -145,9 +145,9 @@ void verify_minmax(const MinMaxParams& params) {
 
 void verify_biasadd(const BiasAddParams& params) {
   for (int i = 0; i < params.kernel.rows * params.kernel.count; ++i) {
-    int32_t actual = params.output[i];
-    uint8_t input = params.input[i];
-    uint8_t bias = params.kernel.bias[i % params.kernel.count];
+    std::int32_t actual = params.output[i];
+    std::uint8_t input = params.input[i];
+    std::uint8_t bias = params.kernel.bias[i % params.kernel.count];
     float input_float = static_cast<float>(input);
     input_float -= params.kernel.input_range_offset;
     input_float *= params.kernel.input_range_scale;
@@ -160,7 +160,7 @@ void verify_biasadd(const BiasAddParams& params) {
     sum -= params.kernel.output_range_min;
     sum *= params.kernel.one_over_output_range_scale;
     sum += params.kernel.output_range_offset;
-    int32_t expected = static_cast<int32_t>(sum);
+    std::int32_t expected = static_cast<std::int32_t>(sum);
     if (std::abs(actual - expected) > 1024) {
       std::cout << "Wrong: " << i << " : " << actual << " vs. " << expected
                 << std::endl;
@@ -171,9 +171,9 @@ void verify_biasadd(const BiasAddParams& params) {
 }
 
 int main() {
-  std::unique_ptr<int32_t[]> array_int32(new int32_t[128 * 1024]);
-  std::unique_ptr<uint8_t[]> array_uint8(new uint8_t[128 * 1024]);
-  std::unique_ptr<uint8_t[]> array_uint8_2(new uint8_t[128 * 1024]);
+  std::unique_ptr<std::int32_t[]> array_int32(new std::int32_t[128 * 1024]);
+  std::unique_ptr<std::uint8_t[]> array_uint8(new std::uint8_t[128 * 1024]);
+  std::unique_ptr<std::uint8_t[]> array_uint8_2(new std::uint8_t[128 * 1024]);
   std::unique_ptr<float[]> array_float(new float[128 * 1024]);
 
   {
@@ -183,14 +183,14 @@ int main() {
     requantize_params.kernel.count = 12345;
     requantize_params.kernel.input_range_min = -100.0f;
     requantize_params.kernel.input_range_scale =
-        200.0f / ((static_cast<int64_t>(1) << 32) - 1);
+        200.0f / ((static_cast<std::int64_t>(1) << 32) - 1);
     requantize_params.kernel.input_range_offset =
-        static_cast<float>(std::numeric_limits<int32_t>::lowest());
+        static_cast<float>(std::numeric_limits<std::int32_t>::lowest());
     requantize_params.kernel.output_range_min = -100.f;
     requantize_params.kernel.one_over_output_range_scale =
-        static_cast<float>((static_cast<int64_t>(1) << 8) - 1) / 200.0f;
+        static_cast<float>((static_cast<std::int64_t>(1) << 8) - 1) / 200.0f;
     requantize_params.kernel.output_range_offset =
-        static_cast<float>(std::numeric_limits<uint8_t>::lowest());
+        static_cast<float>(std::numeric_limits<std::uint8_t>::lowest());
 
     prepare_data_requantize(12345, array_int32.get());
 
@@ -206,9 +206,9 @@ int main() {
     quantize_params.kernel.count = 12345;
     quantize_params.kernel.range_min = -100.0f;
     quantize_params.kernel.range_scale =
-        static_cast<float>((static_cast<int64_t>(1) << 8) - 1) / 200.0f;
+        static_cast<float>((static_cast<std::int64_t>(1) << 8) - 1) / 200.0f;
     quantize_params.kernel.range_offset =
-        static_cast<float>(std::numeric_limits<uint8_t>::lowest());
+        static_cast<float>(std::numeric_limits<std::uint8_t>::lowest());
 
     prepare_data_quantize(12345, array_float.get());
 
@@ -224,9 +224,9 @@ int main() {
     dequantize_params.kernel.count = 12345;
     dequantize_params.kernel.range_min = -100.0f;
     dequantize_params.kernel.range_scale =
-        200.0f / ((static_cast<int64_t>(1) << 8) - 1);
+        200.0f / ((static_cast<std::int64_t>(1) << 8) - 1);
     dequantize_params.kernel.range_offset =
-        static_cast<float>(std::numeric_limits<uint8_t>::lowest());
+        static_cast<float>(std::numeric_limits<std::uint8_t>::lowest());
 
     prepare_data_dequantize(12345, array_uint8.get());
 
@@ -260,17 +260,17 @@ int main() {
     biasadd_params.kernel.bias_range_min = -100.0f;
     biasadd_params.kernel.output_range_min = -250.0f;
     biasadd_params.kernel.input_range_offset =
-        static_cast<float>(std::numeric_limits<uint8_t>::lowest());
+        static_cast<float>(std::numeric_limits<std::uint8_t>::lowest());
     biasadd_params.kernel.bias_range_offset =
-        static_cast<float>(std::numeric_limits<uint8_t>::lowest());
+        static_cast<float>(std::numeric_limits<std::uint8_t>::lowest());
     biasadd_params.kernel.output_range_offset =
-        static_cast<float>(std::numeric_limits<int32_t>::lowest());
+        static_cast<float>(std::numeric_limits<std::int32_t>::lowest());
     biasadd_params.kernel.input_range_scale =
-        200.0f / ((static_cast<int64_t>(1) << 8) - 1);
+        200.0f / ((static_cast<std::int64_t>(1) << 8) - 1);
     biasadd_params.kernel.bias_range_scale =
-        200.0f / ((static_cast<int64_t>(1) << 8) - 1);
+        200.0f / ((static_cast<std::int64_t>(1) << 8) - 1);
     biasadd_params.kernel.one_over_output_range_scale =
-        static_cast<float>((static_cast<int64_t>(1) << 32) - 1) / 500.0f;
+        static_cast<float>((static_cast<std::int64_t>(1) << 32) - 1) / 500.0f;
     biasadd_params.kernel.bias = array_uint8_2.get();
 
     prepare_data_biasadd(1234 * 11, array_uint8.get());

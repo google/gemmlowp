@@ -27,7 +27,7 @@ namespace gemmlowp {
 
 // Part 1: Low-level integer-arithmetic primitives.
 // The implementations here are generic implementations valid for
-// scalar types (e.g. int32_t). Architecture-specific SIMD types
+// scalar types (e.g. std::int32_t). Architecture-specific SIMD types
 // (e.g. NEON int32x4_t) may be supported by providing
 // specializations for them in separate files.
 //
@@ -38,6 +38,23 @@ namespace gemmlowp {
 //  - They will be directly used to implement some more involved
 //    fixed-point computations, e.g. the fixed-point implementation
 //    of math functions such as tanh.
+
+// Some compile-time traits around raw types to handle SIMD aspects:
+// number of lanes, underlying scalar type.
+template <typename tIntegerType>
+struct FixedPointRawTypeTraits {};
+
+template <>
+struct FixedPointRawTypeTraits<std::int32_t> {
+  typedef std::int32_t ScalarRawType;
+  static const int kLanes = 1;
+};
+
+// Returns a SIMD value duplicating a scalar value across all lanes.
+template <typename tRawType>
+tRawType Dup(typename FixedPointRawTypeTraits<tRawType>::ScalarRawType x) {
+  return x;
+}
 
 // Plain bit-wise AND
 template <typename tIntegerType>
@@ -90,14 +107,15 @@ tIntegerType Neg(tIntegerType a) {
 // power of two. Not saturating. Overflow is undefined behavior.
 template <typename tIntegerType>
 tIntegerType ShiftLeft(tIntegerType a, int offset) {
-  return a * (1 << offset);
+  return a << offset;
 }
 
-// Integer arithmetic right-shift, equivalent to dividing by a
-// power of two. Rounds towards zero, like an ordinary integer division.
+// Integer arithmetic right-shift. Not rounding.
+// Relying on implementation-defined, but in-practice-consistent,
+// C++ compiler behavior.
 template <typename tIntegerType>
 tIntegerType ShiftRight(tIntegerType a, int offset) {
-  return a / (1 << offset);
+  return a >> offset;
 }
 
 // Each bit of the result is set to the corresponding bit of either then_val or
@@ -191,12 +209,12 @@ IntegerType RoundingHalfSum(IntegerType a, IntegerType b) {
 }
 
 template <>
-inline int32_t RoundingHalfSum(int32_t a, int32_t b) {
-  int64_t a64 = a;
-  int64_t b64 = b;
-  int64_t sum = a64 + b64;
-  int64_t sign = sum >= 0 ? 1 : -1;
-  return static_cast<int32_t>((sum + sign) / 2);
+inline std::int32_t RoundingHalfSum(std::int32_t a, std::int32_t b) {
+  std::int64_t a64 = a;
+  std::int64_t b64 = b;
+  std::int64_t sum = a64 + b64;
+  std::int64_t sign = sum >= 0 ? 1 : -1;
+  return static_cast<std::int32_t>((sum + sign) / 2);
 }
 
 // Returns the integer that represents the product of two fixed-point
@@ -205,11 +223,11 @@ inline int32_t RoundingHalfSum(int32_t a, int32_t b) {
 // -1 * -1 to the maximum value (since 1 is not in the half-open
 // interval [-1, 1)).
 //
-// [The explanation below specializes to int32_t for example purpose.]
+// [The explanation below specializes to std::int32_t for example purpose.]
 //
 // The mapping between IntegerType and the interval [-1, 1) is unique and
 // implied by IntegerType, which is assumed to be signed. For example,
-// for IntergerType==int32_t, the mapping is
+// for IntegerType==std::int32_t, the mapping is
 //   real_value = integer_value / 2^31.
 // So in this case, and leaving aside rounding and saturating, this
 // function computes ((a / 2^31) * (b / 2^31)) * 2^31, which simplifies to
@@ -236,14 +254,36 @@ IntegerType SaturatingRoundingDoublingHighMul(IntegerType a, IntegerType b) {
 // This function implements the same computation as the ARMv7 NEON VQRDMULH
 // instruction.
 template <>
-inline int32_t SaturatingRoundingDoublingHighMul(int32_t a, int32_t b) {
-  bool overflow = a == b && a == std::numeric_limits<int32_t>::min();
-  int64_t a_64(a);
-  int64_t b_64(b);
-  int64_t ab_64 = a_64 * b_64;
-  int32_t nudge = ab_64 >= 0 ? (1 << 30) : (1 - (1 << 30));
-  int32_t ab_x2_high32 = static_cast<int32_t>((ab_64 + nudge) / (1ll << 31));
-  return overflow ? std::numeric_limits<int32_t>::max() : ab_x2_high32;
+inline std::int32_t SaturatingRoundingDoublingHighMul(std::int32_t a,
+                                                      std::int32_t b) {
+  bool overflow = a == b && a == std::numeric_limits<std::int32_t>::min();
+  std::int64_t a_64(a);
+  std::int64_t b_64(b);
+  std::int64_t ab_64 = a_64 * b_64;
+  std::int32_t nudge = ab_64 >= 0 ? (1 << 30) : (1 - (1 << 30));
+  std::int32_t ab_x2_high32 =
+      static_cast<std::int32_t>((ab_64 + nudge) / (1ll << 31));
+  return overflow ? std::numeric_limits<std::int32_t>::max() : ab_x2_high32;
+}
+
+// Correctly-rounded-to-nearest division by a power-of-two.
+// Also known as a rounding arithmetic right shift.
+template <typename IntegerType>
+inline IntegerType RoundingDivideByPOT(IntegerType x, int exponent) {
+  using ScalarIntegerType =
+      typename FixedPointRawTypeTraits<IntegerType>::ScalarRawType;
+  static_assert(std::is_same<ScalarIntegerType, std::int32_t>::value,
+                "Currently only supporting int32 scalar and SIMD types");
+  assert(exponent >= 0);
+  assert(exponent <= 31);
+  const IntegerType mask = Dup<IntegerType>((1ll << exponent) - 1);
+  const IntegerType zero = Dup<IntegerType>(0);
+  const IntegerType one = Dup<IntegerType>(1);
+  const IntegerType remainder = BitAnd(x, mask);
+  const IntegerType threshold =
+      Add(ShiftRight(mask, 1), BitAnd(MaskIfLessThan(x, zero), one));
+  return Add(ShiftRight(x, exponent),
+             BitAnd(MaskIfGreaterThan(remainder, threshold), one));
 }
 
 // Returns the product of a run-time integer value by a compile-time power
@@ -259,46 +299,41 @@ struct ImplSaturatingRoundingMultiplyByPOT<Exponent, IntegerType, 0> {
   static IntegerType eval(IntegerType x) { return x; }
 };
 
-template <int Exponent>
-struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32_t, 1> {
-  static int32_t eval(int32_t x) {
-    const int64_t min = std::numeric_limits<int32_t>::min();
-    const int64_t max = std::numeric_limits<int32_t>::max();
-    return x >= (1 << (31 - Exponent))
-               ? max
-               : x <= -(1 << (31 - Exponent)) ? min : x * (1 << Exponent);
+template <int Exponent, typename IntegerType>
+struct ImplSaturatingRoundingMultiplyByPOT<Exponent, IntegerType, 1> {
+  static IntegerType eval(IntegerType x) {
+    using ScalarIntegerType =
+        typename FixedPointRawTypeTraits<IntegerType>::ScalarRawType;
+    static_assert(std::is_same<ScalarIntegerType, std::int32_t>::value,
+                  "Currently only supporting int32 scalar and SIMD types");
+    const IntegerType min =
+        Dup<IntegerType>(std::numeric_limits<std::int32_t>::min());
+    const IntegerType max =
+        Dup<IntegerType>(std::numeric_limits<std::int32_t>::max());
+
+    const std::int32_t threshold = ((1 << (31 - Exponent)) - 1);
+    const IntegerType positive_mask =
+        MaskIfGreaterThan(x, Dup<IntegerType>(threshold));
+    const IntegerType negative_mask =
+        MaskIfLessThan(x, Dup<IntegerType>(-threshold));
+
+    IntegerType result = ShiftLeft(x, Exponent);
+    result = SelectUsingMask(positive_mask, max, result);
+    result = SelectUsingMask(negative_mask, min, result);
+    return result;
   }
 };
 
-template <int Exponent>
-struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32_t, -1> {
-  static int32_t eval(int32_t x) {
-    int32_t b = (std::abs(x) & (1 << (-Exponent - 1))) >> (-Exponent - 1);
-    int32_t nudge = x >= 0 ? b : -b;
-    return x / (1 << -Exponent) + nudge;
+template <int Exponent, typename IntegerType>
+struct ImplSaturatingRoundingMultiplyByPOT<Exponent, IntegerType, -1> {
+  static IntegerType eval(IntegerType x) {
+    return RoundingDivideByPOT<IntegerType>(x, -Exponent);
   }
 };
 
 template <int Exponent, typename IntegerType>
 IntegerType SaturatingRoundingMultiplyByPOT(IntegerType x) {
   return ImplSaturatingRoundingMultiplyByPOT<Exponent, IntegerType>::eval(x);
-}
-
-// Some compile-time traits around raw types to handle SIMD aspects:
-// number of lanes, underlying scalar type.
-template <typename tIntegerType>
-struct FixedPointRawTypeTraits {};
-
-template <>
-struct FixedPointRawTypeTraits<int32_t> {
-  typedef int32_t ScalarRawType;
-  static const int kLanes = 1;
-};
-
-// Returns a SIMD value duplicating a scalar value across all lanes.
-template <typename tRawType>
-tRawType Dup(typename FixedPointRawTypeTraits<tRawType>::ScalarRawType x) {
-  return x;
 }
 
 // Part 2: the FixedPoint class.
@@ -398,7 +433,7 @@ class FixedPoint {
   static FixedPoint FromDouble(double x) {
     const double min_bound = static_cast<double>(ScalarRawMin());
     const double max_bound = static_cast<double>(ScalarRawMax());
-    return FromScalarRaw(static_cast<int32_t>(std::min(
+    return FromScalarRaw(static_cast<std::int32_t>(std::min(
         std::max(round(x * static_cast<double>(1ll << kFractionalBits)),
                  min_bound),
         max_bound)));

@@ -27,9 +27,9 @@ namespace gemmlowp {
 // This is in-place requantization, where the input is
 // not modified if 8bit integers are used. SSE does not
 // have less than 8bit kernels currently. Altought SSE registers
-// hold 16 uint8_t elements, only first 8 uint8_t elements are
-// requantized. The packing only use first 8 uint8_t elements
-// of the SSE registers. Therefore, requantizing all 16 uint8_t
+// hold 16 std::uint8_t elements, only first 8 std::uint8_t elements are
+// requantized. The packing only use first 8 std::uint8_t elements
+// of the SSE registers. Therefore, requantizing all 16 std::uint8_t
 // elements will be wasteful computation.
 template <typename QuantizationParams>
 void SSERequantize(

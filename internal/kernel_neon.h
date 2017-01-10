@@ -1016,8 +1016,8 @@ struct NEONKernel4Nx1Depth2 : KernelBase {
         lhs_ptr += 8;
       }
       // Load RHS cell
-      uint16_t rhs0 = rhs_ptr[0];
-      uint16_t rhs1 = rhs_ptr[1];
+      std::uint16_t rhs0 = rhs_ptr[0];
+      std::uint16_t rhs1 = rhs_ptr[1];
       rhs_ptr += 2;
       // Multiply-accumulate, level of depth 0
       for (int cell = 0; cell < Cells; cell++) {

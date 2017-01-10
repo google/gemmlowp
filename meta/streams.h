@@ -50,13 +50,13 @@ class StreamUtil<InType, RowMajor> {
   static const InType* Offset(const RowMajor& params, const InType* source,
                               int offset_stride, int offset_advance) {
     return reinterpret_cast<const InType*>(
-        reinterpret_cast<const uint8_t*>(source) +
+        reinterpret_cast<const std::uint8_t*>(source) +
         offset_stride * params.stride + offset_advance * sizeof(InType));
   }
 
   static InType* Offset(const RowMajor& params, InType* source,
                         int offset_stride, int offset_advance) {
-    return reinterpret_cast<InType*>(reinterpret_cast<uint8_t*>(source) +
+    return reinterpret_cast<InType*>(reinterpret_cast<std::uint8_t*>(source) +
                                      offset_stride * params.stride +
                                      offset_advance * sizeof(InType));
   }
@@ -73,13 +73,13 @@ class StreamUtil<InType, RowMajorWithSum> {
                               const InType* source, int offset_stride,
                               int offset_advance) {
     return reinterpret_cast<const InType*>(
-        reinterpret_cast<const uint8_t*>(source) +
+        reinterpret_cast<const std::uint8_t*>(source) +
         offset_stride * params.stride + offset_advance * sizeof(InType));
   }
 
   static InType* Offset(const RowMajorWithSum& params, InType* source,
                         int offset_stride, int offset_advance) {
-    return reinterpret_cast<InType*>(reinterpret_cast<uint8_t*>(source) +
+    return reinterpret_cast<InType*>(reinterpret_cast<std::uint8_t*>(source) +
                                      offset_stride * params.stride +
                                      offset_advance * sizeof(InType));
   }
@@ -98,13 +98,13 @@ class StreamUtil<InType, ColumnMajorWithSum> {
                               const InType* source, int offset_stride,
                               int offset_advance) {
     return reinterpret_cast<const InType*>(
-        reinterpret_cast<const uint8_t*>(source) +
+        reinterpret_cast<const std::uint8_t*>(source) +
         params.stride * offset_advance + offset_stride * sizeof(InType));
   }
 
   static const InType* Offset(const ColumnMajorWithSum& params, InType* source,
                               int offset_stride, int offset_advance) {
-    return reinterpret_cast<InType*>(reinterpret_cast<uint8_t*>(source) +
+    return reinterpret_cast<InType*>(reinterpret_cast<std::uint8_t*>(source) +
                                      params.stride * offset_advance +
                                      offset_stride * sizeof(InType));
   }

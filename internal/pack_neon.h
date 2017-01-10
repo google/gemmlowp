@@ -46,7 +46,7 @@ template <>
 class NEONRoundingOffsetGenerator<RoundingMode::ProbabilisticXorshift> {
  public:
   NEONRoundingOffsetGenerator() {
-    uint8_t s = 128;
+    std::uint8_t s = 128;
     std::uint8_t a[16];
     for (int i = 0; i < 16; i++) {
       a[i] = s;
@@ -81,7 +81,7 @@ template <>
 class NEONRoundingOffsetGenerator<RoundingMode::ProbabilisticAddmod> {
  public:
   NEONRoundingOffsetGenerator() {
-    uint8_t s = 128;
+    std::uint8_t s = 128;
     std::uint8_t a[16];
     // The initial offset is set by offsetting each lane to one
     // more iteration of the sequence (s0...s15)  Then, upon iteration,

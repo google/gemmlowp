@@ -237,7 +237,7 @@ class ScalarRoundingOffsetGenerator<RoundingMode::ProbabilisticXorshift> {
 // expensive % operations.
 template <>
 class ScalarRoundingOffsetGenerator<RoundingMode::ProbabilisticAddmod> {
-  static const uint8_t AddConst = 97;
+  static const std::uint8_t AddConst = 97;
 
  public:
   ScalarRoundingOffsetGenerator() { x_ = 1; }  // Start must be non-zero

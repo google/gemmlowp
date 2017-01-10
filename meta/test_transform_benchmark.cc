@@ -66,7 +66,7 @@ void run_benchmark(const std::string& name, int repetitions, int elements,
   double wall_time = time() - start;
   double ops = static_cast<double>(elements) * repetitions;
   std::cout << "Avg: " << (wall_time / repetitions) << std::endl;
-  std::cout << "Perf: " << static_cast<int64_t>(ops / wall_time) << "/s."
+  std::cout << "Perf: " << static_cast<std::int64_t>(ops / wall_time) << "/s."
             << std::endl;
 
   std::cout << "Warmup single." << std::endl;
@@ -86,7 +86,7 @@ void run_benchmark(const std::string& name, int repetitions, int elements,
   wall_time = time() - start;
   ops = static_cast<double>(elements) * repetitions;
   std::cout << "Avg: " << (wall_time / repetitions) << std::endl;
-  std::cout << "Perf: " << static_cast<int64_t>(ops / wall_time) << "/s."
+  std::cout << "Perf: " << static_cast<std::int64_t>(ops / wall_time) << "/s."
             << std::endl;
 }
 
@@ -94,56 +94,56 @@ int main() {
   const int repetitions = 500;
   const int elements = 4 * 1024 * 1024;
 
-  std::unique_ptr<int32_t[]> int32_array(new int32_t[elements]);
-  std::unique_ptr<uint8_t[]> uint8_array(new uint8_t[elements]);
+  std::unique_ptr<std::int32_t[]> int32_array(new std::int32_t[elements]);
+  std::unique_ptr<std::uint8_t[]> uint8_array(new std::uint8_t[elements]);
   std::unique_ptr<float[]> float_array(new float[elements]);
 
   typedef SimpleContext<gemmlowp::WorkersPool> Context;
   Context context(4, new gemmlowp::WorkersPool());
 
-  typedef Transform1DParams<int32_t, uint8_t, Requantize> RequantizeParams;
+  typedef Transform1DParams<std::int32_t, std::uint8_t, Requantize> RequantizeParams;
   RequantizeParams requantize_params;
   requantize_params.input = int32_array.get();
   requantize_params.output = uint8_array.get();
   requantize_params.kernel.count = elements;
   requantize_params.kernel.input_range_min = -100.0f;
   requantize_params.kernel.input_range_scale =
-      200.0f / ((static_cast<int64_t>(1) << 32) - 1);
+      200.0f / ((static_cast<std::int64_t>(1) << 32) - 1);
   requantize_params.kernel.input_range_offset =
-      static_cast<float>(std::numeric_limits<int32_t>::lowest());
+      static_cast<float>(std::numeric_limits<std::int32_t>::lowest());
   requantize_params.kernel.output_range_min = -200.0f;
   requantize_params.kernel.one_over_output_range_scale =
-      static_cast<float>((static_cast<int64_t>(1) << 8) - 1) / 500.0f;
+      static_cast<float>((static_cast<std::int64_t>(1) << 8) - 1) / 500.0f;
   requantize_params.kernel.output_range_offset =
-      static_cast<float>(std::numeric_limits<uint8_t>::lowest());
+      static_cast<float>(std::numeric_limits<std::uint8_t>::lowest());
 
   run_benchmark("Requantize", repetitions, elements, &context,
                 requantize_params);
 
-  typedef Transform1DParams<uint8_t, float, Dequantize> DequantizeParams;
+  typedef Transform1DParams<std::uint8_t, float, Dequantize> DequantizeParams;
   DequantizeParams dequantize_params;
   dequantize_params.input = uint8_array.get();
   dequantize_params.output = float_array.get();
   dequantize_params.kernel.count = elements;
   dequantize_params.kernel.range_min = -100.0f;
   dequantize_params.kernel.range_scale =
-      static_cast<float>((static_cast<int64_t>(1) << 8) - 1) / 200.0f;
+      static_cast<float>((static_cast<std::int64_t>(1) << 8) - 1) / 200.0f;
   dequantize_params.kernel.range_offset =
-      static_cast<float>(std::numeric_limits<uint8_t>::lowest());
+      static_cast<float>(std::numeric_limits<std::uint8_t>::lowest());
 
   run_benchmark("Dequantize", repetitions, elements, &context,
                 dequantize_params);
 
-  typedef Transform1DParams<float, uint8_t, Quantize> QuantizeParams;
+  typedef Transform1DParams<float, std::uint8_t, Quantize> QuantizeParams;
   QuantizeParams quantize_params;
   quantize_params.input = float_array.get();
   quantize_params.output = uint8_array.get();
   quantize_params.kernel.count = elements;
   quantize_params.kernel.range_min = -100.0f;
   quantize_params.kernel.range_scale =
-      200.0f / ((static_cast<int64_t>(1) << 8) - 1);
+      200.0f / ((static_cast<std::int64_t>(1) << 8) - 1);
   quantize_params.kernel.range_offset =
-      static_cast<float>(std::numeric_limits<uint8_t>::lowest());
+      static_cast<float>(std::numeric_limits<std::uint8_t>::lowest());
 
   run_benchmark("Quantize", repetitions, elements, &context, quantize_params);
 
