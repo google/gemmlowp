@@ -75,12 +75,9 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
     const std::int32_t result_shift = output_stage.result_shift;
     const std::int32_t result_mult_int = output_stage.result_mult_int;
     const std::int32_t result_offset = output_stage.result_offset;
-    const std::int32_t preshift_offset =
-        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
-    const int32x4_t a = vaddq_s32(input, vdupq_n_s32(result_offset));
-    const int32x4_t b =
-        vmlaq_n_s32(vdupq_n_s32(preshift_offset), a, result_mult_int);
-    return vshlq_s32(b, vdupq_n_s32(-result_shift));
+    const int32x4_t a = vaddq_s32(vdupq_n_s32(result_offset), input);
+    const int32x4_t b = vmulq_n_s32(a, result_mult_int);
+    return RoundingDivideByPOT(b, result_shift);
   }
 
   const OutputStage& output_stage;
@@ -101,16 +98,13 @@ struct OutputStageEvalImpl<
 
   OutputType Eval(InputType input, int row, int col) const {
     const std::int32_t result_shift = output_stage.result_shift;
-    const std::int32_t preshift_offset =
-        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
     const int32x4_t result_mult_int =
         vld1q_s32(output_stage.result_mult_int.data(row));
     const int32x4_t result_offset =
         vld1q_s32(output_stage.result_offset.data(row));
-    const int32x4_t a = vaddq_s32(input, result_offset);
-    const int32x4_t b =
-        vmlaq_s32(vdupq_n_s32(preshift_offset), a, result_mult_int);
-    return vshlq_s32(b, vdupq_n_s32(-result_shift));
+    const int32x4_t a = vaddq_s32(result_offset, input);
+    const int32x4_t b = vmulq_s32(a, result_mult_int);
+    return RoundingDivideByPOT(b, result_shift);
   }
 
   const OutputStage& output_stage;
@@ -131,16 +125,13 @@ struct OutputStageEvalImpl<
 
   OutputType Eval(InputType input, int row, int col) const {
     const std::int32_t result_shift = output_stage.result_shift;
-    const std::int32_t preshift_offset =
-        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
     const int32x4_t result_mult_int =
         vld1q_s32(output_stage.result_mult_int.data(col));
     const int32x4_t result_offset =
         vld1q_s32(output_stage.result_offset.data(row));
-    const int32x4_t a = vaddq_s32(input, result_offset);
-    const int32x4_t b =
-        vmlaq_s32(vdupq_n_s32(preshift_offset), a, result_mult_int);
-    return vshlq_s32(b, vdupq_n_s32(-result_shift));
+    const int32x4_t a = vaddq_s32(result_offset, input);
+    const int32x4_t b = vmulq_s32(a, result_mult_int);
+    return RoundingDivideByPOT(b, result_shift);
   }
 
   const OutputStage& output_stage;
@@ -155,23 +146,18 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
   typedef NEONFragmentInt32x4x1 OutputType;
   typedef OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint OutputStage;
 
-  OutputStageEvalImpl(const OutputStage& s)
-      : output_stage(s),
-        preshift_offset((s.result_shift < 1) ? 0
-                                             : (1 << (s.result_shift - 1))) {}
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
   OutputType Eval(InputType input, int, int) const {
     const std::int32_t result_shift = output_stage.result_shift;
     const std::int32_t result_fixedpoint_multiplier =
         output_stage.result_fixedpoint_multiplier;
     const int32x4_t m = vqrdmulhq_n_s32(input, result_fixedpoint_multiplier);
-    const int32x4_t b = vaddq_s32(m, vdupq_n_s32(preshift_offset));
-    const int32x4_t c = vshlq_s32(b, vdupq_n_s32(-result_shift));
+    const int32x4_t c = RoundingDivideByPOT(m, result_shift);
     return vaddq_s32(c, vdupq_n_s32(output_stage.result_offset_after_shift));
   }
 
   const OutputStage& output_stage;
-  const std::int32_t preshift_offset;
 };
 
 // Implementation of OutputStageSaturatingCastToUint8 for NEONFragmentInt32x4x1

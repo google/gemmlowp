@@ -68,12 +68,9 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
     const __m128i result_mult_int =
         _mm_set1_epi32(output_stage.result_mult_int);
     const __m128i result_offset = _mm_set1_epi32(output_stage.result_offset);
-    const std::int32_t kRoundingTerm =
-        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
-    const __m128i a = _mm_add_epi32(
-        _mm_mullo_epi32(_mm_add_epi32(input, result_offset), result_mult_int),
-        _mm_set1_epi32(kRoundingTerm));
-    return ShiftRight(a, result_shift);
+    const __m128i a =
+        _mm_mullo_epi32(_mm_add_epi32(input, result_offset), result_mult_int);
+    return RoundingDivideByPOT(a, result_shift);
   }
 
   const OutputStage& output_stage;
@@ -99,12 +96,9 @@ struct OutputStageEvalImpl<
             output_stage.result_mult_int.data(row)));
     const __m128i result_offset = _mm_lddqu_si128(
         reinterpret_cast<const __m128i*>(output_stage.result_offset.data(row)));
-    const std::int32_t kRoundingTerm =
-        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
-    const __m128i a = _mm_add_epi32(
-        _mm_mullo_epi32(_mm_add_epi32(input, result_offset), result_mult_int),
-        _mm_set1_epi32(kRoundingTerm));
-    return ShiftRight(a, result_shift);
+    const __m128i a =
+        _mm_mullo_epi32(_mm_add_epi32(input, result_offset), result_mult_int);
+    return RoundingDivideByPOT(a, result_shift);
   }
 
   const OutputStage& output_stage;
@@ -130,12 +124,9 @@ struct OutputStageEvalImpl<
             output_stage.result_mult_int.data(col)));
     const __m128i result_offset = _mm_lddqu_si128(
         reinterpret_cast<const __m128i*>(output_stage.result_offset.data(row)));
-    const std::int32_t kRoundingTerm =
-        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
-    const __m128i a = _mm_add_epi32(
-        _mm_mullo_epi32(_mm_add_epi32(input, result_offset), result_mult_int),
-        _mm_set1_epi32(kRoundingTerm));
-    return ShiftRight(a, result_shift);
+    const __m128i a =
+        _mm_mullo_epi32(_mm_add_epi32(input, result_offset), result_mult_int);
+    return RoundingDivideByPOT(a, result_shift);
   }
 
   const OutputStage& output_stage;
@@ -156,11 +147,7 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
     const __m128i mulhigh_val = SaturatingRoundingDoublingHighMul(
         input.data, _mm_set1_epi32(output_stage.result_fixedpoint_multiplier));
     const std::int32_t result_shift = output_stage.result_shift;
-    const std::int32_t kRoundingTerm =
-        (result_shift < 1) ? 0 : (1 << (result_shift - 1));
-
-    const __m128i shifted_val = ShiftRight(
-        Add(mulhigh_val, _mm_set1_epi32(kRoundingTerm)), result_shift);
+    const __m128i shifted_val = RoundingDivideByPOT(mulhigh_val, result_shift);
     return Add(shifted_val,
                _mm_set1_epi32(output_stage.result_offset_after_shift));
   }

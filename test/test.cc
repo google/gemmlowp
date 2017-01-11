@@ -1221,19 +1221,17 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
       &context, lhs.const_map(), rhs.const_map(), &result_quantized_down_int32,
       lhs_offset, rhs_offset, quantize_down_pipeline);
 
-  std::uint64_t sum = 0;
+  std::int64_t sum = 0;
   for (int r = 0; r < rows; r++) {
     for (int c = 0; c < cols; c++) {
       std::int32_t raw = result_raw_int32(r, c);
-      const std::int32_t rounding =
-          (result_shift < 1) ? 0 : (1 << (result_shift - 1));
-      std::int32_t expected =
-          ((raw + result_offset) * result_mult_int + rounding) >> result_shift;
+      std::int32_t expected = RoundingDivideByPOT(
+          (raw + result_offset) * result_mult_int, result_shift);
       Check(expected == result_quantized_down_int32(r, c));
       sum += expected;
     }
   }
-  std::uint64_t avg = sum / (rows * cols);
+  std::int64_t avg = sum / (rows * cols);
   // Test that the average quantized-down value falls reasonably in the
   // middle of the [0..255] range. Otherwise, the multiplier / shift need to be
   // adjusted.
@@ -1385,12 +1383,9 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
       bias_clamp_quantize_cast_pipeline);
   for (int r = 0; r < rows; r++) {
     for (int c = 0; c < cols; c++) {
-      const std::int32_t rounding =
-          (result_shift < 1) ? 0 : (1 << (result_shift - 1));
-      std::int32_t quantized =
-          ((result_biased_clamped(r, c) + result_offset) * result_mult_int +
-           rounding) >>
-          result_shift;
+      std::int32_t quantized = RoundingDivideByPOT(
+          (result_biased_clamped(r, c) + result_offset) * result_mult_int,
+          result_shift);
       std::uint8_t expected = std::min(std::max(quantized, 0), 255);
       Check(expected == result_biased_clamped_quantized_casted(r, c));
     }
@@ -1433,20 +1428,17 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
   std::vector<std::int32_t> diffs_caused_by_fixedpoint;
   for (int r = 0; r < rows; r++) {
     for (int c = 0; c < cols; c++) {
-      std::int32_t diff = result_quantized_down_int32(r, c) -
-                          result_quantized_down_by_fixedpoint_int32(r, c);
-      Check(std::abs(diff) <= 1);
-      diffs_caused_by_fixedpoint.push_back(diff);
+      const std::int32_t actual =
+          result_quantized_down_by_fixedpoint_int32(r, c);
+      const std::int32_t raw = result_raw_int32(r, c);
+      const std::int32_t expected =
+          quantize_down_by_fixedpoint_stage.result_offset_after_shift +
+          RoundingDivideByPOT(SaturatingRoundingDoublingHighMul(
+                                  raw, result_fixedpoint_multiplier),
+                              result_fixedpoint_shift);
+      Check(actual == expected);
     }
   }
-  // For large enough matrices, check that most diffs are 0
-  std::sort(diffs_caused_by_fixedpoint.begin(),
-            diffs_caused_by_fixedpoint.end());
-  Check(
-      diffs_caused_by_fixedpoint[diffs_caused_by_fixedpoint.size() * 1 / 100] ==
-      0);
-  Check(diffs_caused_by_fixedpoint[diffs_caused_by_fixedpoint.size() * 99 /
-                                   100] == 0);
 
   // Test the variant of the familiar default pipeline consisting of
   // quantize-down and
