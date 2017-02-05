@@ -27,22 +27,6 @@
 
 namespace gemmlowp {
 
-// Non-optimized rounding routine since SSE does not have
-// optimized kernels for less than 8bit input values.
-template <std::uint32_t numerator, std::uint32_t denominator>
-void SSERoundingMultiplyByConstantFraction(__m128i* x) {
-  if (numerator == denominator) {
-    return;
-  }
-  std::int32_t x_array[4];
-  _mm_storeu_si128((__m128i*)&x_array[0], *x);
-  for (int i = 0; i < 4; ++i) {
-    x_array[i] =
-        RoundingMultiplyByConstantFraction<numerator, denominator>(x_array[i]);
-  }
-  *x = _mm_lddqu_si128(reinterpret_cast<__m128i*>(&x_array[0]));
-}
-
 template <typename tScalar, VectorShape tShape>
 __m128i get_m128i_and_inc(ConstIterator<VectorMap<tScalar, tShape>>* iterator) {
   const __m128i result =
@@ -59,11 +43,11 @@ __m128i get_m128i_and_inc(ConstIterator<VectorDup<tScalar, tShape>>* iterator) {
   return result;
 }
 
-template <typename BitDepthParams, typename PackedResultType,
+template <typename PackedResultType,
           typename OutputScalar, typename LhsOffset, typename RhsOffset,
           typename OutputPipelineType>
 struct UnpackResultImpl<
-    BitDepthParams, MatrixMap<OutputScalar, MapOrder::ColMajor>,
+    MatrixMap<OutputScalar, MapOrder::ColMajor>,
     PackedResultType, LhsOffset, RhsOffset, OutputPipelineType> {
   typedef MatrixMap<OutputScalar, MapOrder::ColMajor> ResultBlockType;
   static void Unpack(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
@@ -80,10 +64,6 @@ struct UnpackResultImpl<
     auto src_map = src.Map();
     // No top-level blocking in the depth dimension at the moment.
     // Too much loss of precision.
-    const int kLhsBits = BitDepthParams::LhsBitDepth::kBits;
-    const int kRhsBits = BitDepthParams::RhsBitDepth::kBits;
-    const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
-    const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     __m128i depth_xmm = _mm_set1_epi32((std::int32_t)depth);
 
     OutputPipelineExecutor<OutputPipelineType, SSE4FragmentInt32x4x1>
@@ -111,17 +91,13 @@ struct UnpackResultImpl<
         // xx term: src_map(r:r+4,c)
         __m128i term_xx_xmm =
             _mm_loadu_si128(reinterpret_cast<const __m128i*>(src_ptr));
-        SSERoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
-            &term_xx_xmm);
         // x1 term: lhs_sums_of_each_slice[r:r+4] * rhs_offset(c_dst)
         __m128i term_x1_xmm = _mm_loadu_si128(
             reinterpret_cast<const __m128i*>(lhs_sums_of_each_slice_ptr));
         term_x1_xmm = _mm_mullo_epi32(rhs_offset_xmm, term_x1_xmm);
-        SSERoundingMultiplyByConstantFraction<255, kLhsMax>(&term_x1_xmm);
         // 1x term: rhs_sums_of_each_slice[c] * lhs_offset(r_dst:r_dst+3)
         __m128i lhs_offset_xmm = get_m128i_and_inc(&lhs_offset_iter);
         __m128i term_1x_xmm = _mm_mullo_epi32(rhs_sums_xmm, lhs_offset_xmm);
-        SSERoundingMultiplyByConstantFraction<255, kRhsMax>(&term_1x_xmm);
         // 11 term: lhs_offset(r_dst:r_dst+3) * rhs_offset(c_dst) * depth
         __m128i term_11_xmm_ = _mm_mullo_epi32(rhs_offset_xmm, lhs_offset_xmm);
         __m128i term_11_xmm = _mm_mullo_epi32(depth_xmm, term_11_xmm_);
@@ -140,18 +116,9 @@ struct UnpackResultImpl<
         //   doc/low-precision.txt
         //   doc/less-than-8-bit.txt
         // We have 4 terms to sum: xx, x1, 1x, 11.
-        // In case of requantization, we first need to scale them back
-        // to the original scale, using RoundingMultiplyByConstantFraction.
-        std::int32_t raw_xx = src_map(r, c);
-        std::int32_t raw_x1 = lhs_sums_of_each_slice[r] * rhs_offset(c_dst);
-        std::int32_t raw_1x = rhs_sums_of_each_slice[c] * lhs_offset(r_dst);
-        std::int32_t term_xx =
-            RoundingMultiplyByConstantFraction<255 * 255, kLhsMax * kRhsMax>(
-                raw_xx);
-        std::int32_t term_x1 =
-            RoundingMultiplyByConstantFraction<255, kLhsMax>(raw_x1);
-        std::int32_t term_1x =
-            RoundingMultiplyByConstantFraction<255, kRhsMax>(raw_1x);
+        std::int32_t term_xx = src_map(r, c);
+        std::int32_t term_x1 = lhs_sums_of_each_slice[r] * rhs_offset(c_dst);
+        std::int32_t term_1x = rhs_sums_of_each_slice[c] * lhs_offset(r_dst);
         std::int32_t term_11 = lhs_offset(r_dst) * rhs_offset(c_dst) * depth;
         // Sum the 4 terms.
         FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x + term_11;

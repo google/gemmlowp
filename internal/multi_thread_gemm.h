@@ -449,13 +449,13 @@ struct GemmWithPackedRhsTask : Task {
       for (int r = 0; r < rows; r += block_params.l2_rows) {
         int rs = std::min(block_params.l2_rows, rows - r);
 
-        PackLhs<BitDepthParams>(&packed_lhs, lhs.block(r, 0, rs, depth));
+        PackLhs(&packed_lhs, lhs.block(r, 0, rs, depth));
 
         Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
 
         auto curr_result_block = MatrixBlockBounds(
             result_block.start_row + r, result_block.start_col + c, rs, cs);
-        UnpackResult<BitDepthParams>(&result, curr_result_block, packed_result,
+        UnpackResult(&result, curr_result_block, packed_result,
                                      depth, packed_lhs.sums_of_each_slice(),
                                      packed_rhs.sums_of_each_slice(),
                                      lhs_offset, rhs_offset, output_pipeline);
@@ -637,7 +637,7 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
     int cs = std::min(block_params.l2_cols, cols - c);
 
     // Pack a large block of the RHS.
-    PackRhs<BitDepthParams>(&packed_rhs, rhs.block(0, c, depth, cs));
+    PackRhs(&packed_rhs, rhs.block(0, c, depth, cs));
 
     // Give work to each worker.
     int next_start_row = 0;

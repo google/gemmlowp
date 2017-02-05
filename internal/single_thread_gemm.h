@@ -110,24 +110,24 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
   const bool pack_rhs_once = block_params.l2_cols >= cols;
 
   if (pack_rhs_once) {
-    PackRhs<BitDepthParams>(&packed_rhs, rhs);
+    PackRhs(&packed_rhs, rhs);
   }
 
   for (int r = 0; r < rows; r += block_params.l2_rows) {
     int rs = std::min(block_params.l2_rows, rows - r);
 
-    PackLhs<BitDepthParams>(&packed_lhs, lhs.block(r, 0, rs, depth));
+    PackLhs(&packed_lhs, lhs.block(r, 0, rs, depth));
 
     for (int c = 0; c < cols; c += block_params.l2_cols) {
       int cs = std::min(block_params.l2_cols, cols - c);
 
       if (!pack_rhs_once) {
-        PackRhs<BitDepthParams>(&packed_rhs, rhs.block(0, c, depth, cs));
+        PackRhs(&packed_rhs, rhs.block(0, c, depth, cs));
       }
 
       Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
 
-      UnpackResult<BitDepthParams>(
+      UnpackResult(
           result, MatrixBlockBounds(r, c, rs, cs), packed_result, depth,
           packed_lhs.sums_of_each_slice(), packed_rhs.sums_of_each_slice(),
           lhs_offset, rhs_offset, output_pipeline);
