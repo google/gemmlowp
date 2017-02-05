@@ -25,6 +25,9 @@ O(N^3) compute stage. For large enough matrices, that should be worth it.
 
 ### The present
 
+TODO(benoitjacob): update this documentation. This 'present' state just
+became the past (February 2017).
+
 At the moment, this less-than-8-bit mode of gemmlowp is not much used in
 practice, because the implicit requantization of operands from 8bit to
 less-than-8bit turned out to be more expensive than initially expected, both in

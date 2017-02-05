@@ -25,13 +25,6 @@
 
 namespace gemmlowp {
 
-inline bool IsRequantizationWorthIt(int rows, int cols) {
-  // We pack depth*(rows+cols) and compute depth*rows*cols.
-  // Thus the ratio of compute/packing cost is rows*cols/(rows+cols)
-  // In the square case rows==cols==N, it becomes N/2.
-  return 2 * rows * cols >= (rows + cols) * kMinimumWidthForRequantization;
-}
-
 class GemmContext : public MultiThreadGemmContext {};
 
 // Computes a general matrix product ("GEMM").
@@ -60,33 +53,15 @@ void GemmWithOutputPipelinePC(GemmContextType* context,
   }
 
   if (cols == 1) {
-    if (IsRequantizationWorthIt(rows, cols)) {
-      typedef DefaultKernel<KernelFamily::Gemv, BitDepthParams> Kernel;
-      MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
-                      BitDepthParams>(context, Kernel(), lhs, rhs, result,
-                                      lhs_offset, rhs_offset, output_pipeline);
-    } else {
-      typedef DefaultKernel<KernelFamily::Gemv, DefaultL8R8BitDepthParams>
-          Kernel;
-      MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
-                      DefaultL8R8BitDepthParams>(context, Kernel(), lhs, rhs,
-                                                 result, lhs_offset, rhs_offset,
-                                                 output_pipeline);
-    }
+    typedef DefaultKernel<KernelFamily::Gemv, BitDepthParams> Kernel;
+    MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
+                    BitDepthParams>(context, Kernel(), lhs, rhs, result,
+                                    lhs_offset, rhs_offset, output_pipeline);
   } else {
-    if (IsRequantizationWorthIt(rows, cols)) {
-      typedef DefaultKernel<KernelFamily::Gemm, BitDepthParams> Kernel;
-      MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
-                      BitDepthParams>(context, Kernel(), lhs, rhs, result,
-                                      lhs_offset, rhs_offset, output_pipeline);
-    } else {
-      typedef DefaultKernel<KernelFamily::Gemm, DefaultL8R8BitDepthParams>
-          Kernel;
-      MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
-                      DefaultL8R8BitDepthParams>(context, Kernel(), lhs, rhs,
-                                                 result, lhs_offset, rhs_offset,
-                                                 output_pipeline);
-    }
+    typedef DefaultKernel<KernelFamily::Gemm, BitDepthParams> Kernel;
+    MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
+                    BitDepthParams>(context, Kernel(), lhs, rhs, result,
+                                    lhs_offset, rhs_offset, output_pipeline);
   }
 }
 
