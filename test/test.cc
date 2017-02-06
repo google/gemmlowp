@@ -424,25 +424,6 @@ void test_gemm_impl(typename GemmWrapper::Context* context, const LhsType& lhs,
 
   ResultStatsBounds bounds;
 
-  if (BitDepthParams::LhsBitDepth::kBits < 8 ||
-      BitDepthParams::RhsBitDepth::kBits < 8) {
-    // We have very lax requirements on unsigned diff.
-    // We have tighter requirements on signed diff (bias), but only
-    // if the matrix is large enough for things to average out.
-    // For very small sizes, we... basically don't test anything.
-    // The problem is that this test uses unrealistic combinations of
-    // result_mult_int
-    // and result_shift, resulting in potentially wild requantization artifacts
-    // on small GEMMs.
-    int adjust_for_small_sizes = 1000 / (rows * cols);
-    bounds.max_unsigned_diff =
-        std::max(stats.med_val / 2, adjust_for_small_sizes);
-    bounds.med_unsigned_diff =
-        std::max(stats.med_val / 8, adjust_for_small_sizes);
-    bounds.med_signed_diff = std::max(2, adjust_for_small_sizes);
-    bounds.mean_signed_diff = std::max(2, adjust_for_small_sizes);
-  }
-
   // Check results
   const bool good = CheckResultStatsBounds(stats, bounds);
 
@@ -700,7 +681,7 @@ const char* GetBitDepthName(eight_bit_int_gemm::BitDepthSetting b) {
     case eight_bit_int_gemm::BitDepthSetting::A8B8:
       return "Lhs: 8 bit, Rhs: 8 bit";
     case eight_bit_int_gemm::BitDepthSetting::A5B7:
-      return "Lhs: 7 bit, Rhs: 5 bit";
+      return "(legacy, no longer requantizing) Lhs: 7 bit, Rhs: 5 bit";
     default:
       abort();
       return nullptr;
@@ -1504,8 +1485,9 @@ void TestExhaustively() {
                                    eight_bit_int_gemm::BitDepthSetting::A8B8>>(
       &context);
 
-  // Test other bit depths
-  // L7R5
+  // Test other bit depths:
+  // L7R5 (legacy old requantizing path, no longer actually requantizing, 
+  // now just an alias for the default 8 bit depth).
   test_gemm<SingleThreadGemmWrapper<
       DefaultKernel<KernelFamily::Gemm, DefaultL7R5BitDepthParams>,
       std::uint8_t, DefaultL7R5BitDepthParams>>(&context);

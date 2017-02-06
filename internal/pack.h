@@ -29,7 +29,6 @@
 
 #include <cstring>
 
-#include "../public/bit_depth.h"
 #include "allocator.h"
 #include "block_params.h"
 #include "common.h"
@@ -188,94 +187,6 @@ class SideMap {
   int width_, depth_, stride_;
 };
 
-template <RoundingMode tRoundingMode>
-class ScalarRoundingOffsetGenerator {
- public:
-  std::uint8_t get() {
-    assert(false);  // This generic path should never be called.
-    return 0;
-  }
-};
-
-// A RoundingOffsetGenerator for rounding-to-nearest, always returning
-// the midpoint value 127.
-template <>
-class ScalarRoundingOffsetGenerator<RoundingMode::Nearest> {
- public:
-  std::uint8_t get() { return 127; }
-};
-
-// A RoundingOffsetGenerator based on a 8-bit Xorshift.
-// This gives good results as Xorshift naturally generates
-// uniform random *nonzero* bytes i.e. 255 different values,
-// so it only remains for us to subtract one.
-template <>
-class ScalarRoundingOffsetGenerator<RoundingMode::ProbabilisticXorshift> {
- public:
-  ScalarRoundingOffsetGenerator() { x_ = 128; }
-
-  std::uint8_t get() {
-    std::uint8_t result = x_ - 1;
-    // Xorshift8(7,5,3)
-    x_ ^= x_ << 7;
-    x_ ^= x_ >> 5;
-    x_ ^= x_ << 3;
-    return result;
-  }
-
- private:
-  // State
-  std::uint8_t x_;
-};
-
-// A RoundingOffsetGenerator based on an 8-bit add/mod
-// low-discrepancy sequence.  See less-than-8-bit.txt for
-// an explanation (the constant 97 is important - it must
-// be both relatively prime to 255, in order for the sequence
-// to be full-period, and c/255 should be close to 0.38 to
-// obtain low discrepancy).  Uses a small bit hack to avoid
-// expensive % operations.
-template <>
-class ScalarRoundingOffsetGenerator<RoundingMode::ProbabilisticAddmod> {
-  static const std::uint8_t AddConst = 97;
-
- public:
-  ScalarRoundingOffsetGenerator() { x_ = 1; }  // Start must be non-zero
-
-  std::uint8_t get() {
-    // The +'d boolean term causes the increment to skip over 255,
-    // (recalling that 255+1 = 256 = 0 for an 8 bit uint),
-    // thus implementing %255
-    x_ += (AddConst + (x_ >= (255 - AddConst)));
-    return x_;
-  }
-
- private:
-  // State
-  std::uint8_t x_;
-};
-
-// Requantizes a source uint8 value in [0..255] range
-// to the range specified by BitDepth, [0..((2^bits)-1)].
-// Bias must be avoided. Currently this is achieved
-// by probabilistic rounding.
-template <typename QuantizationParams>
-std::uint8_t Requantize(
-    std::uint8_t raw_src_val,
-    ScalarRoundingOffsetGenerator<QuantizationParams::kRoundingMode>*
-        rounding_offset_generator) {
-  static const int kBits = QuantizationParams::BitDepth::kBits;
-  static const std::uint8_t kMaxVal = (1 << kBits) - 1;
-
-  if (kBits == 8) {
-    return raw_src_val;
-  }
-
-  std::uint16_t scaled = static_cast<std::uint16_t>(raw_src_val) * kMaxVal;
-  std::uint8_t rounding_offset = rounding_offset_generator->get();
-  return (scaled + rounding_offset) / 255;
-}
-
 // A PackingRegisterBlock is a small fixed-size block of a matrix being
 // packed. This class is the generic non-optimized implementation,
 // it is inherited by the generic implementation of PackingRegisterBlock,
@@ -292,7 +203,7 @@ std::uint8_t Requantize(
 //   2. Packing a complete block into the destination, see Pack. This is the
 //      most critical part, so it's convenient that unaligned boundaries have
 //      already been handled in step 1.
-template <typename QuantizationParams, typename SrcMapType,
+template <typename SrcMapType,
           typename PackedSideBlock>
 class PackingRegisterBlockBase {
  public:
@@ -304,9 +215,6 @@ class PackingRegisterBlockBase {
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
   static const SideMapOrder kSrcOrder = SrcMapType::kOrder;
-
-  typedef ScalarRoundingOffsetGenerator<QuantizationParams::kRoundingMode>
-      RoundingOffsetGenerator;
 
   PackingRegisterBlockBase() : complete_src_(nullptr, 0, 0, 0) {}
 
@@ -344,8 +252,7 @@ class PackingRegisterBlockBase {
   // Packs a complete block into the destination. This is the most
   // critical part and the part that we most typically want to
   // override in architecture-specific optimized specializations.
-  void Pack(PackedSideBlock* dst, int start_width,
-            RoundingOffsetGenerator* rounding_offset_generator) {
+  void Pack(PackedSideBlock* dst, int start_width) {
     std::uint8_t* dst_ptr = dst->current_data();
     for (int cell_start_depth = 0; cell_start_depth < kRegisterSize;
          cell_start_depth += kCellDepth) {
@@ -359,11 +266,9 @@ class PackingRegisterBlockBase {
         for (int w = 0; w < kCellWidth; w++) {
           std::int32_t sum = 0;
           for (int d = 0; d < kCellDepth; d++) {
-            const std::uint8_t raw_src_val = src_cell_map(w, d);
-            const std::uint8_t requantized = Requantize<QuantizationParams>(
-                raw_src_val, rounding_offset_generator);
-            dst_ptr[OffsetIntoCell<CellFormat>(w, d)] = requantized;
-            sum += requantized;
+            const std::uint8_t src_val = src_cell_map(w, d);
+            dst_ptr[OffsetIntoCell<CellFormat>(w, d)] = src_val;
+            sum += src_val;
           }
           cell_sums_of_each_slice_ptr[w] += sum;
         }
@@ -374,14 +279,14 @@ class PackingRegisterBlockBase {
   }
 };
 
-template <typename QuantizationParams, typename SrcMapType,
+template <typename SrcMapType,
           typename PackedSideBlock>
 class PackingRegisterBlock
-    : public PackingRegisterBlockBase<QuantizationParams, SrcMapType,
+    : public PackingRegisterBlockBase<SrcMapType,
                                       PackedSideBlock> {};
 
 // Large-scale implementation of packing.
-template <typename QuantizationParams, typename SrcMapType,
+template <typename SrcMapType,
           typename PackedSideBlock>
 class PackSideBlockImpl {
  public:
@@ -392,10 +297,8 @@ class PackSideBlockImpl {
   static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
 
-  typedef PackingRegisterBlock<QuantizationParams, SrcMapType, PackedSideBlock>
+  typedef PackingRegisterBlock<SrcMapType, PackedSideBlock>
       PackingRegisterBlockType;
-  typedef typename PackingRegisterBlockType::RoundingOffsetGenerator
-      RoundingOffsetGenerator;
 
   PackSideBlockImpl(PackedSideBlock* packed_side_block,
                     const SrcMapType& src_map)
@@ -461,14 +364,14 @@ class PackSideBlockImpl {
         for (int d = 0; d < register_aligned_depth; d += kRegisterSize) {
           b.UseCompleteSrcInPlace(src_map_.block(start_width, start_depth + d,
                                                  width, kRegisterSize));
-          b.Pack(packed_side_block_, start_width, &rounding_offset_generator_);
+          b.Pack(packed_side_block_, start_width);
         }
       }
       if (register_aligned_depth < depth) {
         b.MakeCompleteSrc(
             src_map_.block(start_width, start_depth + register_aligned_depth,
                            width, depth - register_aligned_depth));
-        b.Pack(packed_side_block_, start_width, &rounding_offset_generator_);
+        b.Pack(packed_side_block_, start_width);
       }
     } else {
       assert(width < kKernelWidth);
@@ -476,7 +379,7 @@ class PackSideBlockImpl {
         const int ds = std::min(+kRegisterSize, depth - d);
         b.MakeCompleteSrc(
             src_map_.block(start_width, start_depth + d, width, ds));
-        b.Pack(packed_side_block_, start_width, &rounding_offset_generator_);
+        b.Pack(packed_side_block_, start_width);
       }
     }
   }
@@ -487,23 +390,10 @@ class PackSideBlockImpl {
   // A map on the block of the original matrix block being packed,
   // i.e. the 'source'.
   const SrcMapType& src_map_;
-
-  // Used for requantization in the less-than-8-bit case.
-  // Otherwise unused.
-  RoundingOffsetGenerator rounding_offset_generator_;
-};
-
-// Quantization parameters for the side (LHS or RHS) being packed,
-// with the rounding strategy having been already resolved to a specific
-// rounding mode.
-template <typename tBitDepth, RoundingMode tRoundingMode>
-struct QuantizationParams {
-  typedef tBitDepth BitDepth;
-  static const RoundingMode kRoundingMode = tRoundingMode;
 };
 
 // Packs a block of the input LHS matrix, into a PackedSideBlock
-template <typename BitDepthParams, typename PackedSideBlock,
+template <typename PackedSideBlock,
           typename MatrixMapType>
 void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
   ScopedProfilingLabel label("pack LHS");
@@ -513,28 +403,13 @@ void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
   typedef typename MatrixMapType::Scalar Scalar;
   typedef SideMap<Scalar, kSideMapOrder> SideMapType;
   SideMapType src_side_map(src.data(), src.rows(), src.cols(), src.stride());
-  typedef typename BitDepthParams::LhsBitDepth BitDepth;
-  typedef typename BitDepthParams::RoundingStrategy RoundingStrategy;
-  const int accumulation_depth = src_side_map.depth();
-  if (accumulation_depth < RoundingStrategy::kRoundingModeSizeThreshold) {
-    typedef QuantizationParams<BitDepth,
-                               RoundingStrategy::kRoundingModeForSmallSizes>
-        QParams;
-    typedef PackSideBlockImpl<QParams, SideMapType, PackedSideBlock> ImplType;
-    ImplType impl(dst, src_side_map);
-    impl.PackL2();
-  } else {
-    typedef QuantizationParams<BitDepth,
-                               RoundingStrategy::kRoundingModeForLargeSizes>
-        QParams;
-    typedef PackSideBlockImpl<QParams, SideMapType, PackedSideBlock> ImplType;
-    ImplType impl(dst, src_side_map);
-    impl.PackL2();
-  }
+  typedef PackSideBlockImpl<SideMapType, PackedSideBlock> ImplType;
+  ImplType impl(dst, src_side_map);
+  impl.PackL2();
 }
 
 // Packs a block of the input RHS matrix, into a PackedSideBlock
-template <typename BitDepthParams, typename PackedSideBlock,
+template <typename PackedSideBlock,
           typename MatrixMapType>
 void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
   ScopedProfilingLabel label("pack RHS");
@@ -544,24 +419,9 @@ void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
   typedef typename MatrixMapType::Scalar Scalar;
   typedef SideMap<Scalar, kSideMapOrder> SideMapType;
   SideMapType src_side_map(src.data(), src.cols(), src.rows(), src.stride());
-  typedef typename BitDepthParams::RhsBitDepth BitDepth;
-  typedef typename BitDepthParams::RoundingStrategy RoundingStrategy;
-  const int accumulation_depth = src_side_map.depth();
-  if (accumulation_depth < RoundingStrategy::kRoundingModeSizeThreshold) {
-    typedef QuantizationParams<BitDepth,
-                               RoundingStrategy::kRoundingModeForSmallSizes>
-        QParams;
-    typedef PackSideBlockImpl<QParams, SideMapType, PackedSideBlock> ImplType;
-    ImplType impl(dst, src_side_map);
-    impl.PackL2();
-  } else {
-    typedef QuantizationParams<BitDepth,
-                               RoundingStrategy::kRoundingModeForLargeSizes>
-        QParams;
-    typedef PackSideBlockImpl<QParams, SideMapType, PackedSideBlock> ImplType;
-    ImplType impl(dst, src_side_map);
-    impl.PackL2();
-  }
+  typedef PackSideBlockImpl<SideMapType, PackedSideBlock> ImplType;
+  ImplType impl(dst, src_side_map);
+  impl.PackL2();
 }
 
 }  // namespace gemmlowp
