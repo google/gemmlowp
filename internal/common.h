@@ -18,8 +18,6 @@
 #ifndef GEMMLOWP_INTERNAL_COMMON_H_
 #define GEMMLOWP_INTERNAL_COMMON_H_
 
-#include <pthread.h>
-
 #include <algorithm>
 #include <cassert>
 #include <cmath>

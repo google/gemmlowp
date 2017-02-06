@@ -17,7 +17,13 @@
 #ifndef GEMMLOWP_PUBLIC_GEMMLOWP_H_
 #define GEMMLOWP_PUBLIC_GEMMLOWP_H_
 #include "../internal/kernel_default.h"
+
+#if defined(GEMMLOWP_USE_STD_THREAD)
+#include "../internal/multi_thread_gemm_no_pthread.h"
+#else
 #include "../internal/multi_thread_gemm.h"
+#endif
+
 #include "../internal/unpack.h"
 #include "bit_depth.h"
 #include "map.h"
