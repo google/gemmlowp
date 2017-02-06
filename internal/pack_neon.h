@@ -158,8 +158,8 @@ class PackingRegisterBlock<
 // results in substantially faster code (thanks to better
 // register allocation) on Nexus 5.
 
-#define GEMMLOWP_UNROLLED_LOOP_ITER(k)                                        \
-  src_lines[4 * i + k] = vreinterpretq_u16_u8(vld1q_u8(src_ptr));             \
+#define GEMMLOWP_UNROLLED_LOOP_ITER(k)                            \
+  src_lines[4 * i + k] = vreinterpretq_u16_u8(vld1q_u8(src_ptr)); \
   src_ptr += stride;
 
       GEMMLOWP_UNROLLED_LOOP_ITER(0)

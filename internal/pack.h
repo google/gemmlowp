@@ -203,8 +203,7 @@ class SideMap {
 //   2. Packing a complete block into the destination, see Pack. This is the
 //      most critical part, so it's convenient that unaligned boundaries have
 //      already been handled in step 1.
-template <typename SrcMapType,
-          typename PackedSideBlock>
+template <typename SrcMapType, typename PackedSideBlock>
 class PackingRegisterBlockBase {
  public:
   typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
@@ -279,15 +278,12 @@ class PackingRegisterBlockBase {
   }
 };
 
-template <typename SrcMapType,
-          typename PackedSideBlock>
+template <typename SrcMapType, typename PackedSideBlock>
 class PackingRegisterBlock
-    : public PackingRegisterBlockBase<SrcMapType,
-                                      PackedSideBlock> {};
+    : public PackingRegisterBlockBase<SrcMapType, PackedSideBlock> {};
 
 // Large-scale implementation of packing.
-template <typename SrcMapType,
-          typename PackedSideBlock>
+template <typename SrcMapType, typename PackedSideBlock>
 class PackSideBlockImpl {
  public:
   typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
@@ -393,8 +389,7 @@ class PackSideBlockImpl {
 };
 
 // Packs a block of the input LHS matrix, into a PackedSideBlock
-template <typename PackedSideBlock,
-          typename MatrixMapType>
+template <typename PackedSideBlock, typename MatrixMapType>
 void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
   ScopedProfilingLabel label("pack LHS");
   static const SideMapOrder kSideMapOrder =
@@ -410,8 +405,7 @@ void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
 }
 
 // Packs a block of the input RHS matrix, into a PackedSideBlock
-template <typename PackedSideBlock,
-          typename MatrixMapType>
+template <typename PackedSideBlock, typename MatrixMapType>
 void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
   ScopedProfilingLabel label("pack RHS");
   static const SideMapOrder kSideMapOrder =

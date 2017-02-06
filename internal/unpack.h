@@ -68,9 +68,8 @@ struct MatrixBlockBounds {
         cols(cols_) {}
 };
 
-template <typename ResultBlockType,
-          typename PackedResultType, typename LhsOffset, typename RhsOffset,
-          typename OutputPipelineType>
+template <typename ResultBlockType, typename PackedResultType,
+          typename LhsOffset, typename RhsOffset, typename OutputPipelineType>
 struct UnpackResultImplGeneric {
   static void Unpack(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
                      const PackedResultType& src, int depth,
@@ -108,16 +107,14 @@ struct UnpackResultImplGeneric {
   }
 };
 
-template <typename ResultBlockType,
-          typename PackedResultType, typename LhsOffset, typename RhsOffset,
-          typename OutputPipelineType>
+template <typename ResultBlockType, typename PackedResultType,
+          typename LhsOffset, typename RhsOffset, typename OutputPipelineType>
 struct UnpackResultImpl
-    : UnpackResultImplGeneric<ResultBlockType, PackedResultType,
-                              LhsOffset, RhsOffset, OutputPipelineType> {};
+    : UnpackResultImplGeneric<ResultBlockType, PackedResultType, LhsOffset,
+                              RhsOffset, OutputPipelineType> {};
 
-template <typename ResultBlockType,
-          typename PackedResultType, typename LhsOffset, typename RhsOffset,
-          typename OutputPipelineType>
+template <typename ResultBlockType, typename PackedResultType,
+          typename LhsOffset, typename RhsOffset, typename OutputPipelineType>
 void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
                   const PackedResultType& src, int depth,
                   const std::int32_t* lhs_sums_of_each_slice,
@@ -125,8 +122,7 @@ void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
                   const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                   const OutputPipelineType& output_pipeline) {
   ScopedProfilingLabel label("unpack");
-  UnpackResultImpl<ResultBlockType, PackedResultType, LhsOffset,
-                   RhsOffset,
+  UnpackResultImpl<ResultBlockType, PackedResultType, LhsOffset, RhsOffset,
                    OutputPipelineType>::Unpack(dst, dst_block, src, depth,
                                                lhs_sums_of_each_slice,
                                                rhs_sums_of_each_slice,

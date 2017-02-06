@@ -41,12 +41,11 @@ int32x4_t get_int32x4_t_and_inc(
   return result;
 }
 
-template <typename PackedResultType,
-          typename OutputScalar, typename LhsOffset, typename RhsOffset,
-          typename OutputPipelineType>
-struct UnpackResultImpl<
-    MatrixMap<OutputScalar, MapOrder::ColMajor>,
-    PackedResultType, LhsOffset, RhsOffset, OutputPipelineType> {
+template <typename PackedResultType, typename OutputScalar, typename LhsOffset,
+          typename RhsOffset, typename OutputPipelineType>
+struct UnpackResultImpl<MatrixMap<OutputScalar, MapOrder::ColMajor>,
+                        PackedResultType, LhsOffset, RhsOffset,
+                        OutputPipelineType> {
   typedef MatrixMap<OutputScalar, MapOrder::ColMajor> ResultBlockType;
   static void Unpack(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
                      const PackedResultType& src, int depth,

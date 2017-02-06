@@ -134,8 +134,9 @@ struct SingleThreadGemmWrapper {
                      LhsOrder, RhsOrder, ResultOrder, OffsetColDup,
                      OffsetRowDup>(
         context, Kernel(), lhs, rhs, result, lhs_offset_vector,
-        rhs_offset_vector, MakeStandardOutputPipeline(
-                               result_offset, result_mult_int, result_shift));
+        rhs_offset_vector,
+        MakeStandardOutputPipeline(result_offset, result_mult_int,
+                                   result_shift));
   }
 };
 
@@ -164,8 +165,9 @@ struct MultiThreadGemmWrapper {
                     LhsOrder, RhsOrder, ResultOrder, OffsetColDup,
                     OffsetRowDup>(
         context, Kernel(), lhs, rhs, result, lhs_offset_vector,
-        rhs_offset_vector, MakeStandardOutputPipeline(
-                               result_offset, result_mult_int, result_shift));
+        rhs_offset_vector,
+        MakeStandardOutputPipeline(result_offset, result_mult_int,
+                                   result_shift));
   }
 };
 
@@ -1486,7 +1488,7 @@ void TestExhaustively() {
       &context);
 
   // Test other bit depths:
-  // L7R5 (legacy old requantizing path, no longer actually requantizing, 
+  // L7R5 (legacy old requantizing path, no longer actually requantizing,
   // now just an alias for the default 8 bit depth).
   test_gemm<SingleThreadGemmWrapper<
       DefaultKernel<KernelFamily::Gemm, DefaultL7R5BitDepthParams>,

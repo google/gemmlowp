@@ -32,9 +32,8 @@ struct DefaultKernelImpl : DefaultKernelImpl<Family, ProductBits + 1> {
 
 template <KernelFamily Family, typename BitDepthParams>
 struct DefaultKernel
-    : DefaultKernelImpl<Family,
-                        BitDepthParams::LhsBitDepth::kBits +
-                            BitDepthParams::RhsBitDepth::kBits> {};
+    : DefaultKernelImpl<Family, BitDepthParams::LhsBitDepth::kBits +
+                                    BitDepthParams::RhsBitDepth::kBits> {};
 
 }  // end namespace gemmlowp
 

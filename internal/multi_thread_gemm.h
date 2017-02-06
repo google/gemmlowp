@@ -455,10 +455,10 @@ struct GemmWithPackedRhsTask : Task {
 
         auto curr_result_block = MatrixBlockBounds(
             result_block.start_row + r, result_block.start_col + c, rs, cs);
-        UnpackResult(&result, curr_result_block, packed_result,
-                                     depth, packed_lhs.sums_of_each_slice(),
-                                     packed_rhs.sums_of_each_slice(),
-                                     lhs_offset, rhs_offset, output_pipeline);
+        UnpackResult(&result, curr_result_block, packed_result, depth,
+                     packed_lhs.sums_of_each_slice(),
+                     packed_rhs.sums_of_each_slice(), lhs_offset, rhs_offset,
+                     output_pipeline);
       }
     }
 
