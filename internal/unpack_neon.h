@@ -58,10 +58,6 @@ struct UnpackResultImpl<MatrixMap<OutputScalar, MapOrder::ColMajor>,
     assert(dst_block.start_row + dst_block.rows <= dst->rows());
     assert(dst_block.start_col >= 0);
     assert(dst_block.start_col + dst_block.cols <= dst->cols());
-    const int kLhsBits = BitDepthParams::LhsBitDepth::kBits;
-    const int kRhsBits = BitDepthParams::RhsBitDepth::kBits;
-    const std::int32_t kLhsMax = (1 << kLhsBits) - 1;
-    const std::int32_t kRhsMax = (1 << kRhsBits) - 1;
     auto src_map = src.Map();
     OutputPipelineExecutor<OutputPipelineType, FragmentInt32x1x1>
         output_pipeline_executor_int32x1x1(output_pipeline);
