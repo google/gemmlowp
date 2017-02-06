@@ -398,7 +398,6 @@ void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
   typedef typename MatrixMapType::Scalar Scalar;
   typedef SideMap<Scalar, kSideMapOrder> SideMapType;
   SideMapType src_side_map(src.data(), src.rows(), src.cols(), src.stride());
-  const int accumulation_depth = src_side_map.depth();
   typedef PackSideBlockImpl<SideMapType, PackedSideBlock> ImplType;
   ImplType impl(dst, src_side_map);
   impl.PackL2();
@@ -414,7 +413,6 @@ void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
   typedef typename MatrixMapType::Scalar Scalar;
   typedef SideMap<Scalar, kSideMapOrder> SideMapType;
   SideMapType src_side_map(src.data(), src.cols(), src.rows(), src.stride());
-  const int accumulation_depth = src_side_map.depth();
   typedef PackSideBlockImpl<SideMapType, PackedSideBlock> ImplType;
   ImplType impl(dst, src_side_map);
   impl.PackL2();
