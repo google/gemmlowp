@@ -24,23 +24,11 @@
 
 namespace gemmlowp {
 
-template <typename tScalar, VectorShape tShape>
-int32x4_t get_int32x4_t_and_inc(
-    ConstIterator<VectorMap<tScalar, tShape>>* iterator) {
-  const int32x4_t result = vld1q_s32(iterator->get());
-  *iterator += 4;
-  return result;
-}
-
-template <typename tScalar, VectorShape tShape>
-int32x4_t get_int32x4_t_and_inc(
-    ConstIterator<VectorDup<tScalar, tShape>>* iterator) {
-  const int32x4_t result = vdupq_n_s32(**iterator);
-  // Increment really does nothing for VectorDup.
-  *iterator += 4;
-  return result;
-}
-
+// Unpack path for column-major destination matrix.
+// Since throughout gemmlowp internal code we have rows>=columns,
+// in the case of a column-major destination, we typically have
+// large enough columns. We thus choose to vectorize solely within
+// each column, with fragment shapes 16x1, 4x1.
 template <typename PackedResultType, typename OutputScalar, typename LhsOffset,
           typename RhsOffset, typename OutputPipelineType>
 struct UnpackResultImpl<MatrixMap<OutputScalar, MapOrder::ColMajor>,
@@ -70,7 +58,6 @@ struct UnpackResultImpl<MatrixMap<OutputScalar, MapOrder::ColMajor>,
       int c_dst = c + dst_block.start_col;
       const std::int32_t* src_ptr = src_map.data(0, c);
       const std::int32_t* sums_of_each_slice_ptr = lhs_sums_of_each_slice;
-      auto lhs_offset_iter = const_iterator(lhs_offset, dst_block.start_row);
       const std::int32_t rhs_offset_c = rhs_offset(c_dst);
       const std::int32_t rhs_sums_of_each_slice_c = rhs_sums_of_each_slice[c];
 
@@ -95,7 +82,8 @@ struct UnpackResultImpl<MatrixMap<OutputScalar, MapOrder::ColMajor>,
         int32x4_t term_1x[4];
         int32x4_t term_11[4];
         for (int i = 0; i < 4; i++) {
-          const int32x4_t lhs_offsets = get_int32x4_t_and_inc(&lhs_offset_iter);
+          const int32x4_t lhs_offsets =
+              BroadcastInt32x4x1(lhs_offset, r_dst + 4 * i, c_dst);
           term_1x[i] = vmulq_n_s32(lhs_offsets, rhs_sums_of_each_slice_c);
           term_11[i] = vmulq_n_s32(lhs_offsets, rhs_offset_c * depth);
         }
@@ -120,7 +108,8 @@ struct UnpackResultImpl<MatrixMap<OutputScalar, MapOrder::ColMajor>,
         const int32x4_t sum_x1 = vld1q_s32(sums_of_each_slice_ptr);
         const int32x4_t term_x1 = vmulq_n_s32(sum_x1, rhs_offset_c);
         sums_of_each_slice_ptr += 4;
-        const int32x4_t lhs_offsets = get_int32x4_t_and_inc(&lhs_offset_iter);
+        const int32x4_t lhs_offsets =
+            BroadcastInt32x4x1(lhs_offset, r_dst, c_dst);
         const int32x4_t term_1x =
             vmulq_n_s32(lhs_offsets, rhs_sums_of_each_slice_c);
         const int32x4_t term_11 =
@@ -140,6 +129,83 @@ struct UnpackResultImpl<MatrixMap<OutputScalar, MapOrder::ColMajor>,
         const std::int32_t term_1x =
             rhs_sums_of_each_slice_c * lhs_offset(r_dst);
         const std::int32_t term_11 = lhs_offset(r) * rhs_offset(c) * depth;
+        FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x + term_11;
+        output_pipeline_executor_int32x1x1.Execute(sum, dst, r_dst, c_dst);
+      }
+    }
+  }
+};
+
+// Unpack path for row-major destination matrix.
+// Since throughout gemmlowp internal code we have rows>=columns,
+// each row is not necessarily very large. Moreover, our internal
+// compute kernels produce a column-major accumulator, so we have to
+// transpose anyway. For these reasons, our preferred fragment shape
+// here is 4x4: it's suitable for transposing, and it's not too large
+// in either dimension. Secondarily, we will hande fragments of shape
+// 4x1 from the column-major accumulator, but that will have to use
+// scalar code to store to the row-major destination.
+template <typename PackedResultType, typename OutputScalar, typename LhsOffset,
+          typename RhsOffset, typename OutputPipelineType>
+struct UnpackResultImpl<MatrixMap<OutputScalar, MapOrder::RowMajor>,
+                        PackedResultType, LhsOffset, RhsOffset,
+                        OutputPipelineType> {
+  typedef MatrixMap<OutputScalar, MapOrder::RowMajor> ResultBlockType;
+  static void Unpack(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
+                     const PackedResultType& src, int depth,
+                     const std::int32_t* lhs_sums_of_each_slice,
+                     const std::int32_t* rhs_sums_of_each_slice,
+                     const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
+                     const OutputPipelineType& output_pipeline) {
+    ScopedProfilingLabel label("optimized path (NEON)");
+    assert(dst_block.start_row >= 0);
+    assert(dst_block.start_row + dst_block.rows <= dst->rows());
+    assert(dst_block.start_col >= 0);
+    assert(dst_block.start_col + dst_block.cols <= dst->cols());
+    auto src_map = src.Map();
+    OutputPipelineExecutor<OutputPipelineType, FragmentInt32x1x1>
+        output_pipeline_executor_int32x1x1(output_pipeline);
+    OutputPipelineExecutor<OutputPipelineType, NEONFragmentInt32x4x1>
+        output_pipeline_executor_int32x4x1(output_pipeline);
+    for (int c = 0; c < dst_block.cols; c++) {
+      int c_dst = c + dst_block.start_col;
+      const std::int32_t* src_ptr = src_map.data(0, c);
+      const std::int32_t* sums_of_each_slice_ptr = lhs_sums_of_each_slice;
+      const std::int32_t rhs_offset_c = rhs_offset(c_dst);
+      const std::int32_t rhs_sums_of_each_slice_c = rhs_sums_of_each_slice[c];
+      // try to handle 4 entries at once.
+      int dst_rows_aligned4 = RoundDown<4>(dst_block.rows);
+      for (int r = 0; r < dst_rows_aligned4; r += 4) {
+        int r_dst = r + dst_block.start_row;
+        // Compute the sum of the 4 terms,
+        //   q = term_xx + term_x1 + term_1x_plus_term_11
+        // Refer to the generic code in unpack.h.
+        const int32x4_t term_xx = vld1q_s32(src_ptr);
+        src_ptr += 4;
+        const int32x4_t sum_x1 = vld1q_s32(sums_of_each_slice_ptr);
+        const int32x4_t term_x1 = vmulq_n_s32(sum_x1, rhs_offset_c);
+        sums_of_each_slice_ptr += 4;
+        const int32x4_t lhs_offsets =
+            BroadcastInt32x4x1(lhs_offset, r_dst, c_dst);
+        const int32x4_t term_1x =
+            vmulq_n_s32(lhs_offsets, rhs_sums_of_each_slice_c);
+        const int32x4_t term_11 =
+            vmulq_n_s32(lhs_offsets, rhs_offset_c * depth);
+        int32x4_t q =
+            vaddq_s32(vaddq_s32(term_xx, term_x1), vaddq_s32(term_1x, term_11));
+        NEONFragmentInt32x4x1 f(q);
+        output_pipeline_executor_int32x4x1.Execute(f, dst, r_dst, c_dst);
+      }
+      // We have finished handling 4 entries at once; now handle
+      // remaining entries one by one. This scalar code is similar
+      // to the code in unpack.h, see comments there.
+      for (int r = dst_rows_aligned4; r < dst_block.rows; r++) {
+        int r_dst = r + dst_block.start_row;
+        const std::int32_t term_xx = src_map(r, c);
+        const std::int32_t term_x1 = lhs_sums_of_each_slice[r] * rhs_offset_c;
+        const std::int32_t term_1x =
+            rhs_sums_of_each_slice_c * lhs_offset(r_dst);
+        const std::int32_t term_11 = lhs_offset(r_dst) * rhs_offset_c * depth;
         FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x + term_11;
         output_pipeline_executor_int32x1x1.Execute(sum, dst, r_dst, c_dst);
       }

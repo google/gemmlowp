@@ -29,6 +29,22 @@ typedef Fragment<int32x4x4_t, 16, 1, MapOrder::ColMajor> NEONFragmentInt32x16x1;
 typedef Fragment<uint8x8_t, 4, 1, MapOrder::ColMajor> NEONFragmentUint8x4x1;
 typedef Fragment<uint8x16_t, 16, 1, MapOrder::ColMajor> NEONFragmentUint8x16x1;
 
+template <typename tScalar, VectorShape tShape>
+NEONFragmentInt32x4x1 BroadcastInt32x4x1(const VectorMap<tScalar, tShape>& src,
+                                         int row, int col) {
+  if (tShape == VectorShape::Col) {
+    return vld1q_s32(src.data(row));
+  } else {
+    return vdupq_n_s32(src(col));
+  }
+}
+
+template <typename tScalar, VectorShape tShape>
+NEONFragmentInt32x4x1 BroadcastInt32x4x1(const VectorDup<tScalar, tShape>& src,
+                                         int, int) {
+  return vdupq_n_s32(src(0));
+}
+
 // The code in unpack_neon.h will whenever possible process
 // 16 entries at once (4 SIMD vectors of 4 entries each at once),
 // to offer the compiler better optimization opportunities, reducing
@@ -85,50 +101,21 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
 
 // Implementation of OutputStageQuantizeDownInt32ToUint8ScalePC for
 // NEONFragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<
-    OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Col>,
-    NEONFragmentInt32x4x1> {
+template <VectorShape Shape>
+struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScalePC<Shape>,
+                           NEONFragmentInt32x4x1> {
   typedef NEONFragmentInt32x4x1 InputType;
   typedef NEONFragmentInt32x4x1 OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Col>
-      OutputStage;
+  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<Shape> OutputStage;
 
   OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
   OutputType Eval(InputType input, int row, int col) const {
     const std::int32_t result_shift = output_stage.result_shift;
     const int32x4_t result_mult_int =
-        vld1q_s32(output_stage.result_mult_int.data(row));
+        BroadcastInt32x4x1(output_stage.result_mult_int, row, col);
     const int32x4_t result_offset =
-        vld1q_s32(output_stage.result_offset.data(row));
-    const int32x4_t a = vaddq_s32(result_offset, input);
-    const int32x4_t b = vmulq_s32(a, result_mult_int);
-    return RoundingDivideByPOT(b, result_shift);
-  }
-
-  const OutputStage& output_stage;
-};
-
-// Implementation of OutputStageQuantizeDownInt32ToUint8ScalePC for
-// NEONFragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<
-    OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Row>,
-    NEONFragmentInt32x4x1> {
-  typedef NEONFragmentInt32x4x1 InputType;
-  typedef NEONFragmentInt32x4x1 OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Row>
-      OutputStage;
-
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
-
-  OutputType Eval(InputType input, int row, int col) const {
-    const std::int32_t result_shift = output_stage.result_shift;
-    const int32x4_t result_mult_int =
-        vld1q_s32(output_stage.result_mult_int.data(col));
-    const int32x4_t result_offset =
-        vld1q_s32(output_stage.result_offset.data(row));
+        BroadcastInt32x4x1(output_stage.result_offset, row, col);
     const int32x4_t a = vaddq_s32(result_offset, input);
     const int32x4_t b = vmulq_s32(a, result_mult_int);
     return RoundingDivideByPOT(b, result_shift);
@@ -267,6 +254,7 @@ inline void StoreFinalOutput(NEONFragmentUint8x4x1 value, DstType* dst, int row,
 template <typename DstType>
 inline void StoreFinalOutput(NEONFragmentUint8x16x1 value, DstType* dst,
                              int row, int col) {
+  assert(DstType::kOrder == MapOrder::ColMajor);
   vst1q_u8(dst->data(row, col), value);
 }
 
@@ -275,7 +263,14 @@ inline void StoreFinalOutput(NEONFragmentUint8x16x1 value, DstType* dst,
 template <typename DstType>
 inline void StoreFinalOutput(NEONFragmentInt32x4x1 value, DstType* dst, int row,
                              int col) {
-  vst1q_s32(dst->data(row, col), value);
+  if (DstType::kOrder == MapOrder::ColMajor) {
+    vst1q_s32(dst->data(row, col), value);
+  } else {
+    vst1q_lane_s32(dst->data(row + 0, col), value, 0);
+    vst1q_lane_s32(dst->data(row + 1, col), value, 1);
+    vst1q_lane_s32(dst->data(row + 2, col), value, 2);
+    vst1q_lane_s32(dst->data(row + 3, col), value, 3);
+  }
 }
 
 // Specialization of StoreFinalOutput for NEONFragmentInt32x16x1, storing into
@@ -283,6 +278,7 @@ inline void StoreFinalOutput(NEONFragmentInt32x4x1 value, DstType* dst, int row,
 template <typename DstType>
 inline void StoreFinalOutput(NEONFragmentInt32x16x1 value, DstType* dst,
                              int row, int col) {
+  assert(DstType::kOrder == MapOrder::ColMajor);
   for (int i = 0; i < 4; i++) {
     vst1q_s32(dst->data(row + 4 * i, col), value.data.val[i]);
   }
