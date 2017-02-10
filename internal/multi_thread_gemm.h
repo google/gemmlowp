@@ -596,9 +596,13 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
   int cols = result->cols();
   int depth = lhs.cols();
 
+  // zero sizes should have been caught earlier and early-returned.
   assert(rows > 0);
   assert(cols > 0);
   assert(depth > 0);
+
+  // The case of rows<cols should have been caught earlier and transposed.
+  assert(rows >= cols);
 
   const int thread_count = HowManyThreads<KernelFormat::kRows>(
       context->max_num_threads(), rows, cols, depth);

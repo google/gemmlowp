@@ -17,8 +17,6 @@
 #ifndef GEMMLOWP_PUBLIC_GEMMLOWP_H_
 #define GEMMLOWP_PUBLIC_GEMMLOWP_H_
 #include "../internal/dispatch_gemm_shape.h"
-#include "../internal/kernel_default.h"
-#include "../internal/unpack.h"
 #include "bit_depth.h"
 #include "map.h"
 #include "output_stages.h"

@@ -122,14 +122,21 @@ struct SingleThreadGemmWrapper {
   typedef SingleThreadGemmContext Context;
 
   template <MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
-  static void Gemm(Context* context,
+  static bool Gemm(Context* context,
                    const MatrixMap<const Scalar, LhsOrder>& lhs,
                    const MatrixMap<const Scalar, RhsOrder>& rhs,
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    const OffsetColDup lhs_offset_vector(lhs_offset, lhs.rows());
-    const OffsetRowDup rhs_offset_vector(rhs_offset, rhs.cols());
+    const int rows = lhs.rows();
+    const int cols = rhs.cols();
+    if (rows < cols) {
+      // SingleThreadGemm is never called with rows < cols.
+      // That case is handled earlier.
+      return false;
+    }
+    const OffsetColDup lhs_offset_vector(lhs_offset, rows);
+    const OffsetRowDup rhs_offset_vector(rhs_offset, cols);
     SingleThreadGemm<typename Kernel::Format, Scalar, Scalar, BitDepthParams,
                      LhsOrder, RhsOrder, ResultOrder, OffsetColDup,
                      OffsetRowDup>(
@@ -137,6 +144,7 @@ struct SingleThreadGemmWrapper {
         rhs_offset_vector,
         MakeStandardOutputPipeline(result_offset, result_mult_int,
                                    result_shift));
+    return true;
   }
 };
 
@@ -153,14 +161,21 @@ struct MultiThreadGemmWrapper {
   typedef MultiThreadGemmContext Context;
 
   template <MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
-  static void Gemm(Context* context,
+  static bool Gemm(Context* context,
                    const MatrixMap<const Scalar, LhsOrder>& lhs,
                    const MatrixMap<const Scalar, RhsOrder>& rhs,
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
-    const OffsetColDup lhs_offset_vector(lhs_offset, lhs.rows());
-    const OffsetRowDup rhs_offset_vector(rhs_offset, rhs.cols());
+    const int rows = lhs.rows();
+    const int cols = rhs.cols();
+    if (rows < cols) {
+      // SingleThreadGemm is never called with rows < cols.
+      // That case is handled earlier.
+      return false;
+    }
+    const OffsetColDup lhs_offset_vector(lhs_offset, rows);
+    const OffsetRowDup rhs_offset_vector(rhs_offset, cols);
     MultiThreadGemm<typename Kernel::Format, Scalar, Scalar, BitDepthParams,
                     LhsOrder, RhsOrder, ResultOrder, OffsetColDup,
                     OffsetRowDup>(
@@ -168,6 +183,7 @@ struct MultiThreadGemmWrapper {
         rhs_offset_vector,
         MakeStandardOutputPipeline(result_offset, result_mult_int,
                                    result_shift));
+    return true;
   }
 };
 
@@ -180,7 +196,7 @@ struct PublicGemmWrapper {
   typedef GemmContext Context;
 
   template <MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
-  static void Gemm(Context* context,
+  static bool Gemm(Context* context,
                    const MatrixMap<const Scalar, LhsOrder>& lhs,
                    const MatrixMap<const Scalar, RhsOrder>& rhs,
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
@@ -190,6 +206,7 @@ struct PublicGemmWrapper {
                    ResultOrder>(context, lhs, rhs, result, lhs_offset,
                                 rhs_offset, result_offset, result_mult_int,
                                 result_shift);
+    return true;
   }
 };
 
@@ -213,7 +230,7 @@ struct EightBitIntGemmWrapper {
   typedef void Context;
 
   template <MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
-  static void Gemm(Context*, const MatrixMap<const Scalar, LhsOrder>& lhs,
+  static bool Gemm(Context*, const MatrixMap<const Scalar, LhsOrder>& lhs,
                    const MatrixMap<const Scalar, RhsOrder>& rhs,
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
@@ -226,6 +243,7 @@ struct EightBitIntGemmWrapper {
         lhs.cols(), lhs.data(), lhs_offset, lhs.stride(), rhs.data(),
         rhs_offset, rhs.stride(), result->data(), result_offset,
         result_mult_int, result_shift, result->stride(), BitDepth);
+    return true;
   }
 };
 
@@ -236,7 +254,7 @@ struct ReferenceEightBitIntGemmWrapper {
   static const char* Name() { return "ReferenceEightBitIntGemm"; }
 
   template <MapOrder LhsOrder, MapOrder RhsOrder, MapOrder ResultOrder>
-  static void Gemm(bool transpose_a, bool transpose_b, bool transpose_c,
+  static bool Gemm(bool transpose_a, bool transpose_b, bool transpose_c,
                    const MatrixMap<const Scalar, LhsOrder>& lhs,
                    const MatrixMap<const Scalar, RhsOrder>& rhs,
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
@@ -247,6 +265,7 @@ struct ReferenceEightBitIntGemmWrapper {
                              lhs.stride(), rhs.data(), rhs_offset, rhs.stride(),
                              result->data(), result_offset, result_mult_int,
                              result_shift, result->stride());
+    return true;
   }
 };
 
@@ -378,9 +397,14 @@ void test_gemm_impl(typename GemmWrapper::Context* context, const LhsType& lhs,
 
   const int result_shift = (result_shift_min + result_shift_max) / 2;
 
-  GemmWrapper::Gemm(context, lhs.const_map(), rhs.const_map(), &result->map(),
-                    lhs_offset, rhs_offset, result_offset, result_mult_int,
-                    result_shift);
+  if (!GemmWrapper::Gemm(context, lhs.const_map(), rhs.const_map(),
+                         &result->map(), lhs_offset, rhs_offset, result_offset,
+                         result_mult_int, result_shift)) {
+    // Internal GEMM functions are not required to handle all cases
+    // (e.g. rows < cols) as these are supposed to have been handled
+    // ahead of them. Their test wrappers return false in that case.
+    return;
+  }
 
   typedef typename ResultType::Scalar Scalar;
   static const MapOrder kLhsOrder = LhsType::kOrder;
