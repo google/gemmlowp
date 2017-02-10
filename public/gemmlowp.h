@@ -16,8 +16,8 @@
 
 #ifndef GEMMLOWP_PUBLIC_GEMMLOWP_H_
 #define GEMMLOWP_PUBLIC_GEMMLOWP_H_
+#include "../internal/dispatch_gemm_shape.h"
 #include "../internal/kernel_default.h"
-#include "../internal/multi_thread_gemm.h"
 #include "../internal/unpack.h"
 #include "bit_depth.h"
 #include "map.h"
@@ -40,29 +40,8 @@ void GemmWithOutputPipelinePC(GemmContextType* context,
                               const LhsOffset& lhs_offset,
                               const RhsOffset& rhs_offset,
                               const OutputPipelineType& output_pipeline) {
-  assert(lhs.cols() == rhs.rows());
-
-  int rows = result->rows();
-  int cols = result->cols();
-  int depth = lhs.cols();
-
-  if (rows == 0 || cols == 0 || depth == 0) {
-    // Vacuous GEMM, return early to avoid having to deal with
-    // zero sizes below.
-    return;
-  }
-
-  if (cols == 1) {
-    typedef DefaultKernel<KernelFamily::Gemv, BitDepthParams> Kernel;
-    MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
-                    BitDepthParams>(context, Kernel(), lhs, rhs, result,
-                                    lhs_offset, rhs_offset, output_pipeline);
-  } else {
-    typedef DefaultKernel<KernelFamily::Gemm, BitDepthParams> Kernel;
-    MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
-                    BitDepthParams>(context, Kernel(), lhs, rhs, result,
-                                    lhs_offset, rhs_offset, output_pipeline);
-  }
+  DispatchGemmShape<InputScalar, OutputScalar, BitDepthParams>(
+      context, lhs, rhs, result, lhs_offset, rhs_offset, output_pipeline);
 }
 
 // Computes a general matrix product ("GEMM").
@@ -81,7 +60,7 @@ void GemmWithOutputPipeline(GemmContextType* context,
                             const OutputPipelineType& output_pipeline) {
   const OffsetColDup lhs_offset_vector(lhs_offset, lhs.rows());
   const OffsetRowDup rhs_offset_vector(rhs_offset, rhs.cols());
-  GemmWithOutputPipelinePC<InputScalar, OutputScalar, BitDepthParams>(
+  DispatchGemmShape<InputScalar, OutputScalar, BitDepthParams>(
       context, lhs, rhs, result, lhs_offset_vector, rhs_offset_vector,
       output_pipeline);
 }
