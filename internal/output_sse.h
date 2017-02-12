@@ -31,6 +31,22 @@ typedef Fragment<int32x16x1_t, 16, 1, MapOrder::ColMajor>
 typedef Fragment<std::uint32_t, 4, 1, MapOrder::ColMajor> SSE4FragmentUint8x4x1;
 typedef Fragment<__m128i, 16, 1, MapOrder::ColMajor> SSE4FragmentUint8x16x1;
 
+template <typename tScalar, VectorShape tShape>
+SSE4FragmentInt32x4x1 BroadcastInt32x4x1(const VectorMap<tScalar, tShape>& src,
+                                         int row, int col) {
+  if (tShape == VectorShape::Col) {
+    return _mm_loadu_si128(reinterpret_cast<const __m128i*>(src.data(row)));
+  } else {
+    return _mm_set1_epi32(src(col));
+  }
+}
+
+template <typename tScalar, VectorShape tShape>
+SSE4FragmentInt32x4x1 BroadcastInt32x4x1(const VectorDup<tScalar, tShape>& src,
+                                         int, int) {
+  return _mm_set1_epi32(src(0));
+}
+
 template <typename OutputStageType>
 struct OutputStageEvalImpl<OutputStageType, SSE4FragmentInt32x16x1> {
   typedef SSE4FragmentInt32x16x1 InputType;
@@ -78,41 +94,13 @@ struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
 
 // Implementation of OutputStageQuantizeDownInt32ToUint8ScalePC for
 // SSE4FragmentInt32x4x1
-template <>
+template <VectorShape Shape>
 struct OutputStageEvalImpl<
-    OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Col>,
+    OutputStageQuantizeDownInt32ToUint8ScalePC<Shape>,
     SSE4FragmentInt32x4x1> {
   typedef SSE4FragmentInt32x4x1 InputType;
   typedef SSE4FragmentInt32x4x1 OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Col>
-      OutputStage;
-
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
-
-  OutputType Eval(InputType input, int row, int /*col*/) const {
-    const std::int32_t result_shift = output_stage.result_shift;
-    const __m128i result_mult_int =
-        _mm_lddqu_si128(reinterpret_cast<const __m128i*>(
-            output_stage.result_mult_int.data(row)));
-    const __m128i result_offset = _mm_lddqu_si128(
-        reinterpret_cast<const __m128i*>(output_stage.result_offset.data(row)));
-    const __m128i a =
-        _mm_mullo_epi32(_mm_add_epi32(input, result_offset), result_mult_int);
-    return RoundingDivideByPOT(a, result_shift);
-  }
-
-  const OutputStage& output_stage;
-};
-
-// Implementation of OutputStageQuantizeDownInt32ToUint8ScalePC for
-// SSE4FragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<
-    OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Row>,
-    SSE4FragmentInt32x4x1> {
-  typedef SSE4FragmentInt32x4x1 InputType;
-  typedef SSE4FragmentInt32x4x1 OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Row>
+  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<Shape>
       OutputStage;
 
   OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
@@ -120,10 +108,9 @@ struct OutputStageEvalImpl<
   OutputType Eval(InputType input, int row, int col) const {
     const std::int32_t result_shift = output_stage.result_shift;
     const __m128i result_mult_int =
-        _mm_lddqu_si128(reinterpret_cast<const __m128i*>(
-            output_stage.result_mult_int.data(col)));
-    const __m128i result_offset = _mm_lddqu_si128(
-        reinterpret_cast<const __m128i*>(output_stage.result_offset.data(row)));
+        BroadcastInt32x4x1(output_stage.result_mult_int, row, col);
+    const __m128i result_offset =
+        BroadcastInt32x4x1(output_stage.result_offset, row, col);
     const __m128i a =
         _mm_mullo_epi32(_mm_add_epi32(input, result_offset), result_mult_int);
     return RoundingDivideByPOT(a, result_shift);

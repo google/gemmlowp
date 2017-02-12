@@ -27,22 +27,6 @@
 
 namespace gemmlowp {
 
-template <typename tScalar, VectorShape tShape>
-__m128i get_m128i_and_inc(ConstIterator<VectorMap<tScalar, tShape>>* iterator) {
-  const __m128i result =
-      _mm_loadu_si128(reinterpret_cast<const __m128i*>(iterator->get()));
-  *iterator += 4;
-  return result;
-}
-
-template <typename tScalar, VectorShape tShape>
-__m128i get_m128i_and_inc(ConstIterator<VectorDup<tScalar, tShape>>* iterator) {
-  const __m128i result = _mm_set1_epi32(**iterator);
-  // Increment really does nothing for VectorDup.
-  *iterator += 4;
-  return result;
-}
-
 template <typename PackedResultType, typename OutputScalar, typename LhsOffset,
           typename RhsOffset, typename OutputPipelineType>
 struct UnpackResultImpl<MatrixMap<OutputScalar, MapOrder::ColMajor>,
@@ -74,7 +58,6 @@ struct UnpackResultImpl<MatrixMap<OutputScalar, MapOrder::ColMajor>,
       int c_dst = c + dst_block.start_col;
       const std::int32_t* src_ptr = src_map.data(0, c);
       const std::int32_t* lhs_sums_of_each_slice_ptr = lhs_sums_of_each_slice;
-      auto lhs_offset_iter = const_iterator(lhs_offset, dst_block.start_row);
       const std::int32_t rhs_offset_c = rhs_offset(c_dst);
       const std::int32_t rhs_sums_of_each_slice_c = rhs_sums_of_each_slice[c];
 
@@ -95,7 +78,7 @@ struct UnpackResultImpl<MatrixMap<OutputScalar, MapOrder::ColMajor>,
             reinterpret_cast<const __m128i*>(lhs_sums_of_each_slice_ptr));
         term_x1_xmm = _mm_mullo_epi32(rhs_offset_xmm, term_x1_xmm);
         // 1x term: rhs_sums_of_each_slice[c] * lhs_offset(r_dst:r_dst+3)
-        __m128i lhs_offset_xmm = get_m128i_and_inc(&lhs_offset_iter);
+        __m128i lhs_offset_xmm = BroadcastInt32x4x1(lhs_offset, r_dst, c_dst);
         __m128i term_1x_xmm = _mm_mullo_epi32(rhs_sums_xmm, lhs_offset_xmm);
         // 11 term: lhs_offset(r_dst:r_dst+3) * rhs_offset(c_dst) * depth
         __m128i term_11_xmm_ = _mm_mullo_epi32(rhs_offset_xmm, lhs_offset_xmm);
