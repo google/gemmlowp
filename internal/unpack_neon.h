@@ -29,7 +29,7 @@ namespace gemmlowp {
 // in the case of a column-major destination, we typically have
 // large enough columns. We thus choose to vectorize solely within
 // each column, with fragment shapes 16x1, 4x1.
-template <typename PackedResultType, typename OutputScalar, typename LhsOffset,
+template <typename ResultBlockType, typename PackedResultType, typename LhsOffset,
           typename RhsOffset, typename OutputPipelineType>
 void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
                   const PackedResultType& src, int depth,
@@ -47,8 +47,6 @@ void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
       output_pipeline_executor_int32x1x1(output_pipeline);
   OutputPipelineExecutor<OutputPipelineType, NEONFragmentInt32x4x1>
       output_pipeline_executor_int32x4x1(output_pipeline);
-  OutputPipelineExecutor<OutputPipelineType, NEONFragmentInt32x16x1>
-      output_pipeline_executor_int32x16x1(output_pipeline);
 
   for (int c = 0; c < dst_block.cols; c++) {
     int c_dst = c + dst_block.start_col;
@@ -57,44 +55,10 @@ void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
     const std::int32_t rhs_offset_c = rhs_offset(c_dst);
     const std::int32_t rhs_sums_of_each_slice_c = rhs_sums_of_each_slice[c];
 
-    // Handle 16 values at once for higher performance
-    int dst_rows_aligned16 = RoundDown<16>(dst_block.rows);
-    for (int r = 0; r < dst_rows_aligned16; r += 16) {
-      int r_dst = r + dst_block.start_row;
-      // Compute the sum of the 4 terms,
-      //   q = term_xx + term_x1 + term_1x_plus_term_11
-      // Refer to the generic code in unpack.h.
-      int32x4_t term_xx[4];
-      for (int i = 0; i < 4; i++) {
-        term_xx[i] = vld1q_s32(src_ptr);
-        src_ptr += 4;
-      }
-      int32x4_t term_x1[4];
-      for (int i = 0; i < 4; i++) {
-        const int32x4_t sum_x1 = vld1q_s32(sums_of_each_slice_ptr);
-        term_x1[i] = vmulq_n_s32(sum_x1, rhs_offset_c);
-        sums_of_each_slice_ptr += 4;
-      }
-      int32x4_t term_1x[4];
-      int32x4_t term_11[4];
-      for (int i = 0; i < 4; i++) {
-        const int32x4_t lhs_offsets =
-            BroadcastInt32x4x1(lhs_offset, r_dst + 4 * i, c_dst);
-        term_1x[i] = vmulq_n_s32(lhs_offsets, rhs_sums_of_each_slice_c);
-        term_11[i] = vmulq_n_s32(lhs_offsets, rhs_offset_c * depth);
-      }
-      int32x4x4_t q;
-      for (int i = 0; i < 4; i++) {
-        q.val[i] = vaddq_s32(vaddq_s32(term_xx[i], term_x1[i]),
-                             vaddq_s32(term_1x[i], term_11[i]));
-      }
-      NEONFragmentInt32x16x1 f(q);
-      output_pipeline_executor_int32x16x1.Execute(f, dst, r_dst, c_dst);
-    }
     // We have finished handling groups of 16 entries at once; now
     // try to handle 4 entries at once.
     int dst_rows_aligned4 = RoundDown<4>(dst_block.rows);
-    for (int r = dst_rows_aligned16; r < dst_rows_aligned4; r += 4) {
+    for (int r = 0; r < dst_rows_aligned4; r += 4) {
       int r_dst = r + dst_block.start_row;
       // Compute the sum of the 4 terms,
       //   q = term_xx + term_x1 + term_1x_plus_term_11
