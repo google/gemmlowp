@@ -240,13 +240,15 @@ template <typename DstType>
 inline void StoreFinalOutput(SSE4FragmentUint8x4x1 value, DstType* dst, int row,
                              int col) {
   unsigned char* tmp = dst->data(row, col);
-  for (int i = 0; i < 4; i++) tmp[i] = (value >> (i * 8)) & 0xff;
+  const int stride = dst->rows_stride();
+  for (int i = 0; i < 4; i++) tmp[i * stride] = (value >> (i * 8)) & 0xff;
 }
 
 // Specialization of StoreFinalOutput for SSE4FragmentUint8x16x1.
 template <typename DstType>
 inline void StoreFinalOutput(SSE4FragmentUint8x16x1 value, DstType* dst,
                              int row, int col) {
+  assert(DstType::kOrder == MapOrder::ColMajor);
   _mm_storeu_si128(reinterpret_cast<__m128i*>(dst->data(row, col)), value);
 }
 
@@ -255,7 +257,13 @@ inline void StoreFinalOutput(SSE4FragmentUint8x16x1 value, DstType* dst,
 template <typename DstType>
 inline void StoreFinalOutput(SSE4FragmentInt32x4x1 value, DstType* dst, int row,
                              int col) {
-  _mm_storeu_si128(reinterpret_cast<__m128i*>(dst->data(row, col)), value);
+  if (DstType::kOrder == MapOrder::ColMajor) {
+    _mm_storeu_si128(reinterpret_cast<__m128i*>(dst->data(row, col)), value);
+  } else {
+    for (int i = 0; i < 4; i++) {
+      (*dst)(row + i, col) = _mm_extract_epi32(value, i);
+    }
+  }
 }
 
 // Specialization of StoreFinalOutput for SSE4FragmentInt32x16x1, storing into
@@ -263,6 +271,7 @@ inline void StoreFinalOutput(SSE4FragmentInt32x4x1 value, DstType* dst, int row,
 template <typename DstType>
 inline void StoreFinalOutput(SSE4FragmentInt32x16x1 value, DstType* dst,
                              int row, int col) {
+  assert(DstType::kOrder == MapOrder::ColMajor);
   for (int i = 0; i < 4; i++) {
     _mm_storeu_si128(reinterpret_cast<__m128i*>(dst->data(row + 4 * i, col)),
                      value.data.val[i]);
