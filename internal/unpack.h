@@ -68,54 +68,168 @@ struct MatrixBlockBounds {
         cols(cols_) {}
 };
 
-}  // namespace gemmlowp
+template <typename RegisterBlockType, typename SrcMapType,
+    typename LhsOffset, typename RhsOffset,
+    typename OutputPipelineExecutorType, typename DstType>
+void UnpackResultBlock(const SrcMapType& src, const OutputPipelineExecutorType& executor, DstType* dst,
+    const VectorMap<const std::int32_t, VectorShape::Col>& lhs_sums_of_each_slice,
+    const VectorMap<const std::int32_t, VectorShape::Row>& rhs_sums_of_each_slice,
+    const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
+    int depth,
+    int src_row, int src_col, int dst_row, int dst_col) {
 
-#ifdef GEMMLOWP_NEON
-#include "unpack_neon.h"
-#elif defined(GEMMLOWP_SSE4)
-#include "unpack_sse.h"
-#else
-namespace {
+      const auto term_xx =
+        Load<RegisterBlockType>(src, src_row, src_col);
+      const auto term_x1 =
+        BroadcastMul(
+            LoadForBroadcasting<RegisterBlockType>(lhs_sums_of_each_slice, src_row),
+            LoadForBroadcasting<RegisterBlockType>(rhs_offset, dst_col)
+          );
+      const auto term_1x =
+        BroadcastMul(
+            LoadForBroadcasting<RegisterBlockType>(rhs_sums_of_each_slice, src_col),
+            LoadForBroadcasting<RegisterBlockType>(lhs_offset, dst_row)
+          );
+      const auto term_11 =
+        BroadcastMul(
+            LoadForBroadcasting<RegisterBlockType>(rhs_offset, dst_col),
+            LoadForBroadcasting<RegisterBlockType>(lhs_offset, dst_row),
+            ConstantMultiplierInt32(depth)
+          );
+      const auto input =
+        BroadcastAdd(BroadcastAdd(term_xx, term_x1), BroadcastAdd(term_1x, term_11));
+      executor.Execute(input, dst, dst_row, dst_col);
+
+
+}
 
 template <typename ResultBlockType, typename PackedResultType,
           typename LhsOffset, typename RhsOffset, typename OutputPipelineType>
 void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
                   const PackedResultType& src, int depth,
-                  const std::int32_t* lhs_sums_of_each_slice,
-                  const std::int32_t* rhs_sums_of_each_slice,
+                  const std::int32_t* lhs_sums_of_each_slice_ptr,
+                  const std::int32_t* rhs_sums_of_each_slice_ptr,
                   const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                   const OutputPipelineType& output_pipeline) {
-  ScopedProfilingLabel label("unpack (slow generic fallback)");
+#ifdef GEMMLOWP_SSE4
+  using RegisterInt32x4 = __m128i;
+#else
+  using RegisterInt32x4 = std::int32_t;
+#endif
+  ScopedProfilingLabel label("unpack");
   assert(dst_block.start_row >= 0);
   assert(dst_block.start_row + dst_block.rows <= dst->rows());
   assert(dst_block.start_col >= 0);
   assert(dst_block.start_col + dst_block.cols <= dst->cols());
-  auto src_map = src.Map();
-  // No top-level blocking in the depth dimension at the moment.
-  // Too much loss of precision.
-  OutputPipelineExecutor<OutputPipelineType, FragmentInt32x1x1>
-      output_pipeline_executor(output_pipeline);
-  for (int c = 0; c < dst_block.cols; c++) {
-    int c_dst = c + dst_block.start_col;
-    for (int r = 0; r < dst_block.rows; r++) {
-      int r_dst = r + dst_block.start_row;
-      // To understand this code, read
-      //   doc/low-precision.txt
-      //   doc/less-than-8-bit.txt
-      // We have 4 terms to sum: xx, x1, 1x, 11.
-      std::int32_t term_xx = src_map(r, c);
-      std::int32_t term_x1 = lhs_sums_of_each_slice[r] * rhs_offset(c_dst);
-      std::int32_t term_1x = rhs_sums_of_each_slice[c] * lhs_offset(r_dst);
-      std::int32_t term_11 = lhs_offset(r_dst) * rhs_offset(c_dst) * depth;
-      // Sum the 4 terms.
-      FragmentInt32x1x1 sum = term_xx + term_x1 + term_1x + term_11;
+  const auto src_map = src.Map();
+  const VectorMap<const std::int32_t, VectorShape::Col>
+     lhs_sums_of_each_slice(lhs_sums_of_each_slice_ptr, dst_block.rows);
+  const VectorMap<const std::int32_t, VectorShape::Row>
+     rhs_sums_of_each_slice(rhs_sums_of_each_slice_ptr, dst_block.cols);
+  using Int32x1x1 = RegisterBlock<std::int32_t,1,1>;
+  using Int32x4x1 = RegisterBlock<std::int32_t,4,1>;
+  using Int32x8x1 = RegisterBlock<std::int32_t,8,1>;
+  using Int32x1x4 = RegisterBlock<std::int32_t,1,4>;
+  using Int32x4x4 = RegisterBlock<std::int32_t,4,4>;
+  using Int32x8x4 = RegisterBlock<std::int32_t,8,4>;
+  using Int32x1x8 = RegisterBlock<std::int32_t,1,8>;
+  using Int32x4x8 = RegisterBlock<std::int32_t,4,8>;
+  using Int32x8x8 = RegisterBlock<std::int32_t,8,8>;
 
-      output_pipeline_executor.Execute(sum, dst, r_dst, c_dst);
+  OutputPipelineExecutor<OutputPipelineType, Int32x1x1>
+      output_pipeline_executor_1x1(output_pipeline);
+  OutputPipelineExecutor<OutputPipelineType, Int32x4x1>
+      output_pipeline_executor_4x1(output_pipeline);
+  OutputPipelineExecutor<OutputPipelineType, Int32x8x1>
+      output_pipeline_executor_8x1(output_pipeline);
+  OutputPipelineExecutor<OutputPipelineType, Int32x1x4>
+      output_pipeline_executor_1x4(output_pipeline);
+  OutputPipelineExecutor<OutputPipelineType, Int32x4x4>
+      output_pipeline_executor_4x4(output_pipeline);
+  OutputPipelineExecutor<OutputPipelineType, Int32x8x4>
+      output_pipeline_executor_8x4(output_pipeline);
+  OutputPipelineExecutor<OutputPipelineType, Int32x1x8>
+      output_pipeline_executor_1x8(output_pipeline);
+  OutputPipelineExecutor<OutputPipelineType, Int32x4x8>
+      output_pipeline_executor_4x8(output_pipeline);
+  OutputPipelineExecutor<OutputPipelineType, Int32x8x8>
+      output_pipeline_executor_8x8(output_pipeline);
+
+  int c = 0;
+  for (; c <= dst_block.cols - 8; c += 8) {
+    int r = 0;
+    for (; r <= dst_block.rows - 8; r += 8) {
+      UnpackResultBlock<Int32x8x8>(src_map, output_pipeline_executor_8x8, dst,
+        lhs_sums_of_each_slice, rhs_sums_of_each_slice,
+        lhs_offset, rhs_offset,
+        depth,
+        r, c, r + dst_block.start_row, c + dst_block.start_col);
+    }
+    for (; r <= dst_block.rows - 4; r += 4) {
+      UnpackResultBlock<Int32x4x8>(src_map, output_pipeline_executor_4x8, dst,
+        lhs_sums_of_each_slice, rhs_sums_of_each_slice,
+        lhs_offset, rhs_offset,
+        depth,
+        r, c, r + dst_block.start_row, c + dst_block.start_col);
+    }
+    for (; r < dst_block.rows; r++) {
+      UnpackResultBlock<Int32x1x8>(src_map, output_pipeline_executor_1x8, dst,
+        lhs_sums_of_each_slice, rhs_sums_of_each_slice,
+        lhs_offset, rhs_offset,
+        depth,
+        r, c, r + dst_block.start_row, c + dst_block.start_col);
+    }
+  }
+  for (; c <= dst_block.cols - 4; c += 4) {
+    int r = 0;
+    for (; r <= dst_block.rows - 8; r += 8) {
+      UnpackResultBlock<Int32x8x4>(src_map, output_pipeline_executor_8x4, dst,
+        lhs_sums_of_each_slice, rhs_sums_of_each_slice,
+        lhs_offset, rhs_offset,
+        depth,
+        r, c, r + dst_block.start_row, c + dst_block.start_col);
+    }
+    for (; r <= dst_block.rows - 4; r += 4) {
+      UnpackResultBlock<Int32x4x4>(src_map, output_pipeline_executor_4x4, dst,
+        lhs_sums_of_each_slice, rhs_sums_of_each_slice,
+        lhs_offset, rhs_offset,
+        depth,
+        r, c, r + dst_block.start_row, c + dst_block.start_col);
+    }
+    for (; r < dst_block.rows; r++) {
+      UnpackResultBlock<Int32x1x4>(src_map, output_pipeline_executor_1x4, dst,
+        lhs_sums_of_each_slice, rhs_sums_of_each_slice,
+        lhs_offset, rhs_offset,
+        depth,
+        r, c, r + dst_block.start_row, c + dst_block.start_col);
+    }
+  }
+  for (; c < dst_block.cols; c++) {
+    int r = 0;
+    for (; r <= dst_block.rows - 8; r += 8) {
+      UnpackResultBlock<Int32x8x1>(src_map, output_pipeline_executor_8x1, dst,
+        lhs_sums_of_each_slice, rhs_sums_of_each_slice,
+        lhs_offset, rhs_offset,
+        depth,
+        r, c, r + dst_block.start_row, c + dst_block.start_col);
+    }
+    for (; r <= dst_block.rows - 4; r += 4) {
+      UnpackResultBlock<Int32x4x1>(src_map, output_pipeline_executor_4x1, dst,
+        lhs_sums_of_each_slice, rhs_sums_of_each_slice,
+        lhs_offset, rhs_offset,
+        depth,
+        r, c, r + dst_block.start_row, c + dst_block.start_col);
+    }
+    for (; r < dst_block.rows; r++) {
+      UnpackResultBlock<Int32x1x1>(src_map, output_pipeline_executor_1x1, dst,
+        lhs_sums_of_each_slice, rhs_sums_of_each_slice,
+        lhs_offset, rhs_offset,
+        depth,
+        r, c, r + dst_block.start_row, c + dst_block.start_col);
     }
   }
 }
 
 }  // end namespace gemmlowp
-#endif
 
 #endif  // GEMMLOWP_INTERNAL_UNPACK_H_

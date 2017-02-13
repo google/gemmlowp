@@ -18,16 +18,17 @@
 #define GEMMLOWP_INTERNAL_OUTPUT_NEON_H_
 
 #include "output.h"
+#include "output_common_neon_sse.h"
 
 #include <arm_neon.h>
 
 namespace gemmlowp {
 
 // Definitions of Fragment types wrapping NEON vector types.
-typedef Fragment<int32x4_t, 4, 1, MapOrder::ColMajor> NEONFragmentInt32x4x1;
-typedef Fragment<int32x4x4_t, 16, 1, MapOrder::ColMajor> NEONFragmentInt32x16x1;
-typedef Fragment<uint8x8_t, 4, 1, MapOrder::ColMajor> NEONFragmentUint8x4x1;
-typedef Fragment<uint8x16_t, 16, 1, MapOrder::ColMajor> NEONFragmentUint8x16x1;
+typedef Fragment<int32x4_t, 4, 1> NEONFragmentInt32x4x1;
+typedef Fragment<int32x4x4_t, 16, 1> NEONFragmentInt32x16x1;
+typedef Fragment<uint8x8_t, 4, 1> NEONFragmentUint8x4x1;
+typedef Fragment<uint8x16_t, 16, 1> NEONFragmentUint8x16x1;
 
 template <typename tScalar, VectorShape tShape>
 NEONFragmentInt32x4x1 BroadcastInt32x4x1(const VectorMap<tScalar, tShape>& src,

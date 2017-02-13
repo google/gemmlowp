@@ -19,7 +19,6 @@
 #define GEMMLOWP_PUBLIC_MAP_H_
 
 #include "../internal/common.h"
-#include "../internal/iterator.h"
 
 namespace gemmlowp {
 
