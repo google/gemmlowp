@@ -111,11 +111,6 @@ void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
                   const std::int32_t* rhs_sums_of_each_slice_ptr,
                   const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                   const OutputPipelineType& output_pipeline) {
-#ifdef GEMMLOWP_SSE4
-  using RegisterInt32x4 = __m128i;
-#else
-  using RegisterInt32x4 = std::int32_t;
-#endif
   ScopedProfilingLabel label("unpack");
   assert(dst_block.start_row >= 0);
   assert(dst_block.start_row + dst_block.rows <= dst->rows());

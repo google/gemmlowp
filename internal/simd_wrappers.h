@@ -69,31 +69,14 @@ struct RegisterBlock {
   BufferType buf;
 };
 
-template <typename RegisterBufferType>
-struct RegisterBufferAddImpl {
-  static RegisterBufferType Run(const RegisterBufferType& lhs,
-    const RegisterBufferType& rhs) {
-    RegisterBufferType result;
-    for (int i = 0; i < RegisterBufferType::kRegisterCount; i++) {
-      result.reg[i] = Add(lhs.reg[i], rhs.reg[i]);
-    }
-    return result;
-  }
-};
-
-template <typename RegisterBufferType>
-RegisterBufferType
-RegisterBufferAdd(const RegisterBufferType& lhs,
-    const RegisterBufferType& rhs) {
-  return RegisterBufferAddImpl<RegisterBufferType>::Run(lhs, rhs);
-}
-
 template <typename RegisterBlockType>
 struct RegisterBlockAddImpl {
   static RegisterBlockType Run(const RegisterBlockType& lhs,
              const RegisterBlockType& rhs) {
     RegisterBlockType result;
-    result.buf = RegisterBufferAdd(lhs.buf, rhs.buf);
+    for (int i = 0; i < RegisterBlockType::kRegisterCount; i++) {
+      result.buf.reg[i] = Add(lhs.buf.reg[i], rhs.buf.reg[i]);
+    }
     return result;
   }
 };
