@@ -105,6 +105,37 @@ Int32x4 MulByRhsLane(Int32x4 a, Int32x4 b) {
   }
 }
 
+inline
+void MulAdd(Int32x4 lhs, Int32x4 rhs, Int32x4* acc) {
+  *acc = vmlaq_s32(*acc, lhs, rhs);
+}
+
+inline
+void MulAdd(Int32x4 lhs, std::int32_t rhs, Int32x4* acc) {
+  *acc = vmlaq_n_s32(*acc, lhs, rhs);
+}
+
+template <int Lane>
+inline
+void MulAddByRhsLane(Int32x4 lhs, Int32x4 rhs, Int32x4* acc) {
+  switch (Lane) {
+    case 0:
+      *acc = vmlaq_lane_s32(*acc, lhs, vget_low_s32(rhs), 0);
+      break;
+    case 1:
+      *acc = vmlaq_lane_s32(*acc, lhs, vget_low_s32(rhs), 1);
+      break;
+    case 2:
+      *acc = vmlaq_lane_s32(*acc, lhs, vget_high_s32(rhs), 0);
+      break;
+    case 3:
+      *acc = vmlaq_lane_s32(*acc, lhs, vget_high_s32(rhs), 1);
+      break;
+    default:
+      static_assert(Lane >= 0 && Lane <= 3, "");
+  }
+}
+
 }  // end namespace gemmlowp
 
 #endif  // GEMMLOWP_INTERNAL_SIMD_WRAPPERS_NEON_H_
