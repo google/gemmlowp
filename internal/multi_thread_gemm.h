@@ -207,7 +207,7 @@ class BlockingCounter {
 struct Task {
   Task() : local_allocator(nullptr) {}
   virtual ~Task() {}
-  virtual void Run() const = 0;
+  virtual void Run() = 0;
   Allocator* local_allocator;
 };
 
@@ -321,7 +321,7 @@ class Worker {
   pthread_t thread_;
 
   // The task to be worked on.
-  const Task* task_;
+  Task* task_;
 
   // The condition variable and mutex guarding state changes.
   pthread_cond_t state_cond_;
@@ -427,7 +427,7 @@ struct GemmWithPackedRhsTask : Task {
         rhs_offset(_rhs_offset),
         output_pipeline(_output_pipeline) {}
 
-  void Run() const override {
+  void Run() override {
     ScopedProfilingLabel label("GemmWithPackedRhsTask");
 
     const int rows = result_block.rows;
