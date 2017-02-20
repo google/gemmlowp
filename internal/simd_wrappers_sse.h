@@ -94,6 +94,23 @@ Int32x4 MulByRhsLane(Int32x4 a, Int32x4 b) {
   return Mul(a, DupLane<Lane>(b));
 }
 
+inline
+void MulAdd(Int32x4 lhs, Int32x4 rhs, Int32x4* acc) {
+  *acc = Add(*acc, Mul(lhs, rhs));
+}
+
+inline
+void MulAdd(Int32x4 lhs, std::int32_t rhs, Int32x4* acc) {
+  *acc = Add(*acc, Mul(lhs, rhs));
+}
+
+template <int Lane>
+inline
+void MulAddByRhsLane(Int32x4 lhs, Int32x4 rhs, Int32x4* acc) {
+  *acc = Add(*acc, MulByRhsLane<Lane>(lhs, rhs));
+}
+
+
 }  // end namespace gemmlowp
 
 #endif  // GEMMLOWP_INTERNAL_SIMD_WRAPPERS_SSE_H_

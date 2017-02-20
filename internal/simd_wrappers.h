@@ -39,7 +39,10 @@ std::int32_t Max(std::int32_t a, std::int32_t b) {
   return std::max(a, b);
 }
 
-
+inline
+void MulAdd(std::int32_t lhs, std::int32_t rhs, std::int32_t* acc) {
+  *acc += lhs * rhs;
+}
 
 template <typename tScalarType, int tScalarCount>
 struct RegisterBuffer {
@@ -280,6 +283,75 @@ BroadcastMul(const Lhs& lhs,
   return BroadcastMulImpl<typename Flip::FlippedLhsType,typename Flip::FlippedRhsType,TrivialMultiplier>::Run(
     Flip::FlippedLhs(lhs, rhs),
     Flip::FlippedRhs(lhs, rhs), TrivialMultiplier());
+}
+
+template <typename Lhs,
+          typename Rhs,
+          typename ConstantMultiplier,
+          typename Acc>
+struct BroadcastMulAddImpl {
+  static void Run(const Lhs& lhs,
+             const Rhs& rhs,
+             const ConstantMultiplier& multiplier,
+             Acc* acc) {
+    static constexpr int Rows = Acc::kRows;
+    static constexpr int Cols = Acc::kCols;
+    static constexpr int LhsRows = Lhs::kRows;
+    static constexpr int LhsCols = Lhs::kCols;
+    static constexpr int RhsRows = Rhs::kRows;
+    static constexpr int RhsCols = Rhs::kCols;
+    static_assert(Acc::kRegisterLanes == 1,
+      "This path is only for scalar values");
+    static_assert(Lhs::kRegisterLanes == 1,
+      "This path is only for scalar values");
+    static_assert(Rhs::kRegisterLanes == 1,
+      "This path is only for scalar values");
+    
+    static_assert(LhsRows == Rows || LhsRows == 1, "");
+    static_assert(RhsRows == Rows || RhsRows == 1, "");
+    static_assert(LhsCols == Cols || LhsCols == 1, "");
+    static_assert(RhsCols == Cols || RhsCols == 1, "");
+    for (int c = 0; c < Cols; c++) {
+      const int lhs_c = LhsCols == Cols ? c : 0;
+      const int rhs_c = RhsCols == Cols ? c : 0;
+      for (int r = 0; r < Rows; r++) {
+        const int lhs_r = LhsRows == Rows ? r : 0;
+        const int rhs_r = RhsRows == Rows ? r : 0;
+        MulAdd(
+          lhs.buf.reg[lhs_r + lhs_c * LhsRows],
+          multiplier.Mul(rhs.buf.reg[rhs_r + rhs_c * RhsRows]),
+          &acc->buf.reg[r + c * Rows]);
+      }
+    }
+  }
+};
+
+template <typename Lhs,
+          typename Rhs,
+          typename ConstantMultiplier,
+          typename Acc>
+void
+BroadcastMulAdd(const Lhs& lhs,
+             const Rhs& rhs,
+             const ConstantMultiplier& multiplier,
+             Acc* acc) {
+  using Flip = FlipLhsRhs<Lhs, Rhs>;
+  BroadcastMulAddImpl<typename Flip::FlippedLhsType,typename Flip::FlippedRhsType,ConstantMultiplier,Acc>::Run(
+    Flip::FlippedLhs(lhs, rhs),
+    Flip::FlippedRhs(lhs, rhs), multiplier, acc);
+}
+
+template <typename Lhs,
+          typename Rhs,
+          typename Acc>
+void
+BroadcastMulAdd(const Lhs& lhs,
+             const Rhs& rhs,
+             Acc* acc) {
+  using Flip = FlipLhsRhs<Lhs, Rhs>;
+  BroadcastMulAddImpl<typename Flip::FlippedLhsType,typename Flip::FlippedRhsType,TrivialMultiplier,Acc>::Run(
+    Flip::FlippedLhs(lhs, rhs),
+    Flip::FlippedRhs(lhs, rhs), TrivialMultiplier(), acc);
 }
 
 template <typename RegisterBlockType, typename SrcObjectType>

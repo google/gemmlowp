@@ -731,6 +731,136 @@ struct ConstantMultiplierInt32Impl<Int32x4>
   }
 };
 
+// Rx1 += Rx1 * 1x1
+template <typename Multiplier, int Rows>
+struct BroadcastMulAddImpl<RegBlockInt32<Rows,1>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<Rows,1>> {
+  static void Run(const RegBlockInt32<Rows,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<Rows,1> *acc) {
+    const std::int32_t p = multiplier.Mul(rhs.buf.reg[0]);
+    for (int i = 0; i < RegBlockInt32<Rows,1>::kRegisterCount; i++) {
+      MulAdd(lhs.buf.reg[i], p, &acc->buf.reg[i]);
+    }
+  }
+};
+
+// RxC += Rx1 * 1x1
+template <typename Multiplier, int Rows, int Cols>
+struct BroadcastMulAddImpl<RegBlockInt32<Rows,1>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<Rows,Cols>> {
+  static void Run(const RegBlockInt32<Rows,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<Rows,Cols> *acc) {
+    const std::int32_t p = multiplier.Mul(rhs.buf.reg[0]);
+    static constexpr int kRegsPerCol = RegBlockInt32<Rows,1>::kRegisterCount;
+    for (int i = 0; i < kRegsPerCol; i++) {
+      const Int32x4 q = Mul(lhs.buf.reg[i], p);
+      for (int j = 0; j < Cols; j++) {
+        acc->buf.reg[i + j * kRegsPerCol] = Add(acc->buf.reg[i + j * kRegsPerCol], q);
+      }
+    }
+  }
+};
+
+// 1xC += 1xC * 1x1
+template <typename Multiplier, int Cols>
+struct BroadcastMulAddImpl<RegBlockInt32<1,Cols>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<1,Cols>> {
+  static void Run(const RegBlockInt32<1,Cols>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<1,Cols> *acc) {
+    const std::int32_t p = multiplier.Mul(rhs.buf.reg[0]);
+    for (int i = 0; i < RegBlockInt32<1,Cols>::kRegisterCount; i++) {
+      MulAdd(lhs.buf.reg[i], p, &acc->buf.reg[i]);
+    }
+  }
+};
+
+// RxC += 1x1 * 1x1
+template <typename Multiplier, int Rows, int Cols>
+struct BroadcastMulAddImpl<RegBlockInt32<1,1>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<Rows,Cols>> {
+  static void Run(const RegBlockInt32<1,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<Rows,Cols> *acc) {
+    const Int32x4 p = Dup<Int32x4>(multiplier.Mul(Mul(lhs.buf.reg[0], rhs.buf.reg[0])));
+    for (int i = 0; i < RegBlockInt32<Rows,Cols>::kRegisterCount; i++) {
+      acc->buf.reg[i] = Add(acc->buf.reg[i], p);
+    }
+  }
+};
+
+// 1x1 += 1x1 * 1x1
+template <typename Multiplier>
+struct BroadcastMulAddImpl<RegBlockInt32<1,1>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<1,1>> {
+  static void Run(const RegBlockInt32<1,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<1,1> *acc) {
+    MulAdd(multiplier.Mul(lhs.buf.reg[0]), rhs.buf.reg[0], &acc->buf.reg[0]);
+  }
+};
+
+// Rx4 += Rx1 * 1x4
+template <typename Multiplier, int Rows>
+struct BroadcastMulAddImpl<RegBlockInt32<Rows,1>, RegBlockInt32<1,4>, Multiplier, RegBlockInt32<Rows,4>> {
+  static void Run(const RegBlockInt32<Rows,1>& lhs, const RegBlockInt32<1,4>& rhs, const Multiplier& multiplier, RegBlockInt32<Rows,4> *acc) {
+    const Int32x4 p = multiplier.Mul(rhs.buf.reg[0]);
+    static constexpr int kRegsPerCol = RegBlockInt32<Rows,1>::kRegisterCount;
+    for (int i = 0; i < kRegsPerCol; i++) {
+      MulAddByRhsLane<0>(lhs.buf.reg[i], p, &acc->buf.reg[i + 0 * kRegsPerCol]);
+      MulAddByRhsLane<1>(lhs.buf.reg[i], p, &acc->buf.reg[i + 1 * kRegsPerCol]);
+      MulAddByRhsLane<2>(lhs.buf.reg[i], p, &acc->buf.reg[i + 2 * kRegsPerCol]);
+      MulAddByRhsLane<3>(lhs.buf.reg[i], p, &acc->buf.reg[i + 3 * kRegsPerCol]);
+    }
+  }
+};
+
+// Rx4 += 1x4 * 1x1
+template <typename Multiplier, int Rows>
+struct BroadcastMulAddImpl<RegBlockInt32<1,4>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<Rows,4>> {
+  static void Run(const RegBlockInt32<1,4>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<Rows,4> *acc) {
+    const Int32x4 p = Mul(lhs.buf.reg[0], multiplier.Mul(rhs.buf.reg[0]));
+    Int32x4 q[4];
+    q[0] = DupLane<0>(p);
+    q[1] = DupLane<1>(p);
+    q[2] = DupLane<2>(p);
+    q[3] = DupLane<3>(p);
+    static constexpr int kRegsPerCol = RegBlockInt32<Rows,1>::kRegisterCount;
+    for (int i = 0; i < kRegsPerCol; i++) {
+      for (int j = 0; j < 4; j++) {
+        acc->buf.reg[i + j * kRegsPerCol] = Add(q[j], acc->buf.reg[i + j * kRegsPerCol]);
+      }
+    }
+  }
+};
+
+// 1xC += 1x1 * 1x1
+template <typename Multiplier, int Cols>
+struct BroadcastMulAddImpl<RegBlockInt32<1,1>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<1,Cols>> {
+  static void Run(const RegBlockInt32<1,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<1,Cols> *acc) {
+    const Int32x4 p = Dup<Int32x4>(multiplier.Mul(Mul(lhs.buf.reg[0], rhs.buf.reg[0])));
+    for (int i = 0; i < RegBlockInt32<1,Cols>::kRegisterCount; i++) {
+      acc->buf.reg[i] = Add(acc->buf.reg[i], p);
+    }
+  }
+};
+
+// 1x4 += 1x4 * 1x1
+template <typename Multiplier>
+struct BroadcastMulAddImpl<RegBlockInt32<1,4>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<1,4>> {
+  static void Run(const RegBlockInt32<1,4>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<1,4> *acc) {
+    const std::int32_t p = multiplier.Mul(rhs.buf.reg[0]);
+    MulAdd(lhs.buf.reg[0], p, &acc->buf.reg[0]);
+  }
+};
+
+// 4xC += 4x1 * 1x1
+template <typename Multiplier, int Cols>
+struct BroadcastMulAddImpl<RegBlockInt32<4,1>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<4,Cols>> {
+  static void Run(const RegBlockInt32<4,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<4,Cols> *acc) {
+    const Int32x4 p = Mul(lhs.buf.reg[0], multiplier.Mul(rhs.buf.reg[0]));
+    for (int i = 0; i < Cols; i++) {
+      acc->buf.reg[i] = Add(p, acc->buf.reg[i]);
+    }
+  }
+};
+
+// 4x1 += 4x1 * 1x1
+template <typename Multiplier>
+struct BroadcastMulAddImpl<RegBlockInt32<4,1>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<4,1>> {
+  static void Run(const RegBlockInt32<4,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<4,1> *acc) {
+    const std::int32_t p = multiplier.Mul(rhs.buf.reg[0]);
+    MulAdd(lhs.buf.reg[0], p, &acc->buf.reg[0]);
+  }
+};
+
 
 }  // namespace gemmlowp
 

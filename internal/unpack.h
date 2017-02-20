@@ -78,27 +78,33 @@ void UnpackResultBlock(const SrcMapType& src, const OutputPipelineExecutorType& 
     int depth,
     int src_row, int src_col, int dst_row, int dst_col) {
 
-      const auto term_xx =
+      auto acc =
         Load<RegisterBlockType>(src, src_row, src_col);
-      const auto term_x1 =
-        BroadcastMul(
-            LoadForBroadcasting<RegisterBlockType>(lhs_sums_of_each_slice, src_row),
-            LoadForBroadcasting<RegisterBlockType>(rhs_offset, dst_col)
+      const auto& lhs_sums_of_each_slice_block =
+        LoadForBroadcasting<RegisterBlockType>(lhs_sums_of_each_slice, src_row);
+      const auto& rhs_sums_of_each_slice_block =
+        LoadForBroadcasting<RegisterBlockType>(rhs_sums_of_each_slice, src_col);
+      const auto& lhs_offset_block =
+        LoadForBroadcasting<RegisterBlockType>(lhs_offset, dst_row);
+      const auto& rhs_offset_block =
+        LoadForBroadcasting<RegisterBlockType>(rhs_offset, dst_col);
+      BroadcastMulAdd(
+            lhs_sums_of_each_slice_block,
+            rhs_offset_block,
+            &acc
           );
-      const auto term_1x =
-        BroadcastMul(
-            LoadForBroadcasting<RegisterBlockType>(rhs_sums_of_each_slice, src_col),
-            LoadForBroadcasting<RegisterBlockType>(lhs_offset, dst_row)
+      BroadcastMulAdd(
+            rhs_sums_of_each_slice_block,
+            lhs_offset_block,
+            &acc
           );
-      const auto term_11 =
-        BroadcastMul(
-            LoadForBroadcasting<RegisterBlockType>(rhs_offset, dst_col),
-            LoadForBroadcasting<RegisterBlockType>(lhs_offset, dst_row),
-            ConstantMultiplierInt32(depth)
+      BroadcastMulAdd(
+            rhs_offset_block,
+            lhs_offset_block,
+            ConstantMultiplierInt32(depth),
+            &acc
           );
-      const auto input =
-        BroadcastAdd(BroadcastAdd(term_xx, term_x1), BroadcastAdd(term_1x, term_11));
-      executor.Execute(input, dst, dst_row, dst_col);
+      executor.Execute(acc, dst, dst_row, dst_col);
 
 
 }
@@ -151,6 +157,7 @@ void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
       output_pipeline_executor_8x8(output_pipeline);
 
   int c = 0;
+  /*
   for (; c <= dst_block.cols - 8; c += 8) {
     int r = 0;
     for (; r <= dst_block.rows - 8; r += 8) {
@@ -175,6 +182,7 @@ void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
         r, c, r + dst_block.start_row, c + dst_block.start_col);
     }
   }
+  */
   for (; c <= dst_block.cols - 4; c += 4) {
     int r = 0;
     for (; r <= dst_block.rows - 8; r += 8) {
