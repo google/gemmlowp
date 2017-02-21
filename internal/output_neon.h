@@ -18,7 +18,6 @@
 #define GEMMLOWP_INTERNAL_OUTPUT_NEON_H_
 
 #include "output.h"
-#include "output_common_neon_sse.h"
 
 #include <arm_neon.h>
 
@@ -149,27 +148,6 @@ struct StoreFinalOutputImpl<RegBlockInt32<8,1>,
   }
 };
 
-template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockInt32<1,8>,
-  DstType>
-{
-  static void Run(const RegBlockInt32<1,8>& src, DstType* dst, int row, int col) {
-    if (DstType::kOrder == MapOrder::RowMajor) {
-      StoreInt32x4(dst->data(row, col), src.buf.reg[0]);
-      StoreInt32x4(dst->data(row, col + 4), src.buf.reg[1]);
-    } else {
-      *dst->data(row, col + 0) = GetLane<0>(src.buf.reg[0]);
-      *dst->data(row, col + 1) = GetLane<1>(src.buf.reg[0]);
-      *dst->data(row, col + 2) = GetLane<2>(src.buf.reg[0]);
-      *dst->data(row, col + 3) = GetLane<3>(src.buf.reg[0]);
-      *dst->data(row, col + 4) = GetLane<0>(src.buf.reg[1]);
-      *dst->data(row, col + 5) = GetLane<1>(src.buf.reg[1]);
-      *dst->data(row, col + 6) = GetLane<2>(src.buf.reg[1]);
-      *dst->data(row, col + 7) = GetLane<3>(src.buf.reg[1]);
-    }
-  }
-};
-
 inline
 RegBlockInt32<4,4> Transpose(const RegBlockInt32<4,4>& src) {
   const int32x4x2_t t0 = vtrnq_s32(src.buf.reg[0], src.buf.reg[1]);
@@ -227,41 +205,6 @@ struct StoreFinalOutputImpl<RegBlockInt32<8,4>,
       const auto transpose_bottom = Transpose(bottom);
       for (int i = 0; i < 4; i++) {
         vst1q_s32(dst_ptr + (i + 4) * row_stride, transpose_bottom.buf.reg[i]);
-      }
-    }
-  }
-};
-
-template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockInt32<4,8>,
-  DstType>
-{
-  static void Run(const RegBlockInt32<4,8>& src, DstType* dst, int row, int col) {
-    std::int32_t* dst_ptr = dst->data(row, col);
-    if (DstType::kOrder == MapOrder::ColMajor) {
-      int col_stride = dst->cols_stride();
-      for (int i = 0; i < 8; i++) {
-        vst1q_s32(dst_ptr + i * col_stride, src.buf.reg[i]);
-      }
-    } else {
-      int row_stride = dst->rows_stride();
-      RegBlockInt32<4,4> left;
-      left.buf.reg[0] = src.buf.reg[0];
-      left.buf.reg[1] = src.buf.reg[1];
-      left.buf.reg[2] = src.buf.reg[2];
-      left.buf.reg[3] = src.buf.reg[3];
-      const auto transpose_left = Transpose(left);
-      for (int i = 0; i < 4; i++) {
-        vst1q_s32(dst_ptr + i * row_stride, transpose_left.buf.reg[i]);
-      }
-      RegBlockInt32<4,4> right;
-      right.buf.reg[0] = src.buf.reg[4];
-      right.buf.reg[1] = src.buf.reg[5];
-      right.buf.reg[2] = src.buf.reg[6];
-      right.buf.reg[3] = src.buf.reg[7];
-      const auto transpose_right = Transpose(right);
-      for (int i = 0; i < 4; i++) {
-        vst1q_s32(dst_ptr + i * row_stride + 4, transpose_right.buf.reg[i]);
       }
     }
   }
@@ -401,27 +344,6 @@ struct StoreFinalOutputImpl<RegBlockUint8<8,1>, DstType>
 };
 
 template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockUint8<1,8>, DstType>
-{
-  static void Run(const RegBlockUint8<1,8>& src, DstType* dst, int row, int col) {
-    std::uint8_t* dst_ptr = dst->data(row, col);
-    if (DstType::kOrder == MapOrder::RowMajor) {
-      vst1_u8(dst_ptr, src.buf.reg[0]);
-    } else {
-      const int col_stride = dst->cols_stride();
-      vst1_lane_u8(dst_ptr + 0 * col_stride, src.buf.reg[0], 0);
-      vst1_lane_u8(dst_ptr + 1 * col_stride, src.buf.reg[0], 1);
-      vst1_lane_u8(dst_ptr + 2 * col_stride, src.buf.reg[0], 2);
-      vst1_lane_u8(dst_ptr + 3 * col_stride, src.buf.reg[0], 3);
-      vst1_lane_u8(dst_ptr + 4 * col_stride, src.buf.reg[0], 4);
-      vst1_lane_u8(dst_ptr + 5 * col_stride, src.buf.reg[0], 5);
-      vst1_lane_u8(dst_ptr + 6 * col_stride, src.buf.reg[0], 6);
-      vst1_lane_u8(dst_ptr + 7 * col_stride, src.buf.reg[0], 7);
-    }
-  }
-};
-
-template <typename DstType>
 struct StoreFinalOutputImpl<RegBlockUint8<4,4>, DstType>
 {
   static void Run(const RegBlockUint8<4,4>& src, DstType* dst, int row, int col) {
@@ -464,26 +386,6 @@ struct StoreFinalOutputImpl<RegBlockUint8<8,4>, DstType>
         vst1_lane_u8(col_ptr + 6 * row_stride , src.buf.reg[i], 6);
         vst1_lane_u8(col_ptr + 7 * row_stride , src.buf.reg[i], 7);
       }
-    }
-  }
-};
-
-template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockUint8<4,8>, DstType>
-{
-  static void Run(const RegBlockUint8<4,8>& src, DstType* dst, int row, int col) {
-    for (int i = 0; i < 4; i++) {
-      std::uint8_t* block_ptr = dst->data(row, col + 2 * i);
-      int col_stride = dst->cols_stride();
-      int row_stride = dst->rows_stride();
-      vst1_lane_u8(block_ptr + 0 * row_stride , src.buf.reg[i], 0);
-      vst1_lane_u8(block_ptr + 1 * row_stride , src.buf.reg[i], 1);
-      vst1_lane_u8(block_ptr + 2 * row_stride , src.buf.reg[i], 2);
-      vst1_lane_u8(block_ptr + 3 * row_stride , src.buf.reg[i], 3);
-      vst1_lane_u8(block_ptr + 0 * row_stride + col_stride, src.buf.reg[i], 4);
-      vst1_lane_u8(block_ptr + 1 * row_stride + col_stride, src.buf.reg[i], 5);
-      vst1_lane_u8(block_ptr + 2 * row_stride + col_stride, src.buf.reg[i], 6);
-      vst1_lane_u8(block_ptr + 3 * row_stride + col_stride, src.buf.reg[i], 7);
     }
   }
 };

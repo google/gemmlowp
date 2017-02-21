@@ -14,14 +14,12 @@
 
 // output_common_neon_sse.h: common SIMD (NEON and SSE) code for output.h
 
-#ifndef GEMMLOWP_INTERNAL_OUTPUT_COMMON_NEON_SSE_H_
-#define GEMMLOWP_INTERNAL_OUTPUT_COMMON_NEON_SSE_H_
+#ifndef GEMMLOWP_INTERNAL_SIMD_WRAPPERS_COMMON_NEON_SSE_H_
+#define GEMMLOWP_INTERNAL_SIMD_WRAPPERS_COMMON_NEON_SSE_H_
 
-#include "output.h"
+#include "simd_wrappers.h"
 
 namespace gemmlowp {
-
-
 
 template <typename SrcScalarType, int N>
 struct LoadImpl<RegBlockInt32<4,N>, MatrixMap<SrcScalarType, MapOrder::ColMajor>>
@@ -581,4 +579,4 @@ struct BroadcastMulAddImpl<RegBlockInt32<4,1>, RegBlockInt32<1,1>, RegBlockInt32
 
 }  // namespace gemmlowp
 
-#endif  // GEMMLOWP_INTERNAL_OUTPUT_COMMON_NEON_SSE_H_
+#endif  // GEMMLOWP_INTERNAL_SIMD_WRAPPERS_COMMON_NEON_SSE_H_

@@ -17,7 +17,6 @@
 #ifndef GEMMLOWP_INTERNAL_SIMD_WRAPPERS_NEON_H_
 #define GEMMLOWP_INTERNAL_SIMD_WRAPPERS_NEON_H_
 
-#include "simd_wrappers.h"
 #include <arm_neon.h>
 
 namespace gemmlowp {
@@ -161,5 +160,7 @@ struct LoadContiguousImpl<RegBlockInt32<8,8>>
 };
 
 }  // end namespace gemmlowp
+
+#include "simd_wrappers_common_neon_sse.h"
 
 #endif  // GEMMLOWP_INTERNAL_SIMD_WRAPPERS_NEON_H_
