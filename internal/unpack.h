@@ -112,8 +112,9 @@ void UnpackResultBlock(const SrcMapType& src, const OutputPipelineExecutorType& 
             rhs_offset_block,
             &acc
           );
-      static_assert(decltype(rhs_offset_block)::kRegisterCount == 1, "");
-      rhs_offset_block.buf.reg[0] = Mul(rhs_offset_block.buf.reg[0], depth);
+      for (int i = 0; i < decltype(rhs_offset_block)::kRegisterCount; i++) {
+        rhs_offset_block.buf.reg[i] = Mul(rhs_offset_block.buf.reg[i], depth);
+      }
       BroadcastMulAdd(
             BroadcastAdd(rhs_sums_of_each_slice_block, rhs_offset_block),
             lhs_offset_block,

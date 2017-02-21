@@ -53,7 +53,7 @@ void StoreInt32x4(std::int32_t* dst, Int32x4 value) {
 }
 
 inline
-Uint8x16 LoadUint8x16(const std::int32_t* src) {
+Uint8x16 LoadUint8x16(const std::uint8_t* src) {
   return _mm_loadu_si128(reinterpret_cast<const Uint8x16*>(src));
 }
 
