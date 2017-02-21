@@ -75,12 +75,14 @@ void PrefetchResultBlock(const SrcMapType& src,
   const std::int32_t* src_data = src.data(src_row, src_col);
   const int src_stride = src.stride();
   const std::int32_t* lhs_sums_data = lhs_sums_of_each_slice.data(src_row);
+  for (int r = 0; r < Rows; r+=4) {
+    Prefetch(lhs_sums_data + r);
+  }
   for (int c = 0; c < Cols; c++) {
     for (int r = 0; r < Rows; r+=4) {
       Prefetch(src_data + r + c * src_stride);
     }
   }
-  Prefetch(lhs_sums_data);
 }
 
 template <typename RegisterBlockType, typename SrcMapType,
@@ -100,9 +102,9 @@ void UnpackResultBlock(const SrcMapType& src, const OutputPipelineExecutorType& 
       const auto& rhs_sums_of_each_slice_block =
         LoadForBroadcasting<RegisterBlockType>(rhs_sums_of_each_slice, src_col);
       const auto& lhs_offset_block =
-        LoadForBroadcasting<RegisterBlockType>(lhs_offset, dst_row);
+        LoadForBroadcasting<RegisterBlockType>(lhs_offset, src_row);
       const auto& rhs_offset_block =
-        LoadForBroadcasting<RegisterBlockType>(rhs_offset, dst_col);
+        LoadForBroadcasting<RegisterBlockType>(rhs_offset, src_col);
       BroadcastMulAdd(
             lhs_sums_of_each_slice_block,
             rhs_offset_block,

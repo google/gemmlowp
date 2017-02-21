@@ -106,6 +106,11 @@ void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
   }
 }
 
+typedef VectorMap<const std::int32_t, VectorShape::Col> OffsetColMap;
+typedef VectorMap<const std::int32_t, VectorShape::Row> OffsetRowMap;
+typedef VectorDup<const std::int32_t, VectorShape::Col> OffsetColDup;
+typedef VectorDup<const std::int32_t, VectorShape::Row> OffsetRowDup;
+
 // *GemmWrapper's allow to wrap various Gemm functions in a uniform
 // interface, so we can use the same testing code to test all of them
 

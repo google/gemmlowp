@@ -97,6 +97,13 @@ class VectorMap {
   Scalar* data() const { return data_; }
   Scalar* data(int index) const { return data_ + index; }
   Scalar& operator()(int index) const { return *data(index); }
+
+  VectorMap block(int start, int len) const {
+    assert(start >= 0);
+    assert(start + len <= size_);
+
+    return VectorMap(data(start), len);
+  }
 };
 
 // A VectorDup is a (duplicated value) vector where all components are the same.
@@ -117,6 +124,13 @@ class VectorDup {
 
   int size() const { return size_; }
   Scalar& operator()(int) const { return data_; }
+
+  VectorDup block(int start, int len) const {
+    assert(start >= 0);
+    assert(start + len <= size_);
+
+    return VectorDup(data_, len);
+  }
 };
 
 }  // namespace gemmlowp

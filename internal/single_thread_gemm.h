@@ -46,11 +46,6 @@ class SingleThreadGemmContext {
   Allocator allocator_;
 };
 
-typedef VectorMap<const std::int32_t, VectorShape::Col> OffsetColMap;
-typedef VectorMap<const std::int32_t, VectorShape::Row> OffsetRowMap;
-typedef VectorDup<const std::int32_t, VectorShape::Col> OffsetColDup;
-typedef VectorDup<const std::int32_t, VectorShape::Row> OffsetRowDup;
-
 template <typename KernelFormat, typename InputScalar, typename OutputScalar,
           typename BitDepthParams, MapOrder LhsOrder, MapOrder RhsOrder,
           MapOrder ResultOrder, typename LhsOffset, typename RhsOffset,
@@ -133,7 +128,7 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
 
       UnpackResult(result, MatrixBlockBounds(r, c, rs, cs), packed_result,
                    depth, packed_lhs.sums_of_each_slice(),
-                   packed_rhs.sums_of_each_slice(), lhs_offset, rhs_offset,
+                   packed_rhs.sums_of_each_slice(), lhs_offset.block(r,rs), rhs_offset.block(c,cs),
                    output_pipeline);
     }
   }

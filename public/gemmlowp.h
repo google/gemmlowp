@@ -56,6 +56,8 @@ void GemmWithOutputPipeline(GemmContextType* context,
                             MatrixMap<OutputScalar, ResultOrder>* result,
                             int lhs_offset, int rhs_offset,
                             const OutputPipelineType& output_pipeline) {
+  typedef VectorDup<const std::int32_t, VectorShape::Col> OffsetColDup;
+  typedef VectorDup<const std::int32_t, VectorShape::Row> OffsetRowDup;
   const OffsetColDup lhs_offset_vector(lhs_offset, lhs.rows());
   const OffsetRowDup rhs_offset_vector(rhs_offset, rhs.cols());
   DispatchGemmShape<InputScalar, OutputScalar, BitDepthParams>(

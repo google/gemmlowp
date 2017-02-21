@@ -457,7 +457,9 @@ struct GemmWithPackedRhsTask : Task {
             result_block.start_row + r, result_block.start_col + c, rs, cs);
         UnpackResult(&result, curr_result_block, packed_result, depth,
                      packed_lhs.sums_of_each_slice(),
-                     packed_rhs.sums_of_each_slice(), lhs_offset, rhs_offset,
+                     packed_rhs.sums_of_each_slice(),
+                     lhs_offset.block(curr_result_block.start_row, rs),
+                     rhs_offset.block(curr_result_block.start_col, cs),
                      output_pipeline);
       }
     }
