@@ -21,6 +21,7 @@
 #include "../fixedpoint/fixedpoint.h"
 #include <algorithm>
 #include <type_traits>
+#include <iostream>
 
 namespace gemmlowp {
 
@@ -424,6 +425,26 @@ RegisterBlockType Load(const SrcObjectType& src, int row, int col) {
 template <typename RegisterBlockType, typename SrcObjectType>
 RegisterBlockType Load(const SrcObjectType& src, int pos) {
   return LoadImpl<RegisterBlockType, SrcObjectType>::Run(src, pos);
+}
+
+template <typename RegisterBlockType>
+struct LoadContiguousImpl
+{
+  using ScalarType = typename RegisterBlockType::ScalarType;
+  static_assert(RegisterBlockType::kRegisterLanes == 1,
+      "This path is only for scalar values");
+  static RegisterBlockType Run(const ScalarType* src) {
+    RegisterBlockType result;
+    for (int i = 0; i < RegisterBlockType::kScalarCount; i++) {
+      result.buf.reg[i] = src[i];
+    }
+    return result;
+  }
+};
+
+template <typename RegisterBlockType>
+RegisterBlockType LoadContiguous(const typename RegisterBlockType::ScalarType* src) {
+  return LoadContiguousImpl<RegisterBlockType>::Run(src);
 }
 
 template <int BroadcastRows, int BroadcastCols, typename SrcObjectType>

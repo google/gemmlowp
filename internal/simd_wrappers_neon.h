@@ -136,6 +136,30 @@ void MulAddByRhsLane(Int32x4 lhs, Int32x4 rhs, Int32x4* acc) {
   }
 }
 
+template <>
+struct LoadContiguousImpl<RegBlockUint8<8,8>>
+{
+  static RegBlockUint8<8,8> Run(const std::uint8_t* src) {
+    RegBlockUint8<8,8> result;
+    for (int i = 0; i < 8; i++) {
+      result.buf.reg[i] = vld1_u8(src + 8 * i);
+    }
+    return result;
+  }
+};
+
+template <>
+struct LoadContiguousImpl<RegBlockInt32<8,8>>
+{
+  static RegBlockInt32<8,8> Run(const std::int32_t* src) {
+    RegBlockInt32<8,8> result;
+    for (int i = 0; i < 16; i++) {
+      result.buf.reg[i] = vld1q_s32(src + 4 * i);
+    }
+    return result;
+  }
+};
+
 }  // end namespace gemmlowp
 
 #endif  // GEMMLOWP_INTERNAL_SIMD_WRAPPERS_NEON_H_

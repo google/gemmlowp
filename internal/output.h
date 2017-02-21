@@ -393,7 +393,8 @@ struct OutputPipelineExecutor {
   // result
   // of the unpack stage and stores it into the destination matrix.
   template <typename DstType>
-  void Execute(InputType input, DstType* dst, int row, int col) const {
+  void Execute(InputType input, DstType* dst,
+    int src_global_row, int src_global_col, int dst_row, int dst_col) const {
     // Statically assert that the output pipeline matches the given destination
     // matrix's scalar type.
     typedef typename OutputPipelineOutputType<OutputPipelineType, 0,
@@ -405,9 +406,9 @@ struct OutputPipelineExecutor {
                   "mismatched destination scalar type and output pipeline");
 
     // Evaluate the output pipeline.
-    auto output = output_pipeline_eval_impl_.Eval(input, row, col);
+    auto output = output_pipeline_eval_impl_.Eval(input, src_global_row, src_global_col);
     // Store the result into the destination matrix.
-    StoreFinalOutput(output, dst, row, col);
+    StoreFinalOutput(output, dst, dst_row, dst_col);
   }
 
   const OutputPipelineEvalImpl<OutputPipelineType, 0, InputType>

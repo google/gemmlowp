@@ -54,6 +54,11 @@ void StoreInt32x4(std::int32_t* dst, Int32x4 value) {
 }
 
 inline
+Uint8x16 LoadUint8x16(const std::int32_t* src) {
+  return _mm_loadu_si128(reinterpret_cast<const Uint8x16*>(src));
+}
+
+inline
 void StoreUint8x16(std::uint8_t* dst, Uint8x16 value) {
   _mm_storeu_si128(reinterpret_cast<__m128i*>(dst), value);
 }
@@ -110,6 +115,30 @@ void MulAddByRhsLane(Int32x4 lhs, Int32x4 rhs, Int32x4* acc) {
   *acc = Add(*acc, MulByRhsLane<Lane>(lhs, rhs));
 }
 
+template <>
+struct LoadContiguousImpl<RegBlockUint8<8,8>>
+{
+  static RegBlockUint8<8,8> Run(const std::uint8_t* src) {
+    RegBlockUint8<8,8> result;
+    for (int i = 0; i < 4; i++) {
+      result.buf.reg[i] = LoadUint8x16(src + 16 * i);
+    }
+    return result;
+  }
+};
+
+
+template <>
+struct LoadContiguousImpl<RegBlockInt32<8,8>>
+{
+  static RegBlockInt32<8,8> Run(const std::int32_t* src) {
+    RegBlockInt32<8,8> result;
+    for (int i = 0; i < 16; i++) {
+      result.buf.reg[i] = LoadInt32x4(src + 4 * i);
+    }
+    return result;
+  }
+};
 
 }  // end namespace gemmlowp
 

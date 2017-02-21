@@ -468,8 +468,8 @@ void test_gemm_impl(typename GemmWrapper::Context* context, const LhsType& lhs,
     ReportResultStats(stats, bounds);
 
     int bad_coeffs_printed = 0;
-    for (int c = 0; c < result->cols() && bad_coeffs_printed < 20; c++) {
-      for (int r = 0; r < result->rows() && bad_coeffs_printed < 20; r++) {
+    for (int c = 0; c < result->cols() && bad_coeffs_printed < 200; c++) {
+      for (int r = 0; r < result->rows() && bad_coeffs_printed < 200; r++) {
         if (ref_result(r, c) != (*result)(r, c)) {
           printf("bad coeff: at (%d, %d), expected %d, got %d\n", r, c,
                  ref_result(r, c), (*result)(r, c));
@@ -607,13 +607,13 @@ void test_gemm(typename GemmWrapper::Context* context) {
   test_gemm<GemmWrapper>(context, 5, 7, 3, WhatParamsToTest::All,
                          WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 8, 8, 8, WhatParamsToTest::All,
-                         WhatOrdersToTest::OnlyRCC);
+                         WhatOrdersToTest::All);
   test_gemm<GemmWrapper>(context, 16, 16, 16, WhatParamsToTest::All,
                          WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 32, 32, 32, WhatParamsToTest::All,
                          WhatOrdersToTest::OnlyRCC);
   test_gemm<GemmWrapper>(context, 64, 64, 64, WhatParamsToTest::All,
-                         WhatOrdersToTest::OnlyRCC);
+                         WhatOrdersToTest::All);
   test_gemm<GemmWrapper>(context, 128, 128, 128, WhatParamsToTest::All,
                          WhatOrdersToTest::OnlyRCC);
 
