@@ -105,22 +105,18 @@ void UnpackResultBlock(const SrcMapType& src, const OutputPipelineExecutorType& 
         LoadForBroadcasting<RegisterBlockType>(rhs_sums_of_each_slice, src_col);
       const auto& lhs_offset_block =
         LoadForBroadcasting<RegisterBlockType>(lhs_offset, src_row);
-      const auto& rhs_offset_block =
+      auto rhs_offset_block =
         LoadForBroadcasting<RegisterBlockType>(rhs_offset, src_col);
       BroadcastMulAdd(
             lhs_sums_of_each_slice_block,
             rhs_offset_block,
             &acc
           );
+      static_assert(decltype(rhs_offset_block)::kRegisterCount == 1, "");
+      rhs_offset_block.buf.reg[0] = Mul(rhs_offset_block.buf.reg[0], depth);
       BroadcastMulAdd(
-            rhs_sums_of_each_slice_block,
+            BroadcastAdd(rhs_sums_of_each_slice_block, rhs_offset_block),
             lhs_offset_block,
-            &acc
-          );
-      BroadcastMulAdd(
-            rhs_offset_block,
-            lhs_offset_block,
-            ConstantMultiplierInt32(depth),
             &acc
           );
       executor.Execute(acc, dst, src_global_row, src_global_col, dst_row, dst_col);
