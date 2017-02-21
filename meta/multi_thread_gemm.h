@@ -105,7 +105,7 @@ template <typename Executor, typename Params, int kernel_m, int kernel_n,
 struct GemmTaskRunner : gemmlowp::Task {
   GemmTaskRunner(const Params& params) : params(params) {}
 
-  void Run() const override {
+  void Run() override {
     Gemm<Executor, Params, kernel_m, kernel_n, kernel_k>(params);
   }
 
