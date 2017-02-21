@@ -451,7 +451,8 @@ struct GemmWithPackedRhsTask : Task {
 
         PackLhs(&packed_lhs, lhs.block(r, 0, rs, depth));
 
-        Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
+        Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs,
+                depth);
 
         auto curr_result_block = MatrixBlockBounds(
             result_block.start_row + r, result_block.start_col + c, rs, cs);

@@ -124,7 +124,8 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
         PackRhs(&packed_rhs, rhs.block(0, c, depth, cs));
       }
 
-      Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
+      Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs,
+              depth);
 
       UnpackResult(result, MatrixBlockBounds(r, c, rs, cs), packed_result,
                    depth, packed_lhs.sums_of_each_slice(),
