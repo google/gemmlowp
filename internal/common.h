@@ -194,7 +194,7 @@ const int kRegisterSize = 16;
 
 // Hints the CPU to prefetch the cache line containing ptr.
 inline void Prefetch(const void* ptr) {
-#if defined GEMMLOWP_ARM_64
+#if defined GEMMLOWP_ARM_64 && defined GEMMLOWP_ALLOW_INLINE_ASM
   // Aarch64 has very detailed prefetch instructions, that compilers
   // can't know how to map __builtin_prefetch to, and as a result, don't,
   // leaving __builtin_prefetch a no-op on this architecture.
