@@ -68,6 +68,21 @@ struct MatrixBlockBounds {
         cols(cols_) {}
 };
 
+template <int Rows, int Cols, typename SrcMapType>
+void PrefetchResultBlock(const SrcMapType& src,
+  const VectorMap<const std::int32_t, VectorShape::Col>& lhs_sums_of_each_slice,
+  int src_row, int src_col) {
+  const std::int32_t* src_data = src.data(src_row, src_col);
+  const int src_stride = src.stride();
+  const std::int32_t* lhs_sums_data = lhs_sums_of_each_slice.data(src_row);
+  for (int c = 0; c < Cols; c++) {
+    for (int r = 0; r < Rows; r+=4) {
+      Prefetch(src_data + r + c * src_stride);
+    }
+  }
+  Prefetch(lhs_sums_data);
+}
+
 template <typename RegisterBlockType, typename SrcMapType,
     typename LhsOffset, typename RhsOffset,
     typename OutputPipelineExecutorType, typename DstType>
@@ -149,10 +164,50 @@ void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
   OutputPipelineExecutor<OutputPipelineType, Int32x8x4>
       output_pipeline_executor_8x4(output_pipeline);
 
-  int c = 0;
+  int c8 = 0;
+  if (ResultBlockType::kOrder == MapOrder::RowMajor) {
+    for (; c8 <= dst_block.cols - 8; c8 += 8) {
+      PrefetchResultBlock<8, 8>(src_map, lhs_sums_of_each_slice, 0, c8);
+      int r = 0;
+      for (; r <= dst_block.rows - 8; r += 8) {
+        PrefetchResultBlock<8, 8>(src_map, lhs_sums_of_each_slice, r+8, c8);
+        for (int cx =0; cx < 8; cx += 4) {
+          const int c = c8 + cx;
+          UnpackResultBlock<Int32x8x4>(src_map, output_pipeline_executor_8x4, dst,
+            lhs_sums_of_each_slice, rhs_sums_of_each_slice,
+            lhs_offset, rhs_offset,
+            depth,
+            r, c, r + dst_block.start_row, c + dst_block.start_col);
+        }
+      }
+      for (; r <= dst_block.rows - 4; r += 4) {
+        for (int cx =0; cx < 8; cx += 4) {
+          const int c = c8 + cx;
+          UnpackResultBlock<Int32x4x4>(src_map, output_pipeline_executor_4x4, dst,
+            lhs_sums_of_each_slice, rhs_sums_of_each_slice,
+            lhs_offset, rhs_offset,
+            depth,
+            r, c, r + dst_block.start_row, c + dst_block.start_col);
+        }
+      }
+      for (; r < dst_block.rows; r++) {
+        for (int cx =0; cx < 8; cx += 4) {
+          const int c = c8 + cx;
+          UnpackResultBlock<Int32x1x4>(src_map, output_pipeline_executor_1x4, dst,
+            lhs_sums_of_each_slice, rhs_sums_of_each_slice,
+            lhs_offset, rhs_offset,
+            depth,
+            r, c, r + dst_block.start_row, c + dst_block.start_col);
+        }
+      }
+    }
+  }
+  int c = c8;
   for (; c <= dst_block.cols - 4; c += 4) {
+    PrefetchResultBlock<8, 4>(src_map, lhs_sums_of_each_slice, 0, c);
     int r = 0;
     for (; r <= dst_block.rows - 8; r += 8) {
+      PrefetchResultBlock<8, 4>(src_map, lhs_sums_of_each_slice, r+8, c);
       UnpackResultBlock<Int32x8x4>(src_map, output_pipeline_executor_8x4, dst,
         lhs_sums_of_each_slice, rhs_sums_of_each_slice,
         lhs_offset, rhs_offset,
@@ -175,8 +230,10 @@ void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
     }
   }
   for (; c < dst_block.cols; c++) {
+    PrefetchResultBlock<8, 1>(src_map, lhs_sums_of_each_slice, 0, c);
     int r = 0;
     for (; r <= dst_block.rows - 8; r += 8) {
+      PrefetchResultBlock<8, 1>(src_map, lhs_sums_of_each_slice, r+8, c);
       UnpackResultBlock<Int32x8x1>(src_map, output_pipeline_executor_8x1, dst,
         lhs_sums_of_each_slice, rhs_sums_of_each_slice,
         lhs_offset, rhs_offset,
