@@ -191,44 +191,12 @@ BroadcastAdd(const Lhs& lhs,
     Flip::FlippedRhs(lhs, rhs));
 }
 
-struct TrivialMultiplier {
-  template <typename T>
-  T Mul(T x) const { return x; }
-};
-
-template <typename T>
-struct ConstantMultiplierInt32Impl {
-  static_assert(std::is_same<T, void>::value,
-    "This generic impl should never be hit");
-};
-
-template<>
-struct ConstantMultiplierInt32Impl<std::int32_t>
-{
-  static std::int32_t Mul(std::int32_t c, std::int32_t x) {
-    return c * x;
-  }
-};
-
-class ConstantMultiplierInt32 {
-public:
-  ConstantMultiplierInt32(std::int32_t c) : c_(c) {}
-  template <typename T>
-  T Mul(T x) const {
-    return ConstantMultiplierInt32Impl<T>::Mul(c_, x);
-  }
-private:
-  const std::int32_t c_;
-};
-
 template <typename Lhs,
-          typename Rhs,
-          typename ConstantMultiplier>
+          typename Rhs>
 struct BroadcastMulImpl {
   using ResultBlockType = typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type;
   static ResultBlockType Run(const Lhs& lhs,
-             const Rhs& rhs,
-             const ConstantMultiplier& multiplier) {
+             const Rhs& rhs) {
     ResultBlockType result;
     static constexpr int Rows = ResultBlockType::kRows;
     static constexpr int Cols = ResultBlockType::kCols;
@@ -253,27 +221,15 @@ struct BroadcastMulImpl {
       for (int r = 0; r < Rows; r++) {
         const int lhs_r = LhsRows == Rows ? r : 0;
         const int rhs_r = RhsRows == Rows ? r : 0;
-        result.buf.reg[r + c * Rows] = multiplier.Mul(Mul(
+        result.buf.reg[r + c * Rows] = Mul(
             lhs.buf.reg[lhs_r + lhs_c * LhsRows],
-            rhs.buf.reg[rhs_r + rhs_c * RhsRows]));
+            rhs.buf.reg[rhs_r + rhs_c * RhsRows]);
       }
     }
     return result;
   }
 };
 
-template <typename Lhs,
-          typename Rhs,
-          typename ConstantMultiplier>
-typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type
-BroadcastMul(const Lhs& lhs,
-             const Rhs& rhs,
-             const ConstantMultiplier& multiplier) {
-  using Flip = FlipLhsRhs<Lhs, Rhs>;
-  return BroadcastMulImpl<typename Flip::FlippedLhsType,typename Flip::FlippedRhsType,ConstantMultiplier>::Run(
-    Flip::FlippedLhs(lhs, rhs),
-    Flip::FlippedRhs(lhs, rhs), multiplier);
-}
 
 template <typename Lhs,
           typename Rhs>
@@ -281,19 +237,17 @@ typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type
 BroadcastMul(const Lhs& lhs,
              const Rhs& rhs) {
   using Flip = FlipLhsRhs<Lhs, Rhs>;
-  return BroadcastMulImpl<typename Flip::FlippedLhsType,typename Flip::FlippedRhsType,TrivialMultiplier>::Run(
+  return BroadcastMulImpl<typename Flip::FlippedLhsType,typename Flip::FlippedRhsType>::Run(
     Flip::FlippedLhs(lhs, rhs),
-    Flip::FlippedRhs(lhs, rhs), TrivialMultiplier());
+    Flip::FlippedRhs(lhs, rhs));
 }
 
 template <typename Lhs,
           typename Rhs,
-          typename ConstantMultiplier,
           typename Acc>
 struct BroadcastMulAddImpl {
   static void Run(const Lhs& lhs,
              const Rhs& rhs,
-             const ConstantMultiplier& multiplier,
              Acc* acc) {
     static constexpr int Rows = Acc::kRows;
     static constexpr int Cols = Acc::kCols;
@@ -320,7 +274,7 @@ struct BroadcastMulAddImpl {
         const int rhs_r = RhsRows == Rows ? r : 0;
         MulAdd(
           lhs.buf.reg[lhs_r + lhs_c * LhsRows],
-          multiplier.Mul(rhs.buf.reg[rhs_r + rhs_c * RhsRows]),
+          rhs.buf.reg[rhs_r + rhs_c * RhsRows],
           &acc->buf.reg[r + c * Rows]);
       }
     }
@@ -329,30 +283,15 @@ struct BroadcastMulAddImpl {
 
 template <typename Lhs,
           typename Rhs,
-          typename ConstantMultiplier,
-          typename Acc>
-void
-BroadcastMulAdd(const Lhs& lhs,
-             const Rhs& rhs,
-             const ConstantMultiplier& multiplier,
-             Acc* acc) {
-  using Flip = FlipLhsRhs<Lhs, Rhs>;
-  BroadcastMulAddImpl<typename Flip::FlippedLhsType,typename Flip::FlippedRhsType,ConstantMultiplier,Acc>::Run(
-    Flip::FlippedLhs(lhs, rhs),
-    Flip::FlippedRhs(lhs, rhs), multiplier, acc);
-}
-
-template <typename Lhs,
-          typename Rhs,
           typename Acc>
 void
 BroadcastMulAdd(const Lhs& lhs,
              const Rhs& rhs,
              Acc* acc) {
   using Flip = FlipLhsRhs<Lhs, Rhs>;
-  BroadcastMulAddImpl<typename Flip::FlippedLhsType,typename Flip::FlippedRhsType,TrivialMultiplier,Acc>::Run(
+  BroadcastMulAddImpl<typename Flip::FlippedLhsType,typename Flip::FlippedRhsType,Acc>::Run(
     Flip::FlippedLhs(lhs, rhs),
-    Flip::FlippedRhs(lhs, rhs), TrivialMultiplier(), acc);
+    Flip::FlippedRhs(lhs, rhs), acc);
 }
 
 template <typename RegisterBlockType, typename SrcObjectType>

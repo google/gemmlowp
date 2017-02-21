@@ -239,54 +239,6 @@ struct BroadcastAddImpl<RegBlockInt32<4,4>, RegBlockInt32<4,1>> {
   }
 };
 
-// 4x4 := 4x4 + 4x4
-template <>
-struct BroadcastAddImpl<RegBlockInt32<4,4>, RegBlockInt32<4,4>> {
-  static RegBlockInt32<4,4> Run(const RegBlockInt32<4,4>& lhs, const RegBlockInt32<4,4>& rhs) {
-    RegBlockInt32<4,4> result;
-    for (int i = 0; i < 4; i++) {
-      result.buf.reg[i] = Add(lhs.buf.reg[i], rhs.buf.reg[i]);
-    }
-    return result;
-  }
-};
-
-// 8x4 := 8x4 + 8x4
-template <>
-struct BroadcastAddImpl<RegBlockInt32<8,4>, RegBlockInt32<8,4>> {
-  static RegBlockInt32<8,4> Run(const RegBlockInt32<8,4>& lhs, const RegBlockInt32<8,4>& rhs) {
-    RegBlockInt32<8,4> result;
-    for (int i = 0; i < 8; i++) {
-      result.buf.reg[i] = Add(lhs.buf.reg[i], rhs.buf.reg[i]);
-    }
-    return result;
-  }
-};
-
-// 4x8 := 4x8 + 4x8
-template <>
-struct BroadcastAddImpl<RegBlockInt32<4,8>, RegBlockInt32<4,8>> {
-  static RegBlockInt32<4,8> Run(const RegBlockInt32<4,8>& lhs, const RegBlockInt32<4,8>& rhs) {
-    RegBlockInt32<4,8> result;
-    for (int i = 0; i < 8; i++) {
-      result.buf.reg[i] = Add(lhs.buf.reg[i], rhs.buf.reg[i]);
-    }
-    return result;
-  }
-};
-
-// 8x8 := 8x8 + 8x8
-template <>
-struct BroadcastAddImpl<RegBlockInt32<8,8>, RegBlockInt32<8,8>> {
-  static RegBlockInt32<8,8> Run(const RegBlockInt32<8,8>& lhs, const RegBlockInt32<8,8>& rhs) {
-    RegBlockInt32<8,8> result;
-    for (int i = 0; i < 16; i++) {
-      result.buf.reg[i] = Add(lhs.buf.reg[i], rhs.buf.reg[i]);
-    }
-    return result;
-  }
-};
-
 // 8x1 := 8x1 + 1x1
 template <>
 struct BroadcastAddImpl<RegBlockInt32<8,1>, RegBlockInt32<1,1>> {
@@ -346,40 +298,6 @@ struct BroadcastAddImpl<RegBlockInt32<8,4>, RegBlockInt32<8,1>> {
   }
 };
 
-// 4x8 := 4x8 + 4x1
-template <>
-struct BroadcastAddImpl<RegBlockInt32<4,8>, RegBlockInt32<4,1>> {
-  static RegBlockInt32<4,8> Run(const RegBlockInt32<4,8>& lhs, const RegBlockInt32<4,1>& rhs) {
-    RegBlockInt32<4,8> result;
-    result.buf.reg[0] = Add(lhs.buf.reg[0], rhs.buf.reg[0]);
-    result.buf.reg[1] = Add(lhs.buf.reg[1], rhs.buf.reg[0]);
-    result.buf.reg[2] = Add(lhs.buf.reg[2], rhs.buf.reg[0]);
-    result.buf.reg[3] = Add(lhs.buf.reg[3], rhs.buf.reg[0]);
-    result.buf.reg[4] = Add(lhs.buf.reg[4], rhs.buf.reg[0]);
-    result.buf.reg[5] = Add(lhs.buf.reg[5], rhs.buf.reg[0]);
-    result.buf.reg[6] = Add(lhs.buf.reg[6], rhs.buf.reg[0]);
-    result.buf.reg[7] = Add(lhs.buf.reg[7], rhs.buf.reg[0]);
-    return result;
-  }
-};
-
-// 4x8 := 4x8 + 1x8
-template <>
-struct BroadcastAddImpl<RegBlockInt32<4,8>, RegBlockInt32<1,8>> {
-  static RegBlockInt32<4,8> Run(const RegBlockInt32<4,8>& lhs, const RegBlockInt32<1,8>& rhs) {
-    RegBlockInt32<4,8> result;
-    result.buf.reg[0] = Add(lhs.buf.reg[0], DupLane<0>(rhs.buf.reg[0]));
-    result.buf.reg[1] = Add(lhs.buf.reg[1], DupLane<1>(rhs.buf.reg[0]));
-    result.buf.reg[2] = Add(lhs.buf.reg[2], DupLane<2>(rhs.buf.reg[0]));
-    result.buf.reg[3] = Add(lhs.buf.reg[3], DupLane<3>(rhs.buf.reg[0]));
-    result.buf.reg[4] = Add(lhs.buf.reg[4], DupLane<0>(rhs.buf.reg[1]));
-    result.buf.reg[5] = Add(lhs.buf.reg[5], DupLane<1>(rhs.buf.reg[1]));
-    result.buf.reg[6] = Add(lhs.buf.reg[6], DupLane<2>(rhs.buf.reg[1]));
-    result.buf.reg[7] = Add(lhs.buf.reg[7], DupLane<3>(rhs.buf.reg[1]));
-    return result;
-  }
-};
-
 // 1x8 := 1x8 + 1x8
 template <>
 struct BroadcastAddImpl<RegBlockInt32<1,8>, RegBlockInt32<1,8>> {
@@ -402,99 +320,52 @@ struct BroadcastAddImpl<RegBlockInt32<1,8>, RegBlockInt32<1,1>> {
   }
 };
 
-// 8x8 := 8x8 + 1x8
-template <>
-struct BroadcastAddImpl<RegBlockInt32<8,8>, RegBlockInt32<1,8>> {
-  static RegBlockInt32<8,8> Run(const RegBlockInt32<8,8>& lhs, const RegBlockInt32<1,8>& rhs) {
-    RegBlockInt32<8,8> result;
-    const Int32x4 p0 = rhs.buf.reg[0];
-    const Int32x4 p1 = rhs.buf.reg[1];
-    for (int i = 0; i < 2; i++) {
-      for (int j = 0; j < 2; j++) {
-        const int k = 8 * i + j;
-        result.buf.reg[k + 0] = Add(lhs.buf.reg[k + 0], DupLane<0>(rhs.buf.reg[i]));
-        result.buf.reg[k + 2] = Add(lhs.buf.reg[k + 2], DupLane<1>(rhs.buf.reg[i]));
-        result.buf.reg[k + 4] = Add(lhs.buf.reg[k + 4], DupLane<2>(rhs.buf.reg[i]));
-        result.buf.reg[k + 6] = Add(lhs.buf.reg[k + 6], DupLane<3>(rhs.buf.reg[i]));
-      }
-    }
-    return result;
-  }
-};
-
-// 8x8 := 8x8 + 8x1
-template <>
-struct BroadcastAddImpl<RegBlockInt32<8,8>, RegBlockInt32<8,1>> {
-  static RegBlockInt32<8,8> Run(const RegBlockInt32<8,8>& lhs, const RegBlockInt32<8,1>& rhs) {
-    RegBlockInt32<8,8> result;
-    for (int i = 0; i < 8; i++) {
-      result.buf.reg[2 * i + 0] = Add(lhs.buf.reg[2 * i + 0], rhs.buf.reg[0]);
-      result.buf.reg[2 * i + 1] = Add(lhs.buf.reg[2 * i + 1], rhs.buf.reg[1]);
-    }
-    return result;
-  }
-};
-
 // 4x1 := 4x1 * 1x1
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<4,1>, RegBlockInt32<1,1>, Multiplier> {
-  static RegBlockInt32<4,1> Run(const RegBlockInt32<4,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier) {
+template <>
+struct BroadcastMulImpl<RegBlockInt32<4,1>, RegBlockInt32<1,1>> {
+  static RegBlockInt32<4,1> Run(const RegBlockInt32<4,1>& lhs, const RegBlockInt32<1,1>& rhs) {
     RegBlockInt32<4,1> result;
-    result.buf.reg[0] = multiplier.Mul(Mul(lhs.buf.reg[0], Dup<Int32x4>(rhs.buf.reg[0])));
+    result.buf.reg[0] = Mul(lhs.buf.reg[0], Dup<Int32x4>(rhs.buf.reg[0]));
     return result;
   }
 };
 
 // 4x1 := 4x1 * 4x1
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<4,1>, RegBlockInt32<4,1>, Multiplier> {
-  static RegBlockInt32<4,1> Run(const RegBlockInt32<4,1>& lhs, const RegBlockInt32<4,1>& rhs, const Multiplier& multiplier) {
+template <>
+struct BroadcastMulImpl<RegBlockInt32<4,1>, RegBlockInt32<4,1>> {
+  static RegBlockInt32<4,1> Run(const RegBlockInt32<4,1>& lhs, const RegBlockInt32<4,1>& rhs) {
     RegBlockInt32<4,1> result;
-    result.buf.reg[0] = multiplier.Mul(Mul(lhs.buf.reg[0], rhs.buf.reg[0]));
+    result.buf.reg[0] = Mul(lhs.buf.reg[0], rhs.buf.reg[0]);
     return result;
   }
 };
 
 // 1x4 := 1x4 * 1x4
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<1,4>, RegBlockInt32<1,4>, Multiplier> {
-  static RegBlockInt32<1,4> Run(const RegBlockInt32<1,4>& lhs, const RegBlockInt32<1,4>& rhs, const Multiplier& multiplier) {
+template <>
+struct BroadcastMulImpl<RegBlockInt32<1,4>, RegBlockInt32<1,4>> {
+  static RegBlockInt32<1,4> Run(const RegBlockInt32<1,4>& lhs, const RegBlockInt32<1,4>& rhs) {
     RegBlockInt32<1,4> result;
-    result.buf.reg[0] = multiplier.Mul(Mul(lhs.buf.reg[0], rhs.buf.reg[0]));
+    result.buf.reg[0] = Mul(lhs.buf.reg[0], rhs.buf.reg[0]);
     return result;
   }
 };
 
 // 1x4 := 1x4 * 1x1
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<1,4>, RegBlockInt32<1,1>, Multiplier> {
-  static RegBlockInt32<1,4> Run(const RegBlockInt32<1,4>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier) {
+template <>
+struct BroadcastMulImpl<RegBlockInt32<1,4>, RegBlockInt32<1,1>> {
+  static RegBlockInt32<1,4> Run(const RegBlockInt32<1,4>& lhs, const RegBlockInt32<1,1>& rhs) {
     RegBlockInt32<1,4> result;
-    result.buf.reg[0] = multiplier.Mul(Mul(lhs.buf.reg[0], rhs.buf.reg[0]));
-    return result;
-  }
-};
-
-// 4x4 := 4x1 * 1x4
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<4,1>, RegBlockInt32<1,4>, Multiplier> {
-  static RegBlockInt32<4,4> Run(const RegBlockInt32<4,1>& lhs, const RegBlockInt32<1,4>& rhs, const Multiplier& multiplier) {
-    RegBlockInt32<4,4> result;
-    const Int32x4 p = multiplier.Mul(rhs.buf.reg[0]);
-    result.buf.reg[0] = MulByRhsLane<0>(lhs.buf.reg[0], p);
-    result.buf.reg[1] = MulByRhsLane<1>(lhs.buf.reg[0], p);
-    result.buf.reg[2] = MulByRhsLane<2>(lhs.buf.reg[0], p);
-    result.buf.reg[3] = MulByRhsLane<3>(lhs.buf.reg[0], p);
+    result.buf.reg[0] = Mul(lhs.buf.reg[0], rhs.buf.reg[0]);
     return result;
   }
 };
 
 // 4x4 := 4x4 * 1x4
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<4,4>, RegBlockInt32<1,4>, Multiplier> {
-  static RegBlockInt32<4,4> Run(const RegBlockInt32<4,4>& lhs, const RegBlockInt32<1,4>& rhs, const Multiplier& multiplier) {
+template <>
+struct BroadcastMulImpl<RegBlockInt32<4,4>, RegBlockInt32<1,4>> {
+  static RegBlockInt32<4,4> Run(const RegBlockInt32<4,4>& lhs, const RegBlockInt32<1,4>& rhs) {
     RegBlockInt32<4,4> result;
-    const Int32x4 p = multiplier.Mul(rhs.buf.reg[0]);
+    const Int32x4 p = rhs.buf.reg[0];
     result.buf.reg[0] = MulByRhsLane<0>(lhs.buf.reg[0], p);
     result.buf.reg[1] = MulByRhsLane<1>(lhs.buf.reg[1], p);
     result.buf.reg[2] = MulByRhsLane<2>(lhs.buf.reg[2], p);
@@ -504,11 +375,11 @@ struct BroadcastMulImpl<RegBlockInt32<4,4>, RegBlockInt32<1,4>, Multiplier> {
 };
 
 // 4x4 := 4x4 * 4x1
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<4,4>, RegBlockInt32<4,1>, Multiplier> {
-  static RegBlockInt32<4,4> Run(const RegBlockInt32<4,4>& lhs, const RegBlockInt32<4,1>& rhs, const Multiplier& multiplier) {
+template <>
+struct BroadcastMulImpl<RegBlockInt32<4,4>, RegBlockInt32<4,1>> {
+  static RegBlockInt32<4,4> Run(const RegBlockInt32<4,4>& lhs, const RegBlockInt32<4,1>& rhs) {
     RegBlockInt32<4,4> result;
-    const Int32x4 p = multiplier.Mul(rhs.buf.reg[0]);
+    const Int32x4 p = rhs.buf.reg[0];
     result.buf.reg[0] = Mul(lhs.buf.reg[0], p);
     result.buf.reg[1] = Mul(lhs.buf.reg[1], p);
     result.buf.reg[2] = Mul(lhs.buf.reg[2], p);
@@ -518,11 +389,11 @@ struct BroadcastMulImpl<RegBlockInt32<4,4>, RegBlockInt32<4,1>, Multiplier> {
 };
 
 // 8x1 := 8x1 * 1x1
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<8,1>, RegBlockInt32<1,1>, Multiplier> {
-  static RegBlockInt32<8,1> Run(const RegBlockInt32<8,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier) {
+template <>
+struct BroadcastMulImpl<RegBlockInt32<8,1>, RegBlockInt32<1,1>> {
+  static RegBlockInt32<8,1> Run(const RegBlockInt32<8,1>& lhs, const RegBlockInt32<1,1>& rhs) {
     RegBlockInt32<8,1> result;
-    const std::int32_t p = multiplier.Mul(rhs.buf.reg[0]);
+    const std::int32_t p = rhs.buf.reg[0];
     for (int i = 0; i < 2; i++) {
       result.buf.reg[i] = Mul(lhs.buf.reg[i], p);
     }
@@ -531,9 +402,9 @@ struct BroadcastMulImpl<RegBlockInt32<8,1>, RegBlockInt32<1,1>, Multiplier> {
 };
 
 // 8x1 := 8x1 * 8x1
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<8,1>, RegBlockInt32<8,1>, Multiplier> {
-  static RegBlockInt32<8,1> Run(const RegBlockInt32<8,1>& lhs, const RegBlockInt32<8,1>& rhs, const Multiplier& multiplier) {
+template <>
+struct BroadcastMulImpl<RegBlockInt32<8,1>, RegBlockInt32<8,1>> {
+  static RegBlockInt32<8,1> Run(const RegBlockInt32<8,1>& lhs, const RegBlockInt32<8,1>& rhs) {
     RegBlockInt32<8,1> result;
     for (int i = 0; i < 2; i++) {
       result.buf.reg[i] = Mul(lhs.buf.reg[i], rhs.buf.reg[i]);
@@ -542,71 +413,12 @@ struct BroadcastMulImpl<RegBlockInt32<8,1>, RegBlockInt32<8,1>, Multiplier> {
   }
 };
 
-// 8x4 := 8x1 * 1x4
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<8,1>, RegBlockInt32<1,4>, Multiplier> {
-  static RegBlockInt32<8,4> Run(const RegBlockInt32<8,1>& lhs, const RegBlockInt32<1,4>& rhs, const Multiplier& multiplier) {
-    RegBlockInt32<8,4> result;
-    const Int32x4 p = multiplier.Mul(rhs.buf.reg[0]);
-    for (int i = 0; i < 2; i++) {
-      result.buf.reg[i + 0] = MulByRhsLane<0>(lhs.buf.reg[i], p);
-      result.buf.reg[i + 2] = MulByRhsLane<1>(lhs.buf.reg[i], p);
-      result.buf.reg[i + 4] = MulByRhsLane<2>(lhs.buf.reg[i], p);
-      result.buf.reg[i + 6] = MulByRhsLane<3>(lhs.buf.reg[i], p);
-    }
-    return result;
-  }
-};
-
-// 8x8 := 8x1 * 1x8
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<8,1>, RegBlockInt32<1,8>, Multiplier> {
-  static RegBlockInt32<8,8> Run(const RegBlockInt32<8,1>& lhs, const RegBlockInt32<1,8>& rhs, const Multiplier& multiplier) {
-    RegBlockInt32<8,8> result;
-    const Int32x4 p[2] {
-      multiplier.Mul(rhs.buf.reg[0]),
-      multiplier.Mul(rhs.buf.reg[1])
-    };
-    for (int i = 0; i < 2; i++) {
-      for (int j = 0; j < 2; j++) {
-        result.buf.reg[8 * j + i + 0] = MulByRhsLane<0>(lhs.buf.reg[i], p[j]);
-        result.buf.reg[8 * j + i + 2] = MulByRhsLane<1>(lhs.buf.reg[i], p[j]);
-        result.buf.reg[8 * j + i + 4] = MulByRhsLane<2>(lhs.buf.reg[i], p[j]);
-        result.buf.reg[8 * j + i + 6] = MulByRhsLane<3>(lhs.buf.reg[i], p[j]);
-      }
-    }
-    return result;
-  }
-};
-
-// 8x8 := 8x8 * 1x8
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<8,8>, RegBlockInt32<1,8>, Multiplier> {
-  static RegBlockInt32<8,8> Run(const RegBlockInt32<8,8>& lhs, const RegBlockInt32<1,8>& rhs, const Multiplier& multiplier) {
-    RegBlockInt32<8,8> result;
-    const Int32x4 p[2] {
-      multiplier.Mul(rhs.buf.reg[0]),
-      multiplier.Mul(rhs.buf.reg[1])
-    };
-    for (int i = 0; i < 2; i++) {
-      for (int j = 0; j < 2; j++) {
-        const int k = 8 * j + i;
-        result.buf.reg[k + 0] = MulByRhsLane<0>(lhs.buf.reg[k + 0], p[j]);
-        result.buf.reg[k + 2] = MulByRhsLane<1>(lhs.buf.reg[k + 2], p[j]);
-        result.buf.reg[k + 4] = MulByRhsLane<2>(lhs.buf.reg[k + 4], p[j]);
-        result.buf.reg[k + 6] = MulByRhsLane<3>(lhs.buf.reg[k + 6], p[j]);
-      }
-    }
-    return result;
-  }
-};
-
 // 8x4 := 8x4 * 1x4
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<8,4>, RegBlockInt32<1,4>, Multiplier> {
-  static RegBlockInt32<8,4> Run(const RegBlockInt32<8,4>& lhs, const RegBlockInt32<1,4>& rhs, const Multiplier& multiplier) {
+template <>
+struct BroadcastMulImpl<RegBlockInt32<8,4>, RegBlockInt32<1,4>> {
+  static RegBlockInt32<8,4> Run(const RegBlockInt32<8,4>& lhs, const RegBlockInt32<1,4>& rhs) {
     RegBlockInt32<8,4> result;
-    const Int32x4 p = multiplier.Mul(rhs.buf.reg[0]);
+    const Int32x4 p = rhs.buf.reg[0];
     for (int i = 0; i < 2; i++) {
         result.buf.reg[i + 0] = MulByRhsLane<0>(lhs.buf.reg[i + 0], p);
         result.buf.reg[i + 2] = MulByRhsLane<1>(lhs.buf.reg[i + 2], p);
@@ -618,13 +430,13 @@ struct BroadcastMulImpl<RegBlockInt32<8,4>, RegBlockInt32<1,4>, Multiplier> {
 };
 
 // 8x4 := 8x4 * 8x1
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<8,4>, RegBlockInt32<8,1>, Multiplier> {
-  static RegBlockInt32<8,4> Run(const RegBlockInt32<8,4>& lhs, const RegBlockInt32<8,1>& rhs, const Multiplier& multiplier) {
+template <>
+struct BroadcastMulImpl<RegBlockInt32<8,4>, RegBlockInt32<8,1>> {
+  static RegBlockInt32<8,4> Run(const RegBlockInt32<8,4>& lhs, const RegBlockInt32<8,1>& rhs) {
     RegBlockInt32<8,4> result;
     const Int32x4 p[2] {
-      multiplier.Mul(rhs.buf.reg[0]),
-      multiplier.Mul(rhs.buf.reg[1])
+      rhs.buf.reg[0],
+      rhs.buf.reg[1]
     };
     for (int i = 0; i < 4; i++) {
       for (int j = 0; j < 2; j++) {
@@ -636,106 +448,11 @@ struct BroadcastMulImpl<RegBlockInt32<8,4>, RegBlockInt32<8,1>, Multiplier> {
   }
 };
 
-// 1x8 := 1x8 * 1x1
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<1,8>, RegBlockInt32<1,1>, Multiplier> {
-  static RegBlockInt32<1,8> Run(const RegBlockInt32<1,8>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier) {
-    RegBlockInt32<1,8> result;
-    const std::int32_t p = multiplier.Mul(rhs.buf.reg[0]);
-    result.buf.reg[0] = Mul(lhs.buf.reg[0], p);
-    result.buf.reg[1] = Mul(lhs.buf.reg[1], p);
-    return result;
-  }
-};
-
-// 1x8 := 1x8 * 1x8
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<1,8>, RegBlockInt32<1,8>, Multiplier> {
-  static RegBlockInt32<1,8> Run(const RegBlockInt32<1,8>& lhs, const RegBlockInt32<1,8>& rhs, const Multiplier& multiplier) {
-    RegBlockInt32<1,8> result;
-    result.buf.reg[0] = multiplier.Mul(Mul(lhs.buf.reg[0], rhs.buf.reg[0]));
-    result.buf.reg[1] = multiplier.Mul(Mul(lhs.buf.reg[1], rhs.buf.reg[1]));
-    return result;
-  }
-};
-
-// 4x8 := 1x8 * 4x1
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<1,8>, RegBlockInt32<4,1>, Multiplier> {
-  static RegBlockInt32<4,8> Run(const RegBlockInt32<1,8>& lhs, const RegBlockInt32<4,1>& rhs, const Multiplier& multiplier) {
-    RegBlockInt32<4,8> result;
-    const Int32x4 p = multiplier.Mul(rhs.buf.reg[0]);
-    for (int i = 0; i < 2; i++) {
-      result.buf.reg[4 * i + 0] = MulByRhsLane<0>(p, lhs.buf.reg[i]);
-      result.buf.reg[4 * i + 1] = MulByRhsLane<1>(p, lhs.buf.reg[i]);
-      result.buf.reg[4 * i + 2] = MulByRhsLane<2>(p, lhs.buf.reg[i]);
-      result.buf.reg[4 * i + 3] = MulByRhsLane<3>(p, lhs.buf.reg[i]); 
-    }
-    return result;
-  }
-};
-
-// 4x8 := 1x8 * 4x1
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<4,8>, RegBlockInt32<1,8>, Multiplier> {
-  static RegBlockInt32<4,8> Run(const RegBlockInt32<4,8>& lhs, const RegBlockInt32<1,8>& rhs, const Multiplier& multiplier) {
-    RegBlockInt32<4,8> result;
-    const Int32x4 p[2] {
-      multiplier.Mul(rhs.buf.reg[0]),
-      multiplier.Mul(rhs.buf.reg[1])
-    };
-    for (int i = 0; i < 2; i++) {
-      const int k = 4 * i;
-      result.buf.reg[k + 0] = MulByRhsLane<0>(lhs.buf.reg[k + 0], p[i]);
-      result.buf.reg[k + 1] = MulByRhsLane<1>(lhs.buf.reg[k + 1], p[i]);
-      result.buf.reg[k + 2] = MulByRhsLane<2>(lhs.buf.reg[k + 2], p[i]);
-      result.buf.reg[k + 3] = MulByRhsLane<3>(lhs.buf.reg[k + 3], p[i]);      
-    }
-    return result;
-  }
-};
-
-// 4x8 := 4x8 * 4x1
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<4,8>, RegBlockInt32<4,1>, Multiplier> {
-  static RegBlockInt32<4,8> Run(const RegBlockInt32<4,8>& lhs, const RegBlockInt32<4,1>& rhs, const Multiplier& multiplier) {
-    RegBlockInt32<4,8> result;
-    const Int32x4 p = multiplier.Mul(rhs.buf.reg[0]);
-    for (int i = 0; i < 8; i++) {
-      result.buf.reg[i] = Mul(lhs.buf.reg[i], p);
-    }
-    return result;
-  }
-};
-
-// 8x8 := 8x8 * 8x1
-template <typename Multiplier>
-struct BroadcastMulImpl<RegBlockInt32<8,8>, RegBlockInt32<8,1>, Multiplier> {
-  static RegBlockInt32<8,8> Run(const RegBlockInt32<8,8>& lhs, const RegBlockInt32<8,1>& rhs, const Multiplier& multiplier) {
-    RegBlockInt32<8,8> result;
-    const Int32x4 p0 = multiplier.Mul(rhs.buf.reg[0]);
-    const Int32x4 p1 = multiplier.Mul(rhs.buf.reg[1]);
-    for (int i = 0; i < 8; i++) {
-      result.buf.reg[2 * i + 0] = Mul(lhs.buf.reg[2 * i + 0], p0);
-      result.buf.reg[2 * i + 1] = Mul(lhs.buf.reg[2 * i + 1], p1);
-    }
-    return result;
-  }
-};
-
-template<>
-struct ConstantMultiplierInt32Impl<Int32x4>
-{
-  static Int32x4 Mul(std::int32_t c, Int32x4 x) {
-    return gemmlowp::Mul(x, Dup<Int32x4>(c));
-  }
-};
-
 // Rx1 += Rx1 * 1x1
-template <typename Multiplier, int Rows>
-struct BroadcastMulAddImpl<RegBlockInt32<Rows,1>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<Rows,1>> {
-  static void Run(const RegBlockInt32<Rows,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<Rows,1> *acc) {
-    const std::int32_t p = multiplier.Mul(rhs.buf.reg[0]);
+template <int Rows>
+struct BroadcastMulAddImpl<RegBlockInt32<Rows,1>, RegBlockInt32<1,1>, RegBlockInt32<Rows,1>> {
+  static void Run(const RegBlockInt32<Rows,1>& lhs, const RegBlockInt32<1,1>& rhs, RegBlockInt32<Rows,1> *acc) {
+    const std::int32_t p = rhs.buf.reg[0];
     for (int i = 0; i < RegBlockInt32<Rows,1>::kRegisterCount; i++) {
       MulAdd(lhs.buf.reg[i], p, &acc->buf.reg[i]);
     }
@@ -743,10 +460,10 @@ struct BroadcastMulAddImpl<RegBlockInt32<Rows,1>, RegBlockInt32<1,1>, Multiplier
 };
 
 // RxC += Rx1 * 1x1
-template <typename Multiplier, int Rows, int Cols>
-struct BroadcastMulAddImpl<RegBlockInt32<Rows,1>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<Rows,Cols>> {
-  static void Run(const RegBlockInt32<Rows,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<Rows,Cols> *acc) {
-    const std::int32_t p = multiplier.Mul(rhs.buf.reg[0]);
+template <int Rows, int Cols>
+struct BroadcastMulAddImpl<RegBlockInt32<Rows,1>, RegBlockInt32<1,1>, RegBlockInt32<Rows,Cols>> {
+  static void Run(const RegBlockInt32<Rows,1>& lhs, const RegBlockInt32<1,1>& rhs, RegBlockInt32<Rows,Cols> *acc) {
+    const std::int32_t p = rhs.buf.reg[0];
     static constexpr int kRegsPerCol = RegBlockInt32<Rows,1>::kRegisterCount;
     for (int i = 0; i < kRegsPerCol; i++) {
       const Int32x4 q = Mul(lhs.buf.reg[i], p);
@@ -758,10 +475,10 @@ struct BroadcastMulAddImpl<RegBlockInt32<Rows,1>, RegBlockInt32<1,1>, Multiplier
 };
 
 // 1xC += 1xC * 1x1
-template <typename Multiplier, int Cols>
-struct BroadcastMulAddImpl<RegBlockInt32<1,Cols>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<1,Cols>> {
-  static void Run(const RegBlockInt32<1,Cols>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<1,Cols> *acc) {
-    const std::int32_t p = multiplier.Mul(rhs.buf.reg[0]);
+template <int Cols>
+struct BroadcastMulAddImpl<RegBlockInt32<1,Cols>, RegBlockInt32<1,1>, RegBlockInt32<1,Cols>> {
+  static void Run(const RegBlockInt32<1,Cols>& lhs, const RegBlockInt32<1,1>& rhs, RegBlockInt32<1,Cols> *acc) {
+    const std::int32_t p = rhs.buf.reg[0];
     for (int i = 0; i < RegBlockInt32<1,Cols>::kRegisterCount; i++) {
       MulAdd(lhs.buf.reg[i], p, &acc->buf.reg[i]);
     }
@@ -769,10 +486,10 @@ struct BroadcastMulAddImpl<RegBlockInt32<1,Cols>, RegBlockInt32<1,1>, Multiplier
 };
 
 // RxC += 1x1 * 1x1
-template <typename Multiplier, int Rows, int Cols>
-struct BroadcastMulAddImpl<RegBlockInt32<1,1>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<Rows,Cols>> {
-  static void Run(const RegBlockInt32<1,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<Rows,Cols> *acc) {
-    const Int32x4 p = Dup<Int32x4>(multiplier.Mul(Mul(lhs.buf.reg[0], rhs.buf.reg[0])));
+template <int Rows, int Cols>
+struct BroadcastMulAddImpl<RegBlockInt32<1,1>, RegBlockInt32<1,1>, RegBlockInt32<Rows,Cols>> {
+  static void Run(const RegBlockInt32<1,1>& lhs, const RegBlockInt32<1,1>& rhs, RegBlockInt32<Rows,Cols> *acc) {
+    const Int32x4 p = Dup<Int32x4>(Mul(lhs.buf.reg[0], rhs.buf.reg[0]));
     for (int i = 0; i < RegBlockInt32<Rows,Cols>::kRegisterCount; i++) {
       acc->buf.reg[i] = Add(acc->buf.reg[i], p);
     }
@@ -780,18 +497,18 @@ struct BroadcastMulAddImpl<RegBlockInt32<1,1>, RegBlockInt32<1,1>, Multiplier, R
 };
 
 // 1x1 += 1x1 * 1x1
-template <typename Multiplier>
-struct BroadcastMulAddImpl<RegBlockInt32<1,1>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<1,1>> {
-  static void Run(const RegBlockInt32<1,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<1,1> *acc) {
-    MulAdd(multiplier.Mul(lhs.buf.reg[0]), rhs.buf.reg[0], &acc->buf.reg[0]);
+template <>
+struct BroadcastMulAddImpl<RegBlockInt32<1,1>, RegBlockInt32<1,1>, RegBlockInt32<1,1>> {
+  static void Run(const RegBlockInt32<1,1>& lhs, const RegBlockInt32<1,1>& rhs, RegBlockInt32<1,1> *acc) {
+    MulAdd(lhs.buf.reg[0], rhs.buf.reg[0], &acc->buf.reg[0]);
   }
 };
 
 // Rx4 += Rx1 * 1x4
-template <typename Multiplier, int Rows>
-struct BroadcastMulAddImpl<RegBlockInt32<Rows,1>, RegBlockInt32<1,4>, Multiplier, RegBlockInt32<Rows,4>> {
-  static void Run(const RegBlockInt32<Rows,1>& lhs, const RegBlockInt32<1,4>& rhs, const Multiplier& multiplier, RegBlockInt32<Rows,4> *acc) {
-    const Int32x4 p = multiplier.Mul(rhs.buf.reg[0]);
+template <int Rows>
+struct BroadcastMulAddImpl<RegBlockInt32<Rows,1>, RegBlockInt32<1,4>, RegBlockInt32<Rows,4>> {
+  static void Run(const RegBlockInt32<Rows,1>& lhs, const RegBlockInt32<1,4>& rhs, RegBlockInt32<Rows,4> *acc) {
+    const Int32x4 p = rhs.buf.reg[0];
     static constexpr int kRegsPerCol = RegBlockInt32<Rows,1>::kRegisterCount;
     for (int i = 0; i < kRegsPerCol; i++) {
       MulAddByRhsLane<0>(lhs.buf.reg[i], p, &acc->buf.reg[i + 0 * kRegsPerCol]);
@@ -803,10 +520,10 @@ struct BroadcastMulAddImpl<RegBlockInt32<Rows,1>, RegBlockInt32<1,4>, Multiplier
 };
 
 // Rx4 += 1x4 * 1x1
-template <typename Multiplier, int Rows>
-struct BroadcastMulAddImpl<RegBlockInt32<1,4>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<Rows,4>> {
-  static void Run(const RegBlockInt32<1,4>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<Rows,4> *acc) {
-    const Int32x4 p = Mul(lhs.buf.reg[0], multiplier.Mul(rhs.buf.reg[0]));
+template <int Rows>
+struct BroadcastMulAddImpl<RegBlockInt32<1,4>, RegBlockInt32<1,1>, RegBlockInt32<Rows,4>> {
+  static void Run(const RegBlockInt32<1,4>& lhs, const RegBlockInt32<1,1>& rhs, RegBlockInt32<Rows,4> *acc) {
+    const Int32x4 p = Mul(lhs.buf.reg[0], rhs.buf.reg[0]);
     Int32x4 q[4];
     q[0] = DupLane<0>(p);
     q[1] = DupLane<1>(p);
@@ -822,10 +539,10 @@ struct BroadcastMulAddImpl<RegBlockInt32<1,4>, RegBlockInt32<1,1>, Multiplier, R
 };
 
 // 1xC += 1x1 * 1x1
-template <typename Multiplier, int Cols>
-struct BroadcastMulAddImpl<RegBlockInt32<1,1>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<1,Cols>> {
-  static void Run(const RegBlockInt32<1,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<1,Cols> *acc) {
-    const Int32x4 p = Dup<Int32x4>(multiplier.Mul(Mul(lhs.buf.reg[0], rhs.buf.reg[0])));
+template <int Cols>
+struct BroadcastMulAddImpl<RegBlockInt32<1,1>, RegBlockInt32<1,1>, RegBlockInt32<1,Cols>> {
+  static void Run(const RegBlockInt32<1,1>& lhs, const RegBlockInt32<1,1>& rhs, RegBlockInt32<1,Cols> *acc) {
+    const Int32x4 p = Dup<Int32x4>(Mul(lhs.buf.reg[0], rhs.buf.reg[0]));
     for (int i = 0; i < RegBlockInt32<1,Cols>::kRegisterCount; i++) {
       acc->buf.reg[i] = Add(acc->buf.reg[i], p);
     }
@@ -833,19 +550,19 @@ struct BroadcastMulAddImpl<RegBlockInt32<1,1>, RegBlockInt32<1,1>, Multiplier, R
 };
 
 // 1x4 += 1x4 * 1x1
-template <typename Multiplier>
-struct BroadcastMulAddImpl<RegBlockInt32<1,4>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<1,4>> {
-  static void Run(const RegBlockInt32<1,4>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<1,4> *acc) {
-    const std::int32_t p = multiplier.Mul(rhs.buf.reg[0]);
+template <>
+struct BroadcastMulAddImpl<RegBlockInt32<1,4>, RegBlockInt32<1,1>, RegBlockInt32<1,4>> {
+  static void Run(const RegBlockInt32<1,4>& lhs, const RegBlockInt32<1,1>& rhs, RegBlockInt32<1,4> *acc) {
+    const std::int32_t p = rhs.buf.reg[0];
     MulAdd(lhs.buf.reg[0], p, &acc->buf.reg[0]);
   }
 };
 
 // 4xC += 4x1 * 1x1
-template <typename Multiplier, int Cols>
-struct BroadcastMulAddImpl<RegBlockInt32<4,1>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<4,Cols>> {
-  static void Run(const RegBlockInt32<4,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<4,Cols> *acc) {
-    const Int32x4 p = Mul(lhs.buf.reg[0], multiplier.Mul(rhs.buf.reg[0]));
+template <int Cols>
+struct BroadcastMulAddImpl<RegBlockInt32<4,1>, RegBlockInt32<1,1>, RegBlockInt32<4,Cols>> {
+  static void Run(const RegBlockInt32<4,1>& lhs, const RegBlockInt32<1,1>& rhs, RegBlockInt32<4,Cols> *acc) {
+    const Int32x4 p = Mul(lhs.buf.reg[0], rhs.buf.reg[0]);
     for (int i = 0; i < Cols; i++) {
       acc->buf.reg[i] = Add(p, acc->buf.reg[i]);
     }
@@ -853,10 +570,10 @@ struct BroadcastMulAddImpl<RegBlockInt32<4,1>, RegBlockInt32<1,1>, Multiplier, R
 };
 
 // 4x1 += 4x1 * 1x1
-template <typename Multiplier>
-struct BroadcastMulAddImpl<RegBlockInt32<4,1>, RegBlockInt32<1,1>, Multiplier, RegBlockInt32<4,1>> {
-  static void Run(const RegBlockInt32<4,1>& lhs, const RegBlockInt32<1,1>& rhs, const Multiplier& multiplier, RegBlockInt32<4,1> *acc) {
-    const std::int32_t p = multiplier.Mul(rhs.buf.reg[0]);
+template <>
+struct BroadcastMulAddImpl<RegBlockInt32<4,1>, RegBlockInt32<1,1>, RegBlockInt32<4,1>> {
+  static void Run(const RegBlockInt32<4,1>& lhs, const RegBlockInt32<1,1>& rhs, RegBlockInt32<4,1> *acc) {
+    const std::int32_t p = rhs.buf.reg[0];
     MulAdd(lhs.buf.reg[0], p, &acc->buf.reg[0]);
   }
 };
