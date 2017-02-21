@@ -24,8 +24,8 @@
 #include <type_traits>
 
 #include "../fixedpoint/fixedpoint.h"
-#include "simd_wrappers.h"
 #include "../public/output_stages.h"
+#include "simd_wrappers.h"
 
 namespace gemmlowp {
 
@@ -40,12 +40,12 @@ struct OutputStageEvalBufferImpl {
 };
 
 template <typename OutputStage, typename InputType>
-struct OutputStageEvalImpl
-{
+struct OutputStageEvalImpl {
   static constexpr int kRows = InputType::kRows;
   static constexpr int kCols = InputType::kCols;
   using InputBufferType = typename InputType::BufferType;
-  using BufferEvalImplType = OutputStageEvalBufferImpl<OutputStage, InputBufferType>;
+  using BufferEvalImplType =
+      OutputStageEvalBufferImpl<OutputStage, InputBufferType>;
   using OutputBufferType = typename BufferEvalImplType::OutputType;
   using OutputScalarType = typename OutputBufferType::ScalarType;
   using OutputType = RegisterBlock<OutputScalarType, kRows, kCols>;
@@ -63,10 +63,10 @@ struct OutputStageEvalImpl
 
 template <int Size>
 struct OutputStageEvalBufferImpl<OutputStageQuantizeDownInt32ToUint8Scale,
-                           RegisterBuffer<std::int32_t, Size>> {
+                                 RegisterBuffer<std::int32_t, Size>> {
   using InputType = RegisterBuffer<std::int32_t, Size>;
   using OutputType = RegisterBuffer<std::int32_t, Size>;
-  
+
   typedef OutputStageQuantizeDownInt32ToUint8Scale OutputStage;
 
   OutputStageEvalBufferImpl(const OutputStage& s) : output_stage(s) {}
@@ -75,11 +75,12 @@ struct OutputStageEvalBufferImpl<OutputStageQuantizeDownInt32ToUint8Scale,
     const int result_shift = output_stage.result_shift;
     const std::int32_t result_mult_int = output_stage.result_mult_int;
     using RegisterType = typename InputType::RegisterType;
-    const RegisterType result_offset = Dup<RegisterType>(output_stage.result_offset);
+    const RegisterType result_offset =
+        Dup<RegisterType>(output_stage.result_offset);
     OutputType output;
     for (int i = 0; i < InputType::kRegisterCount; i++) {
-      output.reg[i] = RoundingDivideByPOT(Mul(Add(input.reg[i], result_offset), result_mult_int),
-                               result_shift);
+      output.reg[i] = RoundingDivideByPOT(
+          Mul(Add(input.reg[i], result_offset), result_mult_int), result_shift);
     }
     return output;
   }
@@ -87,14 +88,12 @@ struct OutputStageEvalBufferImpl<OutputStageQuantizeDownInt32ToUint8Scale,
   const OutputStage& output_stage;
 };
 
-template < int Rows, int Cols, VectorShape Shape>
-struct OutputStageEvalImpl<
-    OutputStageQuantizeDownInt32ToUint8ScalePC<Shape>,
-    RegisterBlock<std::int32_t,Rows,Cols>> {
-  typedef RegisterBlock<std::int32_t,Rows,Cols> InputType;
-  typedef RegisterBlock<std::int32_t,Rows,Cols> OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<Shape>
-      OutputStage;
+template <int Rows, int Cols, VectorShape Shape>
+struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScalePC<Shape>,
+                           RegisterBlock<std::int32_t, Rows, Cols>> {
+  typedef RegisterBlock<std::int32_t, Rows, Cols> InputType;
+  typedef RegisterBlock<std::int32_t, Rows, Cols> OutputType;
+  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<Shape> OutputStage;
 
   OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
@@ -102,11 +101,15 @@ struct OutputStageEvalImpl<
     OutputType output;
     const int result_shift = output_stage.result_shift;
     const int pos = Shape == VectorShape::Col ? row : col;
-    const auto result_mult_int = LoadForBroadcasting<InputType>(output_stage.result_mult_int,pos);
-    const auto result_offset = LoadForBroadcasting<InputType>(output_stage.result_offset, pos);
-    const auto dividend = BroadcastMul<InputType>(BroadcastAdd<InputType>(input, result_offset), result_mult_int);
+    const auto result_mult_int =
+        LoadForBroadcasting<InputType>(output_stage.result_mult_int, pos);
+    const auto result_offset =
+        LoadForBroadcasting<InputType>(output_stage.result_offset, pos);
+    const auto dividend = BroadcastMul<InputType>(
+        BroadcastAdd<InputType>(input, result_offset), result_mult_int);
     for (int i = 0; i < InputType::kRegisterCount; i++) {
-      output.buf.reg[i] = RoundingDivideByPOT(dividend.buf.reg[i], result_shift);
+      output.buf.reg[i] =
+          RoundingDivideByPOT(dividend.buf.reg[i], result_shift);
     }
     return output;
   }
@@ -115,8 +118,9 @@ struct OutputStageEvalImpl<
 };
 
 template <int Size>
-struct OutputStageEvalBufferImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
-                           RegisterBuffer<std::int32_t, Size>> {
+struct OutputStageEvalBufferImpl<
+    OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
+    RegisterBuffer<std::int32_t, Size>> {
   typedef RegisterBuffer<std::int32_t, Size> InputType;
   typedef RegisterBuffer<std::int32_t, Size> OutputType;
 
@@ -127,12 +131,14 @@ struct OutputStageEvalBufferImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixed
   OutputType Eval(InputType input) const {
     OutputType output;
     using RegisterType = typename InputType::RegisterType;
-    const RegisterType result_offset_after_shift = Dup<RegisterType>(output_stage.result_offset_after_shift);
+    const RegisterType result_offset_after_shift =
+        Dup<RegisterType>(output_stage.result_offset_after_shift);
     for (int i = 0; i < InputType::kRegisterCount; i++) {
       const RegisterType mulhigh_val = SaturatingRoundingDoublingHighMul(
           input.reg[i], output_stage.result_fixedpoint_multiplier);
-      output.reg[i] = Add(RoundingDivideByPOT(mulhigh_val, output_stage.result_shift),
-             result_offset_after_shift);
+      output.reg[i] =
+          Add(RoundingDivideByPOT(mulhigh_val, output_stage.result_shift),
+              result_offset_after_shift);
     }
     return output;
   }
@@ -143,15 +149,15 @@ struct OutputStageEvalBufferImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixed
 // Implementation of OutputStageSaturatingCastToUint8 for scalar data
 template <int Size>
 struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
-                           RegisterBuffer<std::int32_t,Size>> {
-  typedef RegisterBuffer<std::int32_t,Size> InputType;
-  typedef RegisterBuffer<std::uint8_t,Size> OutputType;
+                                 RegisterBuffer<std::int32_t, Size>> {
+  typedef RegisterBuffer<std::int32_t, Size> InputType;
+  typedef RegisterBuffer<std::uint8_t, Size> OutputType;
   static_assert(InputType::kRegisterLanes == 1,
-      "This path is only for scalar values");
+                "This path is only for scalar values");
 
   typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-  OutputStageEvalBufferImpl(const OutputStage&){}
+  OutputStageEvalBufferImpl(const OutputStage&) {}
 
   OutputType Eval(InputType input) const {
     OutputType output;
@@ -165,23 +171,25 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
 
 template <int Rows, int Cols, typename VectorType>
 struct OutputStageEvalImpl<OutputStageBiasAddition<VectorType>,
-                           RegisterBlock<std::int32_t,Rows,Cols>> {
-  typedef RegisterBlock<std::int32_t,Rows,Cols> InputType;
-  typedef RegisterBlock<std::int32_t,Rows,Cols> OutputType;
+                           RegisterBlock<std::int32_t, Rows, Cols>> {
+  typedef RegisterBlock<std::int32_t, Rows, Cols> InputType;
+  typedef RegisterBlock<std::int32_t, Rows, Cols> OutputType;
   typedef OutputStageBiasAddition<VectorType> OutputStage;
 
   OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
   OutputType Eval(InputType input, int row, int col) const {
     const int pos = VectorType::kShape == VectorShape::Row ? col : row;
-    return BroadcastAdd<InputType>(input, LoadForBroadcasting<InputType>(output_stage.bias_vector, pos));
+    return BroadcastAdd<InputType>(
+        input, LoadForBroadcasting<InputType>(output_stage.bias_vector, pos));
   }
 
   const OutputStage& output_stage;
 };
 
 template <int Size>
-struct OutputStageEvalBufferImpl<OutputStageClamp, RegisterBuffer<std::int32_t, Size>> {
+struct OutputStageEvalBufferImpl<OutputStageClamp,
+                                 RegisterBuffer<std::int32_t, Size>> {
   typedef RegisterBuffer<std::int32_t, Size> InputType;
   typedef RegisterBuffer<std::int32_t, Size> OutputType;
 
@@ -204,7 +212,8 @@ struct OutputStageEvalBufferImpl<OutputStageClamp, RegisterBuffer<std::int32_t, 
 };
 
 template <int Size>
-struct OutputStageEvalBufferImpl<OutputStageTanh, RegisterBuffer<std::int32_t, Size>> {
+struct OutputStageEvalBufferImpl<OutputStageTanh,
+                                 RegisterBuffer<std::int32_t, Size>> {
   typedef RegisterBuffer<std::int32_t, Size> InputType;
   typedef RegisterBuffer<std::int32_t, Size> OutputType;
   using RegisterType = typename InputType::RegisterType;
@@ -255,8 +264,8 @@ struct OutputStageEvalBufferImpl<OutputStageTanh, RegisterBuffer<std::int32_t, S
       F3 fixedpoint_input =
           F3::FromRaw(input_centered) * inverse_amplitude_normalized;
       // left shift
-      fixedpoint_input.raw() =
-          ShiftLeft(fixedpoint_input.raw(), 28 - inverse_amplitude_neg_exponent);
+      fixedpoint_input.raw() = ShiftLeft(fixedpoint_input.raw(),
+                                         28 - inverse_amplitude_neg_exponent);
       // fixed-point tanh and multiplication
       F0 fixedpoint_output = tanh(fixedpoint_input) * amplitude_normalized;
       // right shift
@@ -266,8 +275,8 @@ struct OutputStageEvalBufferImpl<OutputStageTanh, RegisterBuffer<std::int32_t, S
 
       DataType mask_if_below_cutoff_min =
           MaskIfLessThanOrEqual(input.reg[i], Dup<DataType>(input_cutoff_min));
-      DataType mask_if_above_cutoff_max =
-          MaskIfGreaterThanOrEqual(input.reg[i], Dup<DataType>(input_cutoff_max));
+      DataType mask_if_above_cutoff_max = MaskIfGreaterThanOrEqual(
+          input.reg[i], Dup<DataType>(input_cutoff_max));
 
       output.reg[i] = SelectUsingMask(
           mask_if_below_cutoff_min, Dup<DataType>(output_min),
@@ -355,20 +364,19 @@ struct OutputPipelineEvalImpl<OutputPipelineType, FirstStage, InputType, true> {
 };
 
 template <typename RegisterBlockType, typename DstType>
-struct StoreFinalOutputImpl
-{
+struct StoreFinalOutputImpl {
   static_assert(std::is_same<RegisterBlockType, void>::value,
-    "This generic impl should never be hit");
+                "This generic impl should never be hit");
 };
 
 template <typename ScalarType, int Rows, int Cols, typename DstType>
-struct StoreFinalOutputImpl<RegisterBlock<ScalarType,Rows,Cols>, DstType>
-{
-  using RegisterBlockType = RegisterBlock<ScalarType,Rows,Cols>;
-  static void Run(const RegisterBlockType& src, DstType* dst, int row, int col) {
+struct StoreFinalOutputImpl<RegisterBlock<ScalarType, Rows, Cols>, DstType> {
+  using RegisterBlockType = RegisterBlock<ScalarType, Rows, Cols>;
+  static void Run(const RegisterBlockType& src, DstType* dst, int row,
+                  int col) {
     for (int r = 0; r < Rows; r++) {
       for (int c = 0; c < Cols; c++) {
-        *dst->data(row + r, col + c) = src.buf.reg[r + c * Rows];    
+        *dst->data(row + r, col + c) = src.buf.reg[r + c * Rows];
       }
     }
   }
@@ -393,12 +401,12 @@ struct OutputPipelineExecutor {
   // result
   // of the unpack stage and stores it into the destination matrix.
   template <typename DstType>
-  void Execute(InputType input, DstType* dst,
-    int src_global_row, int src_global_col, int dst_row, int dst_col) const {
+  void Execute(InputType input, DstType* dst, int src_global_row,
+               int src_global_col, int dst_row, int dst_col) const {
     // Statically assert that the output pipeline matches the given destination
     // matrix's scalar type.
-    typedef typename OutputPipelineOutputType<OutputPipelineType, 0,
-                                              InputType>::Type::BufferType::ScalarType
+    typedef typename OutputPipelineOutputType<
+        OutputPipelineType, 0, InputType>::Type::BufferType::ScalarType
 
         ScalarOutputType;
     typedef typename DstType::Scalar ScalarDstType;
@@ -406,7 +414,8 @@ struct OutputPipelineExecutor {
                   "mismatched destination scalar type and output pipeline");
 
     // Evaluate the output pipeline.
-    auto output = output_pipeline_eval_impl_.Eval(input, src_global_row, src_global_col);
+    auto output =
+        output_pipeline_eval_impl_.Eval(input, src_global_row, src_global_col);
     // Store the result into the destination matrix.
     StoreFinalOutput(output, dst, dst_row, dst_col);
   }

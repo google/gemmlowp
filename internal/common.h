@@ -202,7 +202,8 @@ inline void Prefetch(const void* ptr) {
   // "prefetch for load, into L1 cache, for a streaming usage pattern
   // i.e. only using each data a few times".
   asm volatile("prfm pldl1strm, [%[ptr]]\n" ::[ptr] "r"(ptr) : "memory");
-#elif defined __GNUC__  // Clang and GCC define __GNUC__ and have __builtin_prefetch.
+#elif defined \
+    __GNUC__  // Clang and GCC define __GNUC__ and have __builtin_prefetch.
   __builtin_prefetch(ptr);
 #else
   (void)ptr;

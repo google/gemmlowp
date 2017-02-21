@@ -25,13 +25,13 @@ namespace gemmlowp {
 
 template <>
 struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
-                           RegBufferInt32<4>> {
+                                 RegBufferInt32<4>> {
   typedef RegBufferInt32<4> InputType;
   typedef RegBufferUint8<4> OutputType;
 
   typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-  OutputStageEvalBufferImpl(const OutputStage&){}
+  OutputStageEvalBufferImpl(const OutputStage&) {}
 
   OutputType Eval(InputType input) const {
     OutputType output;
@@ -44,13 +44,13 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
 
 template <>
 struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
-                           RegBufferInt32<8>> {
+                                 RegBufferInt32<8>> {
   typedef RegBufferInt32<8> InputType;
   typedef RegBufferUint8<8> OutputType;
 
   typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-  OutputStageEvalBufferImpl(const OutputStage&){}
+  OutputStageEvalBufferImpl(const OutputStage&) {}
 
   OutputType Eval(InputType input) const {
     OutputType output;
@@ -64,13 +64,13 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
 
 template <>
 struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
-                           RegBufferInt32<16>> {
+                                 RegBufferInt32<16>> {
   typedef RegBufferInt32<16> InputType;
   typedef RegBufferUint8<16> OutputType;
 
   typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-  OutputStageEvalBufferImpl(const OutputStage&){}
+  OutputStageEvalBufferImpl(const OutputStage&) {}
 
   OutputType Eval(InputType input) const {
     OutputType output;
@@ -83,13 +83,13 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
 
 template <>
 struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
-                           RegBufferInt32<32>> {
+                                 RegBufferInt32<32>> {
   typedef RegBufferInt32<32> InputType;
   typedef RegBufferUint8<32> OutputType;
 
   typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-  OutputStageEvalBufferImpl(const OutputStage&){}
+  OutputStageEvalBufferImpl(const OutputStage&) {}
 
   OutputType Eval(InputType input) const {
     OutputType output;
@@ -104,10 +104,9 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
 };
 
 template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockInt32<4,1>,
-  DstType>
-{
-  static void Run(const RegBlockInt32<4,1>& src, DstType* dst, int row, int col) {
+struct StoreFinalOutputImpl<RegBlockInt32<4, 1>, DstType> {
+  static void Run(const RegBlockInt32<4, 1>& src, DstType* dst, int row,
+                  int col) {
     if (DstType::kOrder == MapOrder::ColMajor) {
       StoreInt32x4(dst->data(row, col), src.buf.reg[0]);
     } else {
@@ -120,10 +119,9 @@ struct StoreFinalOutputImpl<RegBlockInt32<4,1>,
 };
 
 template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockInt32<8,1>,
-  DstType>
-{
-  static void Run(const RegBlockInt32<8,1>& src, DstType* dst, int row, int col) {
+struct StoreFinalOutputImpl<RegBlockInt32<8, 1>, DstType> {
+  static void Run(const RegBlockInt32<8, 1>& src, DstType* dst, int row,
+                  int col) {
     if (DstType::kOrder == MapOrder::ColMajor) {
       StoreInt32x4(dst->data(row, col), src.buf.reg[0]);
       StoreInt32x4(dst->data(row + 4, col), src.buf.reg[1]);
@@ -140,14 +138,13 @@ struct StoreFinalOutputImpl<RegBlockInt32<8,1>,
   }
 };
 
-inline
-RegBlockInt32<4,4> Transpose(const RegBlockInt32<4,4>& src) {
+inline RegBlockInt32<4, 4> Transpose(const RegBlockInt32<4, 4>& src) {
   __m128i t0 = _mm_unpacklo_epi32(src.buf.reg[0], src.buf.reg[1]);
   __m128i t1 = _mm_unpacklo_epi32(src.buf.reg[2], src.buf.reg[3]);
   __m128i t2 = _mm_unpackhi_epi32(src.buf.reg[0], src.buf.reg[1]);
   __m128i t3 = _mm_unpackhi_epi32(src.buf.reg[2], src.buf.reg[3]);
 
-  RegBlockInt32<4,4> result;
+  RegBlockInt32<4, 4> result;
   result.buf.reg[0] = _mm_unpacklo_epi64(t0, t1);
   result.buf.reg[1] = _mm_unpackhi_epi64(t0, t1);
   result.buf.reg[2] = _mm_unpacklo_epi64(t2, t3);
@@ -156,10 +153,9 @@ RegBlockInt32<4,4> Transpose(const RegBlockInt32<4,4>& src) {
 }
 
 template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockInt32<4,4>,
-  DstType>
-{
-  static void Run(const RegBlockInt32<4,4>& src, DstType* dst, int row, int col) {
+struct StoreFinalOutputImpl<RegBlockInt32<4, 4>, DstType> {
+  static void Run(const RegBlockInt32<4, 4>& src, DstType* dst, int row,
+                  int col) {
     if (DstType::kOrder == MapOrder::ColMajor) {
       for (int i = 0; i < 4; i++) {
         StoreInt32x4(dst->data(row, col + i), src.buf.reg[i]);
@@ -174,17 +170,16 @@ struct StoreFinalOutputImpl<RegBlockInt32<4,4>,
 };
 
 template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockInt32<8,4>,
-  DstType>
-{
-  static void Run(const RegBlockInt32<8,4>& src, DstType* dst, int row, int col) {
+struct StoreFinalOutputImpl<RegBlockInt32<8, 4>, DstType> {
+  static void Run(const RegBlockInt32<8, 4>& src, DstType* dst, int row,
+                  int col) {
     if (DstType::kOrder == MapOrder::ColMajor) {
       for (int i = 0; i < 4; i++) {
         StoreInt32x4(dst->data(row, col + i), src.buf.reg[2 * i]);
         StoreInt32x4(dst->data(row + 4, col + i), src.buf.reg[2 * i + 1]);
       }
     } else {
-      RegBlockInt32<4,4> top;
+      RegBlockInt32<4, 4> top;
       top.buf.reg[0] = src.buf.reg[0];
       top.buf.reg[1] = src.buf.reg[2];
       top.buf.reg[2] = src.buf.reg[4];
@@ -193,7 +188,7 @@ struct StoreFinalOutputImpl<RegBlockInt32<8,4>,
       for (int i = 0; i < 4; i++) {
         StoreInt32x4(dst->data(row + i, col), transpose_top.buf.reg[i]);
       }
-      RegBlockInt32<4,4> bottom;
+      RegBlockInt32<4, 4> bottom;
       bottom.buf.reg[0] = src.buf.reg[1];
       bottom.buf.reg[1] = src.buf.reg[3];
       bottom.buf.reg[2] = src.buf.reg[5];
@@ -207,17 +202,16 @@ struct StoreFinalOutputImpl<RegBlockInt32<8,4>,
 };
 
 template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockInt32<8,8>,
-  DstType>
-{
-  static void Run(const RegBlockInt32<8,8>& src, DstType* dst, int row, int col) {
+struct StoreFinalOutputImpl<RegBlockInt32<8, 8>, DstType> {
+  static void Run(const RegBlockInt32<8, 8>& src, DstType* dst, int row,
+                  int col) {
     if (DstType::kOrder == MapOrder::ColMajor) {
       for (int i = 0; i < 8; i++) {
         StoreInt32x4(dst->data(row, col + i), src.buf.reg[2 * i]);
         StoreInt32x4(dst->data(row + 4, col + i), src.buf.reg[2 * i + 1]);
       }
     } else {
-      RegBlockInt32<4,4> top_left;
+      RegBlockInt32<4, 4> top_left;
       top_left.buf.reg[0] = src.buf.reg[0];
       top_left.buf.reg[1] = src.buf.reg[2];
       top_left.buf.reg[2] = src.buf.reg[4];
@@ -226,43 +220,44 @@ struct StoreFinalOutputImpl<RegBlockInt32<8,8>,
       for (int i = 0; i < 4; i++) {
         StoreInt32x4(dst->data(row + i, col), transpose_top_left.buf.reg[i]);
       }
-      RegBlockInt32<4,4> bottom_left;
+      RegBlockInt32<4, 4> bottom_left;
       bottom_left.buf.reg[0] = src.buf.reg[1];
       bottom_left.buf.reg[1] = src.buf.reg[3];
       bottom_left.buf.reg[2] = src.buf.reg[5];
       bottom_left.buf.reg[3] = src.buf.reg[7];
       const auto transpose_bottom_left = Transpose(bottom_left);
       for (int i = 0; i < 4; i++) {
-        StoreInt32x4(dst->data(row + 4 + i, col), transpose_bottom_left.buf.reg[i]);
+        StoreInt32x4(dst->data(row + 4 + i, col),
+                     transpose_bottom_left.buf.reg[i]);
       }
-      RegBlockInt32<4,4> top_right;
+      RegBlockInt32<4, 4> top_right;
       top_right.buf.reg[0] = src.buf.reg[8];
       top_right.buf.reg[1] = src.buf.reg[10];
       top_right.buf.reg[2] = src.buf.reg[12];
       top_right.buf.reg[3] = src.buf.reg[14];
       const auto transpose_top_right = Transpose(top_right);
       for (int i = 0; i < 4; i++) {
-        StoreInt32x4(dst->data(row + i, col + 4), transpose_top_right.buf.reg[i]);
+        StoreInt32x4(dst->data(row + i, col + 4),
+                     transpose_top_right.buf.reg[i]);
       }
-      RegBlockInt32<4,4> bottom_right;
+      RegBlockInt32<4, 4> bottom_right;
       bottom_right.buf.reg[0] = src.buf.reg[9];
       bottom_right.buf.reg[1] = src.buf.reg[11];
       bottom_right.buf.reg[2] = src.buf.reg[13];
       bottom_right.buf.reg[3] = src.buf.reg[15];
       const auto transpose_bottom_right = Transpose(bottom_right);
       for (int i = 0; i < 4; i++) {
-        StoreInt32x4(dst->data(row + 4 + i, col + 4), transpose_bottom_right.buf.reg[i]);
+        StoreInt32x4(dst->data(row + 4 + i, col + 4),
+                     transpose_bottom_right.buf.reg[i]);
       }
-
     }
   }
 };
 
 template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockInt32<1,4>,
-  DstType>
-{
-  static void Run(const RegBlockInt32<1,4>& src, DstType* dst, int row, int col) {
+struct StoreFinalOutputImpl<RegBlockInt32<1, 4>, DstType> {
+  static void Run(const RegBlockInt32<1, 4>& src, DstType* dst, int row,
+                  int col) {
     if (DstType::kOrder == MapOrder::ColMajor) {
       *dst->data(row, col + 0) = GetLane<0>(src.buf.reg[0]);
       *dst->data(row, col + 1) = GetLane<1>(src.buf.reg[0]);
@@ -275,9 +270,9 @@ struct StoreFinalOutputImpl<RegBlockInt32<1,4>,
 };
 
 template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockUint8<4,1>, DstType>
-{
-  static void Run(const RegBlockUint8<4,1>& src, DstType* dst, int row, int col) {
+struct StoreFinalOutputImpl<RegBlockUint8<4, 1>, DstType> {
+  static void Run(const RegBlockUint8<4, 1>& src, DstType* dst, int row,
+                  int col) {
     const std::uint32_t src_reg = src.buf.reg[0];
     for (int i = 0; i < 4; i++) {
       *dst->data(row + i, col) = (src_reg >> (8 * i));
@@ -286,9 +281,9 @@ struct StoreFinalOutputImpl<RegBlockUint8<4,1>, DstType>
 };
 
 template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockUint8<8,1>, DstType>
-{
-  static void Run(const RegBlockUint8<8,1>& src, DstType* dst, int row, int col) {
+struct StoreFinalOutputImpl<RegBlockUint8<8, 1>, DstType> {
+  static void Run(const RegBlockUint8<8, 1>& src, DstType* dst, int row,
+                  int col) {
     for (int i = 0; i < 4; i++) {
       *dst->data(row + i, col) = (src.buf.reg[0] >> (8 * i));
     }
@@ -299,9 +294,9 @@ struct StoreFinalOutputImpl<RegBlockUint8<8,1>, DstType>
 };
 
 template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockUint8<1,4>, DstType>
-{
-  static void Run(const RegBlockUint8<1,4>& src, DstType* dst, int row, int col) {
+struct StoreFinalOutputImpl<RegBlockUint8<1, 4>, DstType> {
+  static void Run(const RegBlockUint8<1, 4>& src, DstType* dst, int row,
+                  int col) {
     for (int i = 0; i < 4; i++) {
       *dst->data(row, col + i) = (src.buf.reg[0] >> (8 * i));
     }
@@ -309,9 +304,9 @@ struct StoreFinalOutputImpl<RegBlockUint8<1,4>, DstType>
 };
 
 template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockUint8<4,4>, DstType>
-{
-  static void Run(const RegBlockUint8<4,4>& src, DstType* dst, int row, int col) {
+struct StoreFinalOutputImpl<RegBlockUint8<4, 4>, DstType> {
+  static void Run(const RegBlockUint8<4, 4>& src, DstType* dst, int row,
+                  int col) {
     std::uint8_t buf[16];
     StoreUint8x16(buf, src.buf.reg[0]);
     for (int c = 0; c < 4; c++) {
@@ -323,9 +318,9 @@ struct StoreFinalOutputImpl<RegBlockUint8<4,4>, DstType>
 };
 
 template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockUint8<8,4>, DstType>
-{
-  static void Run(const RegBlockUint8<8,4>& src, DstType* dst, int row, int col) {
+struct StoreFinalOutputImpl<RegBlockUint8<8, 4>, DstType> {
+  static void Run(const RegBlockUint8<8, 4>& src, DstType* dst, int row,
+                  int col) {
     std::uint8_t buf[32];
     StoreUint8x16(buf, src.buf.reg[0]);
     StoreUint8x16(buf + 16, src.buf.reg[1]);
@@ -338,9 +333,9 @@ struct StoreFinalOutputImpl<RegBlockUint8<8,4>, DstType>
 };
 
 template <typename DstType>
-struct StoreFinalOutputImpl<RegBlockUint8<8,8>, DstType>
-{
-  static void Run(const RegBlockUint8<8,8>& src, DstType* dst, int row, int col) {
+struct StoreFinalOutputImpl<RegBlockUint8<8, 8>, DstType> {
+  static void Run(const RegBlockUint8<8, 8>& src, DstType* dst, int row,
+                  int col) {
     std::uint8_t buf[64];
     StoreUint8x16(buf, src.buf.reg[0]);
     StoreUint8x16(buf + 16, src.buf.reg[1]);
@@ -353,7 +348,6 @@ struct StoreFinalOutputImpl<RegBlockUint8<8,8>, DstType>
     }
   }
 };
-
 
 }  // namespace gemmlowp
 

@@ -18,10 +18,10 @@
 #ifndef GEMMLOWP_INTERNAL_SIMD_WRAPPERS_H_
 #define GEMMLOWP_INTERNAL_SIMD_WRAPPERS_H_
 
-#include "../fixedpoint/fixedpoint.h"
 #include <algorithm>
-#include <type_traits>
 #include <iostream>
+#include <type_traits>
+#include "../fixedpoint/fixedpoint.h"
 
 namespace gemmlowp {
 
@@ -30,18 +30,15 @@ struct RegisterType {
   using Type = ScalarType;
 };
 
-inline
-std::int32_t Min(std::int32_t a, std::int32_t b) {
+inline std::int32_t Min(std::int32_t a, std::int32_t b) {
   return std::min(a, b);
 }
 
-inline
-std::int32_t Max(std::int32_t a, std::int32_t b) {
+inline std::int32_t Max(std::int32_t a, std::int32_t b) {
   return std::max(a, b);
 }
 
-inline
-void MulAdd(std::int32_t lhs, std::int32_t rhs, std::int32_t* acc) {
+inline void MulAdd(std::int32_t lhs, std::int32_t rhs, std::int32_t* acc) {
   *acc += lhs * rhs;
 }
 
@@ -50,11 +47,14 @@ struct RegisterBuffer {
   using ScalarType = tScalarType;
   static constexpr int kScalarCount = tScalarCount;
   using RegisterType = typename RegisterType<ScalarType, kScalarCount>::Type;
-  static_assert((kScalarCount & (kScalarCount - 1)) == 0, "kScalarCount must be a power of two");
+  static_assert((kScalarCount & (kScalarCount - 1)) == 0,
+                "kScalarCount must be a power of two");
   static_assert(sizeof(RegisterType) % sizeof(ScalarType) == 0, "");
-  static constexpr int kRegisterLanes = sizeof(RegisterType) / sizeof(ScalarType);
+  static constexpr int kRegisterLanes =
+      sizeof(RegisterType) / sizeof(ScalarType);
   static constexpr int kRegisterCount =
-    (kScalarCount * sizeof(ScalarType) + sizeof(RegisterType) - 1) / sizeof(RegisterType);
+      (kScalarCount * sizeof(ScalarType) + sizeof(RegisterType) - 1) /
+      sizeof(RegisterType);
 
   RegisterType reg[kRegisterCount];
 };
@@ -76,7 +76,7 @@ struct RegisterBlock {
 template <typename RegisterBlockType>
 struct RegisterBlockAddImpl {
   static RegisterBlockType Run(const RegisterBlockType& lhs,
-             const RegisterBlockType& rhs) {
+                               const RegisterBlockType& rhs) {
     RegisterBlockType result;
     for (int i = 0; i < RegisterBlockType::kRegisterCount; i++) {
       result.buf.reg[i] = Add(lhs.buf.reg[i], rhs.buf.reg[i]);
@@ -86,28 +86,30 @@ struct RegisterBlockAddImpl {
 };
 
 template <typename RegisterBlockType>
-RegisterBlockType
-RegisterBlockAdd(const RegisterBlockType& lhs,
-             const RegisterBlockType& rhs) {
+RegisterBlockType RegisterBlockAdd(const RegisterBlockType& lhs,
+                                   const RegisterBlockType& rhs) {
   return RegisterBlockAddImpl<RegisterBlockType>::Run(lhs, rhs);
 }
 
 template <typename LhsType, typename RhsType>
 struct ShouldFlipLhsRhs {
-  static constexpr bool kValue = (LhsType::kScalarCount < RhsType::kScalarCount) ||
-    (LhsType::kScalarCount == RhsType::kScalarCount && (
-      LhsType::kRows < RhsType::kRows
-      ));
+  static constexpr bool kValue =
+      (LhsType::kScalarCount < RhsType::kScalarCount) ||
+      (LhsType::kScalarCount == RhsType::kScalarCount &&
+       (LhsType::kRows < RhsType::kRows));
 };
 
-template <typename LhsType, typename RhsType, bool Flip = ShouldFlipLhsRhs<LhsType, RhsType>::kValue>
+template <typename LhsType, typename RhsType,
+          bool Flip = ShouldFlipLhsRhs<LhsType, RhsType>::kValue>
 struct FlipLhsRhs {
   using FlippedLhsType = LhsType;
   using FlippedRhsType = RhsType;
-  static const FlippedLhsType& FlippedLhs(const LhsType& lhs, const RhsType& rhs) {
+  static const FlippedLhsType& FlippedLhs(const LhsType& lhs,
+                                          const RhsType& rhs) {
     return lhs;
   }
-  static const FlippedRhsType& FlippedRhs(const LhsType& lhs, const RhsType& rhs) {
+  static const FlippedRhsType& FlippedRhs(const LhsType& lhs,
+                                          const RhsType& rhs) {
     return rhs;
   }
 };
@@ -116,36 +118,36 @@ template <typename LhsType, typename RhsType>
 struct FlipLhsRhs<LhsType, RhsType, true> {
   using FlippedLhsType = RhsType;
   using FlippedRhsType = LhsType;
-  static const FlippedLhsType& FlippedLhs(const LhsType& lhs, const RhsType& rhs) {
+  static const FlippedLhsType& FlippedLhs(const LhsType& lhs,
+                                          const RhsType& rhs) {
     return rhs;
   }
-  static const FlippedRhsType& FlippedRhs(const LhsType& lhs, const RhsType& rhs) {
+  static const FlippedRhsType& FlippedRhs(const LhsType& lhs,
+                                          const RhsType& rhs) {
     return lhs;
   }
 };
 
 template <typename Lhs, typename Rhs>
-struct BroadcastBinaryOpShape
-{
-  static constexpr int kRows = Lhs::kRows > Rhs::kRows ? Lhs::kRows : Rhs::kRows;
-  static constexpr int kCols = Lhs::kCols > Rhs::kCols ? Lhs::kCols : Rhs::kCols;
+struct BroadcastBinaryOpShape {
+  static constexpr int kRows =
+      Lhs::kRows > Rhs::kRows ? Lhs::kRows : Rhs::kRows;
+  static constexpr int kCols =
+      Lhs::kCols > Rhs::kCols ? Lhs::kCols : Rhs::kCols;
 };
 
 template <typename Lhs, typename Rhs>
-struct BroadcastBinaryOpRegisterBlock
-{
+struct BroadcastBinaryOpRegisterBlock {
   using Shape = BroadcastBinaryOpShape<Lhs, Rhs>;
   using ScalarType = typename Lhs::ScalarType;
   using Type = RegisterBlock<ScalarType, Shape::kRows, Shape::kCols>;
 };
 
-
-template <typename Lhs,
-          typename Rhs>
+template <typename Lhs, typename Rhs>
 struct BroadcastAddImpl {
-  using ResultBlockType = typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type;
-  static ResultBlockType Run(const Lhs& lhs,
-             const Rhs& rhs) {
+  using ResultBlockType =
+      typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type;
+  static ResultBlockType Run(const Lhs& lhs, const Rhs& rhs) {
     ResultBlockType result;
     static constexpr int Rows = ResultBlockType::kRows;
     static constexpr int Cols = ResultBlockType::kCols;
@@ -153,50 +155,48 @@ struct BroadcastAddImpl {
     static constexpr int LhsCols = Lhs::kCols;
     static constexpr int RhsRows = Rhs::kRows;
     static constexpr int RhsCols = Rhs::kCols;
-    
+
     static_assert(LhsRows == Rows || LhsRows == 1, "");
     static_assert(RhsRows == Rows || RhsRows == 1, "");
     static_assert(LhsCols == Cols || LhsCols == 1, "");
     static_assert(RhsCols == Cols || RhsCols == 1, "");
     static_assert(ResultBlockType::kRegisterLanes == 1,
-      "This path is only for scalar values");
+                  "This path is only for scalar values");
     static_assert(Lhs::kRegisterLanes == 1,
-      "This path is only for scalar values");
+                  "This path is only for scalar values");
     static_assert(Rhs::kRegisterLanes == 1,
-      "This path is only for scalar values");
-    
+                  "This path is only for scalar values");
+
     for (int c = 0; c < Cols; c++) {
       const int lhs_c = LhsCols == Cols ? c : 0;
       const int rhs_c = RhsCols == Cols ? c : 0;
       for (int r = 0; r < Rows; r++) {
         const int lhs_r = LhsRows == Rows ? r : 0;
         const int rhs_r = RhsRows == Rows ? r : 0;
-        result.buf.reg[r + c * Rows] = Add(
-            lhs.buf.reg[lhs_r + lhs_c * LhsRows],
-            rhs.buf.reg[rhs_r + rhs_c * RhsRows]);
+        result.buf.reg[r + c * Rows] =
+            Add(lhs.buf.reg[lhs_r + lhs_c * LhsRows],
+                rhs.buf.reg[rhs_r + rhs_c * RhsRows]);
       }
     }
     return result;
   }
 };
 
-template <typename Lhs,
-          typename Rhs>
-typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type
-BroadcastAdd(const Lhs& lhs,
-             const Rhs& rhs) {
+template <typename Lhs, typename Rhs>
+typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type BroadcastAdd(
+    const Lhs& lhs, const Rhs& rhs) {
   using Flip = FlipLhsRhs<Lhs, Rhs>;
-  return BroadcastAddImpl<typename Flip::FlippedLhsType,typename Flip::FlippedRhsType>::Run(
-    Flip::FlippedLhs(lhs, rhs),
-    Flip::FlippedRhs(lhs, rhs));
+  return BroadcastAddImpl<
+      typename Flip::FlippedLhsType,
+      typename Flip::FlippedRhsType>::Run(Flip::FlippedLhs(lhs, rhs),
+                                          Flip::FlippedRhs(lhs, rhs));
 }
 
-template <typename Lhs,
-          typename Rhs>
+template <typename Lhs, typename Rhs>
 struct BroadcastMulImpl {
-  using ResultBlockType = typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type;
-  static ResultBlockType Run(const Lhs& lhs,
-             const Rhs& rhs) {
+  using ResultBlockType =
+      typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type;
+  static ResultBlockType Run(const Lhs& lhs, const Rhs& rhs) {
     ResultBlockType result;
     static constexpr int Rows = ResultBlockType::kRows;
     static constexpr int Cols = ResultBlockType::kCols;
@@ -205,12 +205,12 @@ struct BroadcastMulImpl {
     static constexpr int RhsRows = Rhs::kRows;
     static constexpr int RhsCols = Rhs::kCols;
     static_assert(ResultBlockType::kRegisterLanes == 1,
-      "This path is only for scalar values");
+                  "This path is only for scalar values");
     static_assert(Lhs::kRegisterLanes == 1,
-      "This path is only for scalar values");
+                  "This path is only for scalar values");
     static_assert(Rhs::kRegisterLanes == 1,
-      "This path is only for scalar values");
-    
+                  "This path is only for scalar values");
+
     static_assert(LhsRows == Rows || LhsRows == 1, "");
     static_assert(RhsRows == Rows || RhsRows == 1, "");
     static_assert(LhsCols == Cols || LhsCols == 1, "");
@@ -221,34 +221,28 @@ struct BroadcastMulImpl {
       for (int r = 0; r < Rows; r++) {
         const int lhs_r = LhsRows == Rows ? r : 0;
         const int rhs_r = RhsRows == Rows ? r : 0;
-        result.buf.reg[r + c * Rows] = Mul(
-            lhs.buf.reg[lhs_r + lhs_c * LhsRows],
-            rhs.buf.reg[rhs_r + rhs_c * RhsRows]);
+        result.buf.reg[r + c * Rows] =
+            Mul(lhs.buf.reg[lhs_r + lhs_c * LhsRows],
+                rhs.buf.reg[rhs_r + rhs_c * RhsRows]);
       }
     }
     return result;
   }
 };
 
-
-template <typename Lhs,
-          typename Rhs>
-typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type
-BroadcastMul(const Lhs& lhs,
-             const Rhs& rhs) {
+template <typename Lhs, typename Rhs>
+typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type BroadcastMul(
+    const Lhs& lhs, const Rhs& rhs) {
   using Flip = FlipLhsRhs<Lhs, Rhs>;
-  return BroadcastMulImpl<typename Flip::FlippedLhsType,typename Flip::FlippedRhsType>::Run(
-    Flip::FlippedLhs(lhs, rhs),
-    Flip::FlippedRhs(lhs, rhs));
+  return BroadcastMulImpl<
+      typename Flip::FlippedLhsType,
+      typename Flip::FlippedRhsType>::Run(Flip::FlippedLhs(lhs, rhs),
+                                          Flip::FlippedRhs(lhs, rhs));
 }
 
-template <typename Lhs,
-          typename Rhs,
-          typename Acc>
+template <typename Lhs, typename Rhs, typename Acc>
 struct BroadcastMulAddImpl {
-  static void Run(const Lhs& lhs,
-             const Rhs& rhs,
-             Acc* acc) {
+  static void Run(const Lhs& lhs, const Rhs& rhs, Acc* acc) {
     static constexpr int Rows = Acc::kRows;
     static constexpr int Cols = Acc::kCols;
     static constexpr int LhsRows = Lhs::kRows;
@@ -256,12 +250,12 @@ struct BroadcastMulAddImpl {
     static constexpr int RhsRows = Rhs::kRows;
     static constexpr int RhsCols = Rhs::kCols;
     static_assert(Acc::kRegisterLanes == 1,
-      "This path is only for scalar values");
+                  "This path is only for scalar values");
     static_assert(Lhs::kRegisterLanes == 1,
-      "This path is only for scalar values");
+                  "This path is only for scalar values");
     static_assert(Rhs::kRegisterLanes == 1,
-      "This path is only for scalar values");
-    
+                  "This path is only for scalar values");
+
     static_assert(LhsRows == Rows || LhsRows == 1, "");
     static_assert(RhsRows == Rows || RhsRows == 1, "");
     static_assert(LhsCols == Cols || LhsCols == 1, "");
@@ -272,39 +266,32 @@ struct BroadcastMulAddImpl {
       for (int r = 0; r < Rows; r++) {
         const int lhs_r = LhsRows == Rows ? r : 0;
         const int rhs_r = RhsRows == Rows ? r : 0;
-        MulAdd(
-          lhs.buf.reg[lhs_r + lhs_c * LhsRows],
-          rhs.buf.reg[rhs_r + rhs_c * RhsRows],
-          &acc->buf.reg[r + c * Rows]);
+        MulAdd(lhs.buf.reg[lhs_r + lhs_c * LhsRows],
+               rhs.buf.reg[rhs_r + rhs_c * RhsRows],
+               &acc->buf.reg[r + c * Rows]);
       }
     }
   }
 };
 
-template <typename Lhs,
-          typename Rhs,
-          typename Acc>
-void
-BroadcastMulAdd(const Lhs& lhs,
-             const Rhs& rhs,
-             Acc* acc) {
+template <typename Lhs, typename Rhs, typename Acc>
+void BroadcastMulAdd(const Lhs& lhs, const Rhs& rhs, Acc* acc) {
   using Flip = FlipLhsRhs<Lhs, Rhs>;
-  BroadcastMulAddImpl<typename Flip::FlippedLhsType,typename Flip::FlippedRhsType,Acc>::Run(
-    Flip::FlippedLhs(lhs, rhs),
-    Flip::FlippedRhs(lhs, rhs), acc);
+  BroadcastMulAddImpl<typename Flip::FlippedLhsType,
+                      typename Flip::FlippedRhsType,
+                      Acc>::Run(Flip::FlippedLhs(lhs, rhs),
+                                Flip::FlippedRhs(lhs, rhs), acc);
 }
 
 template <typename RegisterBlockType, typename SrcObjectType>
 struct LoadImpl {
   static_assert(std::is_same<SrcObjectType, void>::value,
-    "This generic impl should never be hit");
+                "This generic impl should never be hit");
 };
 
 template <typename ScalarType, int Rows, int Cols, typename SrcScalarType>
-struct LoadImpl<
-  RegisterBlock<ScalarType, Rows, Cols>,
-  MatrixMap<SrcScalarType, MapOrder::ColMajor>>
-{
+struct LoadImpl<RegisterBlock<ScalarType, Rows, Cols>,
+                MatrixMap<SrcScalarType, MapOrder::ColMajor>> {
   using RegisterBlockType = RegisterBlock<ScalarType, Rows, Cols>;
   using SrcObjectType = MatrixMap<SrcScalarType, MapOrder::ColMajor>;
   static RegisterBlockType Run(const SrcObjectType& src, int row, int col) {
@@ -320,11 +307,10 @@ struct LoadImpl<
   }
 };
 
-template <typename ScalarType, int Rows, int Cols, typename SrcScalarType, VectorShape Shape>
-struct LoadImpl<
-  RegisterBlock<ScalarType, Rows, Cols>,
-  VectorMap<SrcScalarType, Shape>>
-{
+template <typename ScalarType, int Rows, int Cols, typename SrcScalarType,
+          VectorShape Shape>
+struct LoadImpl<RegisterBlock<ScalarType, Rows, Cols>,
+                VectorMap<SrcScalarType, Shape>> {
   using RegisterBlockType = RegisterBlock<ScalarType, Rows, Cols>;
   using SrcObjectType = VectorMap<SrcScalarType, Shape>;
   static RegisterBlockType Run(const SrcObjectType& src, int pos) {
@@ -338,11 +324,10 @@ struct LoadImpl<
   }
 };
 
-template <typename ScalarType, int Rows, int Cols, typename SrcScalarType, VectorShape Shape>
-struct LoadImpl<
-  RegisterBlock<ScalarType, Rows, Cols>,
-  VectorDup<SrcScalarType, Shape>>
-{
+template <typename ScalarType, int Rows, int Cols, typename SrcScalarType,
+          VectorShape Shape>
+struct LoadImpl<RegisterBlock<ScalarType, Rows, Cols>,
+                VectorDup<SrcScalarType, Shape>> {
   using RegisterBlockType = RegisterBlock<ScalarType, Rows, Cols>;
   using SrcObjectType = VectorDup<SrcScalarType, Shape>;
   static RegisterBlockType Run(const SrcObjectType& src, int) {
@@ -367,11 +352,10 @@ RegisterBlockType Load(const SrcObjectType& src, int pos) {
 }
 
 template <typename RegisterBlockType>
-struct LoadContiguousImpl
-{
+struct LoadContiguousImpl {
   using ScalarType = typename RegisterBlockType::ScalarType;
   static_assert(RegisterBlockType::kRegisterLanes == 1,
-      "This path is only for scalar values");
+                "This path is only for scalar values");
   static RegisterBlockType Run(const ScalarType* src) {
     RegisterBlockType result;
     for (int i = 0; i < RegisterBlockType::kScalarCount; i++) {
@@ -382,33 +366,35 @@ struct LoadContiguousImpl
 };
 
 template <typename RegisterBlockType>
-RegisterBlockType LoadContiguous(const typename RegisterBlockType::ScalarType* src) {
+RegisterBlockType LoadContiguous(
+    const typename RegisterBlockType::ScalarType* src) {
   return LoadContiguousImpl<RegisterBlockType>::Run(src);
 }
 
 template <int BroadcastRows, int BroadcastCols, typename SrcObjectType>
-struct LoadForBroadcastingShape
-{
-};
+struct LoadForBroadcastingShape {};
 
-template <int BroadcastRows, int BroadcastCols, typename ScalarType, VectorShape Shape>
-struct LoadForBroadcastingShape<BroadcastRows, BroadcastCols, VectorMap<ScalarType, Shape>>
-{
+template <int BroadcastRows, int BroadcastCols, typename ScalarType,
+          VectorShape Shape>
+struct LoadForBroadcastingShape<BroadcastRows, BroadcastCols,
+                                VectorMap<ScalarType, Shape>> {
   static constexpr int kRows = Shape == VectorShape::Col ? BroadcastRows : 1;
   static constexpr int kCols = Shape == VectorShape::Row ? BroadcastCols : 1;
 };
 
-template <int BroadcastRows, int BroadcastCols, typename ScalarType, VectorShape Shape>
-struct LoadForBroadcastingShape<BroadcastRows, BroadcastCols, VectorDup<ScalarType, Shape>>
-{
+template <int BroadcastRows, int BroadcastCols, typename ScalarType,
+          VectorShape Shape>
+struct LoadForBroadcastingShape<BroadcastRows, BroadcastCols,
+                                VectorDup<ScalarType, Shape>> {
   static constexpr int kRows = 1;
   static constexpr int kCols = 1;
 };
 
 template <typename RegisterBlockType, typename SrcObjectType>
-struct LoadForBroadcastingRegisterBlock
-{
-  using Shape = LoadForBroadcastingShape<RegisterBlockType::kRows, RegisterBlockType::kCols, SrcObjectType>;
+struct LoadForBroadcastingRegisterBlock {
+  using Shape =
+      LoadForBroadcastingShape<RegisterBlockType::kRows,
+                               RegisterBlockType::kCols, SrcObjectType>;
   using ScalarType = typename RegisterBlockType::ScalarType;
   using Type = RegisterBlock<ScalarType, Shape::kRows, Shape::kCols>;
 };
@@ -416,19 +402,20 @@ struct LoadForBroadcastingRegisterBlock
 template <typename RegisterBlockType, typename SrcObjectType>
 struct LoadForBroadcastingImpl {
   static_assert(std::is_same<SrcObjectType, void>::value,
-    "This generic impl should never be hit");
+                "This generic impl should never be hit");
 };
 
-template <typename ScalarType, int Rows, int Cols, typename SrcScalarType, VectorShape Shape>
-struct LoadForBroadcastingImpl<
-  RegisterBlock<ScalarType, Rows, Cols>,
-  VectorMap<SrcScalarType, Shape>>
-{
+template <typename ScalarType, int Rows, int Cols, typename SrcScalarType,
+          VectorShape Shape>
+struct LoadForBroadcastingImpl<RegisterBlock<ScalarType, Rows, Cols>,
+                               VectorMap<SrcScalarType, Shape>> {
   using RegisterBlockType = RegisterBlock<ScalarType, Rows, Cols>;
   using SrcObjectType = VectorMap<SrcScalarType, Shape>;
-  using ResultBlockType = typename LoadForBroadcastingRegisterBlock<RegisterBlockType, SrcObjectType>::Type;
+  using ResultBlockType =
+      typename LoadForBroadcastingRegisterBlock<RegisterBlockType,
+                                                SrcObjectType>::Type;
   static_assert(ResultBlockType::kRegisterLanes == 1,
-      "This path is only for scalar values");
+                "This path is only for scalar values");
   static ResultBlockType Run(const SrcObjectType& src, int pos) {
     ResultBlockType result;
     for (int c = 0; c < ResultBlockType::kCols; c++) {
@@ -441,16 +428,17 @@ struct LoadForBroadcastingImpl<
   }
 };
 
-template <typename ScalarType, int Rows, int Cols, typename SrcScalarType, VectorShape Shape>
-struct LoadForBroadcastingImpl<
-  RegisterBlock<ScalarType, Rows, Cols>,
-  VectorDup<SrcScalarType, Shape>>
-{
+template <typename ScalarType, int Rows, int Cols, typename SrcScalarType,
+          VectorShape Shape>
+struct LoadForBroadcastingImpl<RegisterBlock<ScalarType, Rows, Cols>,
+                               VectorDup<SrcScalarType, Shape>> {
   using RegisterBlockType = RegisterBlock<ScalarType, Rows, Cols>;
   using SrcObjectType = VectorDup<SrcScalarType, Shape>;
-  using ResultBlockType = typename LoadForBroadcastingRegisterBlock<RegisterBlockType, SrcObjectType>::Type;
+  using ResultBlockType =
+      typename LoadForBroadcastingRegisterBlock<RegisterBlockType,
+                                                SrcObjectType>::Type;
   static_assert(ResultBlockType::kRegisterLanes == 1,
-      "This path is only for scalar values");
+                "This path is only for scalar values");
   static ResultBlockType Run(const SrcObjectType& src, int) {
     ResultBlockType result;
     for (int c = 0; c < ResultBlockType::kCols; c++) {
@@ -463,25 +451,29 @@ struct LoadForBroadcastingImpl<
 };
 
 template <typename RegisterBlockType, typename SrcObjectType>
-typename LoadForBroadcastingRegisterBlock<RegisterBlockType, SrcObjectType>::Type
+typename LoadForBroadcastingRegisterBlock<RegisterBlockType,
+                                          SrcObjectType>::Type
 LoadForBroadcasting(const SrcObjectType& src, int row, int col) {
-  return LoadForBroadcastingImpl<RegisterBlockType, SrcObjectType>::Run(src, row, col);
+  return LoadForBroadcastingImpl<RegisterBlockType, SrcObjectType>::Run(
+      src, row, col);
 }
 
 template <typename RegisterBlockType, typename SrcObjectType>
-typename LoadForBroadcastingRegisterBlock<RegisterBlockType, SrcObjectType>::Type
+typename LoadForBroadcastingRegisterBlock<RegisterBlockType,
+                                          SrcObjectType>::Type
 LoadForBroadcasting(const SrcObjectType& src, int pos) {
-  return LoadForBroadcastingImpl<RegisterBlockType, SrcObjectType>::Run(src, pos);
+  return LoadForBroadcastingImpl<RegisterBlockType, SrcObjectType>::Run(src,
+                                                                        pos);
 }
 
 template <int N>
-using RegBufferInt32 = RegisterBuffer<std::int32_t,N>;
+using RegBufferInt32 = RegisterBuffer<std::int32_t, N>;
 template <int N>
-using RegBufferUint8 = RegisterBuffer<std::uint8_t,N>;
+using RegBufferUint8 = RegisterBuffer<std::uint8_t, N>;
 template <int R, int C>
-using RegBlockInt32 = RegisterBlock<std::int32_t,R, C>;
+using RegBlockInt32 = RegisterBlock<std::int32_t, R, C>;
 template <int R, int C>
-using RegBlockUint8 = RegisterBlock<std::uint8_t,R, C>;
+using RegBlockUint8 = RegisterBlock<std::uint8_t, R, C>;
 
 }  // end namespace gemmlowp
 

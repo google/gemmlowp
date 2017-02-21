@@ -128,8 +128,8 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
 
       UnpackResult(result, MatrixBlockBounds(r, c, rs, cs), packed_result,
                    depth, packed_lhs.sums_of_each_slice(),
-                   packed_rhs.sums_of_each_slice(), lhs_offset.block(r,rs), rhs_offset.block(c,cs),
-                   output_pipeline);
+                   packed_rhs.sums_of_each_slice(), lhs_offset.block(r, rs),
+                   rhs_offset.block(c, cs), output_pipeline);
     }
   }
 
