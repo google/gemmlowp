@@ -104,29 +104,6 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
   }
 };
 
-template <>
-struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
-                           RegBufferInt32<64>> {
-  typedef RegBufferInt32<64> InputType;
-  typedef RegBufferUint8<64> OutputType;
-
-  typedef OutputStageSaturatingCastToUint8 OutputStage;
-
-  OutputStageEvalBufferImpl(const OutputStage&){}
-
-  OutputType Eval(InputType input) const {
-    OutputType output;
-    int16x8_t res_16[8];
-    for (int i = 0; i < 8; i++) {
-      res_16[i] = vcombine_s16(vqmovn_s32(input.reg[2*i]), vqmovn_s32(input.reg[2*i + 1]));
-    }
-    for (int i = 0; i < 8; i++) {
-      output.reg[i] = vqmovun_s16(res_16[i]);
-    }
-    return output;
-  }
-};
-
 template <typename DstType>
 struct StoreFinalOutputImpl<RegBlockInt32<8,1>,
   DstType>
