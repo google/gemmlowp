@@ -19,7 +19,6 @@
 #define GEMMLOWP_INTERNAL_SIMD_WRAPPERS_H_
 
 #include <algorithm>
-#include <iostream>
 #include <type_traits>
 #include "../fixedpoint/fixedpoint.h"
 
