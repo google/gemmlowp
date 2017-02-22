@@ -207,7 +207,7 @@ class BlockingCounter {
 struct Task {
   Task() : local_allocator(nullptr) {}
   virtual ~Task() {}
-  virtual void Run() const = 0;
+  virtual void Run() = 0;
   Allocator* local_allocator;
 };
 
@@ -321,7 +321,7 @@ class Worker {
   pthread_t thread_;
 
   // The task to be worked on.
-  const Task* task_;
+  Task* task_;
 
   // The condition variable and mutex guarding state changes.
   pthread_cond_t state_cond_;
@@ -427,7 +427,7 @@ struct GemmWithPackedRhsTask : Task {
         rhs_offset(_rhs_offset),
         output_pipeline(_output_pipeline) {}
 
-  void Run() const override {
+  void Run() override {
     ScopedProfilingLabel label("GemmWithPackedRhsTask");
 
     const int rows = result_block.rows;
@@ -451,14 +451,16 @@ struct GemmWithPackedRhsTask : Task {
 
         PackLhs(&packed_lhs, lhs.block(r, 0, rs, depth));
 
-        Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
+        Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs,
+                depth);
 
         auto curr_result_block = MatrixBlockBounds(
             result_block.start_row + r, result_block.start_col + c, rs, cs);
-        UnpackResult(&result, curr_result_block, packed_result, depth,
-                     packed_lhs.sums_of_each_slice(),
-                     packed_rhs.sums_of_each_slice(), lhs_offset, rhs_offset,
-                     output_pipeline);
+        UnpackResult(
+            &result, curr_result_block, packed_result, depth,
+            packed_lhs.sums_of_each_slice(), packed_rhs.sums_of_each_slice(),
+            lhs_offset.block(curr_result_block.start_row, rs),
+            rhs_offset.block(curr_result_block.start_col, cs), output_pipeline);
       }
     }
 
@@ -596,9 +598,13 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
   int cols = result->cols();
   int depth = lhs.cols();
 
+  // zero sizes should have been caught earlier and early-returned.
   assert(rows > 0);
   assert(cols > 0);
   assert(depth > 0);
+
+  // The case of rows<cols should have been caught earlier and transposed.
+  assert(rows >= cols);
 
   const int thread_count = HowManyThreads<KernelFormat::kRows>(
       context->max_num_threads(), rows, cols, depth);

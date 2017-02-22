@@ -48,9 +48,11 @@ class ComputeImpl {
         packed_lhs_(_packed_lhs),
         packed_rhs_(_packed_rhs) {}
 
-  void Compute() {
-    for (int d = 0; d < block_params_.l2_depth; d += block_params_.l1_depth) {
-      int ds = std::min(block_params_.l1_depth, block_params_.l2_depth - d);
+  void Compute(int depth) {
+    depth = RoundUp<Format::kDepth>(depth);
+    assert(depth <= block_params_.l2_depth);
+    for (int d = 0; d < depth; d += block_params_.l1_depth) {
+      int ds = std::min(block_params_.l1_depth, depth - d);
 
       for (int r = 0; r < block_params_.l2_rows; r += block_params_.l1_rows) {
         int rs = std::min(block_params_.l1_rows, block_params_.l2_rows - r);
@@ -89,12 +91,12 @@ class ComputeImpl {
 template <typename PackedLhs, typename PackedRhs, typename PackedResult>
 void Compute(const KernelBase& kernel, const BlockParams& block_params,
              PackedResult* packed_result, const PackedLhs& packed_lhs,
-             const PackedRhs& packed_rhs) {
+             const PackedRhs& packed_rhs, int depth) {
   ScopedProfilingLabel label("compute");
   ComputeImpl<PackedLhs, PackedRhs, PackedResult> impl(
       kernel, block_params, packed_result, packed_lhs, packed_rhs);
 
-  impl.Compute();
+  impl.Compute(depth);
 }
 
 }  // namespace gemmlowp

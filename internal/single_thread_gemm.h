@@ -46,11 +46,6 @@ class SingleThreadGemmContext {
   Allocator allocator_;
 };
 
-typedef VectorMap<const std::int32_t, VectorShape::Col> OffsetColMap;
-typedef VectorMap<const std::int32_t, VectorShape::Row> OffsetRowMap;
-typedef VectorDup<const std::int32_t, VectorShape::Col> OffsetColDup;
-typedef VectorDup<const std::int32_t, VectorShape::Row> OffsetRowDup;
-
 template <typename KernelFormat, typename InputScalar, typename OutputScalar,
           typename BitDepthParams, MapOrder LhsOrder, MapOrder RhsOrder,
           MapOrder ResultOrder, typename LhsOffset, typename RhsOffset,
@@ -70,9 +65,13 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
   int cols = result->cols();
   int depth = lhs.cols();
 
+  // zero sizes should have been caught earlier and early-returned.
   assert(rows > 0);
   assert(cols > 0);
   assert(depth > 0);
+
+  // The case of rows<cols should have been caught earlier and transposed.
+  assert(rows >= cols);
 
   Allocator* allocator = context->allocator();
 
@@ -125,12 +124,13 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
         PackRhs(&packed_rhs, rhs.block(0, c, depth, cs));
       }
 
-      Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
+      Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs,
+              depth);
 
       UnpackResult(result, MatrixBlockBounds(r, c, rs, cs), packed_result,
                    depth, packed_lhs.sums_of_each_slice(),
-                   packed_rhs.sums_of_each_slice(), lhs_offset, rhs_offset,
-                   output_pipeline);
+                   packed_rhs.sums_of_each_slice(), lhs_offset.block(r, rs),
+                   rhs_offset.block(c, cs), output_pipeline);
     }
   }
 

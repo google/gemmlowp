@@ -25,230 +25,202 @@
 
 #include "../fixedpoint/fixedpoint.h"
 #include "../public/output_stages.h"
+#include "simd_wrappers.h"
 
 namespace gemmlowp {
 
-// A Fragment is a small fixed-size matrix typically stored in one or
-// a few architecture-specific SIMD vectors. Besides plain old scalar types
-// such as std::int32_t, Fragment types are what can be used as input/output
-// data types for output pipeline stages.
-//
-// More details:
-//
-// In the generic scalar code in this file, we have only implemented
-// evaluation of output stages for scalar inputs (e.g. plain std::int32_t
-// values).
-//
-// Other files (e.g. output_neon.h) are to provide SIMD paths by implementing
-// evaluation of output stages for SIMD vector types. However, this raises
-// the question of how the different values ("lanes") in a SIMD vector
-// correspond to different values in the whole matrices. For simple entry-wise
-// output stages, this doesn't matter, but for other output stages depending
-// on position within the whole matrix, this does matter. To solve this
-// problem, rather than implementing evaluation of output stages for raw
-// SIMD vector types, we wrap SIMD vector types in "fragment" structs that
-// bring the additional structure of "shape" i.e. mapping SIMD lanes to
-// matrix entries, and we specialize evaluation of output stage for such
-// fragment types. The Fragment template struct here is how we generate
-// all fragment structs. For example, in output_neon.h, it may be specialized
-// with DataType=int32x4_t, Rows=4, Cols=1. MapOrder doesn't matter for
-// vector shapes. While Fragment is only used for SIMD paths, we leave it
-// here in this platform-generic file because this same template should
-// cover the needs of any SIMD architectures.
-template <typename tDataType, int tRows, int tCols, MapOrder tOrder>
-struct Fragment {
-  typedef tDataType DataType;
-  static const int kRows = tRows;
-  static const int kCols = tCols;
-  static const MapOrder kOrder = tOrder;
-
-  Fragment() {}
-  Fragment(const DataType& d) : data(d) {}
-  operator DataType() const { return data; }
-
-  DataType data;
-};
-
-typedef Fragment<std::int32_t, 1, 1, MapOrder::ColMajor> FragmentInt32x1x1;
-typedef Fragment<std::uint8_t, 1, 1, MapOrder::ColMajor> FragmentUint8x1x1;
-
-// OutputStageEvalImpl is the template that we specialize to provide
-// implementations of each output stage for each type of input data.
-//
-// Each specialization provides a OutputType typedef and an Eval function
-// returning OutputType. The OutputType typically depends on the InputType.
-//
-// There are two dimensions in which input data types can vary:
-//   1. Different output stages may expect different data types. The
-//      only hard constraint is that the first stage accepts int32, as
-//      the unpack stage produces int32 accumulators.
-//   2. For a given scalar data type such as int32, there is still the
-//      possibility of having SIMD vector types such as NEON int32x4_t,
-//      typically wrapped as "fragment" types, see struct Fragment.
-//      Thus, there can be several OutputStageEvalImpl
-//      specializations for a single OutputStageType, for different
-//      InputType's.
-template <typename OutputStageType, typename InputType>
-struct OutputStageEvalImpl {
+template <typename OutputStage, typename InputBufferType>
+struct OutputStageEvalBufferImpl {
   // This generic template body should never be hit.
   static_assert(
-      std::is_same<InputType, void>::value,
+      std::is_same<InputBufferType, void>::value,
       "Unimplemented: missing implementation of this output pipeline stage "
       "for this data type. This would happen if some architecture-specific "
       "SIMD back-end (output_$arch.h) were incomplete.");
-
-  OutputStageEvalImpl(const OutputStageType&) {}
 };
 
-// Implementation of OutputStageQuantizeDownInt32ToUint8Scale for scalar data
-template <>
-struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
-                           FragmentInt32x1x1> {
-  typedef FragmentInt32x1x1 InputType;
-  typedef FragmentInt32x1x1 OutputType;
+template <typename OutputStage, typename InputType>
+struct OutputStageEvalImpl {
+  static constexpr int kRows = InputType::kRows;
+  static constexpr int kCols = InputType::kCols;
+  using InputBufferType = typename InputType::BufferType;
+  using BufferEvalImplType =
+      OutputStageEvalBufferImpl<OutputStage, InputBufferType>;
+  using OutputBufferType = typename BufferEvalImplType::OutputType;
+  using OutputScalarType = typename OutputBufferType::ScalarType;
+  using OutputType = RegisterBlock<OutputScalarType, kRows, kCols>;
+
+  OutputStageEvalImpl(const OutputStage& s) : buffer_eval_impl(s) {}
+
+  OutputType Eval(InputType input, int, int) const {
+    OutputType output;
+    output.buf = buffer_eval_impl.Eval(input.buf);
+    return output;
+  }
+
+  const BufferEvalImplType buffer_eval_impl;
+};
+
+template <int Size>
+struct OutputStageEvalBufferImpl<OutputStageQuantizeDownInt32ToUint8Scale,
+                                 RegisterBuffer<std::int32_t, Size>> {
+  using InputType = RegisterBuffer<std::int32_t, Size>;
+  using OutputType = RegisterBuffer<std::int32_t, Size>;
+
   typedef OutputStageQuantizeDownInt32ToUint8Scale OutputStage;
 
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
+  OutputStageEvalBufferImpl(const OutputStage& s) : output_stage(s) {}
 
-  OutputType Eval(InputType input, int, int) const {
-    const std::int32_t result_shift = output_stage.result_shift;
+  OutputType Eval(InputType input) const {
+    const int result_shift = output_stage.result_shift;
     const std::int32_t result_mult_int = output_stage.result_mult_int;
-    const std::int32_t result_offset = output_stage.result_offset;
-    return RoundingDivideByPOT((input + result_offset) * result_mult_int,
-                               result_shift);
+    using RegisterType = typename InputType::RegisterType;
+    const RegisterType result_offset =
+        Dup<RegisterType>(output_stage.result_offset);
+    OutputType output;
+    for (int i = 0; i < InputType::kRegisterCount; i++) {
+      output.reg[i] = RoundingDivideByPOT(
+          Mul(Add(input.reg[i], result_offset), result_mult_int), result_shift);
+    }
+    return output;
   }
 
   const OutputStage& output_stage;
 };
 
-template <>
-struct OutputStageEvalImpl<
-    OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Col>,
-    FragmentInt32x1x1> {
-  typedef FragmentInt32x1x1 InputType;
-  typedef FragmentInt32x1x1 OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Col>
-      OutputStage;
+template <int Rows, int Cols, VectorShape Shape>
+struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScalePC<Shape>,
+                           RegisterBlock<std::int32_t, Rows, Cols>> {
+  typedef RegisterBlock<std::int32_t, Rows, Cols> InputType;
+  typedef RegisterBlock<std::int32_t, Rows, Cols> OutputType;
+  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<Shape> OutputStage;
 
   OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
-  OutputType Eval(InputType input, int row, int) const {
-    const std::int32_t result_shift = output_stage.result_shift;
-    const std::int32_t result_mult_int = output_stage.result_mult_int(row);
-    const std::int32_t result_offset = output_stage.result_offset(row);
-    return RoundingDivideByPOT((input + result_offset) * result_mult_int,
-                               result_shift);
+  OutputType Eval(InputType input, int row, int col) const {
+    OutputType output;
+    const int result_shift = output_stage.result_shift;
+    const int pos = Shape == VectorShape::Col ? row : col;
+    const auto result_mult_int =
+        LoadForBroadcasting<InputType>(output_stage.result_mult_int, pos);
+    const auto result_offset =
+        LoadForBroadcasting<InputType>(output_stage.result_offset, pos);
+    const auto dividend = BroadcastMul<InputType>(
+        BroadcastAdd<InputType>(input, result_offset), result_mult_int);
+    for (int i = 0; i < InputType::kRegisterCount; i++) {
+      output.buf.reg[i] =
+          RoundingDivideByPOT(dividend.buf.reg[i], result_shift);
+    }
+    return output;
   }
 
   const OutputStage& output_stage;
 };
 
-template <>
-struct OutputStageEvalImpl<
-    OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Row>,
-    FragmentInt32x1x1> {
-  typedef FragmentInt32x1x1 InputType;
-  typedef FragmentInt32x1x1 OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Row>
-      OutputStage;
+template <int Size>
+struct OutputStageEvalBufferImpl<
+    OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
+    RegisterBuffer<std::int32_t, Size>> {
+  typedef RegisterBuffer<std::int32_t, Size> InputType;
+  typedef RegisterBuffer<std::int32_t, Size> OutputType;
 
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
-
-  OutputType Eval(InputType input, int, int col) const {
-    const std::int32_t result_shift = output_stage.result_shift;
-    const std::int32_t result_mult_int = output_stage.result_mult_int(col);
-    const std::int32_t result_offset = output_stage.result_offset(col);
-    return RoundingDivideByPOT((input + result_offset) * result_mult_int,
-                               result_shift);
-  }
-
-  const OutputStage& output_stage;
-};
-
-// Implementation of OutputStageQuantizeDownInt32ToUint8Scale for scalar data
-template <>
-struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
-                           FragmentInt32x1x1> {
-  typedef FragmentInt32x1x1 InputType;
-  typedef FragmentInt32x1x1 OutputType;
   typedef OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint OutputStage;
 
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
+  OutputStageEvalBufferImpl(const OutputStage& s) : output_stage(s) {}
 
-  OutputType Eval(InputType input, int, int) const {
-    const std::int32_t mulhigh_val = SaturatingRoundingDoublingHighMul(
-        input.data, output_stage.result_fixedpoint_multiplier);
-    return RoundingDivideByPOT(mulhigh_val, output_stage.result_shift) +
-           output_stage.result_offset_after_shift;
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    using RegisterType = typename InputType::RegisterType;
+    const RegisterType result_offset_after_shift =
+        Dup<RegisterType>(output_stage.result_offset_after_shift);
+    for (int i = 0; i < InputType::kRegisterCount; i++) {
+      const RegisterType mulhigh_val = SaturatingRoundingDoublingHighMul(
+          input.reg[i], output_stage.result_fixedpoint_multiplier);
+      output.reg[i] =
+          Add(RoundingDivideByPOT(mulhigh_val, output_stage.result_shift),
+              result_offset_after_shift);
+    }
+    return output;
   }
 
   const OutputStage& output_stage;
 };
 
 // Implementation of OutputStageSaturatingCastToUint8 for scalar data
-template <>
-struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
-                           FragmentInt32x1x1> {
-  typedef FragmentInt32x1x1 InputType;
-  typedef FragmentUint8x1x1 OutputType;
+template <int Size>
+struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
+                                 RegisterBuffer<std::int32_t, Size>> {
+  typedef RegisterBuffer<std::int32_t, Size> InputType;
+  typedef RegisterBuffer<std::uint8_t, Size> OutputType;
+  static_assert(InputType::kRegisterLanes == 1,
+                "This path is only for scalar values");
+
   typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-  OutputStageEvalImpl(const OutputStage&) {}
+  OutputStageEvalBufferImpl(const OutputStage&) {}
 
-  OutputType Eval(InputType input, int, int) const {
-    std::int32_t data = input.data;
-    return data > 255 ? 255 : data < 0 ? 0 : data;
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    for (int i = 0; i < InputType::kRegisterCount; i++) {
+      std::int32_t data = input.reg[i];
+      output.reg[i] = data > 255 ? 255 : data < 0 ? 0 : data;
+    }
+    return output;
   }
 };
 
-// Implementation of OutputStageBiasAddition for scalar data
-template <typename VectorType>
+template <int Rows, int Cols, typename VectorType>
 struct OutputStageEvalImpl<OutputStageBiasAddition<VectorType>,
-                           FragmentInt32x1x1> {
-  typedef FragmentInt32x1x1 InputType;
-  typedef FragmentInt32x1x1 OutputType;
+                           RegisterBlock<std::int32_t, Rows, Cols>> {
+  typedef RegisterBlock<std::int32_t, Rows, Cols> InputType;
+  typedef RegisterBlock<std::int32_t, Rows, Cols> OutputType;
   typedef OutputStageBiasAddition<VectorType> OutputStage;
 
   OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
 
   OutputType Eval(InputType input, int row, int col) const {
-    if (VectorType::kShape == VectorShape::Row) {
-      return input + output_stage.bias_vector(col);
-    } else {
-      return input + output_stage.bias_vector(row);
-    }
+    const int pos = VectorType::kShape == VectorShape::Row ? col : row;
+    return BroadcastAdd<InputType>(
+        input, LoadForBroadcasting<InputType>(output_stage.bias_vector, pos));
   }
 
   const OutputStage& output_stage;
 };
 
-// Implementation of OutputStageClamp for scalar data
-template <>
-struct OutputStageEvalImpl<OutputStageClamp, FragmentInt32x1x1> {
-  typedef FragmentInt32x1x1 InputType;
-  typedef FragmentInt32x1x1 OutputType;
+template <int Size>
+struct OutputStageEvalBufferImpl<OutputStageClamp,
+                                 RegisterBuffer<std::int32_t, Size>> {
+  typedef RegisterBuffer<std::int32_t, Size> InputType;
+  typedef RegisterBuffer<std::int32_t, Size> OutputType;
+
   typedef OutputStageClamp OutputStage;
 
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
+  OutputStageEvalBufferImpl(const OutputStage& s) : output_stage(s) {}
 
-  OutputType Eval(InputType input, int, int) const {
-    const std::int32_t min = output_stage.min;
-    const std::int32_t max = output_stage.max;
-    return std::min(std::max(input.data, min), max);
+  OutputType Eval(InputType input) const {
+    using RegisterType = typename InputType::RegisterType;
+    const RegisterType min = Dup<RegisterType>(output_stage.min);
+    const RegisterType max = Dup<RegisterType>(output_stage.max);
+    OutputType output;
+    for (int i = 0; i < InputType::kRegisterCount; i++) {
+      output.reg[i] = Min(Max(input.reg[i], min), max);
+    }
+    return output;
   }
 
   const OutputStage& output_stage;
 };
 
-// Implementation of OutputStageTanh for either scalar or SIMD data
-template <typename tInputType>
-struct OutputStageTanhEvalImpl {
-  typedef tInputType InputType;
-  typedef InputType OutputType;
-  typedef typename InputType::DataType DataType;
+template <int Size>
+struct OutputStageEvalBufferImpl<OutputStageTanh,
+                                 RegisterBuffer<std::int32_t, Size>> {
+  typedef RegisterBuffer<std::int32_t, Size> InputType;
+  typedef RegisterBuffer<std::int32_t, Size> OutputType;
+  using RegisterType = typename InputType::RegisterType;
+  typedef RegisterType DataType;
   typedef OutputStageTanh OutputStage;
 
-  OutputStageTanhEvalImpl(const OutputStage& s) : output_stage(s) {
+  OutputStageEvalBufferImpl(const OutputStage& s) : output_stage(s) {
     const std::int32_t real_zero_as_int32 = output_stage.real_zero_as_int32;
     const std::int32_t real_amplitude_as_int32 =
         output_stage.real_amplitude_as_int32;
@@ -277,36 +249,41 @@ struct OutputStageTanhEvalImpl {
         FixedPoint<DataType, 0>::FromDouble(amplitude_normalized_double);
   }
 
-  OutputType Eval(InputType input, int, int) const {
+  OutputType Eval(InputType input) const {
     const std::int32_t real_zero_as_int32 = output_stage.real_zero_as_int32;
 
     typedef FixedPoint<DataType, 3> F3;
     typedef FixedPoint<DataType, 0> F0;
 
-    // fixed-point affine transformation
-    DataType input_centered =
-        Sub(input.data, Dup<DataType>(real_zero_as_int32));
-    F3 fixedpoint_input =
-        F3::FromRaw(input_centered) * inverse_amplitude_normalized;
-    // left shift
-    fixedpoint_input.raw() =
-        ShiftLeft(fixedpoint_input.raw(), 28 - inverse_amplitude_neg_exponent);
-    // fixed-point tanh and multiplication
-    F0 fixedpoint_output = tanh(fixedpoint_input) * amplitude_normalized;
-    // right shift
-    DataType int32_output =
-        Add(Dup<DataType>(real_zero_as_int32),
-            ShiftRight(fixedpoint_output.raw(), 31 - amplitude_exponent));
+    OutputType output;
 
-    DataType mask_if_below_cutoff_min =
-        MaskIfLessThanOrEqual(input.data, Dup<DataType>(input_cutoff_min));
-    DataType mask_if_above_cutoff_max =
-        MaskIfGreaterThanOrEqual(input.data, Dup<DataType>(input_cutoff_max));
+    for (int i = 0; i < OutputType::kRegisterCount; i++) {
+      // fixed-point affine transformation
+      DataType input_centered =
+          Sub(input.reg[i], Dup<DataType>(real_zero_as_int32));
+      F3 fixedpoint_input =
+          F3::FromRaw(input_centered) * inverse_amplitude_normalized;
+      // left shift
+      fixedpoint_input.raw() = ShiftLeft(fixedpoint_input.raw(),
+                                         28 - inverse_amplitude_neg_exponent);
+      // fixed-point tanh and multiplication
+      F0 fixedpoint_output = tanh(fixedpoint_input) * amplitude_normalized;
+      // right shift
+      DataType int32_output =
+          Add(Dup<DataType>(real_zero_as_int32),
+              ShiftRight(fixedpoint_output.raw(), 31 - amplitude_exponent));
 
-    return SelectUsingMask(
-        mask_if_below_cutoff_min, Dup<DataType>(output_min),
-        SelectUsingMask(mask_if_above_cutoff_max, Dup<DataType>(output_max),
-                        int32_output));
+      DataType mask_if_below_cutoff_min =
+          MaskIfLessThanOrEqual(input.reg[i], Dup<DataType>(input_cutoff_min));
+      DataType mask_if_above_cutoff_max = MaskIfGreaterThanOrEqual(
+          input.reg[i], Dup<DataType>(input_cutoff_max));
+
+      output.reg[i] = SelectUsingMask(
+          mask_if_below_cutoff_min, Dup<DataType>(output_min),
+          SelectUsingMask(mask_if_above_cutoff_max, Dup<DataType>(output_max),
+                          int32_output));
+    }
+    return output;
   }
 
   const OutputStage& output_stage;
@@ -316,13 +293,6 @@ struct OutputStageTanhEvalImpl {
   int inverse_amplitude_neg_exponent;
   FixedPoint<DataType, 0> amplitude_normalized;
   int amplitude_exponent;
-};
-
-template <>
-struct OutputStageEvalImpl<OutputStageTanh, FragmentInt32x1x1>
-    : OutputStageTanhEvalImpl<FragmentInt32x1x1> {
-  OutputStageEvalImpl(const OutputStageTanh& output_stage)
-      : OutputStageTanhEvalImpl(output_stage) {}
 };
 
 // OutputPipelineOutputType is a helper to determine the output data type of a
@@ -393,13 +363,32 @@ struct OutputPipelineEvalImpl<OutputPipelineType, FirstStage, InputType, true> {
   }
 };
 
+template <typename RegisterBlockType, typename DstType>
+struct StoreFinalOutputImpl {
+  static_assert(std::is_same<RegisterBlockType, void>::value,
+                "This generic impl should never be hit");
+};
+
+template <typename ScalarType, int Rows, int Cols, typename DstType>
+struct StoreFinalOutputImpl<RegisterBlock<ScalarType, Rows, Cols>, DstType> {
+  using RegisterBlockType = RegisterBlock<ScalarType, Rows, Cols>;
+  static void Run(const RegisterBlockType& src, DstType* dst, int row,
+                  int col) {
+    for (int r = 0; r < Rows; r++) {
+      for (int c = 0; c < Cols; c++) {
+        *dst->data(row + r, col + c) = src.buf.reg[r + c * Rows];
+      }
+    }
+  }
+};
+
 // StoreFinalOutput takes the final value at the end of the output pipeline and
 // stores it into the destination matrix. It can be specialized for different
 // data types; the generic implementation here is typically used only for plain
 // old scalar (not SIMD) types.
-template <typename OutputType, typename DstType>
-void StoreFinalOutput(OutputType value, DstType* dst, int row, int col) {
-  *dst->data(row, col) = value;
+template <typename RegisterBlockType, typename DstType>
+void StoreFinalOutput(RegisterBlockType src, DstType* dst, int row, int col) {
+  StoreFinalOutputImpl<RegisterBlockType, DstType>::Run(src, dst, row, col);
 }
 
 template <typename OutputPipelineType, typename InputType>
@@ -412,20 +401,23 @@ struct OutputPipelineExecutor {
   // result
   // of the unpack stage and stores it into the destination matrix.
   template <typename DstType>
-  void Execute(InputType input, DstType* dst, int row, int col) {
+  void Execute(InputType input, DstType* dst, int src_global_row,
+               int src_global_col, int dst_row, int dst_col) const {
     // Statically assert that the output pipeline matches the given destination
     // matrix's scalar type.
-    typedef typename OutputPipelineOutputType<OutputPipelineType, 0,
-                                              FragmentInt32x1x1>::Type::DataType
+    typedef typename OutputPipelineOutputType<
+        OutputPipelineType, 0, InputType>::Type::BufferType::ScalarType
+
         ScalarOutputType;
     typedef typename DstType::Scalar ScalarDstType;
     static_assert(std::is_same<ScalarOutputType, ScalarDstType>::value,
                   "mismatched destination scalar type and output pipeline");
 
     // Evaluate the output pipeline.
-    auto output = output_pipeline_eval_impl_.Eval(input, row, col);
+    auto output =
+        output_pipeline_eval_impl_.Eval(input, src_global_row, src_global_col);
     // Store the result into the destination matrix.
-    StoreFinalOutput(output, dst, row, col);
+    StoreFinalOutput(output, dst, dst_row, dst_col);
   }
 
   const OutputPipelineEvalImpl<OutputPipelineType, 0, InputType>
@@ -433,5 +425,11 @@ struct OutputPipelineExecutor {
 };
 
 }  // namespace gemmlowp
+
+#ifdef GEMMLOWP_NEON
+#include "output_neon.h"
+#elif defined(GEMMLOWP_SSE4)
+#include "output_sse.h"
+#endif
 
 #endif  // GEMMLOWP_INTERNAL_OUTPUT_H_
