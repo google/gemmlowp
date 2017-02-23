@@ -1799,6 +1799,9 @@ struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
       "dup v30.4s, wzr\n"
       "dup v31.4s, wzr\n"
 
+      // Initial loads and arithmetic of the first loop iteration,
+      // taken out of the loop so that in the loop itself we have
+      // optimal streaming of data from memory.
       "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
       "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
       "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
@@ -1817,11 +1820,14 @@ struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
       "smull    v14.8h,  v2.8b,  v5.8b\n"
       "smull    v15.8h,  v3.8b,  v5.8b\n"
 
+      // Multiply-accumulate second-half, again into the same
+      // 16bit local accumulator registers. This is where we
+      // take advantage of having int8 instead of uint8 and therefore
+      // being able to accumulate two products into int16.
       "smlal2   v8.8h,  v0.16b,  v4.16b\n"
       "smlal2   v9.8h,  v1.16b,  v4.16b\n"
       "smlal2   v10.8h,  v2.16b,  v4.16b\n"
       "smlal2   v11.8h,  v3.16b,  v4.16b\n"
-
       "smlal2   v12.8h,  v0.16b,  v5.16b\n"
       "smlal2   v13.8h,  v1.16b,  v5.16b\n"
       "smlal2   v14.8h,  v2.16b,  v5.16b\n"
@@ -1829,8 +1835,11 @@ struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
 
       "subs %w[depth], %w[depth], #16\n"
 
+      // If the loop depth is only 16, then we can skip the general loop
+      // and go straight to the final part of the code.
       "beq after_loop_last16_%=\n"
 
+      // General loop.
       "loop_%=:\n"
 
       // Overview of register layout:
@@ -1883,8 +1892,8 @@ struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
       //                                                Accumulator
       //
 
-
-
+      // Some multiplications and 16-bit accumulation were already done above,
+      // so we start right away in the middle.
       "sadalp  v16.4s, v8.8h\n"
       "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
       "smull    v8.8h,  v0.8b,  v6.8b\n"
@@ -1904,6 +1913,10 @@ struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
       "sadalp  v23.4s, v15.8h\n"
       "smull    v15.8h,  v3.8b,  v7.8b\n"
 
+      // Multiply-accumulate second-half, again into the same
+      // 16bit local accumulator registers. This is where we
+      // take advantage of having int8 instead of uint8 and therefore
+      // being able to accumulate two products into int16.
       "smlal2   v8.8h,  v0.16b,  v6.16b\n"
       "smlal2   v9.8h,  v1.16b,  v6.16b\n"
       "smlal2   v10.8h,  v2.16b,  v6.16b\n"
@@ -1939,6 +1952,10 @@ struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
 
       "smull    v15.8h,  v3.8b,  v5.8b\n"
 
+      // Multiply-accumulate second-half, again into the same
+      // 16bit local accumulator registers. This is where we
+      // take advantage of having int8 instead of uint8 and therefore
+      // being able to accumulate two products into int16.
       "smlal2   v8.8h,  v0.16b,  v4.16b\n"
       "smlal2   v9.8h,  v1.16b,  v4.16b\n"
       "smlal2   v10.8h,  v2.16b,  v4.16b\n"
@@ -1956,8 +1973,12 @@ struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
 
       "bne loop_%=\n"
 
+      // Final code for the last 16 levels of depth.
+      // There is nothing to load anymore, only some arithmetic to finish.
       "after_loop_last16_%=:\n"
 
+      // Some multiplications and 16-bit accumulation were already done above,
+      // so we start right away in the middle.
       "sadalp  v16.4s, v8.8h\n"
       "smull    v8.8h,  v0.8b,  v6.8b\n"
       "sadalp  v17.4s, v9.8h\n"
@@ -1975,11 +1996,14 @@ struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
       "sadalp  v23.4s, v15.8h\n"
       "smull    v15.8h,  v3.8b,  v7.8b\n"
 
+      // Multiply-accumulate second-half, again into the same
+      // 16bit local accumulator registers. This is where we
+      // take advantage of having int8 instead of uint8 and therefore
+      // being able to accumulate two products into int16.
       "smlal2   v8.8h,  v0.16b,  v6.16b\n"
       "smlal2   v9.8h,  v1.16b,  v6.16b\n"
       "smlal2   v10.8h,  v2.16b,  v6.16b\n"
       "smlal2   v11.8h,  v3.16b,  v6.16b\n"
-
       "smlal2   v12.8h,  v0.16b,  v7.16b\n"
       "smlal2   v13.8h,  v1.16b,  v7.16b\n"
       "smlal2   v14.8h,  v2.16b,  v7.16b\n"
@@ -2003,22 +2027,21 @@ struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
 
       "smull    v15.8h,  v3.8b,  v5.8b\n"
 
+      // Multiply-accumulate second-half, again into the same
+      // 16bit local accumulator registers. This is where we
+      // take advantage of having int8 instead of uint8 and therefore
+      // being able to accumulate two products into int16.
       "smlal2   v8.8h,  v0.16b,  v4.16b\n"
       "smlal2   v9.8h,  v1.16b,  v4.16b\n"
       "smlal2   v10.8h,  v2.16b,  v4.16b\n"
       "smlal2   v11.8h,  v3.16b,  v4.16b\n"
-
-      // Loop. Decrement loop index (depth) by 16, since we just handled
-      // 16 levels of depth.  Do this subs a bit before the end of the loop
-      // for better dispatch on A57.
-      "subs %w[depth], %w[depth], #16\n"
-
       "smlal2   v12.8h,  v0.16b,  v5.16b\n"
       "smlal2   v13.8h,  v1.16b,  v5.16b\n"
       "smlal2   v14.8h,  v2.16b,  v5.16b\n"
       "smlal2   v15.8h,  v3.16b,  v5.16b\n"
 
-      // Reduce aggregators horizontally
+      // Reduce 32bit accumulators horizontally, and load
+      // destination values from memory.
       "addp v0.4s, v16.4s, v20.4s\n"
       "mov x0, %[accum_ptr]\n"
       "addp v1.4s, v24.4s, v28.4s\n"
@@ -2034,16 +2057,21 @@ struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
       "ld1 {v15.16b}, [x0], #16\n"
       "mov x0, %[accum_ptr]\n"
 
+      // Reduce 32bit accumulators horizontally, second pass
+      // (each pass adds pairwise. we need to add 4-wise).
       "addp v8.4s, v0.4s, v1.4s\n"
       "addp v9.4s, v2.4s, v3.4s\n"
       "addp v10.4s, v4.4s, v5.4s\n"
       "addp v11.4s, v6.4s, v7.4s\n"
 
+      // Add horizontally-reduced accumulators into
+      // the values loaded from memory
       "add v12.4s, v12.4s, v8.4s\n"
       "add v13.4s, v13.4s, v9.4s\n"
       "add v14.4s, v14.4s, v10.4s\n"
       "add v15.4s, v15.4s, v11.4s\n"
 
+      // Store back into memory
       "st1 {v12.16b}, [x0], #16\n"
       "st1 {v13.16b}, [x0], #16\n"
       "st1 {v14.16b}, [x0], #16\n"
