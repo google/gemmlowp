@@ -1770,6 +1770,13 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57 {
   }
 };
 
+// Fast kernel operating on int8 operands.
+// It is assumed that one of the two int8 operands only takes values
+// in [-127, 127], while the other may freely range in [-128, 127].
+// The issue with both operands taking the value -128 is that:
+// -128*-128 + -128*-128 == -32768 overflows int16.
+// Every other expression a*b + c*d, for any int8 a,b,c,d, fits in int16
+// range. That is the basic idea of this kernel.
 struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
   typedef std::int8_t OperandType;
   typedef std::int32_t AccumulatorType;
@@ -1949,7 +1956,6 @@ struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
       "sadalp  v30.4s, v14.8h\n"
       "smull    v14.8h,  v2.8b,  v5.8b\n"
       "sadalp  v31.4s, v15.8h\n"
-
       "smull    v15.8h,  v3.8b,  v5.8b\n"
 
       // Multiply-accumulate second-half, again into the same
@@ -2010,40 +2016,18 @@ struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
       "smlal2   v15.8h,  v3.16b,  v7.16b\n"
 
       "sadalp  v24.4s, v8.8h\n"
-      "smull    v8.8h,  v0.8b,  v4.8b\n"
       "sadalp  v25.4s, v9.8h\n"
-      "smull    v9.8h,  v1.8b,  v4.8b\n"
       "sadalp  v26.4s, v10.8h\n"
-      "smull    v10.8h,  v2.8b,  v4.8b\n"
       "sadalp  v27.4s, v11.8h\n"
-      "smull    v11.8h,  v3.8b,  v4.8b\n"
       "sadalp  v28.4s, v12.8h\n"
-      "smull    v12.8h,  v0.8b,  v5.8b\n"
       "sadalp  v29.4s, v13.8h\n"
-      "smull    v13.8h,  v1.8b,  v5.8b\n"
       "sadalp  v30.4s, v14.8h\n"
-      "smull    v14.8h,  v2.8b,  v5.8b\n"
       "sadalp  v31.4s, v15.8h\n"
-
-      "smull    v15.8h,  v3.8b,  v5.8b\n"
-
-      // Multiply-accumulate second-half, again into the same
-      // 16bit local accumulator registers. This is where we
-      // take advantage of having int8 instead of uint8 and therefore
-      // being able to accumulate two products into int16.
-      "smlal2   v8.8h,  v0.16b,  v4.16b\n"
-      "smlal2   v9.8h,  v1.16b,  v4.16b\n"
-      "smlal2   v10.8h,  v2.16b,  v4.16b\n"
-      "smlal2   v11.8h,  v3.16b,  v4.16b\n"
-      "smlal2   v12.8h,  v0.16b,  v5.16b\n"
-      "smlal2   v13.8h,  v1.16b,  v5.16b\n"
-      "smlal2   v14.8h,  v2.16b,  v5.16b\n"
-      "smlal2   v15.8h,  v3.16b,  v5.16b\n"
 
       // Reduce 32bit accumulators horizontally, and load
       // destination values from memory.
-      "addp v0.4s, v16.4s, v20.4s\n"
       "mov x0, %[accum_ptr]\n"
+      "addp v0.4s, v16.4s, v20.4s\n"
       "addp v1.4s, v24.4s, v28.4s\n"
       "ld1 {v12.16b}, [x0], #16\n"
       "addp v2.4s, v17.4s, v21.4s\n"
