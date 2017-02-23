@@ -1770,6 +1770,203 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57 {
   }
 };
 
+
+// Faster kernel by ARM. Not expanding operands before multiplication.
+// Tuned for A57. Compare to NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand
+struct Crazy {
+  typedef std::int8_t OperandType;
+  typedef std::int32_t AccumulatorType;
+  typedef KernelFormat<KernelSideFormat<CellFormat<4, 16, CellOrder::WidthMajor>, 1>,
+                       KernelSideFormat<CellFormat<4, 16, CellOrder::WidthMajor>, 1> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr, AccumulatorType* accum_ptr, int depth) {
+    static const int kLhsWidth = Format::Lhs::kWidth;
+    static const int kRhsWidth = Format::Rhs::kWidth;
+    AccumulatorType rowmajor_accumulator_buffer[kLhsWidth * kRhsWidth];
+    asm volatile(
+      // Clear accumulators
+      "dup v16.4s, wzr\n"
+      "dup v17.4s, wzr\n"
+      "dup v18.4s, wzr\n"
+      "dup v19.4s, wzr\n"
+      "dup v20.4s, wzr\n"
+      "dup v21.4s, wzr\n"
+      "dup v22.4s, wzr\n"
+      "dup v23.4s, wzr\n"
+      "dup v24.4s, wzr\n"
+      "dup v25.4s, wzr\n"
+      "dup v26.4s, wzr\n"
+      "dup v27.4s, wzr\n"
+      "dup v28.4s, wzr\n"
+      "dup v29.4s, wzr\n"
+      "dup v30.4s, wzr\n"
+      "dup v31.4s, wzr\n"
+
+      "loop_%=:\n"
+
+      // Overview of register layout:
+      //
+      // A 4x16 block of Rhs is stored in 8 bit in v0--v3.
+      // A 4x16 block of Lhs is stored in 8 bit in v4--v7.
+      //
+      // A 4x4 block of accumulators is stored in v16-v31 (as 4x32 bit
+      // components which need to be horizontally-added at the end)
+      //
+      // The Lhs vectors are multiplied by the Rhs vectors with a widening
+      // multiply over the 8 first levels of depth, producing int16x8
+      // vectors of products for each position in the accumulator matrix.
+      // Here comes the special trick: since the operands are signed int8,
+      // their range being [ -2^7 , 2^7 ), their products are in range
+      // [ -2^14 , 2^14 - 1 ), meaning that we can add two such values
+      // without any risk of overflowing int16.
+      // We thus proceed with the 8 next levels of depth, multiplying
+      // again Lhs by Rhs, accumulating into this existing int16x8 vector.
+      //
+      // Only then, having processed 16 levels of depth, do we need to
+      // horizontally add these int16x8 accumulators into the final
+      // int32x4 accumulators.
+      //
+      // As we do not have enough registers to store all 16 int16x8
+      // temporary-16bit-accumulators, we have them cycle through v8--v15.
+      //
+      //
+      // Register layout (ignoring the v8--v15 temporary 16bit accumulators):
+      //
+      //                               +--------+--------+--------+--------+
+      //                               |v0.b[0] |v1.b[0] |v2.b[0] |v3.b[0] |
+      //                          Rhs  +--------+--------+--------+--------+
+      //                               |  ...   |  ...   |  ...   |  ...   |
+      //                               +--------+--------+--------+--------|
+      //                               |v0.b[15]|v1.b[15]|v2.b[15]|v3.b[15]|
+      //                               +--------+--------+--------+--------+
+      //
+      //                               |        |        |        |        |
+      //
+      //    Lhs                        |        |        |        |        |
+      //
+      //  +-------+-----+--------+ - - +--------+--------+--------+--------+
+      //  |v4.b[0]| ... |v4.b[15]|     | v16.4s | v17.4s | v18.4s | v19.4s |
+      //  |v5.b[0]| ... |v5.b[15]|     | v20.4s | v21.4s | v22.4s | v23.4s |
+      //  |v6.b[0]| ... |v6.b[15]|     | v24.4s | v25.4s | v26.4s | v27.4s |
+      //  |v7.b[0]| ... |v7.b[15]|     | v28.4s | v29.4s | v30.4s | v31.4s |
+      //  +-------+--------------+ - - +--------+--------+--------+--------+
+      //
+      //                                                Accumulator
+      //
+
+      "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
+      "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
+      "ld1 {v2.16b}, [%[rhs_ptr]], #16\n"
+      "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
+
+      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+      "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+      "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+      "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+
+      "smull    v8.8h,  v0.8b,  v4.8b\n"
+      "smull    v9.8h,  v1.8b,  v4.8b\n"
+      "smull    v10.8h,  v2.8b,  v4.8b\n"
+      "smull    v11.8h,  v3.8b,  v4.8b\n"
+      "smull    v12.8h,  v0.8b,  v5.8b\n"
+      "smull    v13.8h,  v1.8b,  v5.8b\n"
+      "smull    v14.8h,  v2.8b,  v5.8b\n"
+      "smull    v15.8h,  v3.8b,  v5.8b\n"
+
+      "smlal2   v8.8h,  v0.16b,  v4.16b\n"
+      "smlal2   v9.8h,  v1.16b,  v4.16b\n"
+      "smlal2   v10.8h,  v2.16b,  v4.16b\n"
+      "smlal2   v11.8h,  v3.16b,  v4.16b\n"
+      "smlal2   v12.8h,  v0.16b,  v5.16b\n"
+      "smlal2   v13.8h,  v1.16b,  v5.16b\n"
+      "smlal2   v14.8h,  v2.16b,  v5.16b\n"
+      "smlal2   v15.8h,  v3.16b,  v5.16b\n"
+
+      "sadalp  v16.4s, v8.8h\n"
+      "sadalp  v17.4s, v9.8h\n"
+      "sadalp  v18.4s, v10.8h\n"
+      "sadalp  v19.4s, v11.8h\n"
+      "sadalp  v20.4s, v12.8h\n"
+      "sadalp  v21.4s, v13.8h\n"
+      "sadalp  v22.4s, v14.8h\n"
+      "sadalp  v23.4s, v15.8h\n"
+
+      "smull    v8.8h,  v0.8b,  v6.8b\n"
+      "smull    v9.8h,  v1.8b,  v6.8b\n"
+      "smull    v10.8h,  v2.8b,  v6.8b\n"
+      "smull    v11.8h,  v3.8b,  v6.8b\n"
+      "smull    v12.8h,  v0.8b,  v7.8b\n"
+      "smull    v13.8h,  v1.8b,  v7.8b\n"
+      "smull    v14.8h,  v2.8b,  v7.8b\n"
+      "smull    v15.8h,  v3.8b,  v7.8b\n"
+
+      "smlal2   v8.8h,  v0.16b,  v6.16b\n"
+      "smlal2   v9.8h,  v1.16b,  v6.16b\n"
+      "smlal2   v10.8h,  v2.16b,  v6.16b\n"
+      "smlal2   v11.8h,  v3.16b,  v6.16b\n"
+      "smlal2   v12.8h,  v0.16b,  v7.16b\n"
+      "smlal2   v13.8h,  v1.16b,  v7.16b\n"
+      "smlal2   v14.8h,  v2.16b,  v7.16b\n"
+      "smlal2   v15.8h,  v3.16b,  v7.16b\n"
+
+      "sadalp  v24.4s, v8.8h\n"
+      "sadalp  v25.4s, v9.8h\n"
+      "sadalp  v26.4s, v10.8h\n"
+      "sadalp  v27.4s, v11.8h\n"
+      "sadalp  v28.4s, v12.8h\n"
+      "sadalp  v29.4s, v13.8h\n"
+      "sadalp  v30.4s, v14.8h\n"
+      "sadalp  v31.4s, v15.8h\n"
+
+      // Loop. Decrement loop index (depth) by 16, since we just handled
+      // 16 levels of depth.  Do this subs a bit before the end of the loop
+      // for better dispatch on A57.
+      "subs %w[depth], %w[depth], #16\n"
+
+      "bne loop_%=\n"
+
+      // Reduce aggregators horizontally
+      "addp v0.4s, v16.4s, v17.4s\n"
+      "addp v1.4s, v18.4s, v19.4s\n"
+      "addp v2.4s, v20.4s, v21.4s\n"
+      "addp v3.4s, v22.4s, v23.4s\n"
+      "addp v4.4s, v24.4s, v25.4s\n"
+      "addp v5.4s, v26.4s, v27.4s\n"
+      "addp v6.4s, v28.4s, v29.4s\n"
+      "addp v7.4s, v30.4s, v31.4s\n"
+
+      "addp v8.4s, v0.4s, v1.4s\n"
+      "addp v9.4s, v2.4s, v3.4s\n"
+      "addp v10.4s, v4.4s, v5.4s\n"
+      "addp v11.4s, v6.4s, v7.4s\n"
+
+      "mov x0, %[rowmajor_accumulator_buffer]\n"
+      "st1 {v8.16b}, [x0], #16\n"
+      "st1 {v9.16b}, [x0], #16\n"
+      "st1 {v10.16b}, [x0], #16\n"
+      "st1 {v11.16b}, [x0], #16\n"
+      :  // outputs
+      [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+      [depth] "+r"(depth)
+      :  // inputs
+      [rowmajor_accumulator_buffer] "r"(rowmajor_accumulator_buffer)
+      :  // clobbers
+      "cc", "memory", "x0", "v0", "v1", "v2", "v3", "v4", "v5", "v6",
+      "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16",
+      "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26",
+      "v27", "v28", "v29", "v30", "v31");
+
+    // accumulate row-major accumulators into global (column-major) accumulators
+    for (int l = 0; l < kLhsWidth; l++) {
+      for (int r = 0; r < kRhsWidth; r++) {
+        accum_ptr[l + kLhsWidth * r] +=
+            rowmajor_accumulator_buffer[r + l * kRhsWidth];
+      }
+    }
+  }
+};
+
+
 // We don't actually use int32*int32 in production. This is just an
 // experiment to help dissociate the effect of integer-vs-float, from the
 // effect of operands width.
@@ -2605,7 +2802,7 @@ void test_kernel(int depth, const char* kernel_name)
             "at l = " << l << ", r = " << r << std::endl;
         std::cerr << "reference value: " << accum_reference.data()[index] << std::endl;
         std::cerr << "actual value:    " << accum.data()[index] << std::endl;
-        if (depth <= 8) {
+        if (depth <= 16) {
           std::cerr << "LHS matrix:" << std::endl;
           PrintMatrix(kLhsWidth, depth, 1, kLhsWidth, lhs.data());
           std::cerr << "RHS matrix:" << std::endl;
@@ -2796,6 +2993,7 @@ int main() {
 
 #ifdef __aarch64__
   std::cout << "CPU architecture: ARM 64bit" << std::endl;
+  BENCHMARK(Crazy);
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators);
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57);
   BENCHMARK(NEON_64bit_GEMM_Int32_WithScalar);
