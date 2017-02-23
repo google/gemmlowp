@@ -1812,6 +1812,25 @@ struct Crazy {
       "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
       "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
 
+      "smull    v8.8h,  v0.8b,  v4.8b\n"
+      "smull    v9.8h,  v1.8b,  v4.8b\n"
+      "smull    v10.8h,  v2.8b,  v4.8b\n"
+      "smull    v11.8h,  v3.8b,  v4.8b\n"
+      "smull    v12.8h,  v0.8b,  v5.8b\n"
+      "smull    v13.8h,  v1.8b,  v5.8b\n"
+      "smull    v14.8h,  v2.8b,  v5.8b\n"
+      "smull    v15.8h,  v3.8b,  v5.8b\n"
+
+      "smlal2   v8.8h,  v0.16b,  v4.16b\n"
+      "smlal2   v9.8h,  v1.16b,  v4.16b\n"
+      "smlal2   v10.8h,  v2.16b,  v4.16b\n"
+      "smlal2   v11.8h,  v3.16b,  v4.16b\n"
+
+      "smlal2   v12.8h,  v0.16b,  v5.16b\n"
+      "smlal2   v13.8h,  v1.16b,  v5.16b\n"
+      "smlal2   v14.8h,  v2.16b,  v5.16b\n"
+      "smlal2   v15.8h,  v3.16b,  v5.16b\n"
+
       "loop_%=:\n"
 
       // Overview of register layout:
@@ -1864,45 +1883,25 @@ struct Crazy {
       //                                                Accumulator
       //
 
-      "smull    v8.8h,  v0.8b,  v4.8b\n"
-      "smull    v9.8h,  v1.8b,  v4.8b\n"
-      "smull    v10.8h,  v2.8b,  v4.8b\n"
-      "smull    v11.8h,  v3.8b,  v4.8b\n"
-      "smull    v12.8h,  v0.8b,  v5.8b\n"
-      "smull    v13.8h,  v1.8b,  v5.8b\n"
-      "smull    v14.8h,  v2.8b,  v5.8b\n"
-      "smull    v15.8h,  v3.8b,  v5.8b\n"
 
-      "smlal2   v8.8h,  v0.16b,  v4.16b\n"
-      "smlal2   v9.8h,  v1.16b,  v4.16b\n"
-      "smlal2   v10.8h,  v2.16b,  v4.16b\n"
-      "smlal2   v11.8h,  v3.16b,  v4.16b\n"
-
-      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
-
-      "smlal2   v12.8h,  v0.16b,  v5.16b\n"
-      "smlal2   v13.8h,  v1.16b,  v5.16b\n"
-      "smlal2   v14.8h,  v2.16b,  v5.16b\n"
-      "smlal2   v15.8h,  v3.16b,  v5.16b\n"
-
-      "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
 
       "sadalp  v16.4s, v8.8h\n"
-      "sadalp  v17.4s, v9.8h\n"
-      "sadalp  v18.4s, v10.8h\n"
-      "sadalp  v19.4s, v11.8h\n"
-      "sadalp  v20.4s, v12.8h\n"
-      "sadalp  v21.4s, v13.8h\n"
-      "sadalp  v22.4s, v14.8h\n"
-      "sadalp  v23.4s, v15.8h\n"
-
+      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
       "smull    v8.8h,  v0.8b,  v6.8b\n"
+      "sadalp  v17.4s, v9.8h\n"
+      "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
       "smull    v9.8h,  v1.8b,  v6.8b\n"
+      "sadalp  v18.4s, v10.8h\n"
       "smull    v10.8h,  v2.8b,  v6.8b\n"
+      "sadalp  v19.4s, v11.8h\n"
       "smull    v11.8h,  v3.8b,  v6.8b\n"
+      "sadalp  v20.4s, v12.8h\n"
       "smull    v12.8h,  v0.8b,  v7.8b\n"
+      "sadalp  v21.4s, v13.8h\n"
       "smull    v13.8h,  v1.8b,  v7.8b\n"
+      "sadalp  v22.4s, v14.8h\n"
       "smull    v14.8h,  v2.8b,  v7.8b\n"
+      "sadalp  v23.4s, v15.8h\n"
       "smull    v15.8h,  v3.8b,  v7.8b\n"
 
       "smlal2   v8.8h,  v0.16b,  v6.16b\n"
@@ -1921,21 +1920,39 @@ struct Crazy {
       "smlal2   v15.8h,  v3.16b,  v7.16b\n"
       "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
 
-      "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
-
       "sadalp  v24.4s, v8.8h\n"
+      "smull    v8.8h,  v0.8b,  v4.8b\n"
       "sadalp  v25.4s, v9.8h\n"
+      "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+      "smull    v9.8h,  v1.8b,  v4.8b\n"
       "sadalp  v26.4s, v10.8h\n"
+      "smull    v10.8h,  v2.8b,  v4.8b\n"
       "sadalp  v27.4s, v11.8h\n"
+      "smull    v11.8h,  v3.8b,  v4.8b\n"
       "sadalp  v28.4s, v12.8h\n"
+      "smull    v12.8h,  v0.8b,  v5.8b\n"
       "sadalp  v29.4s, v13.8h\n"
+      "smull    v13.8h,  v1.8b,  v5.8b\n"
       "sadalp  v30.4s, v14.8h\n"
+      "smull    v14.8h,  v2.8b,  v5.8b\n"
       "sadalp  v31.4s, v15.8h\n"
+
+      "smull    v15.8h,  v3.8b,  v5.8b\n"
+
+      "smlal2   v8.8h,  v0.16b,  v4.16b\n"
+      "smlal2   v9.8h,  v1.16b,  v4.16b\n"
+      "smlal2   v10.8h,  v2.16b,  v4.16b\n"
+      "smlal2   v11.8h,  v3.16b,  v4.16b\n"
 
       // Loop. Decrement loop index (depth) by 16, since we just handled
       // 16 levels of depth.  Do this subs a bit before the end of the loop
       // for better dispatch on A57.
       "subs %w[depth], %w[depth], #16\n"
+
+      "smlal2   v12.8h,  v0.16b,  v5.16b\n"
+      "smlal2   v13.8h,  v1.16b,  v5.16b\n"
+      "smlal2   v14.8h,  v2.16b,  v5.16b\n"
+      "smlal2   v15.8h,  v3.16b,  v5.16b\n"
 
       "bne loop_%=\n"
 
