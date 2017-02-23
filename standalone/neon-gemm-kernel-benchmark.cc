@@ -1802,6 +1802,16 @@ struct Crazy {
       "dup v30.4s, wzr\n"
       "dup v31.4s, wzr\n"
 
+      "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
+      "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
+      "ld1 {v2.16b}, [%[rhs_ptr]], #16\n"
+      "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
+
+      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+      "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+      "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+      "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+
       "loop_%=:\n"
 
       // Overview of register layout:
@@ -1854,16 +1864,6 @@ struct Crazy {
       //                                                Accumulator
       //
 
-      "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
-      "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
-      "ld1 {v2.16b}, [%[rhs_ptr]], #16\n"
-      "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
-
-      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
-      "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
-      "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
-      "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
-
       "smull    v8.8h,  v0.8b,  v4.8b\n"
       "smull    v9.8h,  v1.8b,  v4.8b\n"
       "smull    v10.8h,  v2.8b,  v4.8b\n"
@@ -1877,10 +1877,15 @@ struct Crazy {
       "smlal2   v9.8h,  v1.16b,  v4.16b\n"
       "smlal2   v10.8h,  v2.16b,  v4.16b\n"
       "smlal2   v11.8h,  v3.16b,  v4.16b\n"
+
+      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+
       "smlal2   v12.8h,  v0.16b,  v5.16b\n"
       "smlal2   v13.8h,  v1.16b,  v5.16b\n"
       "smlal2   v14.8h,  v2.16b,  v5.16b\n"
       "smlal2   v15.8h,  v3.16b,  v5.16b\n"
+
+      "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
 
       "sadalp  v16.4s, v8.8h\n"
       "sadalp  v17.4s, v9.8h\n"
@@ -1904,10 +1909,19 @@ struct Crazy {
       "smlal2   v9.8h,  v1.16b,  v6.16b\n"
       "smlal2   v10.8h,  v2.16b,  v6.16b\n"
       "smlal2   v11.8h,  v3.16b,  v6.16b\n"
+
+      "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+
       "smlal2   v12.8h,  v0.16b,  v7.16b\n"
+      "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
       "smlal2   v13.8h,  v1.16b,  v7.16b\n"
+      "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
       "smlal2   v14.8h,  v2.16b,  v7.16b\n"
+      "ld1 {v2.16b}, [%[rhs_ptr]], #16\n"
       "smlal2   v15.8h,  v3.16b,  v7.16b\n"
+      "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
+
+      "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
 
       "sadalp  v24.4s, v8.8h\n"
       "sadalp  v25.4s, v9.8h\n"
