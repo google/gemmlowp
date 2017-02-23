@@ -1770,9 +1770,6 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57 {
   }
 };
 
-
-// Faster kernel by ARM. Not expanding operands before multiplication.
-// Tuned for A57. Compare to NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand
 struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
   typedef std::int8_t OperandType;
   typedef std::int32_t AccumulatorType;
