@@ -1803,19 +1803,18 @@ struct Crazy {
       "dup v31.4s, wzr\n"
 
       "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
+      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
       "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
+      "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
       "ld1 {v2.16b}, [%[rhs_ptr]], #16\n"
       "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
 
-      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
-      "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
-      "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
-      "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
-
       "smull    v8.8h,  v0.8b,  v4.8b\n"
       "smull    v9.8h,  v1.8b,  v4.8b\n"
+      "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
       "smull    v10.8h,  v2.8b,  v4.8b\n"
       "smull    v11.8h,  v3.8b,  v4.8b\n"
+      "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
       "smull    v12.8h,  v0.8b,  v5.8b\n"
       "smull    v13.8h,  v1.8b,  v5.8b\n"
       "smull    v14.8h,  v2.8b,  v5.8b\n"
@@ -1830,6 +1829,10 @@ struct Crazy {
       "smlal2   v13.8h,  v1.16b,  v5.16b\n"
       "smlal2   v14.8h,  v2.16b,  v5.16b\n"
       "smlal2   v15.8h,  v3.16b,  v5.16b\n"
+
+      "subs %w[depth], %w[depth], #16\n"
+
+      "beq after_loop_last16_%=\n"
 
       "loop_%=:\n"
 
@@ -1956,44 +1959,108 @@ struct Crazy {
 
       "bne loop_%=\n"
 
+      "after_loop_last16_%=:\n"
+
+      "sadalp  v16.4s, v8.8h\n"
+      "smull    v8.8h,  v0.8b,  v6.8b\n"
+      "sadalp  v17.4s, v9.8h\n"
+      "smull    v9.8h,  v1.8b,  v6.8b\n"
+      "sadalp  v18.4s, v10.8h\n"
+      "smull    v10.8h,  v2.8b,  v6.8b\n"
+      "sadalp  v19.4s, v11.8h\n"
+      "smull    v11.8h,  v3.8b,  v6.8b\n"
+      "sadalp  v20.4s, v12.8h\n"
+      "smull    v12.8h,  v0.8b,  v7.8b\n"
+      "sadalp  v21.4s, v13.8h\n"
+      "smull    v13.8h,  v1.8b,  v7.8b\n"
+      "sadalp  v22.4s, v14.8h\n"
+      "smull    v14.8h,  v2.8b,  v7.8b\n"
+      "sadalp  v23.4s, v15.8h\n"
+      "smull    v15.8h,  v3.8b,  v7.8b\n"
+
+      "smlal2   v8.8h,  v0.16b,  v6.16b\n"
+      "smlal2   v9.8h,  v1.16b,  v6.16b\n"
+      "smlal2   v10.8h,  v2.16b,  v6.16b\n"
+      "smlal2   v11.8h,  v3.16b,  v6.16b\n"
+
+      "smlal2   v12.8h,  v0.16b,  v7.16b\n"
+      "smlal2   v13.8h,  v1.16b,  v7.16b\n"
+      "smlal2   v14.8h,  v2.16b,  v7.16b\n"
+      "smlal2   v15.8h,  v3.16b,  v7.16b\n"
+
+      "sadalp  v24.4s, v8.8h\n"
+      "smull    v8.8h,  v0.8b,  v4.8b\n"
+      "sadalp  v25.4s, v9.8h\n"
+      "smull    v9.8h,  v1.8b,  v4.8b\n"
+      "sadalp  v26.4s, v10.8h\n"
+      "smull    v10.8h,  v2.8b,  v4.8b\n"
+      "sadalp  v27.4s, v11.8h\n"
+      "smull    v11.8h,  v3.8b,  v4.8b\n"
+      "sadalp  v28.4s, v12.8h\n"
+      "smull    v12.8h,  v0.8b,  v5.8b\n"
+      "sadalp  v29.4s, v13.8h\n"
+      "smull    v13.8h,  v1.8b,  v5.8b\n"
+      "sadalp  v30.4s, v14.8h\n"
+      "smull    v14.8h,  v2.8b,  v5.8b\n"
+      "sadalp  v31.4s, v15.8h\n"
+
+      "smull    v15.8h,  v3.8b,  v5.8b\n"
+
+      "smlal2   v8.8h,  v0.16b,  v4.16b\n"
+      "smlal2   v9.8h,  v1.16b,  v4.16b\n"
+      "smlal2   v10.8h,  v2.16b,  v4.16b\n"
+      "smlal2   v11.8h,  v3.16b,  v4.16b\n"
+
+      // Loop. Decrement loop index (depth) by 16, since we just handled
+      // 16 levels of depth.  Do this subs a bit before the end of the loop
+      // for better dispatch on A57.
+      "subs %w[depth], %w[depth], #16\n"
+
+      "smlal2   v12.8h,  v0.16b,  v5.16b\n"
+      "smlal2   v13.8h,  v1.16b,  v5.16b\n"
+      "smlal2   v14.8h,  v2.16b,  v5.16b\n"
+      "smlal2   v15.8h,  v3.16b,  v5.16b\n"
+
       // Reduce aggregators horizontally
-      "addp v0.4s, v16.4s, v17.4s\n"
-      "addp v1.4s, v18.4s, v19.4s\n"
-      "addp v2.4s, v20.4s, v21.4s\n"
-      "addp v3.4s, v22.4s, v23.4s\n"
-      "addp v4.4s, v24.4s, v25.4s\n"
-      "addp v5.4s, v26.4s, v27.4s\n"
-      "addp v6.4s, v28.4s, v29.4s\n"
-      "addp v7.4s, v30.4s, v31.4s\n"
+      "addp v0.4s, v16.4s, v20.4s\n"
+      "mov x0, %[accum_ptr]\n"
+      "addp v1.4s, v24.4s, v28.4s\n"
+      "ld1 {v12.16b}, [x0], #16\n"
+      "addp v2.4s, v17.4s, v21.4s\n"
+      "addp v3.4s, v25.4s, v29.4s\n"
+      "ld1 {v13.16b}, [x0], #16\n"
+      "addp v4.4s, v18.4s, v22.4s\n"
+      "addp v5.4s, v26.4s, v30.4s\n"
+      "ld1 {v14.16b}, [x0], #16\n"
+      "addp v6.4s, v19.4s, v23.4s\n"
+      "addp v7.4s, v27.4s, v31.4s\n"
+      "ld1 {v15.16b}, [x0], #16\n"
+      "mov x0, %[accum_ptr]\n"
 
       "addp v8.4s, v0.4s, v1.4s\n"
       "addp v9.4s, v2.4s, v3.4s\n"
       "addp v10.4s, v4.4s, v5.4s\n"
       "addp v11.4s, v6.4s, v7.4s\n"
 
-      "mov x0, %[rowmajor_accumulator_buffer]\n"
-      "st1 {v8.16b}, [x0], #16\n"
-      "st1 {v9.16b}, [x0], #16\n"
-      "st1 {v10.16b}, [x0], #16\n"
-      "st1 {v11.16b}, [x0], #16\n"
+      "add v12.4s, v12.4s, v8.4s\n"
+      "add v13.4s, v13.4s, v9.4s\n"
+      "add v14.4s, v14.4s, v10.4s\n"
+      "add v15.4s, v15.4s, v11.4s\n"
+
+      "st1 {v12.16b}, [x0], #16\n"
+      "st1 {v13.16b}, [x0], #16\n"
+      "st1 {v14.16b}, [x0], #16\n"
+      "st1 {v15.16b}, [x0], #16\n"
       :  // outputs
       [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
       [depth] "+r"(depth)
       :  // inputs
-      [rowmajor_accumulator_buffer] "r"(rowmajor_accumulator_buffer)
+      [accum_ptr] "r"(accum_ptr)
       :  // clobbers
       "cc", "memory", "x0", "v0", "v1", "v2", "v3", "v4", "v5", "v6",
       "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16",
       "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26",
       "v27", "v28", "v29", "v30", "v31");
-
-    // accumulate row-major accumulators into global (column-major) accumulators
-    for (int l = 0; l < kLhsWidth; l++) {
-      for (int r = 0; r < kRhsWidth; r++) {
-        accum_ptr[l + kLhsWidth * r] +=
-            rowmajor_accumulator_buffer[r + l * kRhsWidth];
-      }
-    }
   }
 };
 
