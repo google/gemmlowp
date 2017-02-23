@@ -27,12 +27,12 @@
 
 /*
 Build and run this benchmark on Android/ARM/32bit:
-export CXX=~/android/toolchains/arm-linux-androideabi-4.8/bin/arm-linux-androideabi-g++
-$CXX -fPIE -pie -O3 --std=c++11 neon-gemm-kernel-benchmark.cc -o benchmark -mfloat-abi=softfp -mfpu=neon && adb push benchmark /data/local/tmp && adb shell /data/local/tmp/benchmark
+export CXX=~/android/toolchains/arm-linux-androideabi/bin/arm-linux-androideabi-clang++
+$CXX -fPIE -static -O3 --std=c++11 neon-gemm-kernel-benchmark.cc -o benchmark -mfloat-abi=softfp -mfpu=neon-vfpv4 && adb push benchmark /data/local/tmp && adb shell /data/local/tmp/benchmark
 
 Build and run this benchmark on Android/ARM/64bit:
-export CXX=~/android/toolchains/aarch64-linux-android-4.9/bin/aarch64-linux-android-g++
-$CXX -fPIE -pie -O3 --std=c++11 neon-gemm-kernel-benchmark.cc -o benchmark && adb push benchmark /data/local/tmp && adb shell /data/local/tmp/benchmark
+export CXX=~/android/toolchains/aarch64-linux-android/bin/aarch64-linux-android-clang++
+$CXX -fPIE -static -O3 --std=c++11 neon-gemm-kernel-benchmark.cc -o benchmark && adb push benchmark /data/local/tmp && adb shell /data/local/tmp/benchmark
 */
 
 #include <sched.h>
@@ -1484,7 +1484,7 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators {
 
       // Loop. Decrement loop index (depth) by 2, since we just handled 2
       // levels of depth.
-      "subs %[depth], %[depth], #2\n"
+      "subs %w[depth], %w[depth], #2\n"
       "bne loop_%=\n"
 
       // Store accumulators
@@ -1719,7 +1719,7 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57 {
       // Loop. Decrement loop index (depth) by 16, since we just handled
       // 16 levels of depth.  Do this subs a bit before the end of the loop
       // for better dispatch on A57.
-      "subs %[depth], %[depth], #16\n"
+      "subs %w[depth], %w[depth], #16\n"
       "uadalp v30.4s, v8.8h\n"
       "uadalp v31.4s, v9.8h\n"
 
@@ -1847,7 +1847,7 @@ struct NEON_64bit_GEMM_Int32_WithScalar {
 
       // Loop. Decrement loop index (depth) by 1, since we just handled 1
       // level of depth.
-      "subs %[depth], %[depth], #1\n"
+      "subs %w[depth], %w[depth], #1\n"
       "bne loop_%=\n"
 
       // Store accumulators
@@ -1973,7 +1973,7 @@ struct NEON_64bit_GEMM_Float32_WithVectorDuplicatingScalar {
 
       // Loop. Decrement loop index (depth) by 1, since we just handled 1
       // level of depth.
-      "subs %[depth], %[depth], #1\n"
+      "subs %w[depth], %w[depth], #1\n"
       "bne loop_%=\n"
 
       // Store accumulators
@@ -2090,7 +2090,7 @@ struct NEON_64bit_GEMM_Float32_WithScalar {
 
       // Loop. Decrement loop index (depth) by 1, since we just handled 1
       // level of depth.
-      "subs %[depth], %[depth], #1\n"
+      "subs %w[depth], %w[depth], #1\n"
       "bne loop_%=\n"
 
       // Store accumulators
@@ -2209,7 +2209,7 @@ struct NEON_64bit_GEMM_Float32_WithScalar_A57 {
       // Loop. Decrement loop index (depth) by 1, since we just handled
       // 1 level of depth.  Do this a bit before the end of the loop for
       // better dispatch on A57.
-      "subs %[depth], %[depth], #1\n"
+      "subs %w[depth], %w[depth], #1\n"
       "fmla v30.4s, v4.4s, v1.s[2]\n"
       "fmla v31.4s, v4.4s, v1.s[3]\n"
 
@@ -2381,7 +2381,7 @@ struct NEON_64bit_GEMM_Float32_WithScalar_A53 {
       "nop\n"
       "nop\n"
       "fmla v26.4s, v4.4s, v0.s[2]\n"
-      "subs %[depth], %[depth], #1\n"
+      "subs %w[depth], %w[depth], #1\n"
       "fmla v27.4s, v4.4s, v0.s[3]\n"
       "fmla v28.4s, v4.4s, v1.s[0]\n"
 
