@@ -86,9 +86,9 @@ void PrefetchResultBlock(const SrcMapType& src,
   }
 }
 
-template <typename RegisterBlockType, typename SrcMapType, typename LhsOffset,
-          typename RhsOffset, typename OutputPipelineExecutorType,
-          typename DstType>
+template <typename KernelFormat, typename RegisterBlockType,
+          typename SrcMapType, typename LhsOffset, typename RhsOffset,
+          typename OutputPipelineExecutorType, typename DstType>
 void UnpackResultBlock(const SrcMapType& src,
                        const OutputPipelineExecutorType& executor, DstType* dst,
                        const VectorMap<const std::int32_t, VectorShape::Col>&
@@ -98,15 +98,23 @@ void UnpackResultBlock(const SrcMapType& src,
                        const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                        int depth, int src_row, int src_col, int src_global_row,
                        int src_global_col, int dst_row, int dst_col) {
+  using KernelLhsScalar = typename KernelFormat::Lhs::Scalar;
+  using KernelRhsScalar = typename KernelFormat::Rhs::Scalar;
+  static constexpr int KernelLhsZeroPointInput =
+      ZeroPointInputValue<KernelLhsScalar>::kValue;
+  static constexpr int KernelRhsZeroPointInput =
+      ZeroPointInputValue<KernelRhsScalar>::kValue;
   auto acc = Load<RegisterBlockType>(src, src_row, src_col);
   const auto& lhs_sums_of_each_slice_block =
       LoadForBroadcasting<RegisterBlockType>(lhs_sums_of_each_slice, src_row);
   const auto& rhs_sums_of_each_slice_block =
       LoadForBroadcasting<RegisterBlockType>(rhs_sums_of_each_slice, src_col);
-  const auto& lhs_offset_block =
+  auto lhs_offset_block =
       LoadForBroadcasting<RegisterBlockType>(lhs_offset, src_row);
   auto rhs_offset_block =
       LoadForBroadcasting<RegisterBlockType>(rhs_offset, src_col);
+  AddConstant<KernelLhsZeroPointInput>(&lhs_offset_block);
+  AddConstant<KernelRhsZeroPointInput>(&rhs_offset_block);
   BroadcastMulAdd(lhs_sums_of_each_slice_block, rhs_offset_block, &acc);
   for (int i = 0; i < decltype(rhs_offset_block)::kRegisterCount; i++) {
     rhs_offset_block.buf.reg[i] = Mul(rhs_offset_block.buf.reg[i], depth);
@@ -116,8 +124,9 @@ void UnpackResultBlock(const SrcMapType& src,
   executor.Execute(acc, dst, src_global_row, src_global_col, dst_row, dst_col);
 }
 
-template <typename ResultBlockType, typename PackedResultType,
-          typename LhsOffset, typename RhsOffset, typename OutputPipelineType>
+template <typename KernelFormat, typename ResultBlockType,
+          typename PackedResultType, typename LhsOffset, typename RhsOffset,
+          typename OutputPipelineType>
 void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
                   const PackedResultType& src, int depth,
                   const std::int32_t* lhs_sums_of_each_slice_ptr,
@@ -173,7 +182,7 @@ void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
         for (int cx = 0; cx < 8; cx += 4) {
           const int c = c8 + cx;
           const int global_col = c + dst_block.start_col;
-          UnpackResultBlock<Int32x8x4>(
+          UnpackResultBlock<KernelFormat, Int32x8x4>(
               src_map, output_pipeline_executor_8x4, &dst_colmajor_map,
               lhs_sums_of_each_slice, rhs_sums_of_each_slice, lhs_offset,
               rhs_offset, depth, r, c, global_row, global_col, 0, cx);
@@ -186,11 +195,11 @@ void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
         for (int cx = 0; cx < 8; cx += 4) {
           const int c = c8 + cx;
           const int global_col = c + dst_block.start_col;
-          UnpackResultBlock<Int32x4x4>(src_map, output_pipeline_executor_4x4,
-                                       dst, lhs_sums_of_each_slice,
-                                       rhs_sums_of_each_slice, lhs_offset,
-                                       rhs_offset, depth, r, c, global_row,
-                                       global_col, global_row, global_col);
+          UnpackResultBlock<KernelFormat, Int32x4x4>(
+              src_map, output_pipeline_executor_4x4, dst,
+              lhs_sums_of_each_slice, rhs_sums_of_each_slice, lhs_offset,
+              rhs_offset, depth, r, c, global_row, global_col, global_row,
+              global_col);
         }
       }
       for (; r < dst_block.rows; r++) {
@@ -198,11 +207,11 @@ void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
         for (int cx = 0; cx < 8; cx += 4) {
           const int c = c8 + cx;
           const int global_col = c + dst_block.start_col;
-          UnpackResultBlock<Int32x1x4>(src_map, output_pipeline_executor_1x4,
-                                       dst, lhs_sums_of_each_slice,
-                                       rhs_sums_of_each_slice, lhs_offset,
-                                       rhs_offset, depth, r, c, global_row,
-                                       global_col, global_row, global_col);
+          UnpackResultBlock<KernelFormat, Int32x1x4>(
+              src_map, output_pipeline_executor_1x4, dst,
+              lhs_sums_of_each_slice, rhs_sums_of_each_slice, lhs_offset,
+              rhs_offset, depth, r, c, global_row, global_col, global_row,
+              global_col);
         }
       }
     }
@@ -215,21 +224,21 @@ void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
     for (; r <= dst_block.rows - 8; r += 8) {
       const int global_row = r + dst_block.start_row;
       PrefetchResultBlock<8, 4>(src_map, lhs_sums_of_each_slice, r + 8, c);
-      UnpackResultBlock<Int32x8x4>(
+      UnpackResultBlock<KernelFormat, Int32x8x4>(
           src_map, output_pipeline_executor_8x4, dst, lhs_sums_of_each_slice,
           rhs_sums_of_each_slice, lhs_offset, rhs_offset, depth, r, c,
           global_row, global_col, global_row, global_col);
     }
     for (; r <= dst_block.rows - 4; r += 4) {
       const int global_row = r + dst_block.start_row;
-      UnpackResultBlock<Int32x4x4>(
+      UnpackResultBlock<KernelFormat, Int32x4x4>(
           src_map, output_pipeline_executor_4x4, dst, lhs_sums_of_each_slice,
           rhs_sums_of_each_slice, lhs_offset, rhs_offset, depth, r, c,
           global_row, global_col, global_row, global_col);
     }
     for (; r < dst_block.rows; r++) {
       const int global_row = r + dst_block.start_row;
-      UnpackResultBlock<Int32x1x4>(
+      UnpackResultBlock<KernelFormat, Int32x1x4>(
           src_map, output_pipeline_executor_1x4, dst, lhs_sums_of_each_slice,
           rhs_sums_of_each_slice, lhs_offset, rhs_offset, depth, r, c,
           global_row, global_col, global_row, global_col);
@@ -242,21 +251,21 @@ void UnpackResult(ResultBlockType* dst, const MatrixBlockBounds& dst_block,
     for (; r <= dst_block.rows - 8; r += 8) {
       const int global_row = r + dst_block.start_row;
       PrefetchResultBlock<8, 1>(src_map, lhs_sums_of_each_slice, r + 8, c);
-      UnpackResultBlock<Int32x8x1>(
+      UnpackResultBlock<KernelFormat, Int32x8x1>(
           src_map, output_pipeline_executor_8x1, dst, lhs_sums_of_each_slice,
           rhs_sums_of_each_slice, lhs_offset, rhs_offset, depth, r, c,
           global_row, global_col, global_row, global_col);
     }
     for (; r <= dst_block.rows - 4; r += 4) {
       const int global_row = r + dst_block.start_row;
-      UnpackResultBlock<Int32x4x1>(
+      UnpackResultBlock<KernelFormat, Int32x4x1>(
           src_map, output_pipeline_executor_4x1, dst, lhs_sums_of_each_slice,
           rhs_sums_of_each_slice, lhs_offset, rhs_offset, depth, r, c,
           global_row, global_col, global_row, global_col);
     }
     for (; r < dst_block.rows; r++) {
       const int global_row = r + dst_block.start_row;
-      UnpackResultBlock<Int32x1x1>(
+      UnpackResultBlock<KernelFormat, Int32x1x1>(
           src_map, output_pipeline_executor_1x1, dst, lhs_sums_of_each_slice,
           rhs_sums_of_each_slice, lhs_offset, rhs_offset, depth, r, c,
           global_row, global_col, global_row, global_col);

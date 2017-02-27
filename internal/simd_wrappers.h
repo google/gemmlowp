@@ -465,6 +465,29 @@ LoadForBroadcasting(const SrcObjectType& src, int pos) {
                                                                         pos);
 }
 
+template <int ConstantValue, typename RegisterBlockType>
+struct AddConstantImpl {
+  static void Run(RegisterBlockType* block) {
+    using RegisterType = typename RegisterBlockType::RegisterType;
+    const RegisterType dup = Dup<RegisterType>(ConstantValue);
+    for (int i = 0; i < RegisterBlockType::kRegisterCount; i++) {
+      block->buf.reg[i] = Add(block->buf.reg[i], dup);
+    }
+  }
+};
+
+template <typename RegisterBlockType>
+struct AddConstantImpl<0, RegisterBlockType> {
+  static void Run(RegisterBlockType*) {
+    // This is a no-op.
+  }
+};
+
+template <int ConstantValue, typename RegisterBlockType>
+void AddConstant(RegisterBlockType* block) {
+  AddConstantImpl<ConstantValue, RegisterBlockType>::Run(block);
+}
+
 template <int N>
 using RegBufferInt32 = RegisterBuffer<std::int32_t, N>;
 template <int N>

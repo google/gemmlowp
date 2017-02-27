@@ -502,11 +502,12 @@ void test_gemm(typename GemmWrapper::Context* context, int rows, int depth,
                int cols, WhatParamsToTest params_to_test) {
   typedef std::uint8_t Scalar;
   typedef Matrix<Scalar, LhsOrder> LhsType;
+  using BitDepthParams = typename GemmWrapper::BitDepthParams;
   LhsType lhs(rows, depth);
-  MakeRandom(&lhs, 8);
+  MakeRandom<typename BitDepthParams::LhsRange>(&lhs);
   typedef Matrix<Scalar, RhsOrder> RhsType;
   RhsType rhs(depth, cols);
-  MakeRandom(&rhs, 8);
+  MakeRandom<typename BitDepthParams::RhsRange>(&rhs);
   typedef Matrix<Scalar, ResultOrder> ResultType;
   ResultType result(rows, cols);
   MakeZero(&result);
@@ -1189,14 +1190,14 @@ void TestWithRealData(eight_bit_int_gemm::BitDepthSetting BitDepth,
   Check(good);
 }
 
-template <MapOrder ResultOrder>
+template <typename BitDepthParams, MapOrder ResultOrder>
 void TestOutputStages(int rows, int depth, int cols, int result_offset,
                       int result_mult_int, int result_shift) {
   Matrix<std::uint8_t, MapOrder::RowMajor> lhs(rows, depth);
   Matrix<std::uint8_t, MapOrder::ColMajor> rhs(depth, cols);
   Matrix<std::int32_t, ResultOrder> result_raw_int32(rows, cols);
-  MakeRandom(&lhs, 8);
-  MakeRandom(&rhs, 8);
+  MakeRandom<typename BitDepthParams::LhsRange>(&lhs);
+  MakeRandom<typename BitDepthParams::RhsRange>(&rhs);
   const int lhs_offset = 12;
   const int rhs_offset = -34;
 
@@ -1271,8 +1272,10 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
 
   // Test a bias-addition with row-vector
   std::vector<std::int32_t> row_vector_data(cols);
+  std::uniform_int_distribution<std::int32_t> uniform_minus_500_plus_500(-500,
+                                                                         500);
   for (int i = 0; i < cols; i++) {
-    row_vector_data[i] = (Random() % 1000) - 500;
+    row_vector_data[i] = uniform_minus_500_plus_500(RandomEngine());
   }
   typedef VectorMap<std::int32_t, VectorShape::Row> RowVectorMap;
   RowVectorMap row_vector_map(row_vector_data.data(), cols);
@@ -1293,7 +1296,7 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
   // Test a bias-addition with column-vector
   std::vector<std::int32_t> col_vector_data(rows);
   for (int i = 0; i < rows; i++) {
-    col_vector_data[i] = (Random() % 1000) - 500;
+    col_vector_data[i] = uniform_minus_500_plus_500(RandomEngine());
   }
   typedef VectorMap<std::int32_t, VectorShape::Col> ColVectorMap;
   ColVectorMap col_vector_map(col_vector_data.data(), rows);
@@ -1479,57 +1482,45 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
 }
 
 #ifndef GEMMLOWP_SKIP_EXHAUSTIVE_TESTS
+template <typename BitDepthParams>
 void TestExhaustively() {
   GemmContext context;
 
   // Test the internal GEMM interfaces
-  test_gemm<SingleThreadGemmWrapper<
-      DefaultKernel<KernelFamily::Gemm, DefaultL8R8BitDepthParams>,
-      std::uint8_t, DefaultL8R8BitDepthParams>>(&context);
+  test_gemm<
+      SingleThreadGemmWrapper<DefaultKernel<KernelFamily::Gemm, BitDepthParams>,
+                              std::uint8_t, BitDepthParams>>(&context);
 
-  test_gemm<MultiThreadGemmWrapper<
-      DefaultKernel<KernelFamily::Gemm, DefaultL8R8BitDepthParams>,
-      std::uint8_t, DefaultL8R8BitDepthParams>>(&context);
+  test_gemm<
+      MultiThreadGemmWrapper<DefaultKernel<KernelFamily::Gemm, BitDepthParams>,
+                             std::uint8_t, BitDepthParams>>(&context);
 
   // Test the public GEMM interfaces
-  test_gemm<PublicGemmWrapper<std::uint8_t, DefaultL8R8BitDepthParams>>(
-      &context);
-
-  test_gemm<EightBitIntGemmWrapper<std::uint8_t,
-                                   eight_bit_int_gemm::BitDepthSetting::A8B8>>(
-      &context);
+  test_gemm<PublicGemmWrapper<std::uint8_t, BitDepthParams>>(&context);
 
   // Test GEMV cases (internal interfaces)
-  test_gemv<SingleThreadGemmWrapper<
-      DefaultKernel<KernelFamily::Gemv, DefaultL8R8BitDepthParams>,
-      std::uint8_t, DefaultL8R8BitDepthParams>>(&context);
+  test_gemv<
+      SingleThreadGemmWrapper<DefaultKernel<KernelFamily::Gemv, BitDepthParams>,
+                              std::uint8_t, BitDepthParams>>(&context);
 
-  test_gemv<MultiThreadGemmWrapper<
-      DefaultKernel<KernelFamily::Gemv, DefaultL8R8BitDepthParams>,
-      std::uint8_t, DefaultL8R8BitDepthParams>>(&context);
+  test_gemv<
+      MultiThreadGemmWrapper<DefaultKernel<KernelFamily::Gemv, BitDepthParams>,
+                             std::uint8_t, BitDepthParams>>(&context);
 
   // Test GEMV cases (public interfaces)
-  test_gemv<PublicGemmWrapper<std::uint8_t, DefaultL8R8BitDepthParams>>(
-      &context);
+  test_gemv<PublicGemmWrapper<std::uint8_t, BitDepthParams>>(&context);
+}
 
-  test_gemv<EightBitIntGemmWrapper<std::uint8_t,
-                                   eight_bit_int_gemm::BitDepthSetting::A8B8>>(
-      &context);
+template <eight_bit_int_gemm::BitDepthSetting BitDepthSetting>
+void TestExhaustivelyEightBitIntGemm() {
+  GemmContext context;
+  test_gemv<EightBitIntGemmWrapper<std::uint8_t, BitDepthSetting>>(&context);
+  test_gemv<EightBitIntGemmWrapper<std::uint8_t, BitDepthSetting>>(&context);
+  test_gemm<EightBitIntGemmWrapper<std::uint8_t, BitDepthSetting>>(&context);
+}
 
-  // Test other bit depths:
-  // L7R5 (legacy old requantizing path, no longer actually requantizing,
-  // now just an alias for the default 8 bit depth).
-  test_gemm<SingleThreadGemmWrapper<
-      DefaultKernel<KernelFamily::Gemm, DefaultL7R5BitDepthParams>,
-      std::uint8_t, DefaultL7R5BitDepthParams>>(&context);
-
-  test_gemv<SingleThreadGemmWrapper<
-      DefaultKernel<KernelFamily::Gemv, DefaultL7R5BitDepthParams>,
-      std::uint8_t, DefaultL7R5BitDepthParams>>(&context);
-
-  test_gemm<EightBitIntGemmWrapper<std::uint8_t,
-                                   eight_bit_int_gemm::BitDepthSetting::A5B7>>(
-      &context);
+void TestKernels() {
+  GemmContext context;
 
   // Test specific kernels with various different formats,
   // to exercises corner cases especially in the packing code.
@@ -1572,7 +1563,20 @@ void TestExhaustively() {
       KernelSideFormat<CellFormat<1, 4, CellOrder::DepthMajor>, 1>,
       KernelSideFormat<CellFormat<4, 4, CellOrder::Diagonal>, 1>>>>(&context);
 }
+
 #endif  // not GEMMLOWP_SKIP_EXHAUSTIVE_TESTS
+
+template <typename BitDepthParams>
+void TestOutputStages() {
+  // Test non-default output pipelines with various combinations of
+  // output stages.
+  TestOutputStages<BitDepthParams, MapOrder::RowMajor>(63, 10, 127, 5, 17, 14);
+  TestOutputStages<BitDepthParams, MapOrder::ColMajor>(63, 10, 127, 5, 17, 14);
+  TestOutputStages<BitDepthParams, MapOrder::RowMajor>(630, 10, 1270, 5, 17,
+                                                       14);
+  TestOutputStages<BitDepthParams, MapOrder::ColMajor>(630, 10, 1270, 5, 17,
+                                                       14);
+}
 
 void test() {
 #ifdef GEMMLOWP_TEST_PROFILE
@@ -1584,7 +1588,12 @@ void test() {
   TestWithSmallData();
 
 #ifndef GEMMLOWP_SKIP_EXHAUSTIVE_TESTS
-  TestExhaustively();
+  TestExhaustively<DefaultL8R8BitDepthParams>();
+  TestExhaustively<L8R8WithLhsNonzeroBitDepthParams>();
+  TestExhaustively<DefaultL7R5BitDepthParams>();  // legacy, same as L8R8
+  TestExhaustivelyEightBitIntGemm<eight_bit_int_gemm::BitDepthSetting::A8B8>();
+  TestExhaustivelyEightBitIntGemm<eight_bit_int_gemm::BitDepthSetting::A5B7>();
+  TestKernels();
 #endif
 
   // Run against actual data from a network evaluation.
@@ -1593,10 +1602,8 @@ void test() {
 
   // Test non-default output pipelines with various combinations of
   // output stages.
-  TestOutputStages<MapOrder::RowMajor>(63, 10, 127, 5, 17, 14);
-  TestOutputStages<MapOrder::ColMajor>(63, 10, 127, 5, 17, 14);
-  TestOutputStages<MapOrder::RowMajor>(630, 10, 1270, 5, 17, 14);
-  TestOutputStages<MapOrder::ColMajor>(630, 10, 1270, 5, 17, 14);
+  TestOutputStages<DefaultL8R8BitDepthParams>();
+  TestOutputStages<L8R8WithLhsNonzeroBitDepthParams>();
 
   // Test per channel quantization.
   TestWithSmallDataPerChannelQuantization();
