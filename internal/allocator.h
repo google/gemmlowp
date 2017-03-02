@@ -43,12 +43,14 @@
 
 #if defined ANDROID || defined __ANDROID__
 #include <android/api-level.h>
-#if __ANDROID_API__ < 16
+// The 18 here should be 16, but has to be 18 for now due
+// to a Google-internal issue.
+#if __ANDROID_API__ < 18
 #include <malloc.h>
 #define GEMMLOWP_USE_MEMALIGN
 #endif
 // posix_memalign is missing on some 4.1 x86 devices
-#if __ANDROID_API__ == 16
+#if __ANDROID_API__ == 18
 #ifdef GEMMLOWP_X86_32
 #include <malloc.h>
 #define GEMMLOWP_USE_MEMALIGN
