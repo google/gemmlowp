@@ -97,6 +97,7 @@ typedef ReferenceKernel<KernelFormat<
     KernelSideFormat<CellFormat<4, 16, CellOrder::WidthMajor>, 1>,
     KernelSideFormat<CellFormat<4, 16, CellOrder::WidthMajor>, 1> > >
     DefaultReferenceKernel;
+}
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, false, false, DefaultReferenceKernel)
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, false, false, DefaultReferenceKernel)
 #endif
