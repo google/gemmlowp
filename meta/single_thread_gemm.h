@@ -277,7 +277,7 @@ class GemmExecutorPackLHS {
               << k_leftovers << " -- " << params.m << "x" << params.n << "x"
               << params.k << std::endl;
     LeftStreamF::Debug(params.left_stream);
-    LeftStreamL::Debug(params.right_stream);
+    LeftStreamL::Debug(params.left_stream);
 
     RightStreamF::Debug(params.right_stream);
     RightStreamL::Debug(params.right_stream);

@@ -77,10 +77,11 @@ inline void Stream<std::uint8_t, 1, 8, 1, RowMajorWithSum>::Pack(
 #endif
   int params_count_copy = params.count;
   asm volatile(
+      "vmov.i16 q8, #0\n"
 
       // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
-      "vmov.i16 q8, #0\n"
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -91,6 +92,8 @@ inline void Stream<std::uint8_t, 1, 8, 1, RowMajorWithSum>::Pack(
       "vst1.32 {d0}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 1x1.
       "vmov.i8 d0, #0\n"
@@ -127,10 +130,11 @@ inline void Stream<std::uint8_t, 1, 8, 2, RowMajorWithSum>::Pack(
 #endif
   int params_count_copy = params.count;
   asm volatile(
+      "vmov.i16 q8, #0\n"
 
       // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
-      "vmov.i16 q8, #0\n"
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -141,6 +145,8 @@ inline void Stream<std::uint8_t, 1, 8, 2, RowMajorWithSum>::Pack(
       "vst1.32 {d0}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 1x2.
       "vmov.i8 d0, #0\n"
@@ -177,10 +183,11 @@ inline void Stream<std::uint8_t, 1, 8, 3, RowMajorWithSum>::Pack(
 #endif
   int params_count_copy = params.count;
   asm volatile(
+      "vmov.i16 q8, #0\n"
 
       // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
-      "vmov.i16 q8, #0\n"
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -191,6 +198,8 @@ inline void Stream<std::uint8_t, 1, 8, 3, RowMajorWithSum>::Pack(
       "vst1.32 {d0}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 1x3.
       "vmov.i8 d0, #0\n"
@@ -228,10 +237,11 @@ inline void Stream<std::uint8_t, 1, 8, 4, RowMajorWithSum>::Pack(
 #endif
   int params_count_copy = params.count;
   asm volatile(
+      "vmov.i16 q8, #0\n"
 
       // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
-      "vmov.i16 q8, #0\n"
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -242,6 +252,8 @@ inline void Stream<std::uint8_t, 1, 8, 4, RowMajorWithSum>::Pack(
       "vst1.32 {d0}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 1x4.
       "vmov.i8 d0, #0\n"
@@ -278,10 +290,11 @@ inline void Stream<std::uint8_t, 1, 8, 5, RowMajorWithSum>::Pack(
 #endif
   int params_count_copy = params.count;
   asm volatile(
+      "vmov.i16 q8, #0\n"
 
       // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
-      "vmov.i16 q8, #0\n"
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -292,6 +305,8 @@ inline void Stream<std::uint8_t, 1, 8, 5, RowMajorWithSum>::Pack(
       "vst1.32 {d0}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 1x5.
       "vmov.i8 d0, #0\n"
@@ -329,10 +344,11 @@ inline void Stream<std::uint8_t, 1, 8, 6, RowMajorWithSum>::Pack(
 #endif
   int params_count_copy = params.count;
   asm volatile(
+      "vmov.i16 q8, #0\n"
 
       // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
-      "vmov.i16 q8, #0\n"
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -343,6 +359,8 @@ inline void Stream<std::uint8_t, 1, 8, 6, RowMajorWithSum>::Pack(
       "vst1.32 {d0}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 1x6.
       "vmov.i8 d0, #0\n"
@@ -380,10 +398,11 @@ inline void Stream<std::uint8_t, 1, 8, 7, RowMajorWithSum>::Pack(
 #endif
   int params_count_copy = params.count;
   asm volatile(
+      "vmov.i16 q8, #0\n"
 
       // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
-      "vmov.i16 q8, #0\n"
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -394,6 +413,8 @@ inline void Stream<std::uint8_t, 1, 8, 7, RowMajorWithSum>::Pack(
       "vst1.32 {d0}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 1x7.
       "vmov.i8 d0, #0\n"
@@ -481,11 +502,12 @@ inline void Stream<std::uint8_t, 2, 8, 1, RowMajorWithSum>::Pack(
   int params_count_copy = params.count;
   asm volatile(
       "add r0, %[in], %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -498,6 +520,8 @@ inline void Stream<std::uint8_t, 2, 8, 1, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 2x1.
       "vmov.i8 d0, #0\n"
@@ -541,11 +565,12 @@ inline void Stream<std::uint8_t, 2, 8, 2, RowMajorWithSum>::Pack(
   int params_count_copy = params.count;
   asm volatile(
       "add r0, %[in], %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -558,6 +583,8 @@ inline void Stream<std::uint8_t, 2, 8, 2, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 2x2.
       "vmov.i8 d0, #0\n"
@@ -601,11 +628,12 @@ inline void Stream<std::uint8_t, 2, 8, 3, RowMajorWithSum>::Pack(
   int params_count_copy = params.count;
   asm volatile(
       "add r0, %[in], %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -618,6 +646,8 @@ inline void Stream<std::uint8_t, 2, 8, 3, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 2x3.
       "vmov.i8 d0, #0\n"
@@ -663,11 +693,12 @@ inline void Stream<std::uint8_t, 2, 8, 4, RowMajorWithSum>::Pack(
   int params_count_copy = params.count;
   asm volatile(
       "add r0, %[in], %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -680,6 +711,8 @@ inline void Stream<std::uint8_t, 2, 8, 4, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 2x4.
       "vmov.i8 d0, #0\n"
@@ -723,11 +756,12 @@ inline void Stream<std::uint8_t, 2, 8, 5, RowMajorWithSum>::Pack(
   int params_count_copy = params.count;
   asm volatile(
       "add r0, %[in], %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -740,6 +774,8 @@ inline void Stream<std::uint8_t, 2, 8, 5, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 2x5.
       "vmov.i8 d0, #0\n"
@@ -785,11 +821,12 @@ inline void Stream<std::uint8_t, 2, 8, 6, RowMajorWithSum>::Pack(
   int params_count_copy = params.count;
   asm volatile(
       "add r0, %[in], %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -802,6 +839,8 @@ inline void Stream<std::uint8_t, 2, 8, 6, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 2x6.
       "vmov.i8 d0, #0\n"
@@ -847,11 +886,12 @@ inline void Stream<std::uint8_t, 2, 8, 7, RowMajorWithSum>::Pack(
   int params_count_copy = params.count;
   asm volatile(
       "add r0, %[in], %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -864,6 +904,8 @@ inline void Stream<std::uint8_t, 2, 8, 7, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 2x7.
       "vmov.i8 d0, #0\n"
@@ -967,12 +1009,13 @@ inline void Stream<std::uint8_t, 3, 8, 1, RowMajorWithSum>::Pack(
   asm volatile(
       "add r0, %[in], %[stride]\n"
       "add r1, r0, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -987,6 +1030,8 @@ inline void Stream<std::uint8_t, 3, 8, 1, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 3x1.
       "vmov.i8 d0, #0\n"
@@ -1037,12 +1082,13 @@ inline void Stream<std::uint8_t, 3, 8, 2, RowMajorWithSum>::Pack(
   asm volatile(
       "add r0, %[in], %[stride]\n"
       "add r1, r0, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -1057,6 +1103,8 @@ inline void Stream<std::uint8_t, 3, 8, 2, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 3x2.
       "vmov.i8 d0, #0\n"
@@ -1107,12 +1155,13 @@ inline void Stream<std::uint8_t, 3, 8, 3, RowMajorWithSum>::Pack(
   asm volatile(
       "add r0, %[in], %[stride]\n"
       "add r1, r0, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -1127,6 +1176,8 @@ inline void Stream<std::uint8_t, 3, 8, 3, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 3x3.
       "vmov.i8 d0, #0\n"
@@ -1180,12 +1231,13 @@ inline void Stream<std::uint8_t, 3, 8, 4, RowMajorWithSum>::Pack(
   asm volatile(
       "add r0, %[in], %[stride]\n"
       "add r1, r0, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -1200,6 +1252,8 @@ inline void Stream<std::uint8_t, 3, 8, 4, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 3x4.
       "vmov.i8 d0, #0\n"
@@ -1250,12 +1304,13 @@ inline void Stream<std::uint8_t, 3, 8, 5, RowMajorWithSum>::Pack(
   asm volatile(
       "add r0, %[in], %[stride]\n"
       "add r1, r0, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -1270,6 +1325,8 @@ inline void Stream<std::uint8_t, 3, 8, 5, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 3x5.
       "vmov.i8 d0, #0\n"
@@ -1323,12 +1380,13 @@ inline void Stream<std::uint8_t, 3, 8, 6, RowMajorWithSum>::Pack(
   asm volatile(
       "add r0, %[in], %[stride]\n"
       "add r1, r0, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -1343,6 +1401,8 @@ inline void Stream<std::uint8_t, 3, 8, 6, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 3x6.
       "vmov.i8 d0, #0\n"
@@ -1396,12 +1456,13 @@ inline void Stream<std::uint8_t, 3, 8, 7, RowMajorWithSum>::Pack(
   asm volatile(
       "add r0, %[in], %[stride]\n"
       "add r1, r0, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -1416,6 +1477,8 @@ inline void Stream<std::uint8_t, 3, 8, 7, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 3x7.
       "vmov.i8 d0, #0\n"
@@ -1534,13 +1597,14 @@ inline void Stream<std::uint8_t, 4, 8, 1, RowMajorWithSum>::Pack(
       "add r0, %[in], %[stride]\n"
       "add r1, r0, %[stride]\n"
       "add r2, r1, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -1557,6 +1621,8 @@ inline void Stream<std::uint8_t, 4, 8, 1, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2, d3}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 4x1.
       "vmov.i8 d0, #0\n"
@@ -1613,13 +1679,14 @@ inline void Stream<std::uint8_t, 4, 8, 2, RowMajorWithSum>::Pack(
       "add r0, %[in], %[stride]\n"
       "add r1, r0, %[stride]\n"
       "add r2, r1, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -1636,6 +1703,8 @@ inline void Stream<std::uint8_t, 4, 8, 2, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2, d3}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 4x2.
       "vmov.i8 d0, #0\n"
@@ -1692,13 +1761,14 @@ inline void Stream<std::uint8_t, 4, 8, 3, RowMajorWithSum>::Pack(
       "add r0, %[in], %[stride]\n"
       "add r1, r0, %[stride]\n"
       "add r2, r1, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -1715,6 +1785,8 @@ inline void Stream<std::uint8_t, 4, 8, 3, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2, d3}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 4x3.
       "vmov.i8 d0, #0\n"
@@ -1775,13 +1847,14 @@ inline void Stream<std::uint8_t, 4, 8, 4, RowMajorWithSum>::Pack(
       "add r0, %[in], %[stride]\n"
       "add r1, r0, %[stride]\n"
       "add r2, r1, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -1798,6 +1871,8 @@ inline void Stream<std::uint8_t, 4, 8, 4, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2, d3}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 4x4.
       "vmov.i8 d0, #0\n"
@@ -1854,13 +1929,14 @@ inline void Stream<std::uint8_t, 4, 8, 5, RowMajorWithSum>::Pack(
       "add r0, %[in], %[stride]\n"
       "add r1, r0, %[stride]\n"
       "add r2, r1, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -1877,6 +1953,8 @@ inline void Stream<std::uint8_t, 4, 8, 5, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2, d3}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 4x5.
       "vmov.i8 d0, #0\n"
@@ -1937,13 +2015,14 @@ inline void Stream<std::uint8_t, 4, 8, 6, RowMajorWithSum>::Pack(
       "add r0, %[in], %[stride]\n"
       "add r1, r0, %[stride]\n"
       "add r2, r1, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -1960,6 +2039,8 @@ inline void Stream<std::uint8_t, 4, 8, 6, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2, d3}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 4x6.
       "vmov.i8 d0, #0\n"
@@ -2020,13 +2101,14 @@ inline void Stream<std::uint8_t, 4, 8, 7, RowMajorWithSum>::Pack(
       "add r0, %[in], %[stride]\n"
       "add r1, r0, %[stride]\n"
       "add r2, r1, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -2043,6 +2125,8 @@ inline void Stream<std::uint8_t, 4, 8, 7, RowMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2, d3}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 4x7.
       "vmov.i8 d0, #0\n"
@@ -2179,14 +2263,15 @@ inline void Stream<std::uint8_t, 5, 8, 1, RowMajorWithSum>::Pack(
       "add r1, r0, %[stride]\n"
       "add r2, r1, %[stride]\n"
       "add r3, r2, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -2206,6 +2291,8 @@ inline void Stream<std::uint8_t, 5, 8, 1, RowMajorWithSum>::Pack(
       "vst1.32 {d4}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 5x1.
       "vmov.i8 d0, #0\n"
@@ -2272,14 +2359,15 @@ inline void Stream<std::uint8_t, 5, 8, 2, RowMajorWithSum>::Pack(
       "add r1, r0, %[stride]\n"
       "add r2, r1, %[stride]\n"
       "add r3, r2, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -2299,6 +2387,8 @@ inline void Stream<std::uint8_t, 5, 8, 2, RowMajorWithSum>::Pack(
       "vst1.32 {d4}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 5x2.
       "vmov.i8 d0, #0\n"
@@ -2365,14 +2455,15 @@ inline void Stream<std::uint8_t, 5, 8, 3, RowMajorWithSum>::Pack(
       "add r1, r0, %[stride]\n"
       "add r2, r1, %[stride]\n"
       "add r3, r2, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -2392,6 +2483,8 @@ inline void Stream<std::uint8_t, 5, 8, 3, RowMajorWithSum>::Pack(
       "vst1.32 {d4}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 5x3.
       "vmov.i8 d0, #0\n"
@@ -2463,14 +2556,15 @@ inline void Stream<std::uint8_t, 5, 8, 4, RowMajorWithSum>::Pack(
       "add r1, r0, %[stride]\n"
       "add r2, r1, %[stride]\n"
       "add r3, r2, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -2490,6 +2584,8 @@ inline void Stream<std::uint8_t, 5, 8, 4, RowMajorWithSum>::Pack(
       "vst1.32 {d4}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 5x4.
       "vmov.i8 d0, #0\n"
@@ -2556,14 +2652,15 @@ inline void Stream<std::uint8_t, 5, 8, 5, RowMajorWithSum>::Pack(
       "add r1, r0, %[stride]\n"
       "add r2, r1, %[stride]\n"
       "add r3, r2, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -2583,6 +2680,8 @@ inline void Stream<std::uint8_t, 5, 8, 5, RowMajorWithSum>::Pack(
       "vst1.32 {d4}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 5x5.
       "vmov.i8 d0, #0\n"
@@ -2654,14 +2753,15 @@ inline void Stream<std::uint8_t, 5, 8, 6, RowMajorWithSum>::Pack(
       "add r1, r0, %[stride]\n"
       "add r2, r1, %[stride]\n"
       "add r3, r2, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -2681,6 +2781,8 @@ inline void Stream<std::uint8_t, 5, 8, 6, RowMajorWithSum>::Pack(
       "vst1.32 {d4}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 5x6.
       "vmov.i8 d0, #0\n"
@@ -2752,14 +2854,15 @@ inline void Stream<std::uint8_t, 5, 8, 7, RowMajorWithSum>::Pack(
       "add r1, r0, %[stride]\n"
       "add r2, r1, %[stride]\n"
       "add r3, r2, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -2779,6 +2882,8 @@ inline void Stream<std::uint8_t, 5, 8, 7, RowMajorWithSum>::Pack(
       "vst1.32 {d4}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 5x7.
       "vmov.i8 d0, #0\n"
@@ -2934,15 +3039,16 @@ inline void Stream<std::uint8_t, 6, 8, 1, RowMajorWithSum>::Pack(
       "add r2, r1, %[stride]\n"
       "add r3, r2, %[stride]\n"
       "add r4, r3, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -2964,6 +3070,8 @@ inline void Stream<std::uint8_t, 6, 8, 1, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 6x1.
       "vmov.i8 d0, #0\n"
@@ -3037,15 +3145,16 @@ inline void Stream<std::uint8_t, 6, 8, 2, RowMajorWithSum>::Pack(
       "add r2, r1, %[stride]\n"
       "add r3, r2, %[stride]\n"
       "add r4, r3, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3067,6 +3176,8 @@ inline void Stream<std::uint8_t, 6, 8, 2, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 6x2.
       "vmov.i8 d0, #0\n"
@@ -3140,15 +3251,16 @@ inline void Stream<std::uint8_t, 6, 8, 3, RowMajorWithSum>::Pack(
       "add r2, r1, %[stride]\n"
       "add r3, r2, %[stride]\n"
       "add r4, r3, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3170,6 +3282,8 @@ inline void Stream<std::uint8_t, 6, 8, 3, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 6x3.
       "vmov.i8 d0, #0\n"
@@ -3249,15 +3363,16 @@ inline void Stream<std::uint8_t, 6, 8, 4, RowMajorWithSum>::Pack(
       "add r2, r1, %[stride]\n"
       "add r3, r2, %[stride]\n"
       "add r4, r3, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3279,6 +3394,8 @@ inline void Stream<std::uint8_t, 6, 8, 4, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 6x4.
       "vmov.i8 d0, #0\n"
@@ -3352,15 +3469,16 @@ inline void Stream<std::uint8_t, 6, 8, 5, RowMajorWithSum>::Pack(
       "add r2, r1, %[stride]\n"
       "add r3, r2, %[stride]\n"
       "add r4, r3, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3382,6 +3500,8 @@ inline void Stream<std::uint8_t, 6, 8, 5, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 6x5.
       "vmov.i8 d0, #0\n"
@@ -3461,15 +3581,16 @@ inline void Stream<std::uint8_t, 6, 8, 6, RowMajorWithSum>::Pack(
       "add r2, r1, %[stride]\n"
       "add r3, r2, %[stride]\n"
       "add r4, r3, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3491,6 +3612,8 @@ inline void Stream<std::uint8_t, 6, 8, 6, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 6x6.
       "vmov.i8 d0, #0\n"
@@ -3570,15 +3693,16 @@ inline void Stream<std::uint8_t, 6, 8, 7, RowMajorWithSum>::Pack(
       "add r2, r1, %[stride]\n"
       "add r3, r2, %[stride]\n"
       "add r4, r3, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3600,6 +3724,8 @@ inline void Stream<std::uint8_t, 6, 8, 7, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 6x7.
       "vmov.i8 d0, #0\n"
@@ -3771,9 +3897,6 @@ inline void Stream<std::uint8_t, 7, 8, 1, RowMajorWithSum>::Pack(
       "add r3, r2, %[stride]\n"
       "add r4, r3, %[stride]\n"
       "add r5, r4, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -3781,6 +3904,10 @@ inline void Stream<std::uint8_t, 7, 8, 1, RowMajorWithSum>::Pack(
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3804,6 +3931,8 @@ inline void Stream<std::uint8_t, 7, 8, 1, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 7x1.
       "vmov.i8 d0, #0\n"
@@ -3884,9 +4013,6 @@ inline void Stream<std::uint8_t, 7, 8, 2, RowMajorWithSum>::Pack(
       "add r3, r2, %[stride]\n"
       "add r4, r3, %[stride]\n"
       "add r5, r4, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -3894,6 +4020,10 @@ inline void Stream<std::uint8_t, 7, 8, 2, RowMajorWithSum>::Pack(
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -3917,6 +4047,8 @@ inline void Stream<std::uint8_t, 7, 8, 2, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 7x2.
       "vmov.i8 d0, #0\n"
@@ -3997,9 +4129,6 @@ inline void Stream<std::uint8_t, 7, 8, 3, RowMajorWithSum>::Pack(
       "add r3, r2, %[stride]\n"
       "add r4, r3, %[stride]\n"
       "add r5, r4, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -4007,6 +4136,10 @@ inline void Stream<std::uint8_t, 7, 8, 3, RowMajorWithSum>::Pack(
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4030,6 +4163,8 @@ inline void Stream<std::uint8_t, 7, 8, 3, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 7x3.
       "vmov.i8 d0, #0\n"
@@ -4117,9 +4252,6 @@ inline void Stream<std::uint8_t, 7, 8, 4, RowMajorWithSum>::Pack(
       "add r3, r2, %[stride]\n"
       "add r4, r3, %[stride]\n"
       "add r5, r4, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -4127,6 +4259,10 @@ inline void Stream<std::uint8_t, 7, 8, 4, RowMajorWithSum>::Pack(
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4150,6 +4286,8 @@ inline void Stream<std::uint8_t, 7, 8, 4, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 7x4.
       "vmov.i8 d0, #0\n"
@@ -4230,9 +4368,6 @@ inline void Stream<std::uint8_t, 7, 8, 5, RowMajorWithSum>::Pack(
       "add r3, r2, %[stride]\n"
       "add r4, r3, %[stride]\n"
       "add r5, r4, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -4240,6 +4375,10 @@ inline void Stream<std::uint8_t, 7, 8, 5, RowMajorWithSum>::Pack(
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4263,6 +4402,8 @@ inline void Stream<std::uint8_t, 7, 8, 5, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 7x5.
       "vmov.i8 d0, #0\n"
@@ -4350,9 +4491,6 @@ inline void Stream<std::uint8_t, 7, 8, 6, RowMajorWithSum>::Pack(
       "add r3, r2, %[stride]\n"
       "add r4, r3, %[stride]\n"
       "add r5, r4, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -4360,6 +4498,10 @@ inline void Stream<std::uint8_t, 7, 8, 6, RowMajorWithSum>::Pack(
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4383,6 +4525,8 @@ inline void Stream<std::uint8_t, 7, 8, 6, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 7x6.
       "vmov.i8 d0, #0\n"
@@ -4470,9 +4614,6 @@ inline void Stream<std::uint8_t, 7, 8, 7, RowMajorWithSum>::Pack(
       "add r3, r2, %[stride]\n"
       "add r4, r3, %[stride]\n"
       "add r5, r4, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -4480,6 +4621,10 @@ inline void Stream<std::uint8_t, 7, 8, 7, RowMajorWithSum>::Pack(
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4503,6 +4648,8 @@ inline void Stream<std::uint8_t, 7, 8, 7, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 7x7.
       "vmov.i8 d0, #0\n"
@@ -4690,9 +4837,6 @@ inline void Stream<std::uint8_t, 8, 8, 1, RowMajorWithSum>::Pack(
       "add r4, r3, %[stride]\n"
       "add r5, r4, %[stride]\n"
       "add r6, r5, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -4701,6 +4845,10 @@ inline void Stream<std::uint8_t, 8, 8, 1, RowMajorWithSum>::Pack(
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
       "vmov.i16 q15, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4726,6 +4874,8 @@ inline void Stream<std::uint8_t, 8, 8, 1, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 8x1.
       "vmov.i8 d0, #0\n"
@@ -4813,9 +4963,6 @@ inline void Stream<std::uint8_t, 8, 8, 2, RowMajorWithSum>::Pack(
       "add r4, r3, %[stride]\n"
       "add r5, r4, %[stride]\n"
       "add r6, r5, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -4824,6 +4971,10 @@ inline void Stream<std::uint8_t, 8, 8, 2, RowMajorWithSum>::Pack(
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
       "vmov.i16 q15, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4849,6 +5000,8 @@ inline void Stream<std::uint8_t, 8, 8, 2, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 8x2.
       "vmov.i8 d0, #0\n"
@@ -4936,9 +5089,6 @@ inline void Stream<std::uint8_t, 8, 8, 3, RowMajorWithSum>::Pack(
       "add r4, r3, %[stride]\n"
       "add r5, r4, %[stride]\n"
       "add r6, r5, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -4947,6 +5097,10 @@ inline void Stream<std::uint8_t, 8, 8, 3, RowMajorWithSum>::Pack(
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
       "vmov.i16 q15, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -4972,6 +5126,8 @@ inline void Stream<std::uint8_t, 8, 8, 3, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 8x3.
       "vmov.i8 d0, #0\n"
@@ -5067,9 +5223,6 @@ inline void Stream<std::uint8_t, 8, 8, 4, RowMajorWithSum>::Pack(
       "add r4, r3, %[stride]\n"
       "add r5, r4, %[stride]\n"
       "add r6, r5, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -5078,6 +5231,10 @@ inline void Stream<std::uint8_t, 8, 8, 4, RowMajorWithSum>::Pack(
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
       "vmov.i16 q15, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5103,6 +5260,8 @@ inline void Stream<std::uint8_t, 8, 8, 4, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 8x4.
       "vmov.i8 d0, #0\n"
@@ -5190,9 +5349,6 @@ inline void Stream<std::uint8_t, 8, 8, 5, RowMajorWithSum>::Pack(
       "add r4, r3, %[stride]\n"
       "add r5, r4, %[stride]\n"
       "add r6, r5, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -5201,6 +5357,10 @@ inline void Stream<std::uint8_t, 8, 8, 5, RowMajorWithSum>::Pack(
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
       "vmov.i16 q15, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5226,6 +5386,8 @@ inline void Stream<std::uint8_t, 8, 8, 5, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 8x5.
       "vmov.i8 d0, #0\n"
@@ -5321,9 +5483,6 @@ inline void Stream<std::uint8_t, 8, 8, 6, RowMajorWithSum>::Pack(
       "add r4, r3, %[stride]\n"
       "add r5, r4, %[stride]\n"
       "add r6, r5, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -5332,6 +5491,10 @@ inline void Stream<std::uint8_t, 8, 8, 6, RowMajorWithSum>::Pack(
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
       "vmov.i16 q15, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5357,6 +5520,8 @@ inline void Stream<std::uint8_t, 8, 8, 6, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 8x6.
       "vmov.i8 d0, #0\n"
@@ -5452,9 +5617,6 @@ inline void Stream<std::uint8_t, 8, 8, 7, RowMajorWithSum>::Pack(
       "add r4, r3, %[stride]\n"
       "add r5, r4, %[stride]\n"
       "add r6, r5, %[stride]\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -5463,6 +5625,10 @@ inline void Stream<std::uint8_t, 8, 8, 7, RowMajorWithSum>::Pack(
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
       "vmov.i16 q15, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5488,6 +5654,8 @@ inline void Stream<std::uint8_t, 8, 8, 7, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store: 8x7.
       "vmov.i8 d0, #0\n"
@@ -5637,10 +5805,11 @@ inline void Stream<std::uint8_t, 1, 8, 1, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
+      "vmov.i16 q8, #0\n"
 
       // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
-      "vmov.i16 q8, #0\n"
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5659,6 +5828,8 @@ inline void Stream<std::uint8_t, 1, 8, 1, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 1x1
       "vmov.i8 d0, #0\n"
@@ -5698,10 +5869,11 @@ inline void Stream<std::uint8_t, 1, 8, 2, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
+      "vmov.i16 q8, #0\n"
 
       // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
-      "vmov.i16 q8, #0\n"
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5720,6 +5892,8 @@ inline void Stream<std::uint8_t, 1, 8, 2, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 1x2
       "vmov.i8 d0, #0\n"
@@ -5760,10 +5934,11 @@ inline void Stream<std::uint8_t, 1, 8, 3, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
+      "vmov.i16 q8, #0\n"
 
       // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
-      "vmov.i16 q8, #0\n"
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5782,6 +5957,8 @@ inline void Stream<std::uint8_t, 1, 8, 3, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 1x3
       "vmov.i8 d0, #0\n"
@@ -5823,10 +6000,11 @@ inline void Stream<std::uint8_t, 1, 8, 4, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
+      "vmov.i16 q8, #0\n"
 
       // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
-      "vmov.i16 q8, #0\n"
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5845,6 +6023,8 @@ inline void Stream<std::uint8_t, 1, 8, 4, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 1x4
       "vmov.i8 d0, #0\n"
@@ -5887,10 +6067,11 @@ inline void Stream<std::uint8_t, 1, 8, 5, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
+      "vmov.i16 q8, #0\n"
 
       // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
-      "vmov.i16 q8, #0\n"
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5909,6 +6090,8 @@ inline void Stream<std::uint8_t, 1, 8, 5, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 1x5
       "vmov.i8 d0, #0\n"
@@ -5952,10 +6135,11 @@ inline void Stream<std::uint8_t, 1, 8, 6, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
+      "vmov.i16 q8, #0\n"
 
       // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
-      "vmov.i16 q8, #0\n"
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -5974,6 +6158,8 @@ inline void Stream<std::uint8_t, 1, 8, 6, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 1x6
       "vmov.i8 d0, #0\n"
@@ -6018,10 +6204,11 @@ inline void Stream<std::uint8_t, 1, 8, 7, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
+      "vmov.i16 q8, #0\n"
 
       // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
-      "vmov.i16 q8, #0\n"
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6040,6 +6227,8 @@ inline void Stream<std::uint8_t, 1, 8, 7, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 1x7
       "vmov.i8 d0, #0\n"
@@ -6141,11 +6330,12 @@ inline void Stream<std::uint8_t, 2, 8, 1, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6166,6 +6356,8 @@ inline void Stream<std::uint8_t, 2, 8, 1, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 2x1
       "vmov.i8 d0, #0\n"
@@ -6210,11 +6402,12 @@ inline void Stream<std::uint8_t, 2, 8, 2, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6235,6 +6428,8 @@ inline void Stream<std::uint8_t, 2, 8, 2, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 2x2
       "vmov.i8 d0, #0\n"
@@ -6280,11 +6475,12 @@ inline void Stream<std::uint8_t, 2, 8, 3, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6305,6 +6501,8 @@ inline void Stream<std::uint8_t, 2, 8, 3, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 2x3
       "vmov.i8 d0, #0\n"
@@ -6351,11 +6549,12 @@ inline void Stream<std::uint8_t, 2, 8, 4, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6376,6 +6575,8 @@ inline void Stream<std::uint8_t, 2, 8, 4, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 2x4
       "vmov.i8 d0, #0\n"
@@ -6423,11 +6624,12 @@ inline void Stream<std::uint8_t, 2, 8, 5, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6448,6 +6650,8 @@ inline void Stream<std::uint8_t, 2, 8, 5, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 2x5
       "vmov.i8 d0, #0\n"
@@ -6496,11 +6700,12 @@ inline void Stream<std::uint8_t, 2, 8, 6, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6521,6 +6726,8 @@ inline void Stream<std::uint8_t, 2, 8, 6, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 2x6
       "vmov.i8 d0, #0\n"
@@ -6570,11 +6777,12 @@ inline void Stream<std::uint8_t, 2, 8, 7, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6595,6 +6803,8 @@ inline void Stream<std::uint8_t, 2, 8, 7, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 2x7
       "vmov.i8 d0, #0\n"
@@ -6705,12 +6915,13 @@ inline void Stream<std::uint8_t, 3, 8, 1, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6730,6 +6941,8 @@ inline void Stream<std::uint8_t, 3, 8, 1, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 3x1
       "vmov.i8 d0, #0\n"
@@ -6778,12 +6991,13 @@ inline void Stream<std::uint8_t, 3, 8, 2, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6803,6 +7017,8 @@ inline void Stream<std::uint8_t, 3, 8, 2, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 3x2
       "vmov.i8 d0, #0\n"
@@ -6852,12 +7068,13 @@ inline void Stream<std::uint8_t, 3, 8, 3, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6877,6 +7094,8 @@ inline void Stream<std::uint8_t, 3, 8, 3, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 3x3
       "vmov.i8 d0, #0\n"
@@ -6927,12 +7146,13 @@ inline void Stream<std::uint8_t, 3, 8, 4, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -6952,6 +7172,8 @@ inline void Stream<std::uint8_t, 3, 8, 4, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 3x4
       "vmov.i8 d0, #0\n"
@@ -7003,12 +7225,13 @@ inline void Stream<std::uint8_t, 3, 8, 5, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -7028,6 +7251,8 @@ inline void Stream<std::uint8_t, 3, 8, 5, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 3x5
       "vmov.i8 d0, #0\n"
@@ -7080,12 +7305,13 @@ inline void Stream<std::uint8_t, 3, 8, 6, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -7105,6 +7331,8 @@ inline void Stream<std::uint8_t, 3, 8, 6, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 3x6
       "vmov.i8 d0, #0\n"
@@ -7158,12 +7386,13 @@ inline void Stream<std::uint8_t, 3, 8, 7, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -7183,6 +7412,8 @@ inline void Stream<std::uint8_t, 3, 8, 7, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 3x7
       "vmov.i8 d0, #0\n"
@@ -7306,13 +7537,14 @@ inline void Stream<std::uint8_t, 4, 8, 1, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -7338,6 +7570,8 @@ inline void Stream<std::uint8_t, 4, 8, 1, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2, d3}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 4x1
       "vmov.i8 d0, #0\n"
@@ -7395,13 +7629,14 @@ inline void Stream<std::uint8_t, 4, 8, 2, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -7427,6 +7662,8 @@ inline void Stream<std::uint8_t, 4, 8, 2, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2, d3}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 4x2
       "vmov.i8 d0, #0\n"
@@ -7485,13 +7722,14 @@ inline void Stream<std::uint8_t, 4, 8, 3, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -7517,6 +7755,8 @@ inline void Stream<std::uint8_t, 4, 8, 3, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2, d3}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 4x3
       "vmov.i8 d0, #0\n"
@@ -7576,13 +7816,14 @@ inline void Stream<std::uint8_t, 4, 8, 4, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -7608,6 +7849,8 @@ inline void Stream<std::uint8_t, 4, 8, 4, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2, d3}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 4x4
       "vmov.i8 d0, #0\n"
@@ -7668,13 +7911,14 @@ inline void Stream<std::uint8_t, 4, 8, 5, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -7700,6 +7944,8 @@ inline void Stream<std::uint8_t, 4, 8, 5, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2, d3}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 4x5
       "vmov.i8 d0, #0\n"
@@ -7761,13 +8007,14 @@ inline void Stream<std::uint8_t, 4, 8, 6, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -7793,6 +8040,8 @@ inline void Stream<std::uint8_t, 4, 8, 6, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2, d3}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 4x6
       "vmov.i8 d0, #0\n"
@@ -7855,13 +8104,14 @@ inline void Stream<std::uint8_t, 4, 8, 7, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -7887,6 +8137,8 @@ inline void Stream<std::uint8_t, 4, 8, 7, ColumnMajorWithSum>::Pack(
       "vst1.32 {d0, d1, d2, d3}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 4x7
       "vmov.i8 d0, #0\n"
@@ -8037,14 +8289,15 @@ inline void Stream<std::uint8_t, 5, 8, 1, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -8080,6 +8333,8 @@ inline void Stream<std::uint8_t, 5, 8, 1, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 5x1
       "vmov.i8 d0, #0\n"
@@ -8147,14 +8402,15 @@ inline void Stream<std::uint8_t, 5, 8, 2, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -8190,6 +8446,8 @@ inline void Stream<std::uint8_t, 5, 8, 2, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 5x2
       "vmov.i8 d0, #0\n"
@@ -8259,14 +8517,15 @@ inline void Stream<std::uint8_t, 5, 8, 3, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -8302,6 +8561,8 @@ inline void Stream<std::uint8_t, 5, 8, 3, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 5x3
       "vmov.i8 d0, #0\n"
@@ -8373,14 +8634,15 @@ inline void Stream<std::uint8_t, 5, 8, 4, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -8416,6 +8678,8 @@ inline void Stream<std::uint8_t, 5, 8, 4, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 5x4
       "vmov.i8 d0, #0\n"
@@ -8489,14 +8753,15 @@ inline void Stream<std::uint8_t, 5, 8, 5, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -8532,6 +8797,8 @@ inline void Stream<std::uint8_t, 5, 8, 5, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 5x5
       "vmov.i8 d0, #0\n"
@@ -8607,14 +8874,15 @@ inline void Stream<std::uint8_t, 5, 8, 6, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -8650,6 +8918,8 @@ inline void Stream<std::uint8_t, 5, 8, 6, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 5x6
       "vmov.i8 d0, #0\n"
@@ -8727,14 +8997,15 @@ inline void Stream<std::uint8_t, 5, 8, 7, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -8770,6 +9041,8 @@ inline void Stream<std::uint8_t, 5, 8, 7, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 5x7
       "vmov.i8 d0, #0\n"
@@ -8940,15 +9213,16 @@ inline void Stream<std::uint8_t, 6, 8, 1, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -8986,6 +9260,8 @@ inline void Stream<std::uint8_t, 6, 8, 1, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 6x1
       "vmov.i8 d0, #0\n"
@@ -9058,15 +9334,16 @@ inline void Stream<std::uint8_t, 6, 8, 2, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -9104,6 +9381,8 @@ inline void Stream<std::uint8_t, 6, 8, 2, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 6x2
       "vmov.i8 d0, #0\n"
@@ -9178,15 +9457,16 @@ inline void Stream<std::uint8_t, 6, 8, 3, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -9224,6 +9504,8 @@ inline void Stream<std::uint8_t, 6, 8, 3, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 6x3
       "vmov.i8 d0, #0\n"
@@ -9300,15 +9582,16 @@ inline void Stream<std::uint8_t, 6, 8, 4, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -9346,6 +9629,8 @@ inline void Stream<std::uint8_t, 6, 8, 4, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 6x4
       "vmov.i8 d0, #0\n"
@@ -9424,15 +9709,16 @@ inline void Stream<std::uint8_t, 6, 8, 5, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -9470,6 +9756,8 @@ inline void Stream<std::uint8_t, 6, 8, 5, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 6x5
       "vmov.i8 d0, #0\n"
@@ -9550,15 +9838,16 @@ inline void Stream<std::uint8_t, 6, 8, 6, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -9596,6 +9885,8 @@ inline void Stream<std::uint8_t, 6, 8, 6, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 6x6
       "vmov.i8 d0, #0\n"
@@ -9678,15 +9969,16 @@ inline void Stream<std::uint8_t, 6, 8, 7, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
       "vmov.i16 q11, #0\n"
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -9724,6 +10016,8 @@ inline void Stream<std::uint8_t, 6, 8, 7, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5}, [%[out]:128]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 6x7
       "vmov.i8 d0, #0\n"
@@ -9904,9 +10198,6 @@ inline void Stream<std::uint8_t, 7, 8, 1, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -9914,6 +10205,10 @@ inline void Stream<std::uint8_t, 7, 8, 1, ColumnMajorWithSum>::Pack(
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -9951,6 +10246,8 @@ inline void Stream<std::uint8_t, 7, 8, 1, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 7x1
       "vmov.i8 d0, #0\n"
@@ -10028,9 +10325,6 @@ inline void Stream<std::uint8_t, 7, 8, 2, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -10038,6 +10332,10 @@ inline void Stream<std::uint8_t, 7, 8, 2, ColumnMajorWithSum>::Pack(
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -10075,6 +10373,8 @@ inline void Stream<std::uint8_t, 7, 8, 2, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 7x2
       "vmov.i8 d0, #0\n"
@@ -10154,9 +10454,6 @@ inline void Stream<std::uint8_t, 7, 8, 3, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -10164,6 +10461,10 @@ inline void Stream<std::uint8_t, 7, 8, 3, ColumnMajorWithSum>::Pack(
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -10201,6 +10502,8 @@ inline void Stream<std::uint8_t, 7, 8, 3, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 7x3
       "vmov.i8 d0, #0\n"
@@ -10282,9 +10585,6 @@ inline void Stream<std::uint8_t, 7, 8, 4, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -10292,6 +10592,10 @@ inline void Stream<std::uint8_t, 7, 8, 4, ColumnMajorWithSum>::Pack(
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -10329,6 +10633,8 @@ inline void Stream<std::uint8_t, 7, 8, 4, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 7x4
       "vmov.i8 d0, #0\n"
@@ -10412,9 +10718,6 @@ inline void Stream<std::uint8_t, 7, 8, 5, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -10422,6 +10725,10 @@ inline void Stream<std::uint8_t, 7, 8, 5, ColumnMajorWithSum>::Pack(
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -10459,6 +10766,8 @@ inline void Stream<std::uint8_t, 7, 8, 5, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 7x5
       "vmov.i8 d0, #0\n"
@@ -10544,9 +10853,6 @@ inline void Stream<std::uint8_t, 7, 8, 6, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -10554,6 +10860,10 @@ inline void Stream<std::uint8_t, 7, 8, 6, ColumnMajorWithSum>::Pack(
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -10591,6 +10901,8 @@ inline void Stream<std::uint8_t, 7, 8, 6, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 7x6
       "vmov.i8 d0, #0\n"
@@ -10678,9 +10990,6 @@ inline void Stream<std::uint8_t, 7, 8, 7, ColumnMajorWithSum>::Pack(
   int params_stride_copy = params.stride;
   asm volatile(
       "sub %[stride], %[stride], #4\n"
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -10688,6 +10997,10 @@ inline void Stream<std::uint8_t, 7, 8, 7, ColumnMajorWithSum>::Pack(
       "vmov.i16 q12, #0\n"
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -10725,6 +11038,8 @@ inline void Stream<std::uint8_t, 7, 8, 7, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 7x7
       "vmov.i8 d0, #0\n"
@@ -10912,9 +11227,6 @@ inline void Stream<std::uint8_t, 8, 8, 1, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #1\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -10923,6 +11235,10 @@ inline void Stream<std::uint8_t, 8, 8, 1, ColumnMajorWithSum>::Pack(
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
       "vmov.i16 q15, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #1\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -10961,6 +11277,8 @@ inline void Stream<std::uint8_t, 8, 8, 1, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 8x1
       "vmov.i8 d0, #0\n"
@@ -11048,9 +11366,6 @@ inline void Stream<std::uint8_t, 8, 8, 2, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #2\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -11059,6 +11374,10 @@ inline void Stream<std::uint8_t, 8, 8, 2, ColumnMajorWithSum>::Pack(
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
       "vmov.i16 q15, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #2\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -11097,6 +11416,8 @@ inline void Stream<std::uint8_t, 8, 8, 2, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 8x2
       "vmov.i8 d0, #0\n"
@@ -11185,9 +11506,6 @@ inline void Stream<std::uint8_t, 8, 8, 3, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #3\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -11196,6 +11514,10 @@ inline void Stream<std::uint8_t, 8, 8, 3, ColumnMajorWithSum>::Pack(
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
       "vmov.i16 q15, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #3\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -11234,6 +11556,8 @@ inline void Stream<std::uint8_t, 8, 8, 3, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 8x3
       "vmov.i8 d0, #0\n"
@@ -11323,9 +11647,6 @@ inline void Stream<std::uint8_t, 8, 8, 4, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #4\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -11334,6 +11655,10 @@ inline void Stream<std::uint8_t, 8, 8, 4, ColumnMajorWithSum>::Pack(
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
       "vmov.i16 q15, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #4\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -11372,6 +11697,8 @@ inline void Stream<std::uint8_t, 8, 8, 4, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 8x4
       "vmov.i8 d0, #0\n"
@@ -11462,9 +11789,6 @@ inline void Stream<std::uint8_t, 8, 8, 5, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #5\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -11473,6 +11797,10 @@ inline void Stream<std::uint8_t, 8, 8, 5, ColumnMajorWithSum>::Pack(
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
       "vmov.i16 q15, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #5\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -11511,6 +11839,8 @@ inline void Stream<std::uint8_t, 8, 8, 5, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 8x5
       "vmov.i8 d0, #0\n"
@@ -11602,9 +11932,6 @@ inline void Stream<std::uint8_t, 8, 8, 6, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #6\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -11613,6 +11940,10 @@ inline void Stream<std::uint8_t, 8, 8, 6, ColumnMajorWithSum>::Pack(
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
       "vmov.i16 q15, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #6\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -11651,6 +11982,8 @@ inline void Stream<std::uint8_t, 8, 8, 6, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 8x6
       "vmov.i8 d0, #0\n"
@@ -11743,9 +12076,6 @@ inline void Stream<std::uint8_t, 8, 8, 7, ColumnMajorWithSum>::Pack(
   int params_count_copy = params.count;
   int params_stride_copy = params.stride;
   asm volatile(
-
-      // Reduce count by leftovers.
-      "sub %[count], %[count], #7\n"
       "vmov.i16 q8, #0\n"
       "vmov.i16 q9, #0\n"
       "vmov.i16 q10, #0\n"
@@ -11754,6 +12084,10 @@ inline void Stream<std::uint8_t, 8, 8, 7, ColumnMajorWithSum>::Pack(
       "vmov.i16 q13, #0\n"
       "vmov.i16 q14, #0\n"
       "vmov.i16 q15, #0\n"
+
+      // Reduce count by leftovers.
+      "subs %[count], %[count], #7\n"
+      "beq 2f\n"
 
       "1:"
       "subs %[count], %[count], #8\n"
@@ -11792,6 +12126,8 @@ inline void Stream<std::uint8_t, 8, 8, 7, ColumnMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       "bne 1b\n"
+
+      "2:"
 
       // Load Aggregate Store - column major 8x7
       "vmov.i8 d0, #0\n"
