@@ -20,47 +20,69 @@
 
 #include "../public/bit_depth.h"
 #include "common.h"
+#include "kernel_reference.h"
 
 namespace gemmlowp {
 
 enum class KernelFamily { Gemm, Gemv };
 
-template <KernelFamily Family, int ProductBits>
-struct DefaultKernelImpl : DefaultKernelImpl<Family, ProductBits + 1> {
-  static_assert(ProductBits <= 16, "Bit depth too large");
-};
+template <KernelFamily Family, bool MaxProductIsLessThan4096,
+          bool LhsAlwaysNonzero>
+struct DefaultKernelImpl {};
+
+// Partial specialization implementing the logic that if we want to use
+// a kernel for LhsAlwaysNonzero but do not have such a kernel, then we fall
+// back to a generic kernel not taking advantage of LhsAlwaysNonzero.
+template <KernelFamily Family, bool LhsAlwaysNonzero>
+struct DefaultKernelImpl<Family, true, LhsAlwaysNonzero>
+    : DefaultKernelImpl<Family, false, LhsAlwaysNonzero> {};
+
+// Partial specialization implementing the logic that if we want to use
+// a kernel for MaxProductIsLessThan4096 but do not have such a kernel, then we
+// fall back to a generic kernel not taking advantage of
+// MaxProductIsLessThan4096.
+template <KernelFamily Family, bool MaxProductIsLessThan4096>
+struct DefaultKernelImpl<Family, MaxProductIsLessThan4096, true>
+    : DefaultKernelImpl<Family, MaxProductIsLessThan4096, false> {};
 
 template <KernelFamily Family, typename BitDepthParams>
 struct DefaultKernel
-    : DefaultKernelImpl<Family, BitDepthParams::LhsBitDepth::kBits +
-                                    BitDepthParams::RhsBitDepth::kBits> {};
+    : DefaultKernelImpl<Family,
+                        (BitDepthParams::LhsRange::kMaxValue *
+                             BitDepthParams::RhsRange::kMaxValue <
+                         4096),
+                        (BitDepthParams::LhsRange::kMinValue > 0)> {};
 
 }  // end namespace gemmlowp
 
-#define GEMMLOWP_SET_DEFAULT_KERNEL(op, max_product_bits, kernel)           \
-  namespace gemmlowp {                                                      \
-  template <>                                                               \
-  struct DefaultKernelImpl<KernelFamily::op, max_product_bits> : kernel {}; \
+#define GEMMLOWP_SET_DEFAULT_KERNEL(Op, MaxProductIsLessThan4096,      \
+                                    LhsAlwaysNonzero, Kernel)          \
+  namespace gemmlowp {                                                 \
+  template <>                                                          \
+  struct DefaultKernelImpl<KernelFamily::Op, MaxProductIsLessThan4096, \
+                           LhsAlwaysNonzero> : Kernel {};              \
   }
 
 #if defined GEMMLOWP_NEON_32
 #include "kernel_neon.h"
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, NEON_32_Kernel12x4Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 12,
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, false, false, NEON_32_Kernel12x4Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, true, false,
                             NEON_32_Kernel12x4Depth2Assuming12BitProducts)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, NEONKernel4Nx1Depth2<3>)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, false, false, NEONKernel4Nx1Depth2<3>)
 #elif defined GEMMLOWP_NEON_64
 #include "kernel_neon.h"
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, NEON_64_Kernel12x8Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, NEONKernel4Nx1Depth2<3>)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, false, false, NEON_64_Kernel12x8Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, false, true,
+                            NEON_64bit_GEMM_Int8Operands_LhsNonzero)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, false, false, NEONKernel4Nx1Depth2<3>)
 #elif defined GEMMLOWP_SSE4_32
 #include "kernel_sse.h"
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, SSE4_32_Kernel4x4Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, SSE4_32_Kernel4x4Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, false, false, SSE4_32_Kernel4x4Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, false, false, SSE4_32_Kernel4x4Depth2)
 #elif defined GEMMLOWP_SSE4_64
 #include "kernel_sse.h"
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, SSE4_64_Kernel12x4Depth2)
-GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, SSE4_64_Kernel12x4Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, false, false, SSE4_64_Kernel12x4Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, false, false, SSE4_64_Kernel12x4Depth2)
 #else
 #ifndef GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK
 #error \
@@ -71,10 +93,10 @@ slow fallback, define GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK."
 #endif
 #include "kernel_reference.h"
 namespace gemmlowp {
-typedef ReferenceKernel<KernelFormat<KernelSideFormat<CellFormat<4, 4>, 2>,
-                                     KernelSideFormat<CellFormat<4, 4>, 2> > >
+typedef ReferenceKernel<KernelFormat<
+    KernelSideFormat<CellFormat<4, 16, CellOrder::WidthMajor>, 1>,
+    KernelSideFormat<CellFormat<4, 16, CellOrder::WidthMajor>, 1> > >
     DefaultReferenceKernel;
-}
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, 16, DefaultReferenceKernel)
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, 16, DefaultReferenceKernel)
 #endif

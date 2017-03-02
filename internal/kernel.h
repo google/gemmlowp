@@ -145,6 +145,12 @@ struct KernelSideFormat {
   static const int kCells = tCells;
   static const int kWidth = kCells * Cell::kWidth;
   static const int kDepth = Cell::kDepth;
+  typedef std::uint8_t Scalar;
+};
+
+template <typename tCellFormat, int tCells>
+struct KernelSideFormatInt8 : KernelSideFormat<tCellFormat, tCells> {
+  typedef std::int8_t Scalar;
 };
 
 // KernelFormat describes fully the input data layout that a kernel expects.
@@ -208,6 +214,19 @@ struct KernelBase {
                    std::size_t run_depth) const = 0;
 
   virtual ~KernelBase() {}
+};
+
+template <typename KernelScalarType>
+struct ZeroPointInputValue {};
+
+template <>
+struct ZeroPointInputValue<std::uint8_t> {
+  static constexpr std::uint8_t kValue = 0;
+};
+
+template <>
+struct ZeroPointInputValue<std::int8_t> {
+  static constexpr std::uint8_t kValue = 128;
 };
 
 }  // namespace gemmlowp

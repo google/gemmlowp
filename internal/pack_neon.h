@@ -243,6 +243,67 @@ class PackingRegisterBlock<
   }
 };
 
+// The format below is only used by one ARM64 kernel.
+// It uses a NEON intrinsic that is only available on ARM64, vpaddq_s16.
+// Would be easy to replace with vpadd_s16 if needed, would be almost as
+// efficient.
+#ifdef GEMMLOWP_NEON_64
+
+using Int8FastKernelFormat =
+    KernelSideFormatInt8<CellFormat<4, 16, CellOrder::WidthMajor>, 1>;
+
+template <>
+class PackingRegisterBlock<WidthMajorUint8SideMap,
+                           PackedSideBlock<Int8FastKernelFormat> >
+    : public PackingRegisterBlockBase<WidthMajorUint8SideMap,
+                                      PackedSideBlock<Int8FastKernelFormat> > {
+ public:
+  typedef Int8FastKernelFormat KernelSideFormat;
+  typedef typename KernelSideFormat::Cell CellFormat;
+  static const int kCells = KernelSideFormat::kCells;
+  static const int kCellWidth = CellFormat::kWidth;
+  static const int kKernelWidth = CellFormat::kWidth * kCells;
+  static const int kCellDepth = CellFormat::kDepth;
+  static const int kCellSize = CellFormat::kSize;
+
+  void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
+    std::int32_t* sums_ptr = dst->sums_of_each_slice() + start_width;
+    std::uint8_t* dst_ptr = dst->current_data();
+    const std::uint8_t* const src_ptr = this->complete_src_.data();
+    const int stride = this->complete_src_.stride();
+    // Load source WidthMajor data
+    uint8x16_t src_lines[4];
+    for (int i = 0; i < 4; i++) {
+      src_lines[i] = vld1q_u8(src_ptr + i * stride);
+    }
+    const uint8x16_t sign_bit_dup = vdupq_n_u8(0x80);
+    int32x4_t sum = vld1q_s32(sums_ptr);
+    for (int i = 0; i < 4; i++) {
+      src_lines[i] = veorq_u8(src_lines[i], sign_bit_dup);
+    }
+    for (int i = 0; i < 4; i++) {
+      vst1q_u8(dst_ptr + 16 * i, src_lines[i]);
+    }
+    int16x8_t sums2[4];
+    for (int i = 0; i < 4; i++) {
+      const int8x8_t lo = vreinterpret_s8_u8(vget_low_u8(src_lines[i]));
+      const int8x8_t hi = vreinterpret_s8_u8(vget_high_u8(src_lines[i]));
+      sums2[i] = vaddl_s8(lo, hi);
+    }
+    int16x8_t sums4[2];
+    for (int i = 0; i < 2; i++) {
+      sums4[i] = vpaddq_s16(sums2[2 * i], sums2[2 * i + 1]);
+    }
+    int16x8_t sums8;
+    sums8 = vpaddq_s16(sums4[0], sums4[1]);
+    sum = vpadalq_s16(sum, sums8);
+    vst1q_s32(sums_ptr, sum);
+    dst->seek_forward_n_cells(1);
+  }
+};
+
+#endif  // GEMMLOWP_NEON_64
+
 }  // namespace gemmlowp
 
 #endif  // GEMMLOWP_INTERNAL_PACK_NEON_H_

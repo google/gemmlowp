@@ -22,19 +22,14 @@
 #include "../profiling/profiler.h"
 #endif
 
-#include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <random>
 #include <vector>
 
 #include "../public/gemmlowp.h"
 
 namespace gemmlowp {
-
-inline int Random() {
-  // Use ugly old rand() since this doesn't need to be high quality.
-  return rand();
-}
 
 #define GEMMLOWP_STRINGIFY2(x) #x
 #define GEMMLOWP_STRINGIFY(x) GEMMLOWP_STRINGIFY2(x)
@@ -97,13 +92,19 @@ class Matrix : public MatrixMap<tScalar, tOrder> {
   std::vector<Scalar> storage;
 };
 
-template <typename MatrixType>
-void MakeRandom(MatrixType* m, int bits) {
+std::mt19937& RandomEngine() {
+  static std::mt19937 engine;
+  return engine;
+}
+
+template <typename OperandRange, typename MatrixType>
+void MakeRandom(MatrixType* m) {
   typedef typename MatrixType::Scalar Scalar;
-  const Scalar mask = (1 << bits) - 1;
+  std::uniform_int_distribution<Scalar> dist(OperandRange::kMinValue,
+                                             OperandRange::kMaxValue);
   for (int c = 0; c < m->cols(); c++) {
     for (int r = 0; r < m->rows(); r++) {
-      (*m)(r, c) = Random() & mask;
+      (*m)(r, c) = dist(RandomEngine());
     }
   }
 }
