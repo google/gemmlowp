@@ -61,7 +61,7 @@ struct MetaTask : gemmlowp::Task {
         result_stride(result_stride),
         operation(operation) {}
 
-  void Run() const override {
+  void Run() override {
     const IN_TYPE* task_lhs = lhs + task_rect.m_offset * k;
     const IN_TYPE* task_rhs = rhs + task_rect.n_offset * k;
     OUT_TYPE* task_result =

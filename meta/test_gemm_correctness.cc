@@ -42,27 +42,27 @@ using namespace gemmlowp::meta;
 
 // Input, output & kernel setups.
 
-typedef GemmParams<uint8_t, uint8_t, RowMajorWithSum, ColumnMajorWithSum,
+typedef GemmParams<std::uint8_t, std::uint8_t, RowMajorWithSum, ColumnMajorWithSum,
                    QuantizedStaticPreprocessed, RowMajor>
     ParamsColumnMajor;
 
-typedef GemmParams<uint8_t, uint8_t, RowMajorWithSum, RowMajorWithSum,
+typedef GemmParams<std::uint8_t, std::uint8_t, RowMajorWithSum, RowMajorWithSum,
                    QuantizedStaticPreprocessed, RowMajor>
     ParamsRowMajor;
 
-typedef GemmParams<uint8_t, float, RowMajorWithSum, ColumnMajorWithSum,
+typedef GemmParams<std::uint8_t, float, RowMajorWithSum, ColumnMajorWithSum,
                    QuantizedStaticPreprocessedAsFloat, RowMajor>
     ParamsColumnMajorAsFloat;
 
-typedef GemmParams<uint8_t, float, RowMajorWithSum, RowMajorWithSum,
+typedef GemmParams<std::uint8_t, float, RowMajorWithSum, RowMajorWithSum,
                    QuantizedStaticPreprocessedAsFloat, RowMajor>
     ParamsRowMajorAsFloat;
 
-typedef GemmParams<uint8_t, int32_t, RowMajorWithSum, ColumnMajorWithSum,
+typedef GemmParams<std::uint8_t, std::int32_t, RowMajorWithSum, ColumnMajorWithSum,
                    QuantizedStaticPreprocessedAsInt32, RowMajor>
     ParamsColumnMajorAsInt32;
 
-typedef GemmParams<uint8_t, int32_t, RowMajorWithSum, RowMajorWithSum,
+typedef GemmParams<std::uint8_t, std::int32_t, RowMajorWithSum, RowMajorWithSum,
                    QuantizedStaticPreprocessedAsInt32, RowMajor>
     ParamsRowMajorAsInt32;
 
@@ -79,7 +79,7 @@ typedef GemmExecutorPackRHSCacheFriendly<> Executor;
 
 void prepare_test_data(std::uint8_t* data, std::int32_t rows, std::int32_t cols,
                        std::int32_t seed, std::int32_t seed_2) {
-  int32_t value = seed;
+  std::int32_t value = seed;
   for (int i = 0; i < rows * cols; ++i) {
     data[i] = static_cast<std::uint8_t>(value);
     value = ((value * seed_2) + seed) % 256;
@@ -93,7 +93,7 @@ void clear(int rows, int cols, CLEAR_TYPE* data) {
   }
 }
 
-bool check_row_row(uint8_t* lhs, uint8_t* rhs, uint8_t* results, int rows,
+bool check_row_row(std::uint8_t* lhs, std::uint8_t* rhs, std::uint8_t* results, int rows,
                    int cols, int depth) {
   int wrong = 0;
   int rounding = (1 << (SHIFT - 1));
@@ -128,7 +128,7 @@ bool check_row_row(uint8_t* lhs, uint8_t* rhs, uint8_t* results, int rows,
   return wrong == 0;
 }
 
-bool check_row_col(uint8_t* lhs, uint8_t* rhs, uint8_t* results, int rows,
+bool check_row_col(std::uint8_t* lhs, std::uint8_t* rhs, std::uint8_t* results, int rows,
                    int cols, int depth) {
   int wrong = 0;
   int rounding = (1 << (SHIFT - 1));
@@ -158,7 +158,7 @@ bool check_row_col(uint8_t* lhs, uint8_t* rhs, uint8_t* results, int rows,
   return wrong == 0;
 }
 
-bool check_row_row_f(uint8_t* lhs, uint8_t* rhs, float* results, int rows,
+bool check_row_row_f(std::uint8_t* lhs, std::uint8_t* rhs, float* results, int rows,
                      int cols, int depth) {
   int wrong = 0;
   for (int i = 0; i < rows; ++i) {
@@ -178,7 +178,7 @@ bool check_row_row_f(uint8_t* lhs, uint8_t* rhs, float* results, int rows,
   return wrong == 0;
 }
 
-bool check_row_col_f(uint8_t* lhs, uint8_t* rhs, float* results, int rows,
+bool check_row_col_f(std::uint8_t* lhs, std::uint8_t* rhs, float* results, int rows,
                      int cols, int depth) {
   int wrong = 0;
   for (int i = 0; i < rows; ++i) {
@@ -198,7 +198,7 @@ bool check_row_col_f(uint8_t* lhs, uint8_t* rhs, float* results, int rows,
   return wrong == 0;
 }
 
-bool check_row_row_i32(uint8_t* lhs, uint8_t* rhs, int32_t* results, int rows,
+bool check_row_row_i32(std::uint8_t* lhs, std::uint8_t* rhs, std::int32_t* results, int rows,
                        int cols, int depth) {
   int wrong = 0;
   for (int i = 0; i < rows; ++i) {
@@ -217,7 +217,7 @@ bool check_row_row_i32(uint8_t* lhs, uint8_t* rhs, int32_t* results, int rows,
   return wrong == 0;
 }
 
-bool check_row_col_i32(uint8_t* lhs, uint8_t* rhs, int32_t* results, int rows,
+bool check_row_col_i32(std::uint8_t* lhs, std::uint8_t* rhs, std::int32_t* results, int rows,
                        int cols, int depth) {
   int wrong = 0;
   for (int i = 0; i < rows; ++i) {
@@ -323,7 +323,7 @@ void setup_row_row_i32(int m, int n, int k, ParamsRowMajorAsInt32* params) {
   params->right_stream.count = k;
   params->right_stream.stride = k;
   params->fused_kernel.kernel.count = k;
-  params->fused_kernel.output_stream.stride = n * sizeof(int32_t);
+  params->fused_kernel.output_stream.stride = n * sizeof(std::int32_t);
 }
 
 void setup_row_col_i32(int m, int n, int k, ParamsColumnMajorAsInt32* params) {
@@ -336,7 +336,7 @@ void setup_row_col_i32(int m, int n, int k, ParamsColumnMajorAsInt32* params) {
   params->right_stream.count = k;
   params->right_stream.stride = n;
   params->fused_kernel.kernel.count = k;
-  params->fused_kernel.output_stream.stride = n * sizeof(int32_t);
+  params->fused_kernel.output_stream.stride = n * sizeof(std::int32_t);
 }
 
 int main() {
@@ -347,12 +347,12 @@ int main() {
   ParamsRowMajorAsInt32 params_row_i32;
   ParamsColumnMajorAsInt32 params_col_i32;
 
-  std::unique_ptr<uint8_t> lhs(new uint8_t[1024 * 1024]);
-  std::unique_ptr<uint8_t> rhs(new uint8_t[1024 * 1024]);
-  std::unique_ptr<uint8_t> result(new uint8_t[1024 * 1024]);
+  std::unique_ptr<std::uint8_t> lhs(new std::uint8_t[1024 * 1024]);
+  std::unique_ptr<std::uint8_t> rhs(new std::uint8_t[1024 * 1024]);
+  std::unique_ptr<std::uint8_t> result(new std::uint8_t[1024 * 1024]);
   std::unique_ptr<float> result_f(new float[1024 * 1024]);
-  std::unique_ptr<int32_t> result_i32(new int32_t[1024 * 1024]);
-  std::unique_ptr<uint8_t> scratch(new uint8_t[4048 * 1024]);
+  std::unique_ptr<std::int32_t> result_i32(new std::int32_t[1024 * 1024]);
+  std::unique_ptr<std::uint8_t> scratch(new std::uint8_t[4048 * 1024]);
 
   setup_params(lhs.get(), rhs.get(), result.get(), scratch.get(), &params_row);
   setup_params(lhs.get(), rhs.get(), result.get(), scratch.get(), &params_col);

@@ -22,37 +22,6 @@
 
 namespace gemmlowp {
 
-// Requantizes source values pointed by raw_src_ptr in [0..255] range
-// to the range specified by BitDepth, [0..((2^bits)-1)].
-// This is in-place requantization, where the input is
-// not modified if 8bit integers are used. SSE does not
-// have less than 8bit kernels currently. Altought SSE registers
-// hold 16 uint8_t elements, only first 8 uint8_t elements are
-// requantized. The packing only use first 8 uint8_t elements
-// of the SSE registers. Therefore, requantizing all 16 uint8_t
-// elements will be wasteful computation.
-template <typename QuantizationParams>
-void SSERequantize(
-    __m128i* raw_src_ptr,
-    ScalarRoundingOffsetGenerator<QuantizationParams::kRoundingMode>*
-        rounding_offset_generator) {
-  static const int kBits = QuantizationParams::BitDepth::kBits;
-  static const std::uint8_t kMaxVal = (1 << kBits) - 1;
-  if (kBits == 8) {
-    return;
-  }
-
-  std::uint8_t* raw_src_ui8_ptr = (std::uint8_t*)&raw_src_ptr[0];
-
-  // modify only first 8 elements in the register (see note above)
-  for (int i = 0; i < 8; ++i) {
-    std::uint16_t scaled =
-        static_cast<std::uint16_t>(raw_src_ui8_ptr[i]) * kMaxVal;
-    std::uint8_t rounding_offset = rounding_offset_generator->get();
-    raw_src_ui8_ptr[i] = (scaled + rounding_offset) / 255;
-  }
-}
-
 // TODO: Add DepthMajorUint8SideMap
 
 typedef SideMap<const std::uint8_t, SideMapOrder::WidthMajor>
@@ -62,12 +31,12 @@ template <int Cells>
 using WidthMajorSideFormatNCells4x2 =
     KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, Cells>;
 
-template <typename QuantizationParams, int Cells>
+template <int Cells>
 class PackingRegisterBlock<
-    QuantizationParams, WidthMajorUint8SideMap,
+    WidthMajorUint8SideMap,
     PackedSideBlock<WidthMajorSideFormatNCells4x2<Cells> > >
     : public PackingRegisterBlockBase<
-          QuantizationParams, WidthMajorUint8SideMap,
+          WidthMajorUint8SideMap,
           PackedSideBlock<WidthMajorSideFormatNCells4x2<Cells> > > {
  public:
   typedef WidthMajorSideFormatNCells4x2<Cells> KernelSideFormat;
@@ -78,11 +47,7 @@ class PackingRegisterBlock<
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
 
-  typedef ScalarRoundingOffsetGenerator<QuantizationParams::kRoundingMode>
-      RoundingOffsetGenerator;
-
-  void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width,
-            RoundingOffsetGenerator* rounding_offset_generator) {
+  void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
     std::uint8_t* dst_ptr = dst->current_data();
     const int width_stride = this->complete_src_.width_stride();
     int depth_step = 8;
@@ -113,20 +78,14 @@ class PackingRegisterBlock<
         __m128i xmm7 = _mm_shuffle_epi32(xmm6, 0x80);
 
         __m128i xmm9 = _mm_blend_epi16(xmm5, xmm7, 0xcc);
-        SSERequantize<QuantizationParams>(&xmm9, rounding_offset_generator);
-
         __m128i xmm10 = _mm_blend_epi16(xmm8, xmm6, 0xcc);
-        SSERequantize<QuantizationParams>(&xmm10, rounding_offset_generator);
 
         _mm_storel_epi64(reinterpret_cast<__m128i*>(&dst_ptr[0]), xmm9);
         _mm_storel_epi64(
             reinterpret_cast<__m128i*>(&dst_ptr[kCellSize * kCells]), xmm10);
 
         __m128i xmm11 = _mm_shuffle_epi32(xmm9, 0xee);
-        SSERequantize<QuantizationParams>(&xmm11, rounding_offset_generator);
-
         __m128i xmm12 = _mm_shuffle_epi32(xmm10, 0xee);
-        SSERequantize<QuantizationParams>(&xmm12, rounding_offset_generator);
 
         _mm_storel_epi64(
             reinterpret_cast<__m128i*>(&dst_ptr[2 * kCellSize * kCells]),

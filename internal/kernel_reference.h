@@ -59,15 +59,13 @@ struct ReferenceKernel : KernelBase {
       // The next two loops are over cells of the Lhs (stacked vertically),
       // and over cells of the Rhs (stacked horizontally).
       for (int rc = 0; rc < Format::Lhs::kCells; rc++) {
-        const std::uint8_t* lhs_cell_ptr = lhs_ptr +
-                                           (dc * Format::Lhs::kCells + rc) *
-                                               Format::Lhs::Cell::kWidth *
-                                               Format::kDepth;
+        const std::uint8_t* lhs_cell_ptr =
+            lhs_ptr + (dc * Format::Lhs::kCells + rc) *
+                          Format::Lhs::Cell::kWidth * Format::kDepth;
         for (int cc = 0; cc < Format::Rhs::kCells; cc++) {
-          const std::uint8_t* rhs_cell_ptr = rhs_ptr +
-                                             (dc * Format::Rhs::kCells + cc) *
-                                                 Format::Rhs::Cell::kWidth *
-                                                 Format::kDepth;
+          const std::uint8_t* rhs_cell_ptr =
+              rhs_ptr + (dc * Format::Rhs::kCells + cc) *
+                            Format::Rhs::Cell::kWidth * Format::kDepth;
 
           // Now we are inside one cell of the Lhs and inside one cell
           // of the Rhs, so the remaining inner loops are just

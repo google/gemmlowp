@@ -65,7 +65,7 @@ template <typename Params, int kernel_size>
 struct Transform1DTaskRunner : gemmlowp::Task {
   Transform1DTaskRunner(const Params& params) : params(params) {}
 
-  void Run() const override { Transform1D<Params, kernel_size>(params); }
+  void Run() override { Transform1D<Params, kernel_size>(params); }
 
   Params params;
 };

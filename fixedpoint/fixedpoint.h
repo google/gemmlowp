@@ -15,50 +15,81 @@
 // fixedpoint.h: fixed-point arithmetic, with basic operations and
 // a few math functions such as tanh.
 
-// This is only used in output.h
-// for some specific output pipeline stages (tanh); most of gemmlowp
-// uses only plain integer arithmetic, not fixed-point arithmetic.
-// At the most basic level, we distinguish between plain integer
-// arithmetic and fixed-point arithmetic by the type of multiplication
-// that is used: plain integer arithmetic uses plain (overflowing)
-// integer multiplication, whereas fixed-point arithmetic uses
-// "multiply-high" instructions, which means using only the most
-// significant bits of the product, or equivalently, multiplying
-// fixed-point numbers in the [-1 .. +1] interval.
-
 #ifndef GEMMLOWP_INTERNAL_FIXEDPOINT_H_
 #define GEMMLOWP_INTERNAL_FIXEDPOINT_H_
 
-#include "common.h"
-
-#include <limits>
 #include <cassert>
+#include <limits>
+
+#include "../internal/common.h"
 
 namespace gemmlowp {
 
+// Part 1: Low-level integer-arithmetic primitives.
+// The implementations here are generic implementations valid for
+// scalar types (e.g. std::int32_t). Architecture-specific SIMD types
+// (e.g. NEON int32x4_t) may be supported by providing
+// specializations for them in separate files.
+//
+// The purpose of these primitives is two-fold:
+//  - They will be used to implement higher-level fixed-point
+//    abstractions, namely the FixedPoint class and its arithmetic
+//    operators.
+//  - They will be directly used to implement some more involved
+//    fixed-point computations, e.g. the fixed-point implementation
+//    of math functions such as tanh.
+
+// Some compile-time traits around raw types to handle SIMD aspects:
+// number of lanes, underlying scalar type.
+template <typename tIntegerType>
+struct FixedPointRawTypeTraits {};
+
+template <>
+struct FixedPointRawTypeTraits<std::int32_t> {
+  typedef std::int32_t ScalarRawType;
+  static const int kLanes = 1;
+};
+
+// Returns a SIMD value duplicating a scalar value across all lanes.
+template <typename tRawType>
+tRawType Dup(typename FixedPointRawTypeTraits<tRawType>::ScalarRawType x) {
+  return x;
+}
+
+// Plain bit-wise AND
 template <typename tIntegerType>
 tIntegerType BitAnd(tIntegerType a, tIntegerType b) {
   return a & b;
 }
 
+// Plain bit-wise OR
 template <typename tIntegerType>
 tIntegerType BitOr(tIntegerType a, tIntegerType b) {
   return a | b;
 }
 
+// Plain bit-wise XOR
 template <typename tIntegerType>
 tIntegerType BitXor(tIntegerType a, tIntegerType b) {
   return a ^ b;
 }
 
+// Plain bit-wise NOT
 template <typename tIntegerType>
 tIntegerType BitNot(tIntegerType a) {
   return ~a;
 }
 
+// Integer addition. Not saturating. Overflow is undefined behavior.
 template <typename tIntegerType>
 tIntegerType Add(tIntegerType a, tIntegerType b) {
   return a + b;
+}
+
+// Integer subtraction. Not saturating. Overflow is undefined behavior.
+template <typename tIntegerType>
+tIntegerType Mul(tIntegerType a, tIntegerType b) {
+  return a * b;
 }
 
 template <typename tIntegerType>
@@ -66,78 +97,111 @@ tIntegerType Sub(tIntegerType a, tIntegerType b) {
   return a - b;
 }
 
+// Integer unary negative. Not saturating. Overflow is undefined behavior.
 template <typename tIntegerType>
 tIntegerType Neg(tIntegerType a) {
   return -a;
 }
 
+// Integer arithmetic left-shift, equivalent to multiplying with a
+// power of two. Not saturating. Overflow is undefined behavior.
 template <typename tIntegerType>
 tIntegerType ShiftLeft(tIntegerType a, int offset) {
-  return a * (1 << offset);
+  return a << offset;
 }
 
+// Integer arithmetic right-shift. Not rounding.
+// Relying on implementation-defined, but in-practice-consistent,
+// C++ compiler behavior.
 template <typename tIntegerType>
 tIntegerType ShiftRight(tIntegerType a, int offset) {
-  return a / (1 << offset);
+  return a >> offset;
 }
 
+// Each bit of the result is set to the corresponding bit of either then_val or
+// else_val depending on whether the corresponding bit of if_mask is set.
+// Equivalent to the VBSL instruction in ARM NEON.
 template <typename tIntegerType>
 tIntegerType SelectUsingMask(tIntegerType if_mask, tIntegerType then_val,
                              tIntegerType else_val) {
   return BitXor(BitAnd(if_mask, then_val), BitAnd(BitNot(if_mask), else_val));
 }
 
+// For each input scalar, the corresponding bits of the result are set if the
+// input scalar is non-zero.
 template <typename tIntegerType>
 tIntegerType MaskIfNonZero(tIntegerType a) {
   static const tIntegerType zero = 0;
   return a ? BitNot(zero) : zero;
 }
 
+// For each input scalar, the corresponding bits of the result are set if the
+// input scalar is zero.
 template <typename tIntegerType>
 tIntegerType MaskIfZero(tIntegerType a) {
   return MaskIfNonZero<tIntegerType>(!a);
 }
 
+// For each pair of input scalars, the corresponding bits of the result are
+// set if the input scalars are equal.
 template <typename tIntegerType>
 tIntegerType MaskIfEqual(tIntegerType a, tIntegerType b) {
   return MaskIfNonZero<tIntegerType>(a == b);
 }
 
+// For each pair of input scalars, the corresponding bits of the result are
+// set if the input scalars are not equal.
 template <typename tIntegerType>
 tIntegerType MaskIfNotEqual(tIntegerType a, tIntegerType b) {
   return MaskIfNonZero<tIntegerType>(a != b);
 }
 
+// For each pair of input scalars, the corresponding bits of the result are
+// set if the input scalars a, b satisfy a > b.
 template <typename tIntegerType>
 tIntegerType MaskIfGreaterThan(tIntegerType a, tIntegerType b) {
   return MaskIfNonZero<tIntegerType>(a > b);
 }
 
+// For each pair of input scalars, the corresponding bits of the result are
+// set if the input scalars a, b satisfy a >= b.
 template <typename tIntegerType>
 tIntegerType MaskIfGreaterThanOrEqual(tIntegerType a, tIntegerType b) {
   return MaskIfNonZero<tIntegerType>(a >= b);
 }
 
+// For each pair of input scalars, the corresponding bits of the result are
+// set if the input scalars a, b satisfy a < b.
 template <typename tIntegerType>
 tIntegerType MaskIfLessThan(tIntegerType a, tIntegerType b) {
   return MaskIfNonZero<tIntegerType>(a < b);
 }
 
+// For each pair of input scalars, the corresponding bits of the result are
+// set if the input scalars a, b satisfy a <= b.
 template <typename tIntegerType>
 tIntegerType MaskIfLessThanOrEqual(tIntegerType a, tIntegerType b) {
   return MaskIfNonZero<tIntegerType>(a <= b);
 }
 
+// Returns true if all of the input scalars are nonzero.
+// This function may currently assume that each of the input scalars has either
+// all or none of its bits set. Otherwise, its behavior is currently undefined.
 template <typename tIntegerType>
 bool All(tIntegerType a) {
   return a;
 }
 
+// Returns true if any of the input scalars are nonzero.
+// This function may currently assume that each of the input scalars has either
+// all or none of its bits set. Otherwise, its behavior is currently undefined.
 template <typename tIntegerType>
 bool Any(tIntegerType a) {
   return a;
 }
 
+// Returns (a+b)/2, rounded to the nearest integer.
+// Equivalent to VRHADD in the ARM NEON instruction set.
 template <typename IntegerType>
 IntegerType RoundingHalfSum(IntegerType a, IntegerType b) {
   static_assert(std::is_same<IntegerType, void>::value, "unimplemented");
@@ -145,14 +209,42 @@ IntegerType RoundingHalfSum(IntegerType a, IntegerType b) {
 }
 
 template <>
-inline int32_t RoundingHalfSum(int32_t a, int32_t b) {
-  int64_t a64 = a;
-  int64_t b64 = b;
-  int64_t sum = a64 + b64;
-  int64_t sign = sum >= 0 ? 1 : -1;
-  return static_cast<int32_t>((sum + sign) / 2);
+inline std::int32_t RoundingHalfSum(std::int32_t a, std::int32_t b) {
+  std::int64_t a64 = a;
+  std::int64_t b64 = b;
+  std::int64_t sum = a64 + b64;
+  std::int64_t sign = sum >= 0 ? 1 : -1;
+  return static_cast<std::int32_t>((sum + sign) / 2);
 }
 
+// Returns the integer that represents the product of two fixed-point
+// numbers, interpreting all integers as fixed-point values in the
+// interval [-1, 1), rounding to the nearest value, and saturating
+// -1 * -1 to the maximum value (since 1 is not in the half-open
+// interval [-1, 1)).
+//
+// [The explanation below specializes to std::int32_t for example purpose.]
+//
+// The mapping between IntegerType and the interval [-1, 1) is unique and
+// implied by IntegerType, which is assumed to be signed. For example,
+// for IntegerType==std::int32_t, the mapping is
+//   real_value = integer_value / 2^31.
+// So in this case, and leaving aside rounding and saturating, this
+// function computes ((a / 2^31) * (b / 2^31)) * 2^31, which simplifies to
+//   (a * b) / 2^31.
+//
+// The 'doubling' part in the name of this function comes from the fact that
+// this operation is very close to a "multiply-high" operation, keeping only
+// the top half bits, except that that would be effectively computing
+//   (a * b) / 2^32,
+// so here we are computing 2x that, since
+//   1/2^31 = 2 * 1/2^32.
+// The idea is to use all of the available 32 bits in the destination int32
+// value.
+//
+// [End of the explanation specializing to int32.]
+//
+// This is equivalent to the VQRDMULH instruction in ARM NEON.
 template <typename IntegerType>
 IntegerType SaturatingRoundingDoublingHighMul(IntegerType a, IntegerType b) {
   static_assert(std::is_same<IntegerType, void>::value, "unimplemented");
@@ -162,16 +254,42 @@ IntegerType SaturatingRoundingDoublingHighMul(IntegerType a, IntegerType b) {
 // This function implements the same computation as the ARMv7 NEON VQRDMULH
 // instruction.
 template <>
-inline int32_t SaturatingRoundingDoublingHighMul(int32_t a, int32_t b) {
-  bool overflow = a == b && a == std::numeric_limits<int32_t>::min();
-  int64_t a_64(a);
-  int64_t b_64(b);
-  int64_t ab_64 = a_64 * b_64;
-  int32_t nudge = ab_64 >= 0 ? (1 << 30) : (1 - (1 << 30));
-  int32_t ab_x2_high32 = static_cast<int32_t>((ab_64 + nudge) / (1ll << 31));
-  return overflow ? std::numeric_limits<int32_t>::max() : ab_x2_high32;
+inline std::int32_t SaturatingRoundingDoublingHighMul(std::int32_t a,
+                                                      std::int32_t b) {
+  bool overflow = a == b && a == std::numeric_limits<std::int32_t>::min();
+  std::int64_t a_64(a);
+  std::int64_t b_64(b);
+  std::int64_t ab_64 = a_64 * b_64;
+  std::int32_t nudge = ab_64 >= 0 ? (1 << 30) : (1 - (1 << 30));
+  std::int32_t ab_x2_high32 =
+      static_cast<std::int32_t>((ab_64 + nudge) / (1ll << 31));
+  return overflow ? std::numeric_limits<std::int32_t>::max() : ab_x2_high32;
 }
 
+// Correctly-rounded-to-nearest division by a power-of-two.
+// Also known as a rounding arithmetic right shift.
+template <typename IntegerType>
+inline IntegerType RoundingDivideByPOT(IntegerType x, int exponent) {
+  using ScalarIntegerType =
+      typename FixedPointRawTypeTraits<IntegerType>::ScalarRawType;
+  static_assert(std::is_same<ScalarIntegerType, std::int32_t>::value,
+                "Currently only supporting int32 scalar and SIMD types");
+  assert(exponent >= 0);
+  assert(exponent <= 31);
+  const IntegerType mask = Dup<IntegerType>((1ll << exponent) - 1);
+  const IntegerType zero = Dup<IntegerType>(0);
+  const IntegerType one = Dup<IntegerType>(1);
+  const IntegerType remainder = BitAnd(x, mask);
+  const IntegerType threshold =
+      Add(ShiftRight(mask, 1), BitAnd(MaskIfLessThan(x, zero), one));
+  return Add(ShiftRight(x, exponent),
+             BitAnd(MaskIfGreaterThan(remainder, threshold), one));
+}
+
+// Returns the product of a run-time integer value by a compile-time power
+// of two, with either a positive exponent (equivalent to an arithmetic
+// left shift, saturating) or a negative exponent (equivalent to an arithmetic
+// right shift, rounding to nearest).
 template <int Exponent, typename IntegerType,
           int ExponentSign = (Exponent > 0 ? 1 : Exponent < 0 ? -1 : 0)>
 struct ImplSaturatingRoundingMultiplyByPOT {};
@@ -181,23 +299,35 @@ struct ImplSaturatingRoundingMultiplyByPOT<Exponent, IntegerType, 0> {
   static IntegerType eval(IntegerType x) { return x; }
 };
 
-template <int Exponent>
-struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32_t, 1> {
-  static int32_t eval(int32_t x) {
-    const int64_t min = std::numeric_limits<int32_t>::min();
-    const int64_t max = std::numeric_limits<int32_t>::max();
-    return x >= (1 << (31 - Exponent)) ? max : x <= -(1 << (31 - Exponent))
-                                                   ? min
-                                                   : x * (1 << Exponent);
+template <int Exponent, typename IntegerType>
+struct ImplSaturatingRoundingMultiplyByPOT<Exponent, IntegerType, 1> {
+  static IntegerType eval(IntegerType x) {
+    using ScalarIntegerType =
+        typename FixedPointRawTypeTraits<IntegerType>::ScalarRawType;
+    static_assert(std::is_same<ScalarIntegerType, std::int32_t>::value,
+                  "Currently only supporting int32 scalar and SIMD types");
+    const IntegerType min =
+        Dup<IntegerType>(std::numeric_limits<std::int32_t>::min());
+    const IntegerType max =
+        Dup<IntegerType>(std::numeric_limits<std::int32_t>::max());
+
+    const std::int32_t threshold = ((1 << (31 - Exponent)) - 1);
+    const IntegerType positive_mask =
+        MaskIfGreaterThan(x, Dup<IntegerType>(threshold));
+    const IntegerType negative_mask =
+        MaskIfLessThan(x, Dup<IntegerType>(-threshold));
+
+    IntegerType result = ShiftLeft(x, Exponent);
+    result = SelectUsingMask(positive_mask, max, result);
+    result = SelectUsingMask(negative_mask, min, result);
+    return result;
   }
 };
 
-template <int Exponent>
-struct ImplSaturatingRoundingMultiplyByPOT<Exponent, int32_t, -1> {
-  static int32_t eval(int32_t x) {
-    int32_t b = (std::abs(x) & (1 << (-Exponent - 1))) >> (-Exponent - 1);
-    int32_t nudge = x >= 0 ? b : -b;
-    return x / (1 << -Exponent) + nudge;
+template <int Exponent, typename IntegerType>
+struct ImplSaturatingRoundingMultiplyByPOT<Exponent, IntegerType, -1> {
+  static IntegerType eval(IntegerType x) {
+    return RoundingDivideByPOT<IntegerType>(x, -Exponent);
   }
 };
 
@@ -206,20 +336,35 @@ IntegerType SaturatingRoundingMultiplyByPOT(IntegerType x) {
   return ImplSaturatingRoundingMultiplyByPOT<Exponent, IntegerType>::eval(x);
 }
 
-template <typename tIntegerType>
-struct FixedPointRawTypeTraits {};
+// Part 2: the FixedPoint class.
 
-template <>
-struct FixedPointRawTypeTraits<int32_t> {
-  typedef int32_t ScalarRawType;
-  static const int kLanes = 1;
-};
-
-template <typename tRawType>
-tRawType Dup(typename FixedPointRawTypeTraits<tRawType>::ScalarRawType x) {
-  return x;
-}
-
+// A FixedPoint object represents a fixed-point value stored in the underlying
+// integer type tRawType, if tRawType is a plain scalar integer type.
+// Alternatively, tRawType may be a SIMD type (e.g. NEON int32x4_t) in which
+// case a FixedPoint object represents a corresponding SIMD vector of fixed
+// point values.
+//
+// tIntegerBits describes the range of the fixed-point format: if
+// tIntegerBits == m then the range of representable values is the half-open
+// interval [-2^m; 2^m) where the open boundary on the right side means that
+// 2^m is not representable (how close the maximum representable value is to
+// it, depends on bit-depth of tRawType).
+//
+// In "Q format notation",
+//   https://en.wikipedia.org/wiki/Q_(number_format)
+// we are describing the format
+//   Qm.n
+// where
+//   m = tIntegerBits
+// and
+//   n = NumberOfBits(tRawType) - (m + 1)
+// Note that the (m + 1) in the above line is because we adopt the convention
+// that we count the integer bits exclusively of the sign bit; so (m + 1) is
+// the total number of integer bits inclusive of the sign bit.
+//
+// Accordingly, the number of integral representable values in our range
+//   [-2^m ; 2^m)
+// is equal to 2^(m+1).
 template <typename tRawType, int tIntegerBits>
 class FixedPoint {
  public:
@@ -285,6 +430,15 @@ class FixedPoint {
                              : (ScalarRawType(1) << kFractionalBits));
   }
 
+  static FixedPoint FromDouble(double x) {
+    const double min_bound = static_cast<double>(ScalarRawMin());
+    const double max_bound = static_cast<double>(ScalarRawMax());
+    return FromScalarRaw(static_cast<std::int32_t>(std::min(
+        std::max(round(x * static_cast<double>(1ll << kFractionalBits)),
+                 min_bound),
+        max_bound)));
+  }
+
   RawType raw() const { return i_; }
   RawType& raw() { return i_; }
 
@@ -292,6 +446,13 @@ class FixedPoint {
   RawType i_;
 };
 
+// Part 3: implementation of arithmetic operators for the
+// FixedPoint class, and a few related functions.
+
+// A FixedPoint multiplication is just a
+// SaturatingRoundingDoublingHighMul operation on the underlying
+// raw integer values. The IntegerBits simply add up, as is obvious
+// from the fact that the range is [-2^IntegerBits, 2^IntegerBits).
 template <typename tRawType, int tIntegerBits_a, int tIntegerBits_b>
 FixedPoint<tRawType, tIntegerBits_a + tIntegerBits_b> operator*(
     FixedPoint<tRawType, tIntegerBits_a> a,
@@ -301,6 +462,7 @@ FixedPoint<tRawType, tIntegerBits_a + tIntegerBits_b> operator*(
   return c;
 }
 
+// Tweaking IntegerBits gives exact multiplication by a power of two.
 template <int tExponent, typename tRawType, int tIntegerBits>
 FixedPoint<tRawType, tExponent + tIntegerBits> ExactMulByPot(
     FixedPoint<tRawType, tIntegerBits> a) {
@@ -309,12 +471,16 @@ FixedPoint<tRawType, tExponent + tIntegerBits> ExactMulByPot(
   return c;
 }
 
+// If we want to leave IntegerBits fixed, then multiplication
+// by a power of two has to be saturating/rounding, not exact anymore.
 template <int tExponent, typename tRawType, int tIntegerBits>
 FixedPoint<tRawType, tIntegerBits> SaturatingRoundingMultiplyByPOT(
     FixedPoint<tRawType, tIntegerBits> a) {
   return FixedPoint<tRawType, tIntegerBits>::FromRaw(
       SaturatingRoundingMultiplyByPOT<tExponent>(a.raw()));
 }
+
+// Generic arithmetic operators.
 
 #define MAKE_FIXEDPOINT_UNARY_FUNC(FuncName, ImplFuncName)                     \
   template <typename tRawType, int tIntegerBits>                               \
@@ -389,23 +555,17 @@ bool operator!=(FixedPoint<tRawType, tIntegerBits> a,
   return !(a == b);
 }
 
+// Conversion to floating-point.
 template <typename tRawType, int tIntegerBits>
 double ToDouble(FixedPoint<tRawType, tIntegerBits> x) {
   static_assert(FixedPointRawTypeTraits<tRawType>::kLanes == 1,
                 "not applicable to SIMD types");
   typedef FixedPoint<tRawType, tIntegerBits> F;
-  return x.raw() / double(1ll << F::kFractionalBits);
+  return x.raw() / static_cast<double>(1ll << F::kFractionalBits);
 }
 
-template <typename tRawType, int tIntegerBits>
-FixedPoint<tRawType, tIntegerBits> ToFixedPoint(double x) {
-  typedef FixedPoint<tRawType, tIntegerBits> F;
-  return F::FromScalarRaw(static_cast<int32_t>(
-      std::min(std::max(round(x * double(1ll << F::kFractionalBits)),
-                        double(F::ScalarRawMin())),
-               double(F::ScalarRawMax()))));
-}
-
+// Rescale changes the number of IntegerBits and updates the underlying
+// raw integer value accordingly.
 template <int tIntegerBitsDst, typename tRawType, int tIntegerBitsSrc>
 FixedPoint<tRawType, tIntegerBitsDst> Rescale(
     FixedPoint<tRawType, tIntegerBitsSrc> x) {
@@ -415,16 +575,18 @@ FixedPoint<tRawType, tIntegerBitsDst> Rescale(
   return result;
 }
 
+// CheckedFixedPointConstant allows to specify fixed-point constants
+// initialized as real numbers, in a way that does not compile floating-point
+// arithmetic in production code, yet still checks agreement with the
+// floating-point expressions when asserts are enabled.
 #ifdef GEMMLOWP_ENABLE_FIXEDPOINT_CONSTANTS_CHECKS
 template <typename FixedPointType>
 FixedPointType CheckedFixedPointConstant(
     typename FixedPointType::ScalarRawType raw_value, double double_value) {
   typedef typename FixedPointType::RawType RawType;
-  static const int kIntegerBits = FixedPointType::kIntegerBits;
-  FixedPointType ref = FixedPointType::FromScalarRaw(raw_value);
-  FixedPointType check = ToFixedPoint<RawType, kIntegerBits>(double_value);
-  assert(ref == check);
-  return ref;
+  const FixedPointType result = FixedPointType::FromScalarRaw(raw_value);
+  assert(result == FixedPointType::FromDouble(double_value));
+  return result;
 }
 #define GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(FixedPointType, ScalarRawValue, \
                                              DoubleValue)                    \
@@ -436,6 +598,9 @@ FixedPointType CheckedFixedPointConstant(
   (FixedPointType::FromScalarRaw(ScalarRawValue))
 #endif
 
+// Implementation of exponential function.
+
+// Returns exp(x) for x in [-1/4, 0).
 template <typename tRawType>
 FixedPoint<tRawType, 0> exp_on_interval_between_negative_one_quarter_and_0_excl(
     FixedPoint<tRawType, 0> a) {
@@ -459,6 +624,7 @@ FixedPoint<tRawType, 0> exp_on_interval_between_negative_one_quarter_and_0_excl(
          constant_term * (x + x4_over_24_plus_x3_over_6_plus_x2_over_2);
 }
 
+// Returns exp(x) for x < 0.
 template <typename tRawType, int tIntegerBits>
 FixedPoint<tRawType, 0> exp_on_negative_values(
     FixedPoint<tRawType, tIntegerBits> a) {
@@ -477,9 +643,10 @@ FixedPoint<tRawType, 0> exp_on_negative_values(
   if (kIntegerBits > Exponent) {                                            \
     const ResultF kMultiplier = GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(       \
         ResultF, FixedPointMultiplier, std::exp(-std::pow(2.0, Exponent))); \
+    static constexpr int kShiftAmount =                                     \
+        kIntegerBits > Exponent ? kFractionalBits + Exponent : 0;           \
     result = SelectUsingMask(                                               \
-        MaskIfNonZero(BitAnd(                                               \
-            remainder, Dup<tRawType>(1 << (kFractionalBits + Exponent)))),  \
+        MaskIfNonZero(BitAnd(remainder, Dup<tRawType>(1 << kShiftAmount))), \
         result * kMultiplier, result);                                      \
   }
 
@@ -504,12 +671,18 @@ FixedPoint<tRawType, 0> exp_on_negative_values(
   return result;
 }
 
+// Implementation of tanh: (1 - exp(-2x)) / (1 + exp(-2x)).
+
+// Returns (1 - x) / (1 + x) for x in (0, 1).
 template <typename tRawType>
 FixedPoint<tRawType, 0> one_minus_x_over_one_plus_x_for_x_in_0_1(
     FixedPoint<tRawType, 0> a) {
   typedef FixedPoint<tRawType, 0> F0;
   typedef FixedPoint<tRawType, 2> F2;
   F0 half_denominator = RoundingHalfSum(a, F0::One());
+  // Newton-Raphson division
+  // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
+  // Refer to that page for the logic behind the 48/17 and 32/17 constants.
   const F2 constant_48_over_17 =
       GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(F2, 1515870810, 48.0 / 17.0);
   const F2 constant_neg_32_over_17 =
@@ -524,6 +697,7 @@ FixedPoint<tRawType, 0> one_minus_x_over_one_plus_x_for_x_in_0_1(
   return Rescale<0>(x - F2::One());
 }
 
+// Returns -tanh(x) for x < 0.
 template <typename tRawType, int tIntegerBits>
 FixedPoint<tRawType, 0> neg_tanh_on_negative_values(
     FixedPoint<tRawType, tIntegerBits> a) {
@@ -531,6 +705,7 @@ FixedPoint<tRawType, 0> neg_tanh_on_negative_values(
       exp_on_negative_values(ExactMulByPot<1>(a)));
 }
 
+// Returns tanh(x) for any x.
 template <typename tRawType, int tIntegerBits>
 FixedPoint<tRawType, 0> tanh(FixedPoint<tRawType, tIntegerBits> a) {
   typedef FixedPoint<tRawType, tIntegerBits> InputF;
@@ -543,10 +718,62 @@ FixedPoint<tRawType, 0> tanh(FixedPoint<tRawType, tIntegerBits> a) {
                          SelectUsingMask(mask_if_negative, -t, t));
 }
 
+// Implementation of logistic function.
+
+// Returns 1 / (1 + x) for x in (0, 1).
+template <typename tRawType>
+FixedPoint<tRawType, 0> one_over_one_plus_x_for_x_in_0_1(
+    FixedPoint<tRawType, 0> a) {
+  typedef FixedPoint<tRawType, 0> F0;
+  typedef FixedPoint<tRawType, 2> F2;
+  F0 half_denominator = RoundingHalfSum(a, F0::One());
+  // Newton-Raphson division
+  // https://en.wikipedia.org/wiki/Division_algorithm#Newton.E2.80.93Raphson_division
+  // Refer to that page for the logic behind the 48/17 and 32/17 constants.
+  const F2 constant_48_over_17 =
+      GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(F2, 1515870810, 48.0 / 17.0);
+  const F2 constant_neg_32_over_17 =
+      GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(F2, -1010580540, -32.0 / 17.0);
+  F2 x = constant_48_over_17 + half_denominator * constant_neg_32_over_17;
+  for (int i = 0; i < 3; i++) {
+    F2 half_denominator_times_x = half_denominator * x;
+    F2 one_minus_half_denominator_times_x =
+        F2::One() - half_denominator_times_x;
+    x = x + Rescale<2>(x * one_minus_half_denominator_times_x);
+  }
+  return Rescale<0>(ExactMulByPot<-1>(x));
+}
+
+// Returns logistic(x) = 1 / (1 + exp(-x)) for x > 0.
+template <typename tRawType, int tIntegerBits>
+FixedPoint<tRawType, 0> logistic_on_positive_values(
+    FixedPoint<tRawType, tIntegerBits> a) {
+  return one_over_one_plus_x_for_x_in_0_1(exp_on_negative_values(-a));
+}
+
+// Returns logistic(x) = 1 / (1 + exp(-x)) for any x.
+template <typename tRawType, int tIntegerBits>
+FixedPoint<tRawType, 0> logistic(FixedPoint<tRawType, tIntegerBits> a) {
+  typedef FixedPoint<tRawType, tIntegerBits> InputF;
+  typedef FixedPoint<tRawType, 0> ResultF;
+  tRawType mask_if_positive = MaskIfGreaterThan(a, InputF::Zero());
+  tRawType mask_if_zero = MaskIfZero(a);
+  InputF abs_input = SelectUsingMask(mask_if_positive, a, -a);
+  ResultF result_if_positive = logistic_on_positive_values(abs_input);
+  ResultF result_if_negative = ResultF::One() - result_if_positive;
+  const ResultF one_half =
+      GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(ResultF, 1 << 30, 0.5);
+  return SelectUsingMask(mask_if_zero, one_half,
+                         SelectUsingMask(mask_if_positive, result_if_positive,
+                                         result_if_negative));
+}
+
 }  // end namespace gemmlowp
 
 #ifdef GEMMLOWP_NEON
-#include "fixedpoint_neon.h"
+#include "./fixedpoint_neon.h"
+#elif defined(GEMMLOWP_SSE4)
+#include "./fixedpoint_sse.h"
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_FIXEDPOINT_H_

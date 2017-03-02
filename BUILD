@@ -7,11 +7,19 @@ licenses(["notice"])  # Apache 2.0
 
 exports_files(["LICENSE"])
 
-load("flags", "LIB_LINKOPTS", "BIN_LINKOPTS")
+config_setting(
+    name = "android",
+    values = {
+        "crosstool_top": "//external:android/crosstool",
+    },
+)
+
+load(":flags.bzl", "LIB_COPTS", "LIB_LINKOPTS", "BIN_LINKOPTS")
 
 filegroup(
     name = "gemmlowp_private_headers",
     srcs = glob([
+        "fixedpoint/*.h",
         "internal/*.h",
     ]),
     visibility = ["//visibility:private"],
@@ -73,6 +81,30 @@ filegroup(
     visibility = ["//visibility:private"],
 )
 
+filegroup(
+    name = "fixedpoint_private_headers",
+    srcs = glob([
+        "fixedpoint/*.h",
+    ]) + [
+        "internal/common.h",
+    ],
+    visibility = ["//visibility:private"],
+)
+
+cc_library(
+    name = "fixedpoint",
+    srcs = [
+        ":fixedpoint_private_headers",
+    ],
+    hdrs = [
+        "fixedpoint/fixedpoint.h",
+    ],
+    # Blaze warning:
+    # "setting 'linkstatic=1' is recommended if there are no object files."
+    linkstatic = 1,
+    visibility = ["//visibility:public"],
+)
+
 cc_library(
     name = "gemmlowp",
     hdrs = [":gemmlowp_headers"],
@@ -81,6 +113,7 @@ cc_library(
     # "setting 'linkstatic=1' is recommended if there are no object files."
     linkstatic = 1,
     visibility = ["//visibility:public"],
+    deps = [":fixedpoint"],
 )
 
 cc_library(
@@ -91,6 +124,7 @@ cc_library(
         ":gemmlowp_private_headers",
         ":gemmlowp_public_headers",
     ],
+    copts = LIB_COPTS,
     linkopts = LIB_LINKOPTS,
     visibility = ["//visibility:public"],
     deps = [":gemmlowp"],

@@ -132,7 +132,7 @@ struct SSE4_32_Kernel4x4Depth2 : KernelBase {
         "addl $0x10, %[rhs_ptr]\n\t"
 
         "subl $2, %[run_depth_cells]\n\t"
-        "jnz outerLoop2%=\n\t"
+        "ja outerLoop2%=\n\t"
 
         "movl %[run_depth_cells], %%eax\n\t"
         "decl %%eax\n\t"
@@ -396,7 +396,7 @@ struct SSE4_64_Kernel12x4Depth2 : KernelBase {
         "addq $0x10, %[rhs_ptr]\n\t"
 
         "subq $2, %[run_depth_cells]\n\t"
-        "jnz outerLoop2%=\n\t"
+        "ja outerLoop2%=\n\t"
 
         "movq %[run_depth_cells], %%r14\n\t"
         "decq %%r14\n\t"

@@ -28,6 +28,14 @@
 #include "pack.h"
 #include "unpack.h"
 
+#ifdef GEMMLOWP_PROFILING_SIZES
+#ifndef GEMMLOWP_PROFILING
+#error GEMMLOWP_PROFILING_SIZES without GEMMLOWP_PROFILING
+#endif
+#include <string>
+#include <unordered_map>
+#endif
+
 namespace gemmlowp {
 
 class SingleThreadGemmContext {
@@ -37,11 +45,6 @@ class SingleThreadGemmContext {
  protected:
   Allocator allocator_;
 };
-
-typedef VectorMap<const int32_t, VectorShape::Col> OffsetColMap;
-typedef VectorMap<const int32_t, VectorShape::Row> OffsetRowMap;
-typedef VectorDup<const int32_t, VectorShape::Col> OffsetColDup;
-typedef VectorDup<const int32_t, VectorShape::Row> OffsetRowDup;
 
 template <typename KernelFormat, typename InputScalar, typename OutputScalar,
           typename BitDepthParams, MapOrder LhsOrder, MapOrder RhsOrder,
@@ -62,49 +65,72 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
   int cols = result->cols();
   int depth = lhs.cols();
 
+  // zero sizes should have been caught earlier and early-returned.
   assert(rows > 0);
   assert(cols > 0);
   assert(depth > 0);
+
+  // The case of rows<cols should have been caught earlier and transposed.
+  assert(rows >= cols);
 
   Allocator* allocator = context->allocator();
 
   BlockParams block_params;
   block_params.Init<KernelFormat>(rows, cols, depth, 1);
 
-  PackedSideBlock<typename KernelFormat::Lhs> packed_lhs(
-      Side::Lhs, allocator, block_params);
-  PackedSideBlock<typename KernelFormat::Rhs> packed_rhs(
-      Side::Rhs, allocator, block_params);
+#ifdef GEMMLOWP_PROFILING_SIZES
+  // Using a static map of label strings. Not reentrant at all!
+  static std::unordered_map<std::uint64_t, std::string> labels_map;
+  std::uint64_t sizes_hash = static_cast<std::uint64_t>(rows) ^
+                             (static_cast<std::uint64_t>(depth) << 16) ^
+                             (static_cast<std::uint64_t>(cols) << 32);
+  if (!labels_map.count(sizes_hash)) {
+    char label[256];
+    snprintf(label, sizeof(label),
+             "(rows = %d, depth = %d, cols = %d, l2_rows = %d, l2_depth = %d, "
+             "l2_cols = %d, l1_rows = %d, l1_depth = %d, l1_cols = %d)",
+             rows, depth, cols, block_params.l2_rows, block_params.l2_depth,
+             block_params.l2_cols, block_params.l1_rows, block_params.l1_depth,
+             block_params.l1_cols);
+    labels_map[sizes_hash] = label;
+  }
+  ScopedProfilingLabel size_label(labels_map[sizes_hash].c_str());
+#endif
+
+  PackedSideBlock<typename KernelFormat::Lhs> packed_lhs(Side::Lhs, allocator,
+                                                         block_params);
+  PackedSideBlock<typename KernelFormat::Rhs> packed_rhs(Side::Rhs, allocator,
+                                                         block_params);
 
   PackedResult packed_result(allocator, block_params);
 
   allocator->Commit();
 
-  const bool pack_rhs_once = block_params.l2_cols == cols;
+  const bool pack_rhs_once = block_params.l2_cols >= cols;
 
   if (pack_rhs_once) {
-    PackRhs<BitDepthParams>(&packed_rhs, rhs);
+    PackRhs(&packed_rhs, rhs);
   }
 
   for (int r = 0; r < rows; r += block_params.l2_rows) {
     int rs = std::min(block_params.l2_rows, rows - r);
 
-    PackLhs<BitDepthParams>(&packed_lhs, lhs.block(r, 0, rs, depth));
+    PackLhs(&packed_lhs, lhs.block(r, 0, rs, depth));
 
     for (int c = 0; c < cols; c += block_params.l2_cols) {
       int cs = std::min(block_params.l2_cols, cols - c);
 
       if (!pack_rhs_once) {
-        PackRhs<BitDepthParams>(&packed_rhs, rhs.block(0, c, depth, cs));
+        PackRhs(&packed_rhs, rhs.block(0, c, depth, cs));
       }
 
-      Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs);
+      Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs,
+              depth);
 
-      UnpackResult<BitDepthParams>(result, MatrixBlockBounds(r, c, rs, cs),
-                                   packed_result, depth,
-                                   packed_lhs.sums_of_each_slice(),
-                                   packed_rhs.sums_of_each_slice(),
-                                   lhs_offset, rhs_offset, output_pipeline);
+      UnpackResult(result, MatrixBlockBounds(r, c, rs, cs), packed_result,
+                   depth, packed_lhs.sums_of_each_slice(),
+                   packed_rhs.sums_of_each_slice(), lhs_offset.block(r, rs),
+                   rhs_offset.block(c, cs), output_pipeline);
     }
   }
 

@@ -19,7 +19,6 @@
 #define GEMMLOWP_PUBLIC_MAP_H_
 
 #include "../internal/common.h"
-#include "../internal/iterator.h"
 
 namespace gemmlowp {
 
@@ -41,6 +40,11 @@ class MatrixMap {
 
  public:
   MatrixMap() : data_(nullptr), rows_(0), cols_(0), stride_(0) {}
+  MatrixMap(Scalar* data, int rows, int cols)
+      : data_(data),
+        rows_(rows),
+        cols_(cols),
+        stride_(kOrder == MapOrder::ColMajor ? rows : cols) {}
   MatrixMap(Scalar* data, int rows, int cols, int stride)
       : data_(data), rows_(rows), cols_(cols), stride_(stride) {}
   MatrixMap(const MatrixMap& other)
@@ -95,6 +99,13 @@ class VectorMap {
   Scalar* data() const { return data_; }
   Scalar* data(int index) const { return data_ + index; }
   Scalar& operator()(int index) const { return *data(index); }
+
+  VectorMap block(int start, int len) const {
+    assert(start >= 0);
+    assert(start + len <= size_);
+
+    return VectorMap(data(start), len);
+  }
 };
 
 // A VectorDup is a (duplicated value) vector where all components are the same.
@@ -114,7 +125,14 @@ class VectorDup {
   VectorDup(const VectorDup& other) : data_(other.data_), size_(other.size_) {}
 
   int size() const { return size_; }
-  Scalar& operator()(int index) const { return data_; }
+  Scalar& operator()(int) const { return data_; }
+
+  VectorDup block(int start, int len) const {
+    assert(start >= 0);
+    assert(start + len <= size_);
+
+    return VectorDup(data_, len);
+  }
 };
 
 }  // namespace gemmlowp

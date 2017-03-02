@@ -112,7 +112,6 @@
 #define GEMMLOWP_SSE3_64
 #endif
 
-
 #endif  // GEMMLOWP_ALLOW_INLINE_ASM
 
 // Detect Android. Don't conflate with ARM - we care about tuning
@@ -193,13 +192,18 @@ const float kDefaultL2RhsFactor = 0.75f;
 // are consistent with this value.
 const int kRegisterSize = 16;
 
-// Requantization to less-than-8-bit is costly, so it only worth
-// doing if the GEMM width is large enough
-const int kMinimumWidthForRequantization = 100;
-
 // Hints the CPU to prefetch the cache line containing ptr.
 inline void Prefetch(const void* ptr) {
-#ifdef __GNUC__  // Clang and GCC define __GNUC__ and have __builtin_prefetch.
+#if defined GEMMLOWP_ARM_64 && defined GEMMLOWP_ALLOW_INLINE_ASM
+  // Aarch64 has very detailed prefetch instructions, that compilers
+  // can't know how to map __builtin_prefetch to, and as a result, don't,
+  // leaving __builtin_prefetch a no-op on this architecture.
+  // For our purposes, "pldl1strm" is usually what we want, meaning:
+  // "prefetch for load, into L1 cache, for a streaming usage pattern
+  // i.e. only using each data a few times".
+  asm volatile("prfm pldl1strm, [%[ptr]]\n" ::[ptr] "r"(ptr) : "memory");
+#elif defined \
+    __GNUC__  // Clang and GCC define __GNUC__ and have __builtin_prefetch.
   __builtin_prefetch(ptr);
 #else
   (void)ptr;
