@@ -370,7 +370,7 @@ int main() {
 
   for (int i = 1; i < 16; ++i) {
     for (int j = 1; j < 16; ++j) {
-      for (int k = 8; k < 24; ++k) {
+      for (int k = 1; k < 24; ++k) {
         prepare_test_data(lhs.get(), i, k, 11, 13);
         prepare_test_data(rhs.get(), j, k, 13, 17);
 

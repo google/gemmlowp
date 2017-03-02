@@ -58,8 +58,8 @@ def _GenerateLoadAggregateStore(emitter, registers, lanes_count, elements_count,
                                 aggregators, inputs, output):
   """Emit inner loop code for reading N lanes and interweaving them."""
   emitter.EmitNewline()
-  emitter.EmitComment('Load Aggregate Store: %dx%d.' %
-                      (lanes_count, elements_count))
+  emitter.EmitComment('Load Aggregate Store: %dx%d.' % (lanes_count,
+                                                        elements_count))
 
   block = [registers.DoubleRegister() for unused_i in range(lanes_count)]
 
@@ -136,13 +136,14 @@ class RowMajorWithSumUInt8x8(common.StreamGenerator):
                              registers.MapParameter('stride', 'params.stride'))
     aggregators = [registers.QuadRegister(8) for unused_i in range(lanes_count)]
 
+    _GenerateClear(self.asm_emitter, 'i16', aggregators)
+
     if leftovers:
       self.asm_emitter.EmitNewline()
       self.asm_emitter.EmitComment('Reduce count by leftovers.')
-      self.asm_emitter.EmitSub(count, count,
-                               self.asm_emitter.ImmediateConstant(leftovers))
-
-    _GenerateClear(self.asm_emitter, 'i16', aggregators)
+      self.asm_emitter.EmitSubs(count, count,
+                                self.asm_emitter.ImmediateConstant(leftovers))
+      self.asm_emitter.EmitBeqFront(2)
 
     self.asm_emitter.EmitNewline()
     self.asm_emitter.EmitNumericalLabel(1)
@@ -156,6 +157,8 @@ class RowMajorWithSumUInt8x8(common.StreamGenerator):
     self.asm_emitter.EmitBneBack(1)
 
     if leftovers:
+      self.asm_emitter.EmitNewline()
+      self.asm_emitter.EmitNumericalLabel(2)
       _GenerateLoadAggregateStore(self.asm_emitter, registers, lanes_count,
                                   leftovers, aggregators, inputs, output)
 
@@ -222,13 +225,14 @@ class ColumnMajorWithSumUInt8x8(common.StreamGenerator):
 
     self.asm_emitter.EmitColBlockStride(lanes_count, stride, stride)
 
+    _GenerateClear(self.asm_emitter, 'i16', aggregators)
+
     if leftovers:
       self.asm_emitter.EmitNewline()
       self.asm_emitter.EmitComment('Reduce count by leftovers.')
-      self.asm_emitter.EmitSub(count, count,
-                               self.asm_emitter.ImmediateConstant(leftovers))
-
-    _GenerateClear(self.asm_emitter, 'i16', aggregators)
+      self.asm_emitter.EmitSubs(count, count,
+                                self.asm_emitter.ImmediateConstant(leftovers))
+      self.asm_emitter.EmitBeqFront(2)
 
     self.asm_emitter.EmitNewline()
     self.asm_emitter.EmitNumericalLabel(1)
@@ -243,6 +247,8 @@ class ColumnMajorWithSumUInt8x8(common.StreamGenerator):
     self.asm_emitter.EmitBneBack(1)
 
     if leftovers:
+      self.asm_emitter.EmitNewline()
+      self.asm_emitter.EmitNumericalLabel(2)
       _GenerateColLoadAggregateStore(self.asm_emitter, registers, lanes_count,
                                      leftovers, aggregators, input_address,
                                      stride, output_address)
