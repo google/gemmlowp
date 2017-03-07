@@ -657,6 +657,10 @@ struct NEON_64bit_GEMM_Int8Operands_LhsNonzero : KernelBase {
            std::size_t dst_col_stride, const std::uint8_t* lhs_ptr,
            const std::uint8_t* rhs_ptr, std::size_t start_depth,
            std::size_t run_depth) const override {
+#define GEMMLOWP_LABEL_AFTER_LOOP_LAST16 "1"
+#define GEMMLOWP_LABEL_LOOP "2"
+#define GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES "3"
+#define GEMMLOWP_LABEL_STORE "4"
     asm volatile(
         // Clear accumulators, and, interleaved with it,
         // initial loads of the first loop iteration,
@@ -720,10 +724,10 @@ struct NEON_64bit_GEMM_Int8Operands_LhsNonzero : KernelBase {
 
         // If the loop depth is only 16, then we can skip the general loop
         // and go straight to the final part of the code.
-        "beq after_loop_last16_%=\n"
+        "beq " GEMMLOWP_LABEL_AFTER_LOOP_LAST16 "f\n"
 
         // General loop.
-        "loop_%=:\n"
+        GEMMLOWP_LABEL_LOOP ":\n"
 
         // Overview of register layout:
         //
@@ -853,11 +857,11 @@ struct NEON_64bit_GEMM_Int8Operands_LhsNonzero : KernelBase {
         "smlal2   v14.8h,  v2.16b,  v5.16b\n"
         "smlal2   v15.8h,  v3.16b,  v5.16b\n"
 
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP "b\n"
 
         // Final code for the last 16 levels of depth.
         // There is nothing to load anymore, only some arithmetic to finish.
-        "after_loop_last16_%=:\n"
+        GEMMLOWP_LABEL_AFTER_LOOP_LAST16 ":\n"
 
         // Some multiplications and 16-bit accumulation were already done above,
         // so we start right away in the middle.
@@ -911,7 +915,7 @@ struct NEON_64bit_GEMM_Int8Operands_LhsNonzero : KernelBase {
         "addp v7.4s, v27.4s, v31.4s\n"
 
         "cmp %[start_depth], #0\n"
-        "bne accumulate_existing_dst_values_%=\n"
+        "bne " GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES "f\n"
 
         // Reduce 32bit accumulators horizontally, second pass
         // (each pass adds pairwise. we need to add 4-wise).
@@ -920,9 +924,9 @@ struct NEON_64bit_GEMM_Int8Operands_LhsNonzero : KernelBase {
         "addp v14.4s, v4.4s, v5.4s\n"
         "addp v15.4s, v6.4s, v7.4s\n"
 
-        "b store_%=\n"
+        "b " GEMMLOWP_LABEL_STORE "f\n"
 
-        "accumulate_existing_dst_values_%=:\n"
+        GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES ":\n"
 
         // Reduce 32bit accumulators horizontally, second pass
         // (each pass adds pairwise. we need to add 4-wise),
@@ -944,7 +948,7 @@ struct NEON_64bit_GEMM_Int8Operands_LhsNonzero : KernelBase {
         "add v14.4s, v14.4s, v10.4s\n"
         "add v15.4s, v15.4s, v11.4s\n"
 
-        "store_%=:\n"
+        GEMMLOWP_LABEL_STORE ":\n"
         // Store back into memory
         "mov x0, %[dst_ptr]\n"
         "st1 {v12.16b}, [x0], %[dst_col_stride]\n"
@@ -962,6 +966,10 @@ struct NEON_64bit_GEMM_Int8Operands_LhsNonzero : KernelBase {
         "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17",
         "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27",
         "v28", "v29", "v30", "v31");
+#undef GEMMLOWP_LABEL_LOOP
+#undef GEMMLOWP_LABEL_AFTER_LOOP_LAST16
+#undef GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES
+#undef GEMMLOWP_LABEL_STORE
   }
 };
 
