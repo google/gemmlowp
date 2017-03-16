@@ -1427,7 +1427,7 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
   quantize_down_by_fixedpoint_stage.result_offset_after_shift =
       static_cast<std::int32_t>(
           round(static_cast<double>(result_offset * result_mult_int) /
-                     (1 << result_shift)));
+                (1 << result_shift)));
   quantize_down_by_fixedpoint_stage.result_fixedpoint_multiplier =
       result_fixedpoint_multiplier;
   quantize_down_by_fixedpoint_stage.result_shift = result_fixedpoint_shift;
