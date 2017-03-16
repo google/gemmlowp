@@ -68,6 +68,8 @@ struct DefaultKernel
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, false, false, NEON_32_Kernel12x4Depth2)
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, true, false,
                             NEON_32_Kernel12x4Depth2Assuming12BitProducts)
+GEMMLOWP_SET_DEFAULT_KERNEL(Gemm, false, true,
+                            NEON_32bit_GEMM_Int8Operands_LhsNonzero)
 GEMMLOWP_SET_DEFAULT_KERNEL(Gemv, false, false, NEONKernel4Nx1Depth2<3>)
 #elif defined GEMMLOWP_NEON_64
 #include "kernel_neon.h"
