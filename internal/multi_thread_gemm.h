@@ -492,12 +492,21 @@ class MultiThreadGemmContextBase : public SingleThreadGemmContext {
   }
 
  protected:
-  // The maximum number of worker threads to use (in addition
-  // to the master thread).
-  // The default value 0 means the default behavior of
-  // detecting the number of hardware threads. Nonzero values mean
-  // skipping and overriding hardware detection.
-  int max_num_threads_ = 0;
+  // The maximum number of worker threads to use (including
+  // the master thread).
+  // The default value 1 means single-threading. That is the default
+  // because gemmlowp's primary target is mobile hardware, where thermal
+  // constraints usually mean that it may not be realistic to use more
+  // than 1 CPU core even if multiple cores are present.
+  // The special value 0 means try to detect the number of hardware threads.
+  // Note: this assumes that all CPU cores are equivalent. That assumption
+  // is defeated on big.LITTLE ARM devices, where we have no API to query
+  // the number of big cores (which is typically what we would want to use,
+  // leaving aside above-mentioned thermal issues). That is the other reason
+  // why the best compromise here is to let max_num_threads_ default to 1,
+  // so users who want multi-threading have to make the decision of how many
+  // threads to use by themselves.
+  int max_num_threads_ = 1;
 
   // For N-threaded operations, we will use only N-1 worker threads
   // while the last task will be run directly on the main thread.
@@ -523,9 +532,15 @@ class MultiThreadGemmContext : public MultiThreadGemmContextBase {
 // operation.
 template <int KernelRows>
 inline int HowManyThreads(int max_num_threads, int rows, int cols, int depth) {
-  // First check if the user set an explicit maximum number of threads.
+  // Early-exit in the default case where multi-threading is disabled.
+  if (max_num_threads == 1) {
+    return 1;
+  }
+
+  // Determine the maximum number of threads.
   int max_count = max_num_threads;
-  if (!max_count) {
+  // The special value 0 means try to determine the total number of cores.
+  if (max_count == 0) {
     // No user-set maximum number of threads, so we need to
     // do some hardware detection.
     // This is expensive to query so we do it only once.
