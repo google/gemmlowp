@@ -97,6 +97,11 @@ std::mt19937& RandomEngine() {
   return engine;
 }
 
+int Random() {
+  std::uniform_int_distribution<int> dist(0, std::numeric_limits<int>::max());
+  return dist(RandomEngine());
+}
+
 template <typename OperandRange, typename MatrixType>
 void MakeRandom(MatrixType* m) {
   typedef typename MatrixType::Scalar Scalar;
