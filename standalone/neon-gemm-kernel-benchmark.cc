@@ -27,15 +27,15 @@
 
 /*
 Build and run this benchmark on Android/ARM/32bit:
-~/android/toolchains/arm-linux-androideabi/bin/arm-linux-androideabi-clang++
--fPIE -pie -O3 --std=c++11 standalone/neon-gemm-kernel-benchmark.cc -o
-/tmp/benchmark -mfloat-abi=softfp -mfpu=neon-vfpv4 && adb push /tmp/benchmark
+~/android/toolchains/arm-linux-androideabi/bin/arm-linux-androideabi-clang++ \
+-fPIE -pie -O3 --std=c++11 standalone/neon-gemm-kernel-benchmark.cc -o \
+/tmp/benchmark -mfloat-abi=softfp -mfpu=neon-vfpv4 && adb push /tmp/benchmark \
 /data/local/tmp && adb shell /data/local/tmp/benchmark
 
 Build and run this benchmark on Android/ARM/64bit:
-~/android/toolchains/aarch64-linux-android/bin/aarch64-linux-android-clang++
--fPIE -static -O3 --std=c++11 standalone/neon-gemm-kernel-benchmark.cc -o
-/tmp/benchmark && adb push /tmp/benchmark /data/local/tmp && adb shell
+~/android/toolchains/aarch64-linux-android/bin/aarch64-linux-android-clang++ \
+-fPIE -static -O3 --std=c++11 standalone/neon-gemm-kernel-benchmark.cc -o \
+/tmp/benchmark && adb push /tmp/benchmark /data/local/tmp && adb shell \
 /data/local/tmp/benchmark
 */
 
@@ -255,6 +255,12 @@ struct NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators {
   static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr,
                   AccumulatorType* accum_ptr, int depth) {
     asm volatile(
+        // Load 1 Rhs cell of size 2x4
+        "vld1.8 {d0}, [%[rhs_ptr]]!\n"
+        // Load 3 Lhs cells of size 4x2 each
+        "vld1.8 {d2}, [%[lhs_ptr]]!\n"
+        "vld1.8 {d4}, [%[lhs_ptr]]!\n"
+        "vld1.8 {d6}, [%[lhs_ptr]]!\n"
         // Load accumulators
         "mov r0, %[accum_ptr]\n"
         "vld1.32 {d8, d9},   [r0]!\n"
@@ -269,6 +275,9 @@ struct NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators {
         "vld1.32 {d14, d15}, [r0]!\n"
         "vld1.32 {d22, d23}, [r0]!\n"
         "vld1.32 {d30, d31}, [r0]!\n"
+
+        "subs %[depth], #2\n"
+        "beq after_loop_%=\n"
 
         "loop_%=:\n"
         // Overview of register layout:
@@ -307,13 +316,54 @@ struct NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators {
         //
         //                            Accumulator
 
-        // Load 1 Rhs cell of size 2x4
-        "vld1.8 {d0}, [%[rhs_ptr]]!\n"
+        // Expand Lhs/Rhs cells to 16 bit.
+        // Note: moving theses vmovls further down to allow for
+        // longer data pipelining helps a little on A57 but is
+        // harmful on A53 --- It looks as if A53 doesn't like
+        // interleaving vmovl's into the vmlal's.
+        "vmovl.u8 q0, d0\n"
+        "vmovl.u8 q1, d2\n"
+        "vmovl.u8 q2, d4\n"
+        "vmovl.u8 q3, d6\n"
 
-        // Load 3 Lhs cells of size 4x2 each
-        "vld1.8 {d2}, [%[lhs_ptr]]!\n"
-        "vld1.8 {d4}, [%[lhs_ptr]]!\n"
-        "vld1.8 {d6}, [%[lhs_ptr]]!\n"
+        // Multiply-accumulate, level of depth 0
+        "vmlal.u16 q4, d2, d0[0]\n"
+        "vmlal.u16 q5, d2, d0[1]\n"
+        "vmlal.u16 q6, d2, d0[2]\n"
+        "vmlal.u16 q7, d2, d0[3]\n"
+        "vldr d2, [%[lhs_ptr]]\n"
+        "vmlal.u16 q8, d4, d0[0]\n"
+        "vmlal.u16 q9, d4, d0[1]\n"
+        "vmlal.u16 q10, d4, d0[2]\n"
+        "vmlal.u16 q11, d4, d0[3]\n"
+        "vldr d4, [%[lhs_ptr], #8]\n"
+        "vmlal.u16 q12, d6, d0[0]\n"
+        "vmlal.u16 q13, d6, d0[1]\n"
+        "vmlal.u16 q14, d6, d0[2]\n"
+        "vmlal.u16 q15, d6, d0[3]\n"
+        "vldr d6, [%[lhs_ptr], #16]\n"
+        "vldr d0, [%[rhs_ptr]]\n"
+
+        // Multiply-accumulate, level of depth 1
+        "vmlal.u16 q4, d3, d1[0]\n"
+        "vmlal.u16 q5, d3, d1[1]\n"
+        "add %[lhs_ptr], #24\n"
+        "vmlal.u16 q6, d3, d1[2]\n"
+        "vmlal.u16 q7, d3, d1[3]\n"
+        "add %[rhs_ptr], #8\n"
+        "vmlal.u16 q8, d5, d1[0]\n"
+        "vmlal.u16 q9, d5, d1[1]\n"
+        "subs %[depth], #2\n"
+        "vmlal.u16 q10, d5, d1[2]\n"
+        "vmlal.u16 q11, d5, d1[3]\n"
+        "vmlal.u16 q12, d7, d1[0]\n"
+        "vmlal.u16 q13, d7, d1[1]\n"
+        "vmlal.u16 q14, d7, d1[2]\n"
+        "vmlal.u16 q15, d7, d1[3]\n"
+
+        "bne loop_%=\n"
+
+        "after_loop_%=:\n"
 
         // Expand Lhs/Rhs cells to 16 bit.
         "vmovl.u8 q0, d0\n"
@@ -348,11 +398,6 @@ struct NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators {
         "vmlal.u16 q13, d7, d1[1]\n"
         "vmlal.u16 q14, d7, d1[2]\n"
         "vmlal.u16 q15, d7, d1[3]\n"
-
-        // Loop. Decrement loop index (depth) by 2, since we just handled 2
-        // levels of depth.
-        "subs %[depth], #2\n"
-        "bne loop_%=\n"
 
         // Store accumulators
         "mov r0, %[accum_ptr]\n"
@@ -1654,6 +1699,17 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators {
   static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr,
                   AccumulatorType* accum_ptr, int depth) {
     asm volatile(
+        // Load 1 Rhs cell of size 2x8
+        "ld1 {v5.8b}, [%[rhs_ptr]], #8\n"
+        "ld1 {v6.8b}, [%[rhs_ptr]], #8\n"
+
+        // Load 3 Lhs cells of size 4x2 each
+        "ld1 {v2.8b}, [%[lhs_ptr]], #8\n"
+        "ld1 {v3.8b}, [%[lhs_ptr]], #8\n"
+        "ld1 {v4.8b}, [%[lhs_ptr]], #8\n"
+
+        "subs %w[depth], %w[depth], #2\n"
+
         // Load accumulators
         "mov x0, %[accum_ptr]\n"
         "ld1 {v8.16b}, [x0], #16\n"
@@ -1680,6 +1736,8 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators {
         "ld1 {v15.16b}, [x0], #16\n"
         "ld1 {v23.16b}, [x0], #16\n"
         "ld1 {v31.16b}, [x0], #16\n"
+
+        "beq after_loop_%=\n"
 
         "loop_%=:\n"
 
@@ -1718,18 +1776,81 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators {
         //
         //                            Accumulator
 
-        // Load 1 Rhs cell of size 2x8
-        "ld1 {v0.8b}, [%[rhs_ptr]], #8\n"
-        "ld1 {v1.8b}, [%[rhs_ptr]], #8\n"
+        // Expand Lhs/Rhs cells to 16 bit.
+        "uxtl v0.8h, v5.8b\n"
+        "ld1 {v5.8b}, [%[rhs_ptr]], #8\n"
+        "uxtl v1.8h, v6.8b\n"
+        "ld1 {v6.8b}, [%[rhs_ptr]], #8\n"
+        "uxtl v2.8h, v2.8b\n"
+        "uxtl v3.8h, v3.8b\n"
+        "uxtl v4.8h, v4.8b\n"
 
-        // Load 3 Lhs cells of size 4x2 each
+        // Multiply-accumulate, top third
+        "umlal v8.4s, v2.4h, v0.h[0]\n"
+        "umlal v9.4s, v2.4h, v0.h[1]\n"
+        "umlal v10.4s, v2.4h, v0.h[2]\n"
+        "umlal v11.4s, v2.4h, v0.h[3]\n"
+        "umlal v12.4s, v2.4h, v1.h[0]\n"
+        "umlal v13.4s, v2.4h, v1.h[1]\n"
+        "umlal v14.4s, v2.4h, v1.h[2]\n"
+        "umlal v15.4s, v2.4h, v1.h[3]\n"
+        "umlal2 v8.4s, v2.8h, v0.h[4]\n"
+        "umlal2 v9.4s, v2.8h, v0.h[5]\n"
+        "umlal2 v10.4s, v2.8h, v0.h[6]\n"
+        "umlal2 v11.4s, v2.8h, v0.h[7]\n"
+        "umlal2 v12.4s, v2.8h, v1.h[4]\n"
+        "umlal2 v13.4s, v2.8h, v1.h[5]\n"
+        "umlal2 v14.4s, v2.8h, v1.h[6]\n"
+        "umlal2 v15.4s, v2.8h, v1.h[7]\n"
         "ld1 {v2.8b}, [%[lhs_ptr]], #8\n"
+
+        // Multiply-accumulate, middle third
+        "umlal v16.4s, v3.4h, v0.h[0]\n"
+        "umlal v17.4s, v3.4h, v0.h[1]\n"
+        "umlal v18.4s, v3.4h, v0.h[2]\n"
+        "umlal v19.4s, v3.4h, v0.h[3]\n"
+        "umlal v20.4s, v3.4h, v1.h[0]\n"
+        "umlal v21.4s, v3.4h, v1.h[1]\n"
+        "umlal v22.4s, v3.4h, v1.h[2]\n"
+        "umlal v23.4s, v3.4h, v1.h[3]\n"
+        "umlal2 v16.4s, v3.8h, v0.h[4]\n"
+        "umlal2 v17.4s, v3.8h, v0.h[5]\n"
+        "umlal2 v18.4s, v3.8h, v0.h[6]\n"
+        "umlal2 v19.4s, v3.8h, v0.h[7]\n"
+        "umlal2 v20.4s, v3.8h, v1.h[4]\n"
+        "umlal2 v21.4s, v3.8h, v1.h[5]\n"
+        "umlal2 v22.4s, v3.8h, v1.h[6]\n"
+        "umlal2 v23.4s, v3.8h, v1.h[7]\n"
         "ld1 {v3.8b}, [%[lhs_ptr]], #8\n"
+
+        "subs %w[depth], %w[depth], #2\n"
+
+        // Multiply-accumulate, bottom third
+        "umlal v24.4s, v4.4h, v0.h[0]\n"
+        "umlal v25.4s, v4.4h, v0.h[1]\n"
+        "umlal v26.4s, v4.4h, v0.h[2]\n"
+        "umlal v27.4s, v4.4h, v0.h[3]\n"
+        "umlal v28.4s, v4.4h, v1.h[0]\n"
+        "umlal v29.4s, v4.4h, v1.h[1]\n"
+        "umlal v30.4s, v4.4h, v1.h[2]\n"
+        "umlal v31.4s, v4.4h, v1.h[3]\n"
+        "umlal2 v24.4s, v4.8h, v0.h[4]\n"
+        "umlal2 v25.4s, v4.8h, v0.h[5]\n"
+        "umlal2 v26.4s, v4.8h, v0.h[6]\n"
+        "umlal2 v27.4s, v4.8h, v0.h[7]\n"
+        "umlal2 v28.4s, v4.8h, v1.h[4]\n"
+        "umlal2 v29.4s, v4.8h, v1.h[5]\n"
+        "umlal2 v30.4s, v4.8h, v1.h[6]\n"
+        "umlal2 v31.4s, v4.8h, v1.h[7]\n"
         "ld1 {v4.8b}, [%[lhs_ptr]], #8\n"
 
+        "bne loop_%=\n"
+
+        "after_loop_%=:\n"
+
         // Expand Lhs/Rhs cells to 16 bit.
-        "uxtl v0.8h, v0.8b\n"
-        "uxtl v1.8h, v1.8b\n"
+        "uxtl v0.8h, v5.8b\n"
+        "uxtl v1.8h, v6.8b\n"
         "uxtl v2.8h, v2.8b\n"
         "uxtl v3.8h, v3.8b\n"
         "uxtl v4.8h, v4.8b\n"
@@ -1785,11 +1906,6 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators {
         "umlal2 v29.4s, v4.8h, v1.h[5]\n"
         "umlal2 v30.4s, v4.8h, v1.h[6]\n"
         "umlal2 v31.4s, v4.8h, v1.h[7]\n"
-
-        // Loop. Decrement loop index (depth) by 2, since we just handled 2
-        // levels of depth.
-        "subs %w[depth], %w[depth], #2\n"
-        "bne loop_%=\n"
 
         // Store accumulators
         "mov x0, %[accum_ptr]\n"
@@ -3454,9 +3570,9 @@ int main() {
 
 #ifdef __arm__
   std::cout << "CPU architecture: ARM 32bit" << std::endl;
+  BENCHMARK(NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators);
   BENCHMARK(
       NEON_32bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits);
-  BENCHMARK(NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators);
   BENCHMARK(NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand);
   BENCHMARK(NEON_32bit_GEMM_Int32_WithScalar);
   BENCHMARK(NEON_32bit_GEMM_Float32_MLA_WithVectorDuplicatingScalar);
@@ -3474,9 +3590,9 @@ int main() {
 
 #ifdef __aarch64__
   std::cout << "CPU architecture: ARM 64bit" << std::endl;
+  BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators);
   BENCHMARK(
       NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits);
-  BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators);
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57);
   BENCHMARK(NEON_64bit_GEMM_Int32_WithScalar);
   BENCHMARK(NEON_64bit_GEMM_Float32_WithVectorDuplicatingScalar);
