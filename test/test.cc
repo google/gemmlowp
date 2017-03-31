@@ -1496,11 +1496,11 @@ void TestExhaustively() {
 
   // Test the internal GEMM interfaces
   test_gemm<
-      SingleThreadGemmWrapper<DefaultKernel<KernelFamily::Gemm, BitDepthParams>,
+      SingleThreadGemmWrapper<DefaultKernel<BitDepthParams>,
                               std::uint8_t, BitDepthParams>>(&context);
 
   test_gemm<
-      MultiThreadGemmWrapper<DefaultKernel<KernelFamily::Gemm, BitDepthParams>,
+      MultiThreadGemmWrapper<DefaultKernel<BitDepthParams>,
                              std::uint8_t, BitDepthParams>>(&context);
 
   // Test the public GEMM interfaces
@@ -1508,11 +1508,11 @@ void TestExhaustively() {
 
   // Test GEMV cases (internal interfaces)
   test_gemv<
-      SingleThreadGemmWrapper<DefaultKernel<KernelFamily::Gemv, BitDepthParams>,
+      SingleThreadGemmWrapper<DefaultKernel<BitDepthParams>,
                               std::uint8_t, BitDepthParams>>(&context);
 
   test_gemv<
-      MultiThreadGemmWrapper<DefaultKernel<KernelFamily::Gemv, BitDepthParams>,
+      MultiThreadGemmWrapper<DefaultKernel<BitDepthParams>,
                              std::uint8_t, BitDepthParams>>(&context);
 
   // Test GEMV cases (public interfaces)
