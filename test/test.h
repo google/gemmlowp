@@ -104,6 +104,7 @@ int Random() {
 
 template <typename OperandRange, typename MatrixType>
 void MakeRandom(MatrixType* m) {
+  ScopedProfilingLabel("MakeRandom(matrix)");
   typedef typename MatrixType::Scalar Scalar;
   std::uniform_int_distribution<Scalar> dist(OperandRange::kMinValue,
                                              OperandRange::kMaxValue);
@@ -116,6 +117,7 @@ void MakeRandom(MatrixType* m) {
 
 template <typename MatrixType>
 void MakeConstant(MatrixType* m, typename MatrixType::Scalar val) {
+  ScopedProfilingLabel("MakeConstant(matrix)");
   for (int c = 0; c < m->cols(); c++) {
     for (int r = 0; r < m->rows(); r++) {
       (*m)(r, c) = val;
@@ -125,6 +127,7 @@ void MakeConstant(MatrixType* m, typename MatrixType::Scalar val) {
 
 template <typename MatrixType>
 void MakeZero(MatrixType* m) {
+  ScopedProfilingLabel("MakeZero(matrix)");
   MakeConstant(m, 0);
 }
 

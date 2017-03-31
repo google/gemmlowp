@@ -40,6 +40,7 @@ void ReferenceEightBitIntGemm(bool transpose_a, bool transpose_b,
                               std::int32_t b_offset, int ldb, std::uint8_t* c,
                               std::int32_t c_offset, std::int32_t c_mult_int,
                               std::int32_t c_shift, int ldc) {
+  ScopedProfilingLabel("ReferenceEightBitIntGemm");
   assert((c_shift >= 0) && (c_shift <= 32));
 
   assert(a != nullptr);
@@ -133,6 +134,7 @@ struct SingleThreadGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
+    ScopedProfilingLabel("SingleThreadGemmWrapper::Gemm");
     const int rows = lhs.rows();
     const int cols = rhs.cols();
     if (rows < cols) {
@@ -172,6 +174,8 @@ struct MultiThreadGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
+    ScopedProfilingLabel("MultiThreadGemmWrapper::Gemm");
+    context->set_max_num_threads(0);
     const int rows = lhs.rows();
     const int cols = rhs.cols();
     if (rows < cols) {
@@ -207,6 +211,7 @@ struct PublicGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
+    ScopedProfilingLabel("PublicGemmWrapper::Gemm");
     gemmlowp::Gemm<std::uint8_t, BitDepthParams, LhsOrder, RhsOrder,
                    ResultOrder>(context, lhs, rhs, result, lhs_offset,
                                 rhs_offset, result_offset, result_mult_int,
@@ -240,6 +245,7 @@ struct EightBitIntGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
+    ScopedProfilingLabel("EightBitIntGemmWrapper::Gemm");
     const bool transpose_c = ResultOrder == MapOrder::RowMajor;
     const bool transpose_a = LhsOrder == MapOrder::RowMajor;
     const bool transpose_b = RhsOrder == MapOrder::RowMajor;
@@ -265,6 +271,7 @@ struct ReferenceEightBitIntGemmWrapper {
                    MatrixMap<Scalar, ResultOrder>* result, int lhs_offset,
                    int rhs_offset, int result_offset, int result_mult_int,
                    int result_shift) {
+    ScopedProfilingLabel("ReferenceEightBitIntGemmWrapper::Gemm");
     ReferenceEightBitIntGemm(transpose_a, transpose_b, transpose_c, lhs.rows(),
                              rhs.cols(), lhs.cols(), lhs.data(), lhs_offset,
                              lhs.stride(), rhs.data(), rhs_offset, rhs.stride(),
@@ -299,6 +306,7 @@ struct ResultStats {
 
 void GetResultStats(const std::uint8_t* actual, const std::uint8_t* expected,
                     size_t count, ResultStats* stats) {
+  ScopedProfilingLabel("GetResultStats");
   std::vector<std::uint8_t> results;
   std::vector<std::int16_t> signed_diffs;
   std::vector<std::uint8_t> unsigned_diffs;
