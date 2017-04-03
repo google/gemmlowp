@@ -16,8 +16,6 @@
 // either doing integer or float arithmetic.
 //
 // It verifies that a kernel produces correct results, then benchmarks it;
-// if multiple CPU cores are detected, it tries to benchmark on each core.
-// This is aimed at big.LITTLE systems.
 //
 // This program is entirely self-contained, and can be compiled manually
 // such as suggested in the command lines below.
@@ -39,6 +37,21 @@ Build and run this benchmark on Android/ARM/64bit:
 /data/local/tmp/benchmark
 */
 
+// For big.LITTLE devices, use 'taskset' to select which cores to benchmark.
+//
+// The syntax is: taskset <mask> <commandline>
+// where mask is a binary mask where each bit corresponds to a core,
+// and low bits are little cores.
+//
+// Examples:
+// Nexus 5X big cores: taskset 30
+// Nexus 5X little cores: taskset 0f
+// Pixel XL big cores: taskset 0c
+// Pixel XL little cores: taskset 03
+//
+// Full example:
+// adb shell taskset 0c /data/local/tmp/benchmark
+
 #include <sched.h>
 #include <unistd.h>
 
@@ -49,12 +62,6 @@ Build and run this benchmark on Android/ARM/64bit:
 #include <iostream>
 #include <random>
 #include <type_traits>
-
-#ifdef PRINT_CPUFREQ
-#include <fstream>
-#include <sstream>
-#include <string>
-#endif
 
 #if !defined __arm__ && !defined __aarch64__
 #error This benchmark assumes ARM (for inline assembly sections).
@@ -1237,11 +1244,11 @@ struct NEON_32bit_GEMM_Float32_WithScalar_A53 {
         "vmla.f32 q13, q3, d0[1]\n"     // Multiply 3rd Lhs cell with column 1
         "add %[lhs_ptr], %[lhs_ptr], #48\n"  // Move forward by 3 Lhs cells
 
-        "vldr d0, [%[rhs_ptr]]\n"      // Load 1st half of Rhs cell of next
-                                       // iteration
-        "vmov d3, r2, r3\n"            // Prepare 2nd half of 1st Lhs cell of next
-                                       // iteration
-        "vmla.f32 q11, q2, d1[1]\n"    // Multiply 2nd Lhs cell with column 3
+        "vldr d0, [%[rhs_ptr]]\n"    // Load 1st half of Rhs cell of next
+                                     // iteration
+        "vmov d3, r2, r3\n"          // Prepare 2nd half of 1st Lhs cell of next
+                                     // iteration
+        "vmla.f32 q11, q2, d1[1]\n"  // Multiply 2nd Lhs cell with column 3
         "ldr r2, [%[rhs_ptr], #8]\n"   // Load 2nd half of Rhs cell of next
                                        // iteration, part 1
         "vmla.f32 q14, q3, d1[0]\n"    // Multiply 3rd Lhs cell with column 2
@@ -1379,15 +1386,15 @@ struct NEON_32bit_GEMM_Float32_WithScalar_A53_depth2 {
 
         "vldr d0, [%[rhs_ptr], #16]\n"  // Load 1st half of Rhs cell of next
                                         // iteration
-        "vmov d3, r2, r3\n"             // Prepare 2nd half of 1st Lhs cell of next
-                                        // iteration
-        "vmla.f32 q11, q2, d1[1]\n"     // Multiply 2nd Lhs cell with column 3
-        "ldr r2, [%[rhs_ptr], #24]\n"   // Load 2nd half of Rhs cell of next
-                                        // iteration, part 1
-        "vmla.f32 q14, q3, d1[0]\n"     // Multiply 3rd Lhs cell with column 2
-        "ldr r3, [%[rhs_ptr], #28]\n"   // Load 2nd half of Rhs cell of next
-                                        // iteration, part 2
-        "vmla.f32 q15, q3, d1[1]\n"     // Multiply 3rd Lhs cell with column 3
+        "vmov d3, r2, r3\n"          // Prepare 2nd half of 1st Lhs cell of next
+                                     // iteration
+        "vmla.f32 q11, q2, d1[1]\n"  // Multiply 2nd Lhs cell with column 3
+        "ldr r2, [%[rhs_ptr], #24]\n"  // Load 2nd half of Rhs cell of next
+                                       // iteration, part 1
+        "vmla.f32 q14, q3, d1[0]\n"    // Multiply 3rd Lhs cell with column 2
+        "ldr r3, [%[rhs_ptr], #28]\n"  // Load 2nd half of Rhs cell of next
+                                       // iteration, part 2
+        "vmla.f32 q15, q3, d1[1]\n"    // Multiply 3rd Lhs cell with column 3
 
         // Level of depth 2
 
@@ -1423,11 +1430,11 @@ struct NEON_32bit_GEMM_Float32_WithScalar_A53_depth2 {
         "vmla.f32 q13, q3, d0[1]\n"     // Multiply 3rd Lhs cell with column 1
         "add %[lhs_ptr], %[lhs_ptr], #96\n"  // Move forward by 3 Lhs cells
 
-        "vldr d0, [%[rhs_ptr]]\n"      // Load 1st half of Rhs cell of next
-                                       // iteration
-        "vmov d3, r2, r3\n"            // Prepare 2nd half of 1st Lhs cell of next
-                                       // iteration
-        "vmla.f32 q11, q2, d1[1]\n"    // Multiply 2nd Lhs cell with column 3
+        "vldr d0, [%[rhs_ptr]]\n"    // Load 1st half of Rhs cell of next
+                                     // iteration
+        "vmov d3, r2, r3\n"          // Prepare 2nd half of 1st Lhs cell of next
+                                     // iteration
+        "vmla.f32 q11, q2, d1[1]\n"  // Multiply 2nd Lhs cell with column 3
         "ldr r2, [%[rhs_ptr], #8]\n"   // Load 2nd half of Rhs cell of next
                                        // iteration, part 1
         "vmla.f32 q14, q3, d1[0]\n"    // Multiply 3rd Lhs cell with column 2
@@ -2221,236 +2228,236 @@ struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
 #define GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES "3"
 #define GEMMLOWP_LABEL_STORE "4"
     asm volatile(
-      // Overview of register layout:
-      //
-      // A 4x16 block of Rhs is stored in 8 bit in v0--v3.
-      // A 4x16 block of Lhs is stored in 8 bit in v4--v7.
-      //
-      // A 4x4 block of accumulators is stored in v16-v31 (as 4x32 bit
-      // components which need to be horizontally-added at the end)
-      //
-      // The Lhs vectors are multiplied by the Rhs vectors with a widening
-      // multiply over the 8 first levels of depth, producing int16x8
-      // vectors of products for each position in the accumulator matrix.
-      // Here comes the special trick: since the operands are signed int8,
-      // their range being [ -2^7 , 2^7 ), their products are in range
-      // [ -2^14 , 2^14 - 1 ), meaning that we can add two such values
-      // without any risk of overflowing int16.
-      // We thus proceed with the 8 next levels of depth, multiplying
-      // again Lhs by Rhs, accumulating into this existing int16x8 vector.
-      //
-      // Only then, having processed 16 levels of depth, do we need to
-      // horizontally add these int16x8 accumulators into the final
-      // int32x4 accumulators.
-      //
-      // As we do not have enough registers to store all 16 int16x8
-      // temporary-16bit-accumulators, we have them cycle through v8--v15.
-      //
-      //
-      // Register layout (ignoring the v8--v15 temporary 16bit accumulators):
-      //
-      //                               +--------+--------+--------+--------+
-      //                               |v0.b[0] |v1.b[0] |v2.b[0] |v3.b[0] |
-      //                          Rhs  +--------+--------+--------+--------+
-      //                               |  ...   |  ...   |  ...   |  ...   |
-      //                               +--------+--------+--------+--------|
-      //                               |v0.b[15]|v1.b[15]|v2.b[15]|v3.b[15]|
-      //                               +--------+--------+--------+--------+
-      //
-      //                               |        |        |        |        |
-      //
-      //    Lhs                        |        |        |        |        |
-      //
-      //  +-------+-----+--------+ - - +--------+--------+--------+--------+
-      //  |v4.b[0]| ... |v4.b[15]|     | v16.4s | v17.4s | v18.4s | v19.4s |
-      //  |v5.b[0]| ... |v5.b[15]|     | v20.4s | v21.4s | v22.4s | v23.4s |
-      //  |v6.b[0]| ... |v6.b[15]|     | v24.4s | v25.4s | v26.4s | v27.4s |
-      //  |v7.b[0]| ... |v7.b[15]|     | v28.4s | v29.4s | v30.4s | v31.4s |
-      //  +-------+--------------+ - - +--------+--------+--------+--------+
-      //
-      //                                                Accumulator
-      //
-      
-      // Clear accumulators
-      "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
-      "dup v16.4s, wzr\n"
-      "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
-      "dup v17.4s, wzr\n"
-      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
-      "dup v18.4s, wzr\n"
-      "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
-      "dup v19.4s, wzr\n"
-      "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
-      "dup v20.4s, wzr\n"
-      "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
-      "dup v21.4s, wzr\n"
-      "ld1 {v2.16b}, [%[rhs_ptr]], #16\n"
-      "dup v22.4s, wzr\n"
-      "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
-      "dup v23.4s, wzr\n"
-      "subs %[run_depth], %[run_depth], #16\n"
-      "dup v24.4s, wzr\n"
-      "mov x0, %[dst_ptr]\n"
-      "dup v25.4s, wzr\n"
-      "dup v26.4s, wzr\n"
-      "dup v27.4s, wzr\n"
-      "dup v28.4s, wzr\n"
-      "dup v29.4s, wzr\n"
-      "dup v30.4s, wzr\n"
-      "dup v31.4s, wzr\n"
+        // Overview of register layout:
+        //
+        // A 4x16 block of Rhs is stored in 8 bit in v0--v3.
+        // A 4x16 block of Lhs is stored in 8 bit in v4--v7.
+        //
+        // A 4x4 block of accumulators is stored in v16-v31 (as 4x32 bit
+        // components which need to be horizontally-added at the end)
+        //
+        // The Lhs vectors are multiplied by the Rhs vectors with a widening
+        // multiply over the 8 first levels of depth, producing int16x8
+        // vectors of products for each position in the accumulator matrix.
+        // Here comes the special trick: since the operands are signed int8,
+        // their range being [ -2^7 , 2^7 ), their products are in range
+        // [ -2^14 , 2^14 - 1 ), meaning that we can add two such values
+        // without any risk of overflowing int16.
+        // We thus proceed with the 8 next levels of depth, multiplying
+        // again Lhs by Rhs, accumulating into this existing int16x8 vector.
+        //
+        // Only then, having processed 16 levels of depth, do we need to
+        // horizontally add these int16x8 accumulators into the final
+        // int32x4 accumulators.
+        //
+        // As we do not have enough registers to store all 16 int16x8
+        // temporary-16bit-accumulators, we have them cycle through v8--v15.
+        //
+        //
+        // Register layout (ignoring the v8--v15 temporary 16bit accumulators):
+        //
+        //                               +--------+--------+--------+--------+
+        //                               |v0.b[0] |v1.b[0] |v2.b[0] |v3.b[0] |
+        //                          Rhs  +--------+--------+--------+--------+
+        //                               |  ...   |  ...   |  ...   |  ...   |
+        //                               +--------+--------+--------+--------|
+        //                               |v0.b[15]|v1.b[15]|v2.b[15]|v3.b[15]|
+        //                               +--------+--------+--------+--------+
+        //
+        //                               |        |        |        |        |
+        //
+        //    Lhs                        |        |        |        |        |
+        //
+        //  +-------+-----+--------+ - - +--------+--------+--------+--------+
+        //  |v4.b[0]| ... |v4.b[15]|     | v16.4s | v17.4s | v18.4s | v19.4s |
+        //  |v5.b[0]| ... |v5.b[15]|     | v20.4s | v21.4s | v22.4s | v23.4s |
+        //  |v6.b[0]| ... |v6.b[15]|     | v24.4s | v25.4s | v26.4s | v27.4s |
+        //  |v7.b[0]| ... |v7.b[15]|     | v28.4s | v29.4s | v30.4s | v31.4s |
+        //  +-------+--------------+ - - +--------+--------+--------+--------+
+        //
+        //                                                Accumulator
+        //
 
-      "smull    v12.8h,  v0.8b,  v4.8b\n"
-      "smull    v13.8h,  v1.8b,  v4.8b\n"
-      "smull    v14.8h,  v0.8b,  v5.8b\n"
-      "smull    v15.8h,  v1.8b,  v5.8b\n"
-      "smlal2   v12.8h,  v0.16b,  v4.16b\n"
-      "smlal2   v13.8h,  v1.16b,  v4.16b\n"
-      "smlal2   v14.8h,  v0.16b,  v5.16b\n"
-      "smlal2   v15.8h,  v1.16b,  v5.16b\n"
+        // Clear accumulators
+        "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
+        "dup v16.4s, wzr\n"
+        "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
+        "dup v17.4s, wzr\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+        "dup v18.4s, wzr\n"
+        "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+        "dup v19.4s, wzr\n"
+        "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+        "dup v20.4s, wzr\n"
+        "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+        "dup v21.4s, wzr\n"
+        "ld1 {v2.16b}, [%[rhs_ptr]], #16\n"
+        "dup v22.4s, wzr\n"
+        "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
+        "dup v23.4s, wzr\n"
+        "subs %[run_depth], %[run_depth], #16\n"
+        "dup v24.4s, wzr\n"
+        "mov x0, %[dst_ptr]\n"
+        "dup v25.4s, wzr\n"
+        "dup v26.4s, wzr\n"
+        "dup v27.4s, wzr\n"
+        "dup v28.4s, wzr\n"
+        "dup v29.4s, wzr\n"
+        "dup v30.4s, wzr\n"
+        "dup v31.4s, wzr\n"
 
-      "beq after_loop_%=\n"
+        "smull    v12.8h,  v0.8b,  v4.8b\n"
+        "smull    v13.8h,  v1.8b,  v4.8b\n"
+        "smull    v14.8h,  v0.8b,  v5.8b\n"
+        "smull    v15.8h,  v1.8b,  v5.8b\n"
+        "smlal2   v12.8h,  v0.16b,  v4.16b\n"
+        "smlal2   v13.8h,  v1.16b,  v4.16b\n"
+        "smlal2   v14.8h,  v0.16b,  v5.16b\n"
+        "smlal2   v15.8h,  v1.16b,  v5.16b\n"
 
-      "loop_%=:\n"
+        "beq after_loop_%=\n"
 
-      "subs %[run_depth], %[run_depth], #16\n"
+        "loop_%=:\n"
 
-      "sadalp  v16.4s, v12.8h\n"
-      "smull    v12.8h,  v0.8b,  v6.8b\n"
-      "sadalp  v17.4s, v13.8h\n"
-      "smull    v13.8h,  v0.8b,  v7.8b\n"
-      "sadalp  v20.4s, v14.8h\n"
-      "smull    v14.8h,  v1.8b,  v6.8b\n"
-      "sadalp  v21.4s, v15.8h\n"
-      "smull    v15.8h,  v1.8b,  v7.8b\n"
-      "smlal2   v12.8h,  v0.16b,  v6.16b\n"
-      "smlal2   v13.8h,  v0.16b,  v7.16b\n"
-      "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
-      "smlal2   v14.8h,  v1.16b,  v6.16b\n"
-      "smlal2   v15.8h,  v1.16b,  v7.16b\n"
-      "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
-      "sadalp  v24.4s, v12.8h\n"
-      "smull    v12.8h,  v2.8b,  v4.8b\n"
-      "sadalp  v28.4s, v13.8h\n"
-      "smull    v13.8h,  v3.8b,  v4.8b\n"
-      "sadalp  v25.4s, v14.8h\n"
-      "smull    v14.8h,  v2.8b,  v5.8b\n"
-      "sadalp  v29.4s, v15.8h\n"
-      "smull    v15.8h,  v3.8b,  v5.8b\n"
-      "smlal2   v12.8h,  v2.16b,  v4.16b\n"
-      "smlal2   v13.8h,  v3.16b,  v4.16b\n"
-      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
-      "smlal2   v14.8h,  v2.16b,  v5.16b\n"
-      "smlal2   v15.8h,  v3.16b,  v5.16b\n"
-      "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
-      "sadalp  v18.4s, v12.8h\n"
-      "smull    v12.8h,  v2.8b,  v6.8b\n"
-      "sadalp  v19.4s, v13.8h\n"
-      "smull    v13.8h,  v2.8b,  v7.8b\n"
-      "sadalp  v22.4s, v14.8h\n"
-      "smull    v14.8h,  v3.8b,  v6.8b\n"
-      "sadalp  v23.4s, v15.8h\n"
-      "smull    v15.8h,  v3.8b,  v7.8b\n"
-      "smlal2   v12.8h,  v2.16b,  v6.16b\n"
-      "smlal2   v13.8h,  v2.16b,  v7.16b\n"
-      "ld1 {v2.16b}, [%[rhs_ptr]], #16\n"
-      "smlal2   v14.8h,  v3.16b,  v6.16b\n"
-      "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
-      "smlal2   v15.8h,  v3.16b,  v7.16b\n"
-      "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
-      "sadalp  v26.4s, v12.8h\n"
-      "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
-      "smull    v12.8h,  v0.8b,  v4.8b\n"
-      "sadalp  v30.4s, v13.8h\n"
-      "smull    v13.8h,  v1.8b,  v4.8b\n"
-      "sadalp  v27.4s, v14.8h\n"
-      "smull    v14.8h,  v0.8b,  v5.8b\n"
-      "sadalp  v31.4s, v15.8h\n"
-      "smull    v15.8h,  v1.8b,  v5.8b\n"
-      "smlal2   v12.8h,  v0.16b,  v4.16b\n"
-      "smlal2   v13.8h,  v1.16b,  v4.16b\n"
-      "smlal2   v14.8h,  v0.16b,  v5.16b\n"
-      "smlal2   v15.8h,  v1.16b,  v5.16b\n"
+        "subs %[run_depth], %[run_depth], #16\n"
 
-      "bne loop_%=\n"
+        "sadalp  v16.4s, v12.8h\n"
+        "smull    v12.8h,  v0.8b,  v6.8b\n"
+        "sadalp  v17.4s, v13.8h\n"
+        "smull    v13.8h,  v0.8b,  v7.8b\n"
+        "sadalp  v20.4s, v14.8h\n"
+        "smull    v14.8h,  v1.8b,  v6.8b\n"
+        "sadalp  v21.4s, v15.8h\n"
+        "smull    v15.8h,  v1.8b,  v7.8b\n"
+        "smlal2   v12.8h,  v0.16b,  v6.16b\n"
+        "smlal2   v13.8h,  v0.16b,  v7.16b\n"
+        "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
+        "smlal2   v14.8h,  v1.16b,  v6.16b\n"
+        "smlal2   v15.8h,  v1.16b,  v7.16b\n"
+        "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
+        "sadalp  v24.4s, v12.8h\n"
+        "smull    v12.8h,  v2.8b,  v4.8b\n"
+        "sadalp  v28.4s, v13.8h\n"
+        "smull    v13.8h,  v3.8b,  v4.8b\n"
+        "sadalp  v25.4s, v14.8h\n"
+        "smull    v14.8h,  v2.8b,  v5.8b\n"
+        "sadalp  v29.4s, v15.8h\n"
+        "smull    v15.8h,  v3.8b,  v5.8b\n"
+        "smlal2   v12.8h,  v2.16b,  v4.16b\n"
+        "smlal2   v13.8h,  v3.16b,  v4.16b\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+        "smlal2   v14.8h,  v2.16b,  v5.16b\n"
+        "smlal2   v15.8h,  v3.16b,  v5.16b\n"
+        "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+        "sadalp  v18.4s, v12.8h\n"
+        "smull    v12.8h,  v2.8b,  v6.8b\n"
+        "sadalp  v19.4s, v13.8h\n"
+        "smull    v13.8h,  v2.8b,  v7.8b\n"
+        "sadalp  v22.4s, v14.8h\n"
+        "smull    v14.8h,  v3.8b,  v6.8b\n"
+        "sadalp  v23.4s, v15.8h\n"
+        "smull    v15.8h,  v3.8b,  v7.8b\n"
+        "smlal2   v12.8h,  v2.16b,  v6.16b\n"
+        "smlal2   v13.8h,  v2.16b,  v7.16b\n"
+        "ld1 {v2.16b}, [%[rhs_ptr]], #16\n"
+        "smlal2   v14.8h,  v3.16b,  v6.16b\n"
+        "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+        "smlal2   v15.8h,  v3.16b,  v7.16b\n"
+        "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+        "sadalp  v26.4s, v12.8h\n"
+        "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
+        "smull    v12.8h,  v0.8b,  v4.8b\n"
+        "sadalp  v30.4s, v13.8h\n"
+        "smull    v13.8h,  v1.8b,  v4.8b\n"
+        "sadalp  v27.4s, v14.8h\n"
+        "smull    v14.8h,  v0.8b,  v5.8b\n"
+        "sadalp  v31.4s, v15.8h\n"
+        "smull    v15.8h,  v1.8b,  v5.8b\n"
+        "smlal2   v12.8h,  v0.16b,  v4.16b\n"
+        "smlal2   v13.8h,  v1.16b,  v4.16b\n"
+        "smlal2   v14.8h,  v0.16b,  v5.16b\n"
+        "smlal2   v15.8h,  v1.16b,  v5.16b\n"
 
-      "after_loop_%=:\n"
+        "bne loop_%=\n"
 
-      // Load accumulators from memory
-      "ld1 {v8.16b}, [x0], #16\n"
-      "ld1 {v9.16b}, [x0], #16\n"
-      "ld1 {v10.16b}, [x0], #16\n"
-      "ld1 {v11.16b}, [x0], #16\n"
-      "mov x0, %[dst_ptr]\n"
+        "after_loop_%=:\n"
 
-      // Do the remaining arithmetic for the 16 last levels of depths.
-      // All the operands are already loaded.
-      "sadalp  v16.4s, v12.8h\n"
-      "smull    v12.8h,  v0.8b,  v6.8b\n"
-      "sadalp  v17.4s, v13.8h\n"
-      "smull    v13.8h,  v0.8b,  v7.8b\n"
-      "sadalp  v20.4s, v14.8h\n"
-      "smull    v14.8h,  v1.8b,  v6.8b\n"
-      "sadalp  v21.4s, v15.8h\n"
-      "smull    v15.8h,  v1.8b,  v7.8b\n"
-      "smlal2   v12.8h,  v0.16b,  v6.16b\n"
-      "smlal2   v13.8h,  v0.16b,  v7.16b\n"
-      "smlal2   v14.8h,  v1.16b,  v6.16b\n"
-      "smlal2   v15.8h,  v1.16b,  v7.16b\n"
-      "sadalp  v24.4s, v12.8h\n"
-      "smull    v12.8h,  v2.8b,  v4.8b\n"
-      "sadalp  v28.4s, v13.8h\n"
-      "smull    v13.8h,  v3.8b,  v4.8b\n"
-      "sadalp  v25.4s, v14.8h\n"
-      "smull    v14.8h,  v2.8b,  v5.8b\n"
-      "sadalp  v29.4s, v15.8h\n"
-      "smull    v15.8h,  v3.8b,  v5.8b\n"
-      "smlal2   v12.8h,  v2.16b,  v4.16b\n"
-      "smlal2   v13.8h,  v3.16b,  v4.16b\n"
-      "smlal2   v14.8h,  v2.16b,  v5.16b\n"
-      "smlal2   v15.8h,  v3.16b,  v5.16b\n"
-      "sadalp  v18.4s, v12.8h\n"
-      "smull    v12.8h,  v2.8b,  v6.8b\n"
-      "sadalp  v19.4s, v13.8h\n"
-      "smull    v13.8h,  v2.8b,  v7.8b\n"
-      "sadalp  v22.4s, v14.8h\n"
-      "smull    v14.8h,  v3.8b,  v6.8b\n"
-      "sadalp  v23.4s, v15.8h\n"
-      "smull    v15.8h,  v3.8b,  v7.8b\n"
-      "smlal2   v12.8h,  v2.16b,  v6.16b\n"
-      "smlal2   v13.8h,  v2.16b,  v7.16b\n"
-      "smlal2   v14.8h,  v3.16b,  v6.16b\n"
-      "smlal2   v15.8h,  v3.16b,  v7.16b\n"
-      "sadalp  v26.4s, v12.8h\n"
-      "sadalp  v30.4s, v13.8h\n"
-      "sadalp  v27.4s, v14.8h\n"
-      "sadalp  v31.4s, v15.8h\n"
+        // Load accumulators from memory
+        "ld1 {v8.16b}, [x0], #16\n"
+        "ld1 {v9.16b}, [x0], #16\n"
+        "ld1 {v10.16b}, [x0], #16\n"
+        "ld1 {v11.16b}, [x0], #16\n"
+        "mov x0, %[dst_ptr]\n"
 
-      // Reduce aggregators horizontally
-      "addp v0.4s, v16.4s, v20.4s\n"
-      "addp v1.4s, v17.4s, v21.4s\n"
-      "addp v2.4s, v18.4s, v22.4s\n"
-      "addp v3.4s, v19.4s, v23.4s\n"
-      "addp v4.4s, v24.4s, v28.4s\n"
-      "addp v5.4s, v25.4s, v29.4s\n"
-      "addp v6.4s, v26.4s, v30.4s\n"
-      "addp v7.4s, v27.4s, v31.4s\n"
+        // Do the remaining arithmetic for the 16 last levels of depths.
+        // All the operands are already loaded.
+        "sadalp  v16.4s, v12.8h\n"
+        "smull    v12.8h,  v0.8b,  v6.8b\n"
+        "sadalp  v17.4s, v13.8h\n"
+        "smull    v13.8h,  v0.8b,  v7.8b\n"
+        "sadalp  v20.4s, v14.8h\n"
+        "smull    v14.8h,  v1.8b,  v6.8b\n"
+        "sadalp  v21.4s, v15.8h\n"
+        "smull    v15.8h,  v1.8b,  v7.8b\n"
+        "smlal2   v12.8h,  v0.16b,  v6.16b\n"
+        "smlal2   v13.8h,  v0.16b,  v7.16b\n"
+        "smlal2   v14.8h,  v1.16b,  v6.16b\n"
+        "smlal2   v15.8h,  v1.16b,  v7.16b\n"
+        "sadalp  v24.4s, v12.8h\n"
+        "smull    v12.8h,  v2.8b,  v4.8b\n"
+        "sadalp  v28.4s, v13.8h\n"
+        "smull    v13.8h,  v3.8b,  v4.8b\n"
+        "sadalp  v25.4s, v14.8h\n"
+        "smull    v14.8h,  v2.8b,  v5.8b\n"
+        "sadalp  v29.4s, v15.8h\n"
+        "smull    v15.8h,  v3.8b,  v5.8b\n"
+        "smlal2   v12.8h,  v2.16b,  v4.16b\n"
+        "smlal2   v13.8h,  v3.16b,  v4.16b\n"
+        "smlal2   v14.8h,  v2.16b,  v5.16b\n"
+        "smlal2   v15.8h,  v3.16b,  v5.16b\n"
+        "sadalp  v18.4s, v12.8h\n"
+        "smull    v12.8h,  v2.8b,  v6.8b\n"
+        "sadalp  v19.4s, v13.8h\n"
+        "smull    v13.8h,  v2.8b,  v7.8b\n"
+        "sadalp  v22.4s, v14.8h\n"
+        "smull    v14.8h,  v3.8b,  v6.8b\n"
+        "sadalp  v23.4s, v15.8h\n"
+        "smull    v15.8h,  v3.8b,  v7.8b\n"
+        "smlal2   v12.8h,  v2.16b,  v6.16b\n"
+        "smlal2   v13.8h,  v2.16b,  v7.16b\n"
+        "smlal2   v14.8h,  v3.16b,  v6.16b\n"
+        "smlal2   v15.8h,  v3.16b,  v7.16b\n"
+        "sadalp  v26.4s, v12.8h\n"
+        "sadalp  v30.4s, v13.8h\n"
+        "sadalp  v27.4s, v14.8h\n"
+        "sadalp  v31.4s, v15.8h\n"
 
-      "addp v12.4s, v0.4s, v4.4s\n"
-      "addp v13.4s, v1.4s, v5.4s\n"
-      "addp v14.4s, v2.4s, v6.4s\n"
-      "addp v15.4s, v3.4s, v7.4s\n"
+        // Reduce aggregators horizontally
+        "addp v0.4s, v16.4s, v20.4s\n"
+        "addp v1.4s, v17.4s, v21.4s\n"
+        "addp v2.4s, v18.4s, v22.4s\n"
+        "addp v3.4s, v19.4s, v23.4s\n"
+        "addp v4.4s, v24.4s, v28.4s\n"
+        "addp v5.4s, v25.4s, v29.4s\n"
+        "addp v6.4s, v26.4s, v30.4s\n"
+        "addp v7.4s, v27.4s, v31.4s\n"
 
-      // Add to the accumulators loaded from memory
-      "add v8.4s, v8.4s, v12.4s\n"
-      "add v9.4s, v9.4s, v13.4s\n"
-      "add v10.4s, v10.4s, v14.4s\n"
-      "add v11.4s, v11.4s, v15.4s\n"
+        "addp v12.4s, v0.4s, v4.4s\n"
+        "addp v13.4s, v1.4s, v5.4s\n"
+        "addp v14.4s, v2.4s, v6.4s\n"
+        "addp v15.4s, v3.4s, v7.4s\n"
 
-      // Store accumulators back to memory
-      "st1 {v8.16b}, [x0], #16\n"
-      "st1 {v9.16b}, [x0], #16\n"
-      "st1 {v10.16b}, [x0], #16\n"
-      "st1 {v11.16b}, [x0], #16\n"
+        // Add to the accumulators loaded from memory
+        "add v8.4s, v8.4s, v12.4s\n"
+        "add v9.4s, v9.4s, v13.4s\n"
+        "add v10.4s, v10.4s, v14.4s\n"
+        "add v11.4s, v11.4s, v15.4s\n"
+
+        // Store accumulators back to memory
+        "st1 {v8.16b}, [x0], #16\n"
+        "st1 {v9.16b}, [x0], #16\n"
+        "st1 {v10.16b}, [x0], #16\n"
+        "st1 {v11.16b}, [x0], #16\n"
         :  // outputs
         [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
         [dst_ptr] "+r"(dst_ptr), [run_depth] "+r"(run_depth),
@@ -3044,18 +3051,18 @@ struct NEON_64bit_GEMM_Float32_WithScalar_A53 {
         // First block of four cycles.  Multplies all require v2 and v0; v2 is
         // loaded earlier and v0 is half loaded and completed in the load
         // cycle at the start.
-        "ldr d1, [%[rhs_ptr]]\n"             // "load" cycle - loading bottom half of v1
-                                             // (second Rhs cell).
-        "ins v0.d[1], x18\n"                 // "load" cycle - moving the upper half of v0 into
-                                             // place.
-        "fmla v8.4s, v2.4s, v0.s[0]\n"       // "fmla" cycle 1 - first multiply.
-        "ldr x18, [%[rhs_ptr], #8]\n"        // "fmla" cycle 1 - load upper half of v1
-                                             // into x18.
+        "ldr d1, [%[rhs_ptr]]\n"  // "load" cycle - loading bottom half of v1
+                                  // (second Rhs cell).
+        "ins v0.d[1], x18\n"  // "load" cycle - moving the upper half of v0 into
+                              // place.
+        "fmla v8.4s, v2.4s, v0.s[0]\n"  // "fmla" cycle 1 - first multiply.
+        "ldr x18, [%[rhs_ptr], #8]\n"  // "fmla" cycle 1 - load upper half of v1
+                                       // into x18.
         "fmla v9.4s, v2.4s, v0.s[1]\n"       // "fmla" cycle 2 - second multiply
         "add %[rhs_ptr], %[rhs_ptr], #16\n"  // "fmla" cycle 2 - increment Rhs
                                              // pointer (if needed)
-        "fmla v10.4s, v2.4s, v0.s[2]\n"      // "fmla" cycle 3 - third multiply.  No
-                                             // more work to dual issue.
+        "fmla v10.4s, v2.4s, v0.s[2]\n"  // "fmla" cycle 3 - third multiply.  No
+                                         // more work to dual issue.
 
         // Second block.  Start loading v3 (second Lhs cell), finish loading v1.
         "ldr d3, [%[lhs_ptr]]\n"
@@ -3286,7 +3293,9 @@ bool approx_equals(float a, float b) {
   if (!a && !b) {
     return true;
   }
-  return std::abs(a - b) < 1e-3f * std::min(std::abs(a), std::abs(b));
+  // 1e-1 is very coarse accuracy, we should switch to an overall L2 metric
+  // and tighten the tolerance on that metric.
+  return std::abs(a - b) < 1e-1f * std::min(std::abs(a), std::abs(b));
 }
 
 template <typename Kernel>
@@ -3409,12 +3418,10 @@ double current_time_in_seconds() {
 }
 
 template <typename Kernel>
-double benchmark() {
+double benchmark(int depth) {
   // Minimum duration for this benchmark to run. If the workload finishes
   // sooner, we retry with double the number of iterations.
-  static const double min_benchmark_time_in_seconds = 0.5;
-
-  const int depth = BenchmarkDepthToFitInCache<Kernel>();
+  static const double min_benchmark_time_in_seconds = 0.2;
 
   typedef typename Kernel::OperandType OperandType;
   typedef typename Kernel::AccumulatorType AccumulatorType;
@@ -3439,54 +3446,22 @@ double benchmark() {
   }
 }
 
-int get_num_cpus() {
-  static const int n = sysconf(_SC_NPROCESSORS_CONF);
-  return n;
-}
-
-#ifdef PRINT_CPUFREQ
-void maybe_print_one_word_file(const std::string& filename) {
-  std::ifstream file(filename);
-  if (file.fail()) {
-    // fail silently, the Android /sys filesystem might
-    // not be universal...
-    return;
-  }
-  std::string word;
-  file >> word;
-  std::cout << filename << ": " << word << std::endl;
-}
-
-void print_current_cpufreq(int cpu) {
-  std::stringstream dir_stream;
-  dir_stream << "/sys/devices/system/cpu/cpu" << cpu << "/cpufreq/";
-  std::string dir;
-  dir_stream >> dir;
-  maybe_print_one_word_file(dir + "cpuinfo_cur_freq");
-  maybe_print_one_word_file(dir + "scaling_cur_freq");
-}
-#endif
-
 template <typename Kernel>
 void benchmark_and_print_results(const char* kernel_name) {
-  test_kernel<Kernel>(Kernel::Format::kDepth, kernel_name);
-  test_kernel<Kernel>(2 * Kernel::Format::kDepth, kernel_name);
-  test_kernel<Kernel>(1024, kernel_name);
-  const int num_cpus = get_num_cpus();
-  for (int cpu = 0; cpu < num_cpus; cpu++) {
-    cpu_set_t s;
-    CPU_ZERO(&s);
-    CPU_SET(cpu, &s);
-    sched_setaffinity(0, sizeof(cpu_set_t), &s);
+  if (getenv("BENCHMARK_KERNEL")) {
+    if (strcmp(getenv("BENCHMARK_KERNEL"), kernel_name)) {
+      return;
+    }
+  }
+  const int kKernelDepth = Kernel::Format::kDepth;
+  for (int depth = kKernelDepth; depth <= 1024; depth += kKernelDepth) {
+    test_kernel<Kernel>(depth, kernel_name);
+  }
 
-    std::cout << kernel_name
-              << "(depth=" << BenchmarkDepthToFitInCache<Kernel>()
-              << ") on CPU #" << cpu << ": " << benchmark<Kernel>() * 1e-9f
-              << " Gop/s" << std::endl;
-
-#ifdef PRINT_CPUFREQ
-    print_current_cpufreq(cpu);
-#endif
+  for (int depth = kKernelDepth; depth <= BenchmarkDepthToFitInCache<Kernel>();
+       depth *= 2) {
+    std::cout << kernel_name << ", depth=" << depth << ": "
+              << benchmark<Kernel>(depth) * 1e-9f << " Gop/s" << std::endl;
   }
 }
 
@@ -3496,7 +3471,6 @@ void benchmark_and_print_results(const char* kernel_name) {
   } while (false)
 
 int main() {
-  std::cout << "There are " << get_num_cpus() << " CPU cores." << std::endl;
   std::cout << "Targeting a cache size of " << CacheSizeInKB() << " K"
             << std::endl;
 
