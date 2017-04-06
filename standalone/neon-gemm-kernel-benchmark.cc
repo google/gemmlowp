@@ -556,7 +556,7 @@ struct NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand {
 // -128*-128 + -128*-128 == -32768 overflows int16.
 // Every other expression a*b + c*d, for any int8 a,b,c,d, fits in int16
 // range. That is the basic idea of this kernel.
-struct NEON_32bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
+struct NEON_32bit_GEMM_Int8Operands_AccumTwoWithin16Bits {
   typedef std::int8_t OperandType;
   typedef std::int32_t AccumulatorType;
   typedef KernelFormat<
@@ -2212,7 +2212,7 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57 {
 // -128*-128 + -128*-128 == -32768 overflows int16.
 // Every other expression a*b + c*d, for any int8 a,b,c,d, fits in int16
 // range. That is the basic idea of this kernel.
-struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
+struct NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits {
   typedef std::int8_t OperandType;
   typedef std::int32_t AccumulatorType;
   typedef KernelFormat<
@@ -2479,8 +2479,7 @@ struct NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits {
 };
 
 // C++ intrinsics-based variant of the above
-struct
-    NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits_intrinsics {
+struct NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics {
   typedef std::int8_t OperandType;
   typedef std::int32_t AccumulatorType;
   typedef KernelFormat<
@@ -3527,8 +3526,7 @@ int main() {
 
 #ifdef __arm__
   std::cout << "CPU architecture: ARM 32bit" << std::endl;
-  BENCHMARK(
-      NEON_32bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits);
+  BENCHMARK(NEON_32bit_GEMM_Int8Operands_AccumTwoWithin16Bits);
   BENCHMARK(NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators);
   BENCHMARK(NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand);
   BENCHMARK(NEON_32bit_GEMM_Int32_WithScalar);
@@ -3547,10 +3545,8 @@ int main() {
 
 #ifdef __aarch64__
   std::cout << "CPU architecture: ARM 64bit" << std::endl;
-  BENCHMARK(
-      NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits);
-  BENCHMARK(
-      NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits_intrinsics);
+  BENCHMARK(NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits);
+  BENCHMARK(NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics);
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators);
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57);
   BENCHMARK(NEON_64bit_GEMM_Int32_WithScalar);
