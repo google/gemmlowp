@@ -3178,7 +3178,7 @@ inline int32x4_t vpaddq_s32(int32x4_t a, int32x4_t b) {
 }
 #endif
 
-// C++ intrinsics-based variant of the above
+// C++ intrinsics-based variant of the deep, int8, fast kernel
 template <int Cols>
 struct NEON_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics {
   typedef std::int8_t OperandType;
@@ -3228,11 +3228,77 @@ struct NEON_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics {
 };
 
 using NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics =
-  NEON_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics<4>;
+    NEON_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics<4>;
 
 using NEON_32bit_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics =
-  NEON_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics<2>;
+    NEON_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics<2>;
 
+// C++ intrinsics-based variant of the wide, uint8, general kernel
+template <int RhsCells>
+struct NEON_GEMM_Uint8Operands_Uint32Accumulators_intrinsics {
+  typedef std::uint8_t OperandType;
+  typedef std::int32_t AccumulatorType;
+  typedef KernelFormat<
+      KernelSideFormat<CellFormat<4, 2, CellOrder::DepthMajor>, 3>,
+      KernelSideFormat<CellFormat<4, 2, CellOrder::DepthMajor>, RhsCells> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr,
+                  AccumulatorType* accum_ptr, int depth) {
+    int32x4_t acc[3][4 * RhsCells];
+    for (int i = 0; i < 3; i++) {
+      for (int j = 0; j < 4 * RhsCells; j++) {
+        acc[i][j] = vld1q_s32(accum_ptr + 4 * (i + 3 * j));
+      }
+    }
+    for (int d = 0; d < depth; d += 2) {
+      int16x8_t lhs[3];
+      for (int i = 0; i < 3; i++) {
+        lhs[i] = vreinterpretq_s16_u16(vmovl_u8(vld1_u8(lhs_ptr + 8 * i)));
+      }
+      int16x8_t rhs[RhsCells];
+      for (int i = 0; i < RhsCells; i++) {
+        rhs[i] = vreinterpretq_s16_u16(vmovl_u8(vld1_u8(rhs_ptr + 8 * i)));
+      }
+      for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < RhsCells; j++) {
+          acc[i][4 * j + 0] = vmlal_lane_s16(
+              acc[i][4 * j + 0], vget_low_s16(lhs[i]), vget_low_s16(rhs[j]), 0);
+          acc[i][4 * j + 1] = vmlal_lane_s16(
+              acc[i][4 * j + 1], vget_low_s16(lhs[i]), vget_low_s16(rhs[j]), 1);
+          acc[i][4 * j + 2] = vmlal_lane_s16(
+              acc[i][4 * j + 2], vget_low_s16(lhs[i]), vget_low_s16(rhs[j]), 2);
+          acc[i][4 * j + 3] = vmlal_lane_s16(
+              acc[i][4 * j + 3], vget_low_s16(lhs[i]), vget_low_s16(rhs[j]), 3);
+          acc[i][4 * j + 0] =
+              vmlal_lane_s16(acc[i][4 * j + 0], vget_high_s16(lhs[i]),
+                             vget_high_s16(rhs[j]), 0);
+          acc[i][4 * j + 1] =
+              vmlal_lane_s16(acc[i][4 * j + 1], vget_high_s16(lhs[i]),
+                             vget_high_s16(rhs[j]), 1);
+          acc[i][4 * j + 2] =
+              vmlal_lane_s16(acc[i][4 * j + 2], vget_high_s16(lhs[i]),
+                             vget_high_s16(rhs[j]), 2);
+          acc[i][4 * j + 3] =
+              vmlal_lane_s16(acc[i][4 * j + 3], vget_high_s16(lhs[i]),
+                             vget_high_s16(rhs[j]), 3);
+        }
+      }
+      lhs_ptr += 24;
+      rhs_ptr += 8 * RhsCells;
+    }
+    for (int i = 0; i < 3; i++) {
+      for (int j = 0; j < 4 * RhsCells; j++) {
+        vst1q_s32(accum_ptr + 4 * (i + 3 * j), acc[i][j]);
+      }
+    }
+  }
+};
+
+using NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators_intrinsics =
+    NEON_GEMM_Uint8Operands_Uint32Accumulators_intrinsics<1>;
+
+using NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_intrinsics =
+    NEON_GEMM_Uint8Operands_Uint32Accumulators_intrinsics<2>;
 
 // BEGIN code copied from gemmlowp/internal/kernel_reference.h
 
@@ -3525,15 +3591,15 @@ void benchmark_and_print_results(const char* kernel_name) {
   }
 
   if (getenv("BENCHMARK_ALL_DEPTHS")) {
-    for (int depth = kKernelDepth; depth <= BenchmarkDepthToFitInCache<Kernel>();
-         depth *= 2) {
-      std::cout << kernel_name << ",depth=" << depth << ","
-                << benchmark<Kernel>(depth) * 1e-9f << " Gop/s" << std::endl;
+    for (int depth = kKernelDepth;
+         depth <= BenchmarkDepthToFitInCache<Kernel>(); depth *= 2) {
+      std::cout << kernel_name << "," << depth << ","
+                << benchmark<Kernel>(depth) * 1e-9f << std::endl;
     }
   } else {
     const int depth = BenchmarkDepthToFitInCache<Kernel>();
-    std::cout << kernel_name << ","
-                << benchmark<Kernel>(depth) * 1e-9f << " Gop/s" << std::endl;
+    std::cout << kernel_name << "," << benchmark<Kernel>(depth) * 1e-9f
+              << std::endl;
   }
 }
 
@@ -3543,14 +3609,17 @@ void benchmark_and_print_results(const char* kernel_name) {
   } while (false)
 
 int main() {
-  std::cout << "Targeting a cache size of " << CacheSizeInKB() << " K"
-            << std::endl;
+  if (getenv("BENCHMARK_ALL_DEPTHS")) {
+    std::cout << "kernel,depth,Gop/s" << std::endl;
+  } else {
+    std::cout << "kernel,Gop/s" << std::endl;
+  }
 
 #ifdef __arm__
-  std::cout << "CPU architecture: ARM 32bit" << std::endl;
   BENCHMARK(NEON_32bit_GEMM_Int8Operands_AccumTwoWithin16Bits);
   BENCHMARK(NEON_32bit_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics);
   BENCHMARK(NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators);
+  BENCHMARK(NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators_intrinsics);
   BENCHMARK(NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand);
   BENCHMARK(NEON_32bit_GEMM_Int32_WithScalar);
   BENCHMARK(NEON_32bit_GEMM_Float32_MLA_WithVectorDuplicatingScalar);
@@ -3567,10 +3636,10 @@ int main() {
 #endif
 
 #ifdef __aarch64__
-  std::cout << "CPU architecture: ARM 64bit" << std::endl;
   BENCHMARK(NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits);
   BENCHMARK(NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics);
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators);
+  BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_intrinsics);
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57);
   BENCHMARK(NEON_64bit_GEMM_Int32_WithScalar);
   BENCHMARK(NEON_64bit_GEMM_Float32_WithVectorDuplicatingScalar);
