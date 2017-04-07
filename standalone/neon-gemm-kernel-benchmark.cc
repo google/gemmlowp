@@ -3524,10 +3524,16 @@ void benchmark_and_print_results(const char* kernel_name) {
     test_kernel<Kernel>(depth, kernel_name);
   }
 
-  for (int depth = kKernelDepth; depth <= BenchmarkDepthToFitInCache<Kernel>();
-       depth *= 2) {
-    std::cout << kernel_name << ", depth=" << depth << ": "
-              << benchmark<Kernel>(depth) * 1e-9f << " Gop/s" << std::endl;
+  if (getenv("BENCHMARK_ALL_DEPTHS")) {
+    for (int depth = kKernelDepth; depth <= BenchmarkDepthToFitInCache<Kernel>();
+         depth *= 2) {
+      std::cout << kernel_name << ",depth=" << depth << ","
+                << benchmark<Kernel>(depth) * 1e-9f << " Gop/s" << std::endl;
+    }
+  } else {
+    const int depth = BenchmarkDepthToFitInCache<Kernel>();
+    std::cout << kernel_name << ","
+                << benchmark<Kernel>(depth) * 1e-9f << " Gop/s" << std::endl;
   }
 }
 
