@@ -3300,6 +3300,60 @@ using NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators_intrinsics =
 using NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_intrinsics =
     NEON_GEMM_Uint8Operands_Uint32Accumulators_intrinsics<2>;
 
+template <int RhsCells>
+struct NEON_GEMM_Float32_WithScalar_intrinsics {
+  typedef float OperandType;
+  typedef float AccumulatorType;
+  typedef KernelFormat<
+      KernelSideFormat<CellFormat<4, 1, CellOrder::DepthMajor>, 3>,
+      KernelSideFormat<CellFormat<4, 1, CellOrder::DepthMajor>, RhsCells> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr,
+                  AccumulatorType* accum_ptr, int depth) {
+    float32x4_t acc[3][4 * RhsCells];
+    for (int i = 0; i < 3; i++) {
+      for (int j = 0; j < 4 * RhsCells; j++) {
+        acc[i][j] = vld1q_f32(accum_ptr + 4 * (i + 3 * j));
+      }
+    }
+    for (int d = 0; d < depth; d++) {
+      float32x4_t lhs[3];
+      for (int i = 0; i < 3; i++) {
+        lhs[i] = vld1q_f32(lhs_ptr + 4 * i);
+      }
+      float32x4_t rhs[RhsCells];
+      for (int i = 0; i < RhsCells; i++) {
+        rhs[i] = vld1q_f32(rhs_ptr + 4 * i);
+      }
+      for (int i = 0; i < 3; i++) {
+        for (int j = 0; j < RhsCells; j++) {
+          acc[i][4 * j + 0] = vmlaq_lane_f32(acc[i][4 * j + 0], lhs[i],
+                                             vget_low_f32(rhs[j]), 0);
+          acc[i][4 * j + 1] = vmlaq_lane_f32(acc[i][4 * j + 1], lhs[i],
+                                             vget_low_f32(rhs[j]), 1);
+          acc[i][4 * j + 2] = vmlaq_lane_f32(acc[i][4 * j + 2], lhs[i],
+                                             vget_high_f32(rhs[j]), 0);
+          acc[i][4 * j + 3] = vmlaq_lane_f32(acc[i][4 * j + 3], lhs[i],
+                                             vget_high_f32(rhs[j]), 1);
+        }
+      }
+      lhs_ptr += 12;
+      rhs_ptr += 4 * RhsCells;
+    }
+    for (int i = 0; i < 3; i++) {
+      for (int j = 0; j < 4 * RhsCells; j++) {
+        vst1q_f32(accum_ptr + 4 * (i + 3 * j), acc[i][j]);
+      }
+    }
+  }
+};
+
+using NEON_32bit_GEMM_Float32_WithScalar_intrinsics =
+    NEON_GEMM_Float32_WithScalar_intrinsics<1>;
+
+using NEON_64bit_GEMM_Float32_WithScalar_intrinsics =
+    NEON_GEMM_Float32_WithScalar_intrinsics<2>;
+
 // BEGIN code copied from gemmlowp/internal/kernel_reference.h
 
 // This kernel is templatized in an arbitrary Format template parameter,
@@ -3627,6 +3681,7 @@ int main() {
   BENCHMARK(NEON_32bit_GEMM_Float32_FMA_WithVectorDuplicatingScalar);
 #endif
   BENCHMARK(NEON_32bit_GEMM_Float32_MLA_WithScalar);
+  BENCHMARK(NEON_32bit_GEMM_Float32_WithScalar_intrinsics);
   BENCHMARK(NEON_32bit_GEMM_Float32_WithScalar_A53);
   BENCHMARK(NEON_32bit_GEMM_Float32_WithScalar_A53_depth2);
   BENCHMARK(NEON_32bit_GEMM_Float32_MLA_Rotating);
@@ -3644,6 +3699,7 @@ int main() {
   BENCHMARK(NEON_64bit_GEMM_Int32_WithScalar);
   BENCHMARK(NEON_64bit_GEMM_Float32_WithVectorDuplicatingScalar);
   BENCHMARK(NEON_64bit_GEMM_Float32_WithScalar);
+  BENCHMARK(NEON_64bit_GEMM_Float32_WithScalar_intrinsics);
   BENCHMARK(NEON_64bit_GEMM_Float32_WithScalar_A57);
   BENCHMARK(NEON_64bit_GEMM_Float32_WithScalar_A53);
 #endif
