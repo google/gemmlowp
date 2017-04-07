@@ -2478,54 +2478,6 @@ struct NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits {
   }
 };
 
-// C++ intrinsics-based variant of the above
-struct NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics {
-  typedef std::int8_t OperandType;
-  typedef std::int32_t AccumulatorType;
-  typedef KernelFormat<
-      KernelSideFormat<CellFormat<4, 16, CellOrder::WidthMajor>, 1>,
-      KernelSideFormat<CellFormat<4, 16, CellOrder::WidthMajor>, 1> >
-      Format;
-  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr,
-                  AccumulatorType* accum_ptr, int depth) {
-    int32x4_t acc[4][4];
-    for (int i = 0; i < 4; i++) {
-      for (int j = 0; j < 4; j++) {
-        acc[i][j] = vdupq_n_s32(0);
-      }
-    }
-    for (int d = 0; d < depth; d += 16) {
-      int8x16_t lhs[4];
-      for (int i = 0; i < 4; i++) {
-        lhs[i] = vld1q_s8(lhs_ptr + 16 * i);
-      }
-      int8x16_t rhs[4];
-      for (int i = 0; i < 4; i++) {
-        rhs[i] = vld1q_s8(rhs_ptr + 16 * i);
-      }
-      for (int i = 0; i < 4; i++) {
-        for (int j = 0; j < 4; j++) {
-          int16x8_t local_acc =
-              vmull_s8(vget_low_s8(lhs[i]), vget_low_s8(rhs[j]));
-          local_acc =
-              vmlal_s8(local_acc, vget_high_s8(lhs[i]), vget_high_s8(rhs[j]));
-          acc[i][j] = vpadalq_s16(acc[i][j], local_acc);
-        }
-      }
-      lhs_ptr += 64;
-      rhs_ptr += 64;
-    }
-    for (int i = 0; i < 4; i++) {
-      int32x4_t acc_2x_0 = vpaddq_s32(acc[0][i], acc[1][i]);
-      int32x4_t acc_2x_1 = vpaddq_s32(acc[2][i], acc[3][i]);
-      int32x4_t acc_4x = vpaddq_s32(acc_2x_0, acc_2x_1);
-      int32x4_t dst_val = vld1q_s32(accum_ptr + 4 * i);
-      dst_val = vaddq_s32(dst_val, acc_4x);
-      vst1q_s32(accum_ptr + 4 * i, dst_val);
-    }
-  }
-};
-
 // We don't actually use int32*int32 in production. This is just an
 // experiment to help dissociate the effect of integer-vs-float, from the
 // effect of operands width.
@@ -3218,6 +3170,70 @@ struct NEON_64bit_GEMM_Float32_WithScalar_A53 {
 
 #endif  // __aarch64__
 
+#ifndef __aarch64__
+inline int32x4_t vpaddq_s32(int32x4_t a, int32x4_t b) {
+  const int32x2_t c = vpadd_s32(vget_low_s32(a), vget_high_s32(a));
+  const int32x2_t d = vpadd_s32(vget_low_s32(b), vget_high_s32(b));
+  return vcombine_s32(c, d);
+}
+#endif
+
+// C++ intrinsics-based variant of the above
+template <int Cols>
+struct NEON_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics {
+  typedef std::int8_t OperandType;
+  typedef std::int32_t AccumulatorType;
+  typedef KernelFormat<
+      KernelSideFormat<CellFormat<4, 16, CellOrder::WidthMajor>, 1>,
+      KernelSideFormat<CellFormat<Cols, 16, CellOrder::WidthMajor>, 1> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr,
+                  AccumulatorType* accum_ptr, int depth) {
+    int32x4_t acc[4][Cols];
+    for (int i = 0; i < 4; i++) {
+      for (int j = 0; j < Cols; j++) {
+        acc[i][j] = vdupq_n_s32(0);
+      }
+    }
+    for (int d = 0; d < depth; d += 16) {
+      int8x16_t lhs[4];
+      for (int i = 0; i < 4; i++) {
+        lhs[i] = vld1q_s8(lhs_ptr + 16 * i);
+      }
+      int8x16_t rhs[Cols];
+      for (int i = 0; i < Cols; i++) {
+        rhs[i] = vld1q_s8(rhs_ptr + 16 * i);
+      }
+      for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < Cols; j++) {
+          int16x8_t local_acc =
+              vmull_s8(vget_low_s8(lhs[i]), vget_low_s8(rhs[j]));
+          local_acc =
+              vmlal_s8(local_acc, vget_high_s8(lhs[i]), vget_high_s8(rhs[j]));
+          acc[i][j] = vpadalq_s16(acc[i][j], local_acc);
+        }
+      }
+      lhs_ptr += 64;
+      rhs_ptr += 16 * Cols;
+    }
+    for (int i = 0; i < Cols; i++) {
+      int32x4_t acc_2x_0 = vpaddq_s32(acc[0][i], acc[1][i]);
+      int32x4_t acc_2x_1 = vpaddq_s32(acc[2][i], acc[3][i]);
+      int32x4_t acc_4x = vpaddq_s32(acc_2x_0, acc_2x_1);
+      int32x4_t dst_val = vld1q_s32(accum_ptr + 4 * i);
+      dst_val = vaddq_s32(dst_val, acc_4x);
+      vst1q_s32(accum_ptr + 4 * i, dst_val);
+    }
+  }
+};
+
+using NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics =
+  NEON_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics<4>;
+
+using NEON_32bit_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics =
+  NEON_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics<2>;
+
+
 // BEGIN code copied from gemmlowp/internal/kernel_reference.h
 
 // This kernel is templatized in an arbitrary Format template parameter,
@@ -3527,6 +3543,7 @@ int main() {
 #ifdef __arm__
   std::cout << "CPU architecture: ARM 32bit" << std::endl;
   BENCHMARK(NEON_32bit_GEMM_Int8Operands_AccumTwoWithin16Bits);
+  BENCHMARK(NEON_32bit_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics);
   BENCHMARK(NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators);
   BENCHMARK(NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand);
   BENCHMARK(NEON_32bit_GEMM_Int32_WithScalar);
