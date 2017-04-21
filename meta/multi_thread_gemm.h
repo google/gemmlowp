@@ -129,16 +129,15 @@ inline void MultiThreadGemm(MultiThreadingContext* context,
     return;
   }
 
-  const int worker_tasks_count = tasks.size() - 1;
   auto workers_pool = context->workers_pool();
+  const int task_count = tasks.size();
 
-  workers_pool->CreateWorkers(worker_tasks_count);
-  workers_pool->Prepare(worker_tasks_count);
+  workers_pool->CreateWorkers(task_count);
+  workers_pool->Prepare(task_count);
 
-  for (int i = 0; i < worker_tasks_count; ++i) {
+  for (int i = 0; i < task_count; ++i) {
     workers_pool->StartWorker(i, new TaskRunnerType(tasks[i]));
   }
-  Gemm<Executor, Params, kernel_m, kernel_n, kernel_k>(tasks.back());
   workers_pool->Wait();
 }
 
