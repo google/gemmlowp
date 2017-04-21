@@ -405,11 +405,12 @@ class WorkersPool {
 template <typename KernelFormat, typename InputScalar, typename OutputScalar,
           typename BitDepthParams, MapOrder LhsOrder, MapOrder RhsOrder,
           MapOrder ResultOrder, typename LhsOffset, typename RhsOffset,
-          typename OutputPipelineType>
+  typename OutputPipelineType, typename GemmContextType>
 struct GemmWithPackedRhsTask : Task {
   typedef PackedSideBlock<typename KernelFormat::Lhs> PackedLhs;
   typedef PackedSideBlock<typename KernelFormat::Rhs> PackedRhs;
-  GemmWithPackedRhsTask(const KernelBase& _kernel,
+  GemmWithPackedRhsTask(GemmContextType* _context,
+                        const KernelBase& _kernel,
                         const MatrixMap<const InputScalar, LhsOrder>& _lhs,
                         const PackedRhs& _packed_rhs,
                         MatrixMap<OutputScalar, ResultOrder>* _result,
@@ -417,7 +418,8 @@ struct GemmWithPackedRhsTask : Task {
                         const LhsOffset& _lhs_offset,
                         const RhsOffset& _rhs_offset,
                         const OutputPipelineType& _output_pipeline)
-      : kernel(_kernel),
+      : context(_context),
+        kernel(_kernel),
         lhs(_lhs),
         packed_rhs(_packed_rhs),
         result(*_result),
@@ -434,7 +436,10 @@ struct GemmWithPackedRhsTask : Task {
     const int depth = lhs.cols();
 
     BlockParams block_params;
-    block_params.Init<KernelFormat>(rows, cols, depth, 1);
+    block_params.Init<KernelFormat>(rows, cols, depth, 1,
+                                    context->l1_bytes_to_use(),
+                                    context->l2_bytes_to_use(),
+                                    context->l2_rhs_factor());
 
     PackedLhs packed_lhs(Side::Lhs, local_allocator, block_params);
 
@@ -466,6 +471,7 @@ struct GemmWithPackedRhsTask : Task {
     local_allocator->Decommit();
   }
 
+  const GemmContextType* context;
   const KernelBase& kernel;
   const MatrixMap<const InputScalar, LhsOrder> lhs;
   const PackedRhs packed_rhs;
@@ -651,7 +657,10 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
   workers_pool->CreateWorkers(workers_count);
 
   BlockParams block_params;
-  block_params.Init<KernelFormat>(rows, cols, depth, workers_count);
+  block_params.Init<KernelFormat>(rows, cols, depth, workers_count,
+                                  context->l1_bytes_to_use(),
+                                  context->l2_bytes_to_use(),
+                                  context->l2_rhs_factor());
 
   PackedSideBlock<typename KernelFormat::Rhs> packed_rhs(Side::Rhs, allocator,
                                                          block_params);
@@ -676,9 +685,10 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
       auto lhs_block = lhs.block(start_row, 0, block_rows, depth);
       typedef GemmWithPackedRhsTask<
           KernelFormat, InputScalar, OutputScalar, BitDepthParams, LhsOrder,
-          RhsOrder, ResultOrder, LhsOffset, RhsOffset, OutputPipelineType>
+          RhsOrder, ResultOrder, LhsOffset, RhsOffset, OutputPipelineType,
+          GemmContextType>
           TaskType;
-      auto task = new TaskType(kernel, lhs_block, packed_rhs, result,
+      auto task = new TaskType(context, kernel, lhs_block, packed_rhs, result,
                                MatrixBlockBounds(start_row, c, block_rows, cs),
                                lhs_offset, rhs_offset, output_pipeline);
       if (thread < workers_count) {
