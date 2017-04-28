@@ -1,0 +1,12 @@
+language: c
+
+os:
+  - linux
+
+sudo: false
+
+compiler:
+  - clang
+
+script:
+  - make -f Makefile.travis unittest
