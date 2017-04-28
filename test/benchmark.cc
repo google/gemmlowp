@@ -353,8 +353,8 @@ void benchmark_all() {
 
   {
     gemmlowp::GemmContext context;
-    std::cout << "Benchmarking default mode (typically multi-threaded)..."
-              << std::endl;
+    context.set_max_num_threads(0);
+    std::cout << "Benchmarking multi-threaded mode..." << std::endl;
     gemmlowp::benchmark(&context);
   }
 
