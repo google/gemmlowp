@@ -120,9 +120,6 @@ void MultiThreadedMatrixMatrix(gemmlowp::WorkersPool* pool,
                                OUT_TYPE* result, std::int32_t result_stride,
                                const F& operation) {
   max_threads = internal::ResolveMaxThreads(max_threads);
-  if (max_threads > 1) {
-    pool->CreateWorkers(max_threads - 1);
-  }
 
   std::vector<internal::TaskRect> task_rects;
   internal::PrepareTasks(max_threads, m, n, k, &task_rects);
@@ -135,25 +132,17 @@ void MultiThreadedMatrixMatrix(gemmlowp::WorkersPool* pool,
 
   std::uint8_t* task_scratch = scratch;
   std::int32_t scratch_per_thread = operation.ScratchPerThread(m, n, k);
-  std::int32_t worker_tasks = task_rects.size() - 1;
-  pool->Prepare(worker_tasks);
-
-  for (std::int32_t i = 0; i < worker_tasks; ++i) {
-    auto task = new internal::MetaTask<IN_TYPE, OUT_TYPE, F>(
-        task_scratch, lhs, rhs, task_rects[i], k, result, result_stride,
-        operation);
-    pool->StartWorker(i, task);
+  std::vector<Task*> tasks;
+  std::for_each(task_rects.begin(), task_rects.end(),
+                [&tasks, &task_scratch, lhs, rhs, k, result, result_stride,
+                 operation, scratch_per_thread]
+                (internal::TaskRect& rect) {
+    tasks.push_back(new internal::MetaTask<IN_TYPE, OUT_TYPE, F>(
+        task_scratch, lhs, rhs, rect, k, result, result_stride,
+        operation));
     task_scratch += scratch_per_thread;
-  }
-
-  {
-    internal::MetaTask<IN_TYPE, OUT_TYPE, F> master_task(
-        task_scratch, lhs, rhs, task_rects.back(), k, result, result_stride,
-        operation);
-    master_task.Run();
-  }
-
-  pool->Wait();
+  });
+  pool->Execute(tasks);
 }
 
 }  // namespace internal
