@@ -27,6 +27,10 @@
 #include "../meta/legacy_multi_thread_gemm.h"
 #include "../public/gemmlowp.h"
 #include "test.h"
+// lets include these so we make sure they always compile
+#include "../meta/multi_thread_gemm.h"
+#include "../meta/multi_thread_transform.h"
+#include "../meta/legacy_multi_thread_common.h"
 
 #if defined(__arm__) && !defined(GEMMLOWP_NEON)
 #warning "Building without NEON support on ARM, check your compiler setup!"
@@ -319,7 +323,6 @@ int main() {
   std::uint8_t* scratch = new std::uint8_t[1024 * 1024 * 64];
 
   gemmlowp::WorkersPool pool;
-  pool.CreateWorkers(3);
 
   for (int repetitions = 1; repetitions < 11; ++repetitions) {
     int t = std::min(repetitions, 4);
