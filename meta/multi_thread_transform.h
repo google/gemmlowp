@@ -84,16 +84,15 @@ inline void MultiThreadTransform1D(MultiThreadingContext* context,
     return;
   }
 
-  const int worker_tasks_count = tasks.size() - 1;
   auto workers_pool = context->workers_pool();
+  const int task_count = tasks.size();
 
-  workers_pool->CreateWorkers(worker_tasks_count);
-  workers_pool->Prepare(worker_tasks_count);
+  workers_pool->CreateWorkers(task_count);
+  workers_pool->Prepare(task_count);
 
-  for (int i = 0; i < worker_tasks_count; ++i) {
+  for (int i = 0; i < task_count; ++i) {
     workers_pool->StartWorker(i, new TaskRunnerType(tasks[i]));
   }
-  Transform1D<Params, kernel_size>(tasks.back());
   workers_pool->Wait();
 }
 

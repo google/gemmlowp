@@ -121,7 +121,7 @@ void MultiThreadedMatrixMatrix(gemmlowp::WorkersPool* pool,
                                const F& operation) {
   max_threads = internal::ResolveMaxThreads(max_threads);
   if (max_threads > 1) {
-    pool->CreateWorkers(max_threads - 1);
+    pool->CreateWorkers(max_threads);
   }
 
   std::vector<internal::TaskRect> task_rects;
@@ -135,22 +135,15 @@ void MultiThreadedMatrixMatrix(gemmlowp::WorkersPool* pool,
 
   std::uint8_t* task_scratch = scratch;
   std::int32_t scratch_per_thread = operation.ScratchPerThread(m, n, k);
-  std::int32_t worker_tasks = task_rects.size() - 1;
-  pool->Prepare(worker_tasks);
+  std::int32_t task_count = task_rects.size();
+  pool->Prepare(task_count);
 
-  for (std::int32_t i = 0; i < worker_tasks; ++i) {
+  for (std::int32_t i = 0; i < task_count; ++i) {
     auto task = new internal::MetaTask<IN_TYPE, OUT_TYPE, F>(
         task_scratch, lhs, rhs, task_rects[i], k, result, result_stride,
         operation);
     pool->StartWorker(i, task);
     task_scratch += scratch_per_thread;
-  }
-
-  {
-    internal::MetaTask<IN_TYPE, OUT_TYPE, F> master_task(
-        task_scratch, lhs, rhs, task_rects.back(), k, result, result_stride,
-        operation);
-    master_task.Run();
   }
 
   pool->Wait();
