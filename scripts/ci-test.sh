@@ -7,7 +7,7 @@ if [ $TEST == "arm" ]; then
   adb shell /data/local/tmp/benchmark
   # too slow
   # adb shell /data/local/tmp/correctness_meta_gemm
-  adb shell /data/local/tmp/benchmark_meta_gemm
+  # adb shell /data/local/tmp/benchmark_meta_gemm
 fi
 if [ $TEST == "x86" ]; then
   make -f Makefile.travis unittest
