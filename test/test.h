@@ -22,19 +22,14 @@
 #include "../profiling/profiler.h"
 #endif
 
-#include <cstdlib>
 #include <cstring>
 #include <iostream>
+#include <random>
 #include <vector>
 
 #include "../public/gemmlowp.h"
 
 namespace gemmlowp {
-
-inline int Random() {
-  // Use ugly old rand() since this doesn't need to be high quality.
-  return rand();
-}
 
 #define GEMMLOWP_STRINGIFY2(x) #x
 #define GEMMLOWP_STRINGIFY(x) GEMMLOWP_STRINGIFY2(x)
@@ -97,19 +92,32 @@ class Matrix : public MatrixMap<tScalar, tOrder> {
   std::vector<Scalar> storage;
 };
 
-template <typename MatrixType>
-void MakeRandom(MatrixType* m, int bits) {
+std::mt19937& RandomEngine() {
+  static std::mt19937 engine;
+  return engine;
+}
+
+int Random() {
+  std::uniform_int_distribution<int> dist(0, std::numeric_limits<int>::max());
+  return dist(RandomEngine());
+}
+
+template <typename OperandRange, typename MatrixType>
+void MakeRandom(MatrixType* m) {
+  ScopedProfilingLabel("MakeRandom(matrix)");
   typedef typename MatrixType::Scalar Scalar;
-  const Scalar mask = (1 << bits) - 1;
+  std::uniform_int_distribution<Scalar> dist(OperandRange::kMinValue,
+                                             OperandRange::kMaxValue);
   for (int c = 0; c < m->cols(); c++) {
     for (int r = 0; r < m->rows(); r++) {
-      (*m)(r, c) = Random() & mask;
+      (*m)(r, c) = dist(RandomEngine());
     }
   }
 }
 
 template <typename MatrixType>
 void MakeConstant(MatrixType* m, typename MatrixType::Scalar val) {
+  ScopedProfilingLabel("MakeConstant(matrix)");
   for (int c = 0; c < m->cols(); c++) {
     for (int r = 0; r < m->rows(); r++) {
       (*m)(r, c) = val;
@@ -119,6 +127,7 @@ void MakeConstant(MatrixType* m, typename MatrixType::Scalar val) {
 
 template <typename MatrixType>
 void MakeZero(MatrixType* m) {
+  ScopedProfilingLabel("MakeZero(matrix)");
   MakeConstant(m, 0);
 }
 

@@ -44,11 +44,10 @@ const int kMaxBusyWaitNOPs = 32 * 1000 * 1000;
 #define GEMMLOWP_NOP4 GEMMLOWP_STRING_CONCAT_4(GEMMLOWP_NOP)
 #define GEMMLOWP_NOP16 GEMMLOWP_STRING_CONCAT_4(GEMMLOWP_NOP4)
 #define GEMMLOWP_NOP64 GEMMLOWP_STRING_CONCAT_4(GEMMLOWP_NOP16)
-#define GEMMLOWP_NOP256 GEMMLOWP_STRING_CONCAT_4(GEMMLOWP_NOP64)
 
 inline int Do256NOPs() {
-  asm volatile(GEMMLOWP_NOP256);
-  return 256;
+  asm volatile(GEMMLOWP_NOP64);
+  return 64;
 }
 
 #undef GEMMLOWP_STRING_CONCAT_4
@@ -286,7 +285,6 @@ class Worker {
           // Got work to do! So do it, and then revert to 'Ready' state.
           assert(task_);
           task_->Run();
-          delete task_;
           task_ = nullptr;
           ChangeState(State::Ready);
           break;
@@ -358,21 +356,31 @@ class WorkersPool {
     }
   }
 
-  // Called in anticipation of calling StartWorker <workers_count> times.
-  void Prepare(int workers_count) {
+  void Execute(const std::vector<Task*>& tasks) {
+    assert(tasks.size() >= 1);
+    // One of the tasks will be run on the current thread.
+    int workers_count = tasks.size() - 1;
+    CreateWorkers(workers_count);
+    assert(workers_count <= workers_.size());
     counter_to_decrement_when_ready_.Reset(workers_count);
+    int n = 0;
+    std::for_each(tasks.begin(), --tasks.end(), [this, &n](Task *task) {
+      workers_[n++]->StartWork(task);
+    });
+    // Execute the remaining workload immediately on the current thread.
+    Task* task = tasks.back();
+    task->local_allocator = &main_thread_task_allocator_;
+    task->Run();
+    // Wait for the workers submitted above to finish.
+    counter_to_decrement_when_ready_.Wait();
+    // Cleanup tasks (best to do this from the same thread that allocated
+    // the memory).
+    std::for_each(tasks.begin(), tasks.end(), [](Task *task) {
+      delete task;
+    });
   }
 
-  // Wait for the workers prepared by Prepare and given work by StartWorker to
-  // finish.
-  void Wait() { counter_to_decrement_when_ready_.Wait(); }
-
-  // Give work to a specific worker.
-  void StartWorker(int index, Task* task_) {
-    assert(static_cast<std::size_t>(index) < workers_.size());
-    workers_[index]->StartWork(task_);
-  }
-
+ private:
   // Ensures that the pool has at least the given count of workers.
   // If any new worker has to be created, this function waits for it to
   // be ready.
@@ -387,7 +395,6 @@ class WorkersPool {
     counter_to_decrement_when_ready_.Wait();
   }
 
- private:
   // copy construction disallowed
   WorkersPool(const WorkersPool&) = delete;
 
@@ -397,6 +404,14 @@ class WorkersPool {
 
   // The BlockingCounter used to wait for the workers.
   BlockingCounter counter_to_decrement_when_ready_;
+
+  // For N-threaded operations, we will use only N-1 worker threads
+  // while the last task will be run directly on the main thread.
+  // It will then use this main_thread_task_allocator_; having a
+  // dedicated allocator for that (separate from the base allocator_)
+  // allows to use the same code for all tasks regardless of which
+  // thread they run on.
+  Allocator main_thread_task_allocator_;
 };
 
 // The task we use to implement a multi-threaded Gemm: a block of the
@@ -406,11 +421,12 @@ class WorkersPool {
 template <typename KernelFormat, typename InputScalar, typename OutputScalar,
           typename BitDepthParams, MapOrder LhsOrder, MapOrder RhsOrder,
           MapOrder ResultOrder, typename LhsOffset, typename RhsOffset,
-          typename OutputPipelineType>
+  typename OutputPipelineType, typename GemmContextType>
 struct GemmWithPackedRhsTask : Task {
   typedef PackedSideBlock<typename KernelFormat::Lhs> PackedLhs;
   typedef PackedSideBlock<typename KernelFormat::Rhs> PackedRhs;
-  GemmWithPackedRhsTask(const KernelBase& _kernel,
+  GemmWithPackedRhsTask(GemmContextType* _context,
+                        const KernelBase& _kernel,
                         const MatrixMap<const InputScalar, LhsOrder>& _lhs,
                         const PackedRhs& _packed_rhs,
                         MatrixMap<OutputScalar, ResultOrder>* _result,
@@ -418,7 +434,8 @@ struct GemmWithPackedRhsTask : Task {
                         const LhsOffset& _lhs_offset,
                         const RhsOffset& _rhs_offset,
                         const OutputPipelineType& _output_pipeline)
-      : kernel(_kernel),
+      : context(_context),
+        kernel(_kernel),
         lhs(_lhs),
         packed_rhs(_packed_rhs),
         result(*_result),
@@ -435,7 +452,10 @@ struct GemmWithPackedRhsTask : Task {
     const int depth = lhs.cols();
 
     BlockParams block_params;
-    block_params.Init<KernelFormat>(rows, cols, depth, 1);
+    block_params.Init<KernelFormat>(rows, cols, depth, 1,
+                                    context->l1_bytes_to_use(),
+                                    context->l2_bytes_to_use(),
+                                    context->l2_rhs_factor());
 
     PackedLhs packed_lhs(Side::Lhs, local_allocator, block_params);
 
@@ -456,7 +476,7 @@ struct GemmWithPackedRhsTask : Task {
 
         auto curr_result_block = MatrixBlockBounds(
             result_block.start_row + r, result_block.start_col + c, rs, cs);
-        UnpackResult(
+        UnpackResult<KernelFormat>(
             &result, curr_result_block, packed_result, depth,
             packed_lhs.sums_of_each_slice(), packed_rhs.sums_of_each_slice(),
             lhs_offset.block(curr_result_block.start_row, rs),
@@ -467,6 +487,7 @@ struct GemmWithPackedRhsTask : Task {
     local_allocator->Decommit();
   }
 
+  const GemmContextType* context;
   const KernelBase& kernel;
   const MatrixMap<const InputScalar, LhsOrder> lhs;
   const PackedRhs packed_rhs;
@@ -487,25 +508,22 @@ class MultiThreadGemmContextBase : public SingleThreadGemmContext {
 
   int max_num_threads() const { return max_num_threads_; }
 
-  Allocator* main_thread_task_allocator() {
-    return &main_thread_task_allocator_;
-  }
-
  protected:
-  // The maximum number of worker threads to use (in addition
-  // to the master thread).
-  // The default value 0 means the default behavior of
-  // detecting the number of hardware threads. Nonzero values mean
-  // skipping and overriding hardware detection.
-  int max_num_threads_ = 0;
-
-  // For N-threaded operations, we will use only N-1 worker threads
-  // while the last task will be run directly on the main thread.
-  // It will then use this main_thread_task_allocator_; having a
-  // dedicated allocator for that (separate from the base allocator_)
-  // allows to use the same code for all tasks regardless of which
-  // thread they run on.
-  Allocator main_thread_task_allocator_;
+  // The maximum number of worker threads to use (including
+  // the master thread).
+  // The default value 1 means single-threading. That is the default
+  // because gemmlowp's primary target is mobile hardware, where thermal
+  // constraints usually mean that it may not be realistic to use more
+  // than 1 CPU core even if multiple cores are present.
+  // The special value 0 means try to detect the number of hardware threads.
+  // Note: this assumes that all CPU cores are equivalent. That assumption
+  // is defeated on big.LITTLE ARM devices, where we have no API to query
+  // the number of big cores (which is typically what we would want to use,
+  // leaving aside above-mentioned thermal issues). That is the other reason
+  // why the best compromise here is to let max_num_threads_ default to 1,
+  // so users who want multi-threading have to make the decision of how many
+  // threads to use by themselves.
+  int max_num_threads_ = 1;
 };
 
 class MultiThreadGemmContext : public MultiThreadGemmContextBase {
@@ -519,13 +537,24 @@ class MultiThreadGemmContext : public MultiThreadGemmContextBase {
   WorkersPool workers_pool_;
 };
 
+// Needed by chrome native builds
+#ifndef _SC_NPROCESSORS_CONF
+#define _SC_NPROCESSORS_CONF _SC_NPROCESSORS_ONLN
+#endif
+
 // Determines how many threads should be used for a given Gemm
 // operation.
 template <int KernelRows>
 inline int HowManyThreads(int max_num_threads, int rows, int cols, int depth) {
-  // First check if the user set an explicit maximum number of threads.
+  // Early-exit in the default case where multi-threading is disabled.
+  if (max_num_threads == 1) {
+    return 1;
+  }
+
+  // Determine the maximum number of threads.
   int max_count = max_num_threads;
-  if (!max_count) {
+  // The special value 0 means try to determine the total number of cores.
+  if (max_count == 0) {
     // No user-set maximum number of threads, so we need to
     // do some hardware detection.
     // This is expensive to query so we do it only once.
@@ -616,23 +645,19 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
   }
   assert(thread_count > 1);
 
-  // We choose to use a worker thread for all but one
-  // of the thread workloads. The remaining thread workload will be
-  // executed immediately on the current thread.
-  // In this way, the total number of threads (1 master, N-1 workers)
-  // equals the value returned by HowManyThread. This simple
-  // 1:1 mapping of threads to physical cores, is very important
-  // to getting good multithreaded performance especially for
-  // not-very-large GEMMs, and especially on Android.
-  const int workers_count = thread_count - 1;
+  // Simple 1:1 mapping of tasks to physical cores, which is very important
+  // to getting good multithreaded performance, specially for not-very-large
+  // GEMMs, and especially on Android.
+  const int task_count = thread_count;
 
   Allocator* allocator = context->allocator();
   auto* workers_pool = context->workers_pool();
 
-  workers_pool->CreateWorkers(workers_count);
-
   BlockParams block_params;
-  block_params.Init<KernelFormat>(rows, cols, depth, workers_count);
+  block_params.Init<KernelFormat>(rows, cols, depth, task_count,
+                                  context->l1_bytes_to_use(),
+                                  context->l2_bytes_to_use(),
+                                  context->l2_rhs_factor());
 
   PackedSideBlock<typename KernelFormat::Rhs> packed_rhs(Side::Rhs, allocator,
                                                          block_params);
@@ -646,33 +671,26 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
     PackRhs(&packed_rhs, rhs.block(0, c, depth, cs));
 
     // Give work to each worker.
+    std::vector<Task*> tasks;
     int next_start_row = 0;
-    workers_pool->Prepare(workers_count);
-    for (int thread = 0; thread < thread_count; thread++) {
+    for (int n = 0; n < task_count; ++n) {
       int start_row = next_start_row;
       next_start_row = std::min(rows, RoundUp<KernelFormat::kRows>(
-                                          rows * (thread + 1) / thread_count));
+                                          rows * (n + 1) / task_count));
 
       int block_rows = next_start_row - start_row;
       auto lhs_block = lhs.block(start_row, 0, block_rows, depth);
       typedef GemmWithPackedRhsTask<
           KernelFormat, InputScalar, OutputScalar, BitDepthParams, LhsOrder,
-          RhsOrder, ResultOrder, LhsOffset, RhsOffset, OutputPipelineType>
+          RhsOrder, ResultOrder, LhsOffset, RhsOffset, OutputPipelineType,
+          GemmContextType>
           TaskType;
-      auto task = new TaskType(kernel, lhs_block, packed_rhs, result,
-                               MatrixBlockBounds(start_row, c, block_rows, cs),
-                               lhs_offset, rhs_offset, output_pipeline);
-      if (thread < workers_count) {
-        workers_pool->StartWorker(thread, task);
-      } else {
-        // Execute the remaining workload immediately on the current thread.
-        task->local_allocator = context->main_thread_task_allocator();
-        task->Run();
-        delete task;
-      }
+      tasks.push_back(new TaskType(context, kernel, lhs_block, packed_rhs, result,
+                                   MatrixBlockBounds(start_row, c, block_rows, cs),
+                                   lhs_offset, rhs_offset, output_pipeline));
     }
-    // Wait for the workers.
-    workers_pool->Wait();
+    // Execute the work on the workers (and partially on this thread).
+    workers_pool->Execute(tasks);
   }
 
   allocator->Decommit();

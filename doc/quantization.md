@@ -261,10 +261,9 @@ activation functions will typically have real activation values in the interval
 [0,6].
 
 So how do we implement the multiplication of a int32 value by a positive real
-constant that is smaller than one? Typically, by right-shifting the int32 value,
-then multiplying by a residual real constant multiplier now in the normalized
-interval `[1/2,1)`. That multiplication can now be performed as a fixed-point
-multiplication.
+constant that is smaller than one? Typically, by multiplying by a fixed-point
+constant multiplier in the normalized interval `[1/2,1)`, and right-shifting
+the result to achieve the correct multiplier.
 
 At this point we have obtained the int32 value of the product
 

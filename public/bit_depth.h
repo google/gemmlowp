@@ -19,18 +19,33 @@
 
 namespace gemmlowp {
 
-// A specific bit depth of an operand (Lhs or Rhs).
-template <int tBits>
-struct BitDepth {
-  static const int kBits = tBits;
-  static_assert(kBits >= 1 && kBits <= 8, "bad bit depth");
+// The range of allowed values for an operand.
+template <int tMinValue, int tMaxValue>
+struct OperandRange {
+  static const int kMinValue = tMinValue;
+  static const int kMaxValue = tMaxValue;
+  static_assert(0 <= kMinValue, "");
+  static_assert(kMinValue < kMaxValue, "");
+  static_assert(kMaxValue <= 255, "");
+};
+
+using Uint8Range = OperandRange<0, 255>;
+using Uint8RangeExcludingZero = OperandRange<1, 255>;
+
+template <typename tLhsRange, typename tRhsRange>
+struct BitDepthParams {
+  using LhsRange = tLhsRange;
+  using RhsRange = tRhsRange;
 };
 
 // Default: LHS and RHS are 8bit.
-struct DefaultL8R8BitDepthParams {
-  typedef BitDepth<8> LhsBitDepth;
-  typedef BitDepth<8> RhsBitDepth;
-};
+using DefaultL8R8BitDepthParams = BitDepthParams<Uint8Range, Uint8Range>;
+
+// Variant: LHS may not take the value 0. This allows using
+// faster kernels using signed arithmetic, see
+// NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits
+using L8R8WithLhsNonzeroBitDepthParams =
+    BitDepthParams<Uint8RangeExcludingZero, Uint8Range>;
 
 // Deprecated: when gemmlowp used to allow requantizing 8bit
 // inputs to less-than-8-bit depths, the public setting allowing

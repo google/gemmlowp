@@ -198,10 +198,9 @@ inline void Prefetch(const void* ptr) {
   // Aarch64 has very detailed prefetch instructions, that compilers
   // can't know how to map __builtin_prefetch to, and as a result, don't,
   // leaving __builtin_prefetch a no-op on this architecture.
-  // For our purposes, "pldl1strm" is usually what we want, meaning:
-  // "prefetch for load, into L1 cache, for a streaming usage pattern
-  // i.e. only using each data a few times".
-  asm volatile("prfm pldl1strm, [%[ptr]]\n" ::[ptr] "r"(ptr) : "memory");
+  // For our purposes, "pldl1keep" is usually what we want, meaning:
+  // "prefetch for load, into L1 cache, using each value multiple times".
+  asm volatile("prfm pldl1keep, [%[ptr]]\n" ::[ptr] "r"(ptr) : );
 #elif defined \
     __GNUC__  // Clang and GCC define __GNUC__ and have __builtin_prefetch.
   __builtin_prefetch(ptr);

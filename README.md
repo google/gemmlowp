@@ -1,5 +1,7 @@
 # gemmlowp: a small self-contained low-precision GEMM library
 
+[![Build Status](https://secure.travis-ci.org/google/gemmlowp.png)](http://travis-ci.org/google/gemmlowp)
+
 This is not a full linear algebra library, only a GEMM library: it only does
 general matrix multiplication ("GEMM").
 

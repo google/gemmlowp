@@ -178,17 +178,10 @@ void DispatchGemmShape(GemmContextType* context,
         TransposeTuple(output_pipeline));
   }
 
-  if (cols == 1) {
-    typedef DefaultKernel<KernelFamily::Gemv, BitDepthParams> Kernel;
-    MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
-                    BitDepthParams>(context, Kernel(), lhs, rhs, result,
-                                    lhs_offset, rhs_offset, output_pipeline);
-  } else {
-    typedef DefaultKernel<KernelFamily::Gemm, BitDepthParams> Kernel;
-    MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
-                    BitDepthParams>(context, Kernel(), lhs, rhs, result,
-                                    lhs_offset, rhs_offset, output_pipeline);
-  }
+  typedef DefaultKernel<BitDepthParams> Kernel;
+  MultiThreadGemm<typename Kernel::Format, InputScalar, OutputScalar,
+                  BitDepthParams>(context, Kernel(), lhs, rhs, result,
+                                  lhs_offset, rhs_offset, output_pipeline);
 }
 
 }  // end namespace gemmlowp

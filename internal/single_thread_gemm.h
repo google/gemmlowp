@@ -42,8 +42,21 @@ class SingleThreadGemmContext {
  public:
   Allocator* allocator() { return &allocator_; }
 
+  void set_l1_bytes_to_use(int n) { l1_bytes_to_use_ = n; }
+  void set_l2_bytes_to_use(int n) { l2_bytes_to_use_ = n; }
+  void set_l2_rhs_factor(float n) { l2_rhs_factor_ = n; }
+
+  int l1_bytes_to_use() const { return l1_bytes_to_use_; }
+  int l2_bytes_to_use() const { return l2_bytes_to_use_; }
+  float l2_rhs_factor() const { return l2_rhs_factor_; }
+
  protected:
   Allocator allocator_;
+
+  // The cache configurationt to use.
+  int l1_bytes_to_use_ = kDefaultL1CacheSize;
+  int l2_bytes_to_use_ = kDefaultL2CacheSize;
+  float l2_rhs_factor_ = kDefaultL2RhsFactor;
 };
 
 template <typename KernelFormat, typename InputScalar, typename OutputScalar,
@@ -76,7 +89,10 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
   Allocator* allocator = context->allocator();
 
   BlockParams block_params;
-  block_params.Init<KernelFormat>(rows, cols, depth, 1);
+  block_params.Init<KernelFormat>(rows, cols, depth, 1,
+                                  context->l1_bytes_to_use(),
+                                  context->l2_bytes_to_use(),
+                                  context->l2_rhs_factor());
 
 #ifdef GEMMLOWP_PROFILING_SIZES
   // Using a static map of label strings. Not reentrant at all!
@@ -127,10 +143,10 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
       Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs,
               depth);
 
-      UnpackResult(result, MatrixBlockBounds(r, c, rs, cs), packed_result,
-                   depth, packed_lhs.sums_of_each_slice(),
-                   packed_rhs.sums_of_each_slice(), lhs_offset.block(r, rs),
-                   rhs_offset.block(c, cs), output_pipeline);
+      UnpackResult<KernelFormat>(
+          result, MatrixBlockBounds(r, c, rs, cs), packed_result, depth,
+          packed_lhs.sums_of_each_slice(), packed_rhs.sums_of_each_slice(),
+          lhs_offset.block(r, rs), rhs_offset.block(c, cs), output_pipeline);
     }
   }
 
