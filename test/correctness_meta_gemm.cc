@@ -330,7 +330,7 @@ int main(int argc, char* argv[]) {
 
   gemmlowp::WorkersPool pool;
 
-  int max_repetitions = run_long_test ? 11 : 4;
+  int max_repetitions = run_long_test ? 11 : 5;
 
   for (int repetitions = 1; repetitions < max_repetitions; ++repetitions) {
     int t = std::min(repetitions, 4);
