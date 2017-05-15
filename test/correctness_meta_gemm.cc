@@ -306,7 +306,13 @@ void i32_suite(int mi, int ni, int ki, int mx, int nx, int kx, int md, int nd,
   std::cout << std::endl;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+  bool run_long_test = false;
+
+  if (argc > 1 && strcmp(argv[1], "long")) {
+    run_long_test = true;
+  }
+
   const std::int32_t min_n = 1;
   const std::int32_t min_m = 1;
   const std::int32_t min_k = 8;
@@ -324,7 +330,9 @@ int main() {
 
   gemmlowp::WorkersPool pool;
 
-  for (int repetitions = 1; repetitions < 11; ++repetitions) {
+  int max_repetitions = run_long_test ? 11 : 4;
+
+  for (int repetitions = 1; repetitions < max_repetitions; ++repetitions) {
     int t = std::min(repetitions, 4);
     std::cout << "Threads: " << t << std::endl << std::flush;
 
@@ -334,9 +342,11 @@ int main() {
     q_suite(1, 1, 8, 16, 16, 32, 1, 1, 1, scratch, left, right, result, &pool,
             t);
 
-    std::cout << "Big." << std::endl << std::flush;
-    q_suite(1, 1, 8, 512, 512, 2048, 111, 111, 111, scratch, left, right,
-            result, &pool, t);
+    if (run_long_test) {
+      std::cout << "Big." << std::endl << std::flush;
+      q_suite(1, 1, 8, 512, 512, 2048, 111, 111, 111, scratch, left, right,
+              result, &pool, t);
+    }
 
     std::cout << "Gemv." << std::endl << std::flush;
     q_suite(1, 1, 8, 2, 512, 2048, 1, 111, 111, scratch, left, right, result,
@@ -350,9 +360,11 @@ int main() {
     f_suite(1, 1, 8, 16, 16, 32, 1, 1, 1, scratch, left, right, result_float,
             &pool, t);
 
-    std::cout << "Big." << std::endl << std::flush;
-    f_suite(1, 1, 8, 512, 512, 2048, 111, 111, 111, scratch, left, right,
-            result_float, &pool, t);
+    if (run_long_test) {
+      std::cout << "Big." << std::endl << std::flush;
+      f_suite(1, 1, 8, 512, 512, 2048, 111, 111, 111, scratch, left, right,
+              result_float, &pool, t);
+    }
 
     std::cout << "Gemv." << std::endl << std::flush;
     f_suite(1, 1, 8, 2, 512, 2048, 1, 111, 111, scratch, left, right,
@@ -366,9 +378,11 @@ int main() {
     i32_suite(1, 1, 8, 16, 16, 32, 1, 1, 1, scratch, left, right, result_i32,
               &pool, t);
 
-    std::cout << "Big." << std::endl << std::flush;
-    i32_suite(1, 1, 8, 512, 512, 2048, 111, 111, 111, scratch, left, right,
-              result_i32, &pool, t);
+    if (run_long_test) {
+      std::cout << "Big." << std::endl << std::flush;
+      i32_suite(1, 1, 8, 512, 512, 2048, 111, 111, 111, scratch, left, right,
+                result_i32, &pool, t);
+    }
 
     std::cout << "Gemv." << std::endl << std::flush;
     i32_suite(1, 1, 8, 2, 512, 2048, 1, 111, 111, scratch, left, right,
