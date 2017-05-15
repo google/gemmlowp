@@ -86,7 +86,7 @@ inline void MultiThreadTransform1D(MultiThreadingContext* context,
 
   auto workers_pool = context->workers_pool();
   std::vector<Task*> tasks;
-  std::for_each(task_params.begin(), task_params.end(), [tasks](Params *param) {
+  std::for_each(task_params.begin(), task_params.end(), [tasks](Params* param) {
     tasks.push_back(new TaskRunnerType(param));
   });
   workers_pool->Execute(tasks);
