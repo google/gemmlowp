@@ -5,8 +5,8 @@ if [ $TEST == "arm" ]; then
   # adb shell input keyevent 82 &
   adb push ./libs/* /data/local/tmp
   adb shell /data/local/tmp/benchmark
+  adb shell /data/local/tmp/correctness_meta_gemm
   # too slow
-  # adb shell /data/local/tmp/correctness_meta_gemm
   # adb shell /data/local/tmp/benchmark_meta_gemm
 fi
 if [ $TEST == "x86" ]; then
