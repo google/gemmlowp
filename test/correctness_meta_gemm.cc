@@ -277,10 +277,10 @@ int main(int argc, char* argv[]) {
 
   gemmlowp::WorkersPool pool;
 
-  int max_repetitions = run_long_test ? 11 : 5;
+  int max_repetitions = run_long_test ? 10 : 1;
 
-  for (int repetitions = 1; repetitions < max_repetitions; ++repetitions) {
-    int t = std::min(repetitions, 4);
+  for (int repetitions = 0; repetitions < max_repetitions; ++repetitions) {
+    int t = std::min(repetitions + 1, 4);
     std::cout << "Threads: " << t << std::endl << std::flush;
 
     std::cout << "Quantized 8 bit." << std::endl << std::flush;
