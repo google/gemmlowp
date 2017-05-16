@@ -133,14 +133,15 @@ void MultiThreadedMatrixMatrix(gemmlowp::WorkersPool* pool,
   std::uint8_t* task_scratch = scratch;
   std::int32_t scratch_per_thread = operation.ScratchPerThread(m, n, k);
   std::vector<Task*> tasks;
-  std::for_each(
-      task_rects.begin(), task_rects.end(),
-      [&tasks, &task_scratch, lhs, rhs, k, result, result_stride, operation,
-       scratch_per_thread](internal::TaskRect& rect) {
-        tasks.push_back(new internal::MetaTask<IN_TYPE, OUT_TYPE, F>(
-            task_scratch, lhs, rhs, rect, k, result, result_stride, operation));
-        task_scratch += scratch_per_thread;
-      });
+  std::for_each(task_rects.begin(), task_rects.end(),
+                [&tasks, &task_scratch, lhs, rhs, k, result, result_stride,
+                 operation, scratch_per_thread]
+                (internal::TaskRect& rect) {
+    tasks.push_back(new internal::MetaTask<IN_TYPE, OUT_TYPE, F>(
+        task_scratch, lhs, rhs, rect, k, result, result_stride,
+        operation));
+    task_scratch += scratch_per_thread;
+  });
   pool->Execute(tasks);
 }
 

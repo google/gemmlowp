@@ -78,40 +78,13 @@ def _GenerateLoadAggregateStore(emitter, registers, lanes_count, elements_count,
   registers.FreeRegisters(block)
 
 
-def _LoadMemoryParameter(emitter, registers, name, source):
-  register = registers.GeneralRegister()
-  emitter.EmitLdr(register, registers.MapMemoryParameter(name, source))
-  return register
-
-
-def _GenerateAggregatorReductionLowRegisters(emitter, registers,
-                                             aggregators, output_address):
-  emitter.EmitNewline()
-  emitter.EmitComment('Aggregator Reduction.')
-  _GenerateAggregatorReduction(
-      emitter, registers, aggregators, output_address,
-      _LoadMemoryParameter(emitter, registers, 'multiplicative_sum_offset',
-                           'params.multiplicative_sum_offset'),
-      _LoadMemoryParameter(emitter, registers, 'additive_sum_offset',
-                           'params.additive_sum_offset'))
-
-
-def _GenerateAggregatorReductionHighRegisters(emitter, registers,
-                                              aggregators, output_address):
-  emitter.EmitNewline()
-  emitter.EmitComment('Aggregator Reduction.')
-  _GenerateAggregatorReduction(
-      emitter, registers, aggregators, output_address,
-      registers.MapParameter('multiplicative_sum_offset',
-                             'params.multiplicative_sum_offset'),
-      registers.MapParameter('additive_sum_offset',
-                             'params.additive_sum_offset'))
-
-
 def _GenerateAggregatorReduction(emitter, registers, aggregators,
                                  output_address, multiplicative_sum_offset,
                                  additive_sum_offset):
   """Reduce 4 lane sum aggregators to 1 value and store the sums."""
+  emitter.EmitNewline()
+  emitter.EmitComment('Aggregator Reduction.')
+
   multiplier = registers.DoubleRegister()
   emitter.EmitVMov('32',
                    emitter.Lane(32, multiplier, 0), multiplicative_sum_offset)
@@ -189,14 +162,12 @@ class RowMajorWithSumUInt8x8(common.StreamGenerator):
       _GenerateLoadAggregateStore(self.asm_emitter, registers, lanes_count,
                                   leftovers, aggregators, inputs, output)
 
-    registers.FreeRegisters(inputs)
-
-    if len(inputs) <= 6:
-      _GenerateAggregatorReductionHighRegisters(
-          self.asm_emitter, registers, aggregators, output)
-    else:
-      _GenerateAggregatorReductionLowRegisters(
-          self.asm_emitter, registers, aggregators, output)
+    _GenerateAggregatorReduction(
+        self.asm_emitter, registers, aggregators, output,
+        registers.MapParameter('multiplicative_sum_offset',
+                               'params.multiplicative_sum_offset'),
+        registers.MapParameter('additive_sum_offset',
+                               'params.additive_sum_offset'))
 
     self.asm_emitter.EmitAsmEnd(registers)
     self.asm_emitter.PopIndent(len(self.emitter.indent))
@@ -282,9 +253,12 @@ class ColumnMajorWithSumUInt8x8(common.StreamGenerator):
                                      leftovers, aggregators, input_address,
                                      stride, output_address)
 
-
-    _GenerateAggregatorReductionHighRegisters(
-        self.asm_emitter, registers, aggregators, output_address)
+    _GenerateAggregatorReduction(
+        self.asm_emitter, registers, aggregators, output_address,
+        registers.MapParameter('multiplicative_sum_offset',
+                               'params.multiplicative_sum_offset'),
+        registers.MapParameter('additive_sum_offset',
+                               'params.additive_sum_offset'))
 
     self.asm_emitter.EmitAsmEnd(registers)
     self.asm_emitter.PopIndent(len(self.emitter.indent))

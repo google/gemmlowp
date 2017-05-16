@@ -24,12 +24,12 @@ namespace gemmlowp {
 namespace meta {
 
 template <>
-inline void Stream<uint8_t, 1, 8, 0, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 0, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 1, 8, 0, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 1, 8, 0, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -65,12 +65,12 @@ inline void Stream<uint8_t, 1, 8, 0, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 1, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 1, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 1, 8, 1, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 1, 8, 1, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -118,12 +118,12 @@ inline void Stream<uint8_t, 1, 8, 1, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 2, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 2, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 1, 8, 2, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 1, 8, 2, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -171,12 +171,12 @@ inline void Stream<uint8_t, 1, 8, 2, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 3, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 3, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 1, 8, 3, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 1, 8, 3, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -225,12 +225,12 @@ inline void Stream<uint8_t, 1, 8, 3, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 4, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 4, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 1, 8, 4, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 1, 8, 4, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -278,12 +278,12 @@ inline void Stream<uint8_t, 1, 8, 4, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 5, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 5, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 1, 8, 5, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 1, 8, 5, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -332,12 +332,12 @@ inline void Stream<uint8_t, 1, 8, 5, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 6, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 6, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 1, 8, 6, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 1, 8, 6, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -386,12 +386,12 @@ inline void Stream<uint8_t, 1, 8, 6, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 7, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 7, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 1, 8, 7, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 1, 8, 7, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -441,12 +441,12 @@ inline void Stream<uint8_t, 1, 8, 7, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 0, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 0, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 2, 8, 0, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 2, 8, 0, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -489,12 +489,12 @@ inline void Stream<uint8_t, 2, 8, 0, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 1, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 1, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 2, 8, 1, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 2, 8, 1, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -552,12 +552,12 @@ inline void Stream<uint8_t, 2, 8, 1, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 2, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 2, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 2, 8, 2, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 2, 8, 2, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -615,12 +615,12 @@ inline void Stream<uint8_t, 2, 8, 2, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 3, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 3, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 2, 8, 3, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 2, 8, 3, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -680,12 +680,12 @@ inline void Stream<uint8_t, 2, 8, 3, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 4, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 4, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 2, 8, 4, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 2, 8, 4, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -743,12 +743,12 @@ inline void Stream<uint8_t, 2, 8, 4, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 5, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 5, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 2, 8, 5, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 2, 8, 5, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -808,12 +808,12 @@ inline void Stream<uint8_t, 2, 8, 5, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 6, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 6, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 2, 8, 6, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 2, 8, 6, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -873,12 +873,12 @@ inline void Stream<uint8_t, 2, 8, 6, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 7, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 7, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 2, 8, 7, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 2, 8, 7, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -940,12 +940,12 @@ inline void Stream<uint8_t, 2, 8, 7, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 0, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 0, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 3, 8, 0, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 3, 8, 0, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -995,12 +995,12 @@ inline void Stream<uint8_t, 3, 8, 0, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 1, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 1, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 3, 8, 1, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 3, 8, 1, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -1068,12 +1068,12 @@ inline void Stream<uint8_t, 3, 8, 1, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 2, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 2, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 3, 8, 2, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 3, 8, 2, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -1141,12 +1141,12 @@ inline void Stream<uint8_t, 3, 8, 2, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 3, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 3, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 3, 8, 3, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 3, 8, 3, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -1217,12 +1217,12 @@ inline void Stream<uint8_t, 3, 8, 3, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 4, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 4, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 3, 8, 4, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 3, 8, 4, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -1290,12 +1290,12 @@ inline void Stream<uint8_t, 3, 8, 4, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 5, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 5, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 3, 8, 5, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 3, 8, 5, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -1366,12 +1366,12 @@ inline void Stream<uint8_t, 3, 8, 5, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 6, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 6, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 3, 8, 6, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 3, 8, 6, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -1442,12 +1442,12 @@ inline void Stream<uint8_t, 3, 8, 6, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 7, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 7, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 3, 8, 7, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 3, 8, 7, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -1521,12 +1521,12 @@ inline void Stream<uint8_t, 3, 8, 7, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 0, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 0, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 4, 8, 0, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 4, 8, 0, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -1582,12 +1582,12 @@ inline void Stream<uint8_t, 4, 8, 0, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 1, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 1, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 4, 8, 1, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 4, 8, 1, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -1664,12 +1664,12 @@ inline void Stream<uint8_t, 4, 8, 1, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 2, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 2, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 4, 8, 2, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 4, 8, 2, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -1746,12 +1746,12 @@ inline void Stream<uint8_t, 4, 8, 2, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 3, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 3, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 4, 8, 3, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 4, 8, 3, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -1832,12 +1832,12 @@ inline void Stream<uint8_t, 4, 8, 3, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 4, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 4, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 4, 8, 4, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 4, 8, 4, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -1914,12 +1914,12 @@ inline void Stream<uint8_t, 4, 8, 4, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 5, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 5, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 4, 8, 5, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 4, 8, 5, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -2000,12 +2000,12 @@ inline void Stream<uint8_t, 4, 8, 5, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 6, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 6, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 4, 8, 6, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 4, 8, 6, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -2086,12 +2086,12 @@ inline void Stream<uint8_t, 4, 8, 6, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 7, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 7, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 4, 8, 7, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 4, 8, 7, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -2176,12 +2176,12 @@ inline void Stream<uint8_t, 4, 8, 7, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 0, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 0, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 5, 8, 0, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 5, 8, 0, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -2247,12 +2247,12 @@ inline void Stream<uint8_t, 5, 8, 0, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 1, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 1, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 5, 8, 1, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 5, 8, 1, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -2343,12 +2343,12 @@ inline void Stream<uint8_t, 5, 8, 1, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 2, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 2, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 5, 8, 2, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 5, 8, 2, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -2439,12 +2439,12 @@ inline void Stream<uint8_t, 5, 8, 2, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 3, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 3, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 5, 8, 3, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 5, 8, 3, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -2540,12 +2540,12 @@ inline void Stream<uint8_t, 5, 8, 3, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 4, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 4, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 5, 8, 4, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 5, 8, 4, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -2636,12 +2636,12 @@ inline void Stream<uint8_t, 5, 8, 4, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 5, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 5, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 5, 8, 5, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 5, 8, 5, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -2737,12 +2737,12 @@ inline void Stream<uint8_t, 5, 8, 5, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 6, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 6, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 5, 8, 6, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 5, 8, 6, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -2838,12 +2838,12 @@ inline void Stream<uint8_t, 5, 8, 6, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 7, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 7, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 5, 8, 7, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 5, 8, 7, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -2944,12 +2944,12 @@ inline void Stream<uint8_t, 5, 8, 7, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 0, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 0, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 6, 8, 0, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 6, 8, 0, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -3022,12 +3022,12 @@ inline void Stream<uint8_t, 6, 8, 0, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 1, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 1, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 6, 8, 1, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 6, 8, 1, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -3128,12 +3128,12 @@ inline void Stream<uint8_t, 6, 8, 1, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 2, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 2, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 6, 8, 2, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 6, 8, 2, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -3234,12 +3234,12 @@ inline void Stream<uint8_t, 6, 8, 2, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 3, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 3, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 6, 8, 3, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 6, 8, 3, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -3346,12 +3346,12 @@ inline void Stream<uint8_t, 6, 8, 3, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 4, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 4, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 6, 8, 4, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 6, 8, 4, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -3452,12 +3452,12 @@ inline void Stream<uint8_t, 6, 8, 4, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 5, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 5, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 6, 8, 5, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 6, 8, 5, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -3564,12 +3564,12 @@ inline void Stream<uint8_t, 6, 8, 5, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 6, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 6, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 6, 8, 6, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 6, 8, 6, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -3676,12 +3676,12 @@ inline void Stream<uint8_t, 6, 8, 6, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 7, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 7, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 6, 8, 7, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 6, 8, 7, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -3794,12 +3794,12 @@ inline void Stream<uint8_t, 6, 8, 7, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 0, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 0, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 7, 8, 0, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 7, 8, 0, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -3844,10 +3844,8 @@ inline void Stream<uint8_t, 7, 8, 0, RowMajorWithSum>::Pack(
       "bne 1b\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -3873,20 +3871,20 @@ inline void Stream<uint8_t, 7, 8, 0, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:64]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "d0", "d1", "d2", "d3", "d4", "d5",
         "d6", "d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23", "d24",
         "d25", "d26", "d27", "d28", "d29", "cc", "memory");
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 1, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 1, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 7, 8, 1, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 7, 8, 1, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -3962,10 +3960,8 @@ inline void Stream<uint8_t, 7, 8, 1, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -3991,20 +3987,20 @@ inline void Stream<uint8_t, 7, 8, 1, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:64]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "d0", "d1", "d2", "d3", "d4", "d5",
         "d6", "d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23", "d24",
         "d25", "d26", "d27", "d28", "d29", "cc", "memory");
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 2, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 2, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 7, 8, 2, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 7, 8, 2, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -4080,10 +4076,8 @@ inline void Stream<uint8_t, 7, 8, 2, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -4109,20 +4103,20 @@ inline void Stream<uint8_t, 7, 8, 2, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:64]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "d0", "d1", "d2", "d3", "d4", "d5",
         "d6", "d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23", "d24",
         "d25", "d26", "d27", "d28", "d29", "cc", "memory");
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 3, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 3, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 7, 8, 3, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 7, 8, 3, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -4205,10 +4199,8 @@ inline void Stream<uint8_t, 7, 8, 3, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -4234,20 +4226,20 @@ inline void Stream<uint8_t, 7, 8, 3, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:64]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "d0", "d1", "d2", "d3", "d4", "d5",
         "d6", "d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23", "d24",
         "d25", "d26", "d27", "d28", "d29", "cc", "memory");
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 4, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 4, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 7, 8, 4, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 7, 8, 4, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -4323,10 +4315,8 @@ inline void Stream<uint8_t, 7, 8, 4, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -4352,20 +4342,20 @@ inline void Stream<uint8_t, 7, 8, 4, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:64]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "d0", "d1", "d2", "d3", "d4", "d5",
         "d6", "d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23", "d24",
         "d25", "d26", "d27", "d28", "d29", "cc", "memory");
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 5, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 5, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 7, 8, 5, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 7, 8, 5, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -4448,10 +4438,8 @@ inline void Stream<uint8_t, 7, 8, 5, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -4477,20 +4465,20 @@ inline void Stream<uint8_t, 7, 8, 5, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:64]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "d0", "d1", "d2", "d3", "d4", "d5",
         "d6", "d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23", "d24",
         "d25", "d26", "d27", "d28", "d29", "cc", "memory");
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 6, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 6, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 7, 8, 6, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 7, 8, 6, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -4573,10 +4561,8 @@ inline void Stream<uint8_t, 7, 8, 6, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -4602,20 +4588,20 @@ inline void Stream<uint8_t, 7, 8, 6, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:64]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "d0", "d1", "d2", "d3", "d4", "d5",
         "d6", "d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23", "d24",
         "d25", "d26", "d27", "d28", "d29", "cc", "memory");
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 7, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 7, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 7, 8, 7, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 7, 8, 7, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -4705,10 +4691,8 @@ inline void Stream<uint8_t, 7, 8, 7, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6}, [%[out]:64]!\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -4734,20 +4718,20 @@ inline void Stream<uint8_t, 7, 8, 7, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:64]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "d0", "d1", "d2", "d3", "d4", "d5",
         "d6", "d16", "d17", "d18", "d19", "d20", "d21", "d22", "d23", "d24",
         "d25", "d26", "d27", "d28", "d29", "cc", "memory");
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 0, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 0, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 8, 8, 0, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 8, 8, 0, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -4796,10 +4780,8 @@ inline void Stream<uint8_t, 8, 8, 0, RowMajorWithSum>::Pack(
       "bne 1b\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -4827,8 +4809,8 @@ inline void Stream<uint8_t, 8, 8, 0, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:256]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "d0", "d1", "d2", "d3", "d4",
         "d5", "d6", "d7", "d16", "d17", "d18", "d19", "d20", "d21", "d22",
         "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31", "cc",
@@ -4836,12 +4818,12 @@ inline void Stream<uint8_t, 8, 8, 0, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 1, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 1, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 8, 8, 1, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 8, 8, 1, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -4924,10 +4906,8 @@ inline void Stream<uint8_t, 8, 8, 1, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -4955,8 +4935,8 @@ inline void Stream<uint8_t, 8, 8, 1, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:256]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "d0", "d1", "d2", "d3", "d4",
         "d5", "d6", "d7", "d16", "d17", "d18", "d19", "d20", "d21", "d22",
         "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31", "cc",
@@ -4964,12 +4944,12 @@ inline void Stream<uint8_t, 8, 8, 1, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 2, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 2, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 8, 8, 2, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 8, 8, 2, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -5052,10 +5032,8 @@ inline void Stream<uint8_t, 8, 8, 2, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -5083,8 +5061,8 @@ inline void Stream<uint8_t, 8, 8, 2, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:256]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "d0", "d1", "d2", "d3", "d4",
         "d5", "d6", "d7", "d16", "d17", "d18", "d19", "d20", "d21", "d22",
         "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31", "cc",
@@ -5092,12 +5070,12 @@ inline void Stream<uint8_t, 8, 8, 2, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 3, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 3, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 8, 8, 3, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 8, 8, 3, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -5188,10 +5166,8 @@ inline void Stream<uint8_t, 8, 8, 3, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -5219,8 +5195,8 @@ inline void Stream<uint8_t, 8, 8, 3, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:256]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "d0", "d1", "d2", "d3", "d4",
         "d5", "d6", "d7", "d16", "d17", "d18", "d19", "d20", "d21", "d22",
         "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31", "cc",
@@ -5228,12 +5204,12 @@ inline void Stream<uint8_t, 8, 8, 3, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 4, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 4, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 8, 8, 4, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 8, 8, 4, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -5316,10 +5292,8 @@ inline void Stream<uint8_t, 8, 8, 4, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -5347,8 +5321,8 @@ inline void Stream<uint8_t, 8, 8, 4, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:256]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "d0", "d1", "d2", "d3", "d4",
         "d5", "d6", "d7", "d16", "d17", "d18", "d19", "d20", "d21", "d22",
         "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31", "cc",
@@ -5356,12 +5330,12 @@ inline void Stream<uint8_t, 8, 8, 4, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 5, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 5, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 8, 8, 5, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 8, 8, 5, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -5452,10 +5426,8 @@ inline void Stream<uint8_t, 8, 8, 5, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -5483,8 +5455,8 @@ inline void Stream<uint8_t, 8, 8, 5, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:256]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "d0", "d1", "d2", "d3", "d4",
         "d5", "d6", "d7", "d16", "d17", "d18", "d19", "d20", "d21", "d22",
         "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31", "cc",
@@ -5492,12 +5464,12 @@ inline void Stream<uint8_t, 8, 8, 5, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 6, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 6, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 8, 8, 6, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 8, 8, 6, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -5588,10 +5560,8 @@ inline void Stream<uint8_t, 8, 8, 6, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -5619,8 +5589,8 @@ inline void Stream<uint8_t, 8, 8, 6, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:256]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "d0", "d1", "d2", "d3", "d4",
         "d5", "d6", "d7", "d16", "d17", "d18", "d19", "d20", "d21", "d22",
         "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31", "cc",
@@ -5628,12 +5598,12 @@ inline void Stream<uint8_t, 8, 8, 6, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 7, RowMajorWithSum>::Pack(
-    const uint8_t* in, const RowMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 7, RowMajorWithSum>::Pack(
+    const std::uint8_t* in, const RowMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") RowMajorWithSum<uint8_t, 8, 8, 7, RowMajorWithSum>::Pack()"
+            << ") RowMajorWithSum<std::uint8_t, 8, 8, 7, RowMajorWithSum>::Pack()"
             << std::endl
             << std::flush;
 #endif
@@ -5732,10 +5702,8 @@ inline void Stream<uint8_t, 8, 8, 7, RowMajorWithSum>::Pack(
       "vst1.32 {d4, d5, d6, d7}, [%[out]:256]!\n"
 
       // Aggregator Reduction.
-      "ldr r0, %[multiplicative_sum_offset]\n"
-      "ldr r1, %[additive_sum_offset]\n"
-      "vmov.32 d0[0], r0\n"
-      "vdup.32 q1, r1\n"
+      "vmov.32 d0[0], %[multiplicative_sum_offset]\n"
+      "vdup.32 q1, %[additive_sum_offset]\n"
       "vpaddl.u16 q8, q8\n"
       "vpaddl.u16 q9, q9\n"
       "vpaddl.u16 q10, q10\n"
@@ -5763,8 +5731,8 @@ inline void Stream<uint8_t, 8, 8, 7, RowMajorWithSum>::Pack(
       "vst1.32 {d16, d17, d18, d19}, [%[out]:256]\n"
       : [count] "+r"(params_count_copy), [in] "+r"(in), [out] "+r"(out)
       : [stride] "r"(params.stride),
-        [multiplicative_sum_offset] "m"(params.multiplicative_sum_offset),
-        [additive_sum_offset] "m"(params.additive_sum_offset)
+        [multiplicative_sum_offset] "r"(params.multiplicative_sum_offset),
+        [additive_sum_offset] "r"(params.additive_sum_offset)
       : "r0", "r1", "r2", "r3", "r4", "r5", "r6", "d0", "d1", "d2", "d3", "d4",
         "d5", "d6", "d7", "d16", "d17", "d18", "d19", "d20", "d21", "d22",
         "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30", "d31", "cc",
@@ -5772,13 +5740,13 @@ inline void Stream<uint8_t, 8, 8, 7, RowMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 0, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 0, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 1, 8, 0, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 1, 8, 0, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -5823,13 +5791,13 @@ inline void Stream<uint8_t, 1, 8, 0, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 1, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 1, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 1, 8, 1, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 1, 8, 1, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -5887,13 +5855,13 @@ inline void Stream<uint8_t, 1, 8, 1, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 2, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 2, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 1, 8, 2, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 1, 8, 2, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -5952,13 +5920,13 @@ inline void Stream<uint8_t, 1, 8, 2, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 3, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 3, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 1, 8, 3, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 1, 8, 3, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -6018,13 +5986,13 @@ inline void Stream<uint8_t, 1, 8, 3, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 4, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 4, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 1, 8, 4, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 1, 8, 4, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -6085,13 +6053,13 @@ inline void Stream<uint8_t, 1, 8, 4, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 5, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 5, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 1, 8, 5, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 1, 8, 5, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -6153,13 +6121,13 @@ inline void Stream<uint8_t, 1, 8, 5, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 6, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 6, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 1, 8, 6, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 1, 8, 6, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -6222,13 +6190,13 @@ inline void Stream<uint8_t, 1, 8, 6, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 1, 8, 7, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 1, 8, 7, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 1, 8, 7, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 1, 8, 7, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -6292,13 +6260,13 @@ inline void Stream<uint8_t, 1, 8, 7, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 0, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 0, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 2, 8, 0, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 2, 8, 0, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -6348,13 +6316,13 @@ inline void Stream<uint8_t, 2, 8, 0, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 1, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 1, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 2, 8, 1, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 2, 8, 1, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -6420,13 +6388,13 @@ inline void Stream<uint8_t, 2, 8, 1, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 2, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 2, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 2, 8, 2, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 2, 8, 2, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -6493,13 +6461,13 @@ inline void Stream<uint8_t, 2, 8, 2, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 3, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 3, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 2, 8, 3, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 2, 8, 3, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -6567,13 +6535,13 @@ inline void Stream<uint8_t, 2, 8, 3, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 4, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 4, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 2, 8, 4, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 2, 8, 4, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -6642,13 +6610,13 @@ inline void Stream<uint8_t, 2, 8, 4, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 5, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 5, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 2, 8, 5, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 2, 8, 5, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -6718,13 +6686,13 @@ inline void Stream<uint8_t, 2, 8, 5, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 6, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 6, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 2, 8, 6, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 2, 8, 6, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -6795,13 +6763,13 @@ inline void Stream<uint8_t, 2, 8, 6, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 2, 8, 7, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 2, 8, 7, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 2, 8, 7, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 2, 8, 7, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -6873,13 +6841,13 @@ inline void Stream<uint8_t, 2, 8, 7, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 0, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 0, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 3, 8, 0, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 3, 8, 0, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -6933,13 +6901,13 @@ inline void Stream<uint8_t, 3, 8, 0, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 1, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 1, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 3, 8, 1, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 3, 8, 1, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -7009,13 +6977,13 @@ inline void Stream<uint8_t, 3, 8, 1, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 2, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 2, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 3, 8, 2, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 3, 8, 2, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -7086,13 +7054,13 @@ inline void Stream<uint8_t, 3, 8, 2, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 3, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 3, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 3, 8, 3, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 3, 8, 3, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -7164,13 +7132,13 @@ inline void Stream<uint8_t, 3, 8, 3, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 4, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 4, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 3, 8, 4, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 3, 8, 4, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -7243,13 +7211,13 @@ inline void Stream<uint8_t, 3, 8, 4, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 5, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 5, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 3, 8, 5, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 3, 8, 5, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -7323,13 +7291,13 @@ inline void Stream<uint8_t, 3, 8, 5, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 6, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 6, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 3, 8, 6, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 3, 8, 6, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -7404,13 +7372,13 @@ inline void Stream<uint8_t, 3, 8, 6, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 3, 8, 7, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 3, 8, 7, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 3, 8, 7, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 3, 8, 7, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -7486,13 +7454,13 @@ inline void Stream<uint8_t, 3, 8, 7, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 0, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 0, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 4, 8, 0, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 4, 8, 0, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -7555,13 +7523,13 @@ inline void Stream<uint8_t, 4, 8, 0, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 1, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 1, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 4, 8, 1, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 4, 8, 1, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -7647,13 +7615,13 @@ inline void Stream<uint8_t, 4, 8, 1, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 2, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 2, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 4, 8, 2, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 4, 8, 2, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -7740,13 +7708,13 @@ inline void Stream<uint8_t, 4, 8, 2, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 3, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 3, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 4, 8, 3, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 4, 8, 3, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -7834,13 +7802,13 @@ inline void Stream<uint8_t, 4, 8, 3, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 4, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 4, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 4, 8, 4, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 4, 8, 4, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -7929,13 +7897,13 @@ inline void Stream<uint8_t, 4, 8, 4, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 5, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 5, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 4, 8, 5, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 4, 8, 5, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -8025,13 +7993,13 @@ inline void Stream<uint8_t, 4, 8, 5, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 6, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 6, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 4, 8, 6, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 4, 8, 6, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -8122,13 +8090,13 @@ inline void Stream<uint8_t, 4, 8, 6, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 4, 8, 7, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 4, 8, 7, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 4, 8, 7, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 4, 8, 7, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -8220,13 +8188,13 @@ inline void Stream<uint8_t, 4, 8, 7, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 0, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 0, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 5, 8, 0, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 5, 8, 0, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -8306,13 +8274,13 @@ inline void Stream<uint8_t, 5, 8, 0, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 1, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 1, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 5, 8, 1, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 5, 8, 1, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -8419,13 +8387,13 @@ inline void Stream<uint8_t, 5, 8, 1, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 2, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 2, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 5, 8, 2, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 5, 8, 2, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -8534,13 +8502,13 @@ inline void Stream<uint8_t, 5, 8, 2, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 3, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 3, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 5, 8, 3, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 5, 8, 3, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -8651,13 +8619,13 @@ inline void Stream<uint8_t, 5, 8, 3, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 4, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 4, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 5, 8, 4, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 5, 8, 4, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -8770,13 +8738,13 @@ inline void Stream<uint8_t, 5, 8, 4, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 5, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 5, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 5, 8, 5, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 5, 8, 5, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -8891,13 +8859,13 @@ inline void Stream<uint8_t, 5, 8, 5, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 6, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 6, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 5, 8, 6, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 5, 8, 6, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -9014,13 +8982,13 @@ inline void Stream<uint8_t, 5, 8, 6, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 5, 8, 7, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 5, 8, 7, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 5, 8, 7, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 5, 8, 7, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -9139,13 +9107,13 @@ inline void Stream<uint8_t, 5, 8, 7, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 0, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 0, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 6, 8, 0, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 6, 8, 0, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -9230,13 +9198,13 @@ inline void Stream<uint8_t, 6, 8, 0, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 1, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 1, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 6, 8, 1, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 6, 8, 1, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -9351,13 +9319,13 @@ inline void Stream<uint8_t, 6, 8, 1, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 2, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 2, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 6, 8, 2, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 6, 8, 2, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -9474,13 +9442,13 @@ inline void Stream<uint8_t, 6, 8, 2, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 3, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 3, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 6, 8, 3, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 6, 8, 3, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -9599,13 +9567,13 @@ inline void Stream<uint8_t, 6, 8, 3, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 4, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 4, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 6, 8, 4, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 6, 8, 4, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -9726,13 +9694,13 @@ inline void Stream<uint8_t, 6, 8, 4, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 5, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 5, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 6, 8, 5, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 6, 8, 5, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -9855,13 +9823,13 @@ inline void Stream<uint8_t, 6, 8, 5, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 6, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 6, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 6, 8, 6, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 6, 8, 6, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -9986,13 +9954,13 @@ inline void Stream<uint8_t, 6, 8, 6, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 6, 8, 7, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 6, 8, 7, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 6, 8, 7, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 6, 8, 7, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -10119,13 +10087,13 @@ inline void Stream<uint8_t, 6, 8, 7, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 0, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 0, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 7, 8, 0, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 7, 8, 0, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -10215,13 +10183,13 @@ inline void Stream<uint8_t, 7, 8, 0, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 1, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 1, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 7, 8, 1, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 7, 8, 1, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -10342,13 +10310,13 @@ inline void Stream<uint8_t, 7, 8, 1, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 2, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 2, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 7, 8, 2, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 7, 8, 2, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -10471,13 +10439,13 @@ inline void Stream<uint8_t, 7, 8, 2, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 3, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 3, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 7, 8, 3, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 7, 8, 3, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -10602,13 +10570,13 @@ inline void Stream<uint8_t, 7, 8, 3, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 4, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 4, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 7, 8, 4, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 7, 8, 4, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -10735,13 +10703,13 @@ inline void Stream<uint8_t, 7, 8, 4, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 5, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 5, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 7, 8, 5, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 7, 8, 5, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -10870,13 +10838,13 @@ inline void Stream<uint8_t, 7, 8, 5, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 6, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 6, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 7, 8, 6, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 7, 8, 6, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -11007,13 +10975,13 @@ inline void Stream<uint8_t, 7, 8, 6, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 7, 8, 7, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 7, 8, 7, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 7, 8, 7, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 7, 8, 7, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -11146,13 +11114,13 @@ inline void Stream<uint8_t, 7, 8, 7, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 0, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 0, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 8, 8, 0, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 8, 8, 0, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -11245,13 +11213,13 @@ inline void Stream<uint8_t, 8, 8, 0, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 1, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 1, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 8, 8, 1, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 8, 8, 1, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -11384,13 +11352,13 @@ inline void Stream<uint8_t, 8, 8, 1, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 2, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 2, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 8, 8, 2, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 8, 8, 2, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -11524,13 +11492,13 @@ inline void Stream<uint8_t, 8, 8, 2, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 3, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 3, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 8, 8, 3, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 8, 8, 3, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -11665,13 +11633,13 @@ inline void Stream<uint8_t, 8, 8, 3, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 4, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 4, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 8, 8, 4, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 8, 8, 4, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -11807,13 +11775,13 @@ inline void Stream<uint8_t, 8, 8, 4, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 5, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 5, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 8, 8, 5, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 8, 8, 5, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -11950,13 +11918,13 @@ inline void Stream<uint8_t, 8, 8, 5, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 6, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 6, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 8, 8, 6, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 8, 8, 6, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif
@@ -12094,13 +12062,13 @@ inline void Stream<uint8_t, 8, 8, 6, ColumnMajorWithSum>::Pack(
 }
 
 template <>
-inline void Stream<uint8_t, 8, 8, 7, ColumnMajorWithSum>::Pack(
-    const uint8_t* in, const ColumnMajorWithSum& params, uint8_t* out) {
+inline void Stream<std::uint8_t, 8, 8, 7, ColumnMajorWithSum>::Pack(
+    const std::uint8_t* in, const ColumnMajorWithSum& params, std::uint8_t* out) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout
       << __FILE__ << "(" << __LINE__
-      << ") ColumnMajorWithSum<uint8_t, 8, 8, 7, ColumnMajorWithSum>::Pack()"
+      << ") ColumnMajorWithSum<std::uint8_t, 8, 8, 7, ColumnMajorWithSum>::Pack()"
       << std::endl
       << std::flush;
 #endif

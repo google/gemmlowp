@@ -25,15 +25,15 @@ namespace meta {
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 1,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 1,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 1, 1, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -98,15 +98,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 1,
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 2,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 2,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 1, 2, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -174,15 +174,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 2,
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 3,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 3,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 1, 3, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -256,15 +256,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 3,
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 4,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 4,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 1, 4, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -340,15 +340,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 4,
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 5,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 5,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 1, 5, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -437,15 +437,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 5,
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 6,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 6,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 1, 6, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -537,15 +537,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 6,
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 7,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 7,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 1, 7, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -642,15 +642,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 7,
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 8,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 8,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 1, 8, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -749,15 +749,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 1, 8,
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 2, 1,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 2, 1,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 2, 1, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -838,15 +838,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 2, 1,
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 2, 2,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 2, 2,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 2, 2, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -933,15 +933,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 2, 2,
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 2, 3,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 2, 3,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 2, 3, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -1038,15 +1038,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 2, 3,
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 2, 4,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 2, 4,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 2, 4, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -1149,15 +1149,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 2, 4,
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 3, 1,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 3, 1,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 3, 1, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -1253,15 +1253,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 3, 1,
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 3, 2,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 3, 2,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 3, 2, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -1366,15 +1366,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 3, 2,
 
 template <>
 inline void
-MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 3, 3,
-          8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+MulKernel<std::uint8_t, std::uint8_t, QuantizedStaticPreprocessed, RowMajor, 3, 3,
+          8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                        const FusedKernelParams<QuantizedStaticPreprocessed,
                                                RowMajor>& params,
-                       uint8_t* result) {
+                       std::uint8_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedRowMajor<uint8_t, uint8_t, "
+            << ") QuantizedStaticPreprocessedRowMajor<std::uint8_t, std::uint8_t, "
                "QuantizedStaticPreprocessed, RowMajor, 3, 3, 8>::Multiply()"
             << std::endl
             << std::flush;
@@ -1498,15 +1498,15 @@ MulKernel<uint8_t, uint8_t, QuantizedStaticPreprocessed, RowMajor, 3, 3,
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 1,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 1,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 1, "
                "8>::Multiply()"
             << std::endl
@@ -1561,15 +1561,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 2,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 2,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 2, "
                "8>::Multiply()"
             << std::endl
@@ -1627,15 +1627,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 3,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 3,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 3, "
                "8>::Multiply()"
             << std::endl
@@ -1699,15 +1699,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 4,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 4,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 4, "
                "8>::Multiply()"
             << std::endl
@@ -1773,15 +1773,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 5,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 5,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 5, "
                "8>::Multiply()"
             << std::endl
@@ -1856,15 +1856,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 6,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 6,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 6, "
                "8>::Multiply()"
             << std::endl
@@ -1942,15 +1942,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 7,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 7,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 7, "
                "8>::Multiply()"
             << std::endl
@@ -2033,15 +2033,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 8,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 8,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 1, 8, "
                "8>::Multiply()"
             << std::endl
@@ -2126,15 +2126,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 2, 1,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 2, 1,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 2, 1, "
                "8>::Multiply()"
             << std::endl
@@ -2199,15 +2199,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 2, 2,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 2, 2,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 2, 2, "
                "8>::Multiply()"
             << std::endl
@@ -2279,15 +2279,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 2, 3,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 2, 3,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 2, 3, "
                "8>::Multiply()"
             << std::endl
@@ -2369,15 +2369,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 2, 4,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 2, 4,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 2, 4, "
                "8>::Multiply()"
             << std::endl
@@ -2465,15 +2465,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 3, 1,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 3, 1,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 3, 1, "
                "8>::Multiply()"
             << std::endl
@@ -2549,15 +2549,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 3, 2,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 3, 2,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 3, 2, "
                "8>::Multiply()"
             << std::endl
@@ -2642,15 +2642,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 3, 3,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, std::int32_t, QuantizedStaticPreprocessedAsInt32, RowMajor, 3, 3,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsInt32,
                                          RowMajor>& params,
-                 int32_t* result) {
+                 std::int32_t* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsInt32RowMajor<uint8_t, int32_t, "
+            << ") QuantizedStaticPreprocessedAsInt32RowMajor<std::uint8_t, std::int32_t, "
                "QuantizedStaticPreprocessedAsInt32, RowMajor, 3, 3, "
                "8>::Multiply()"
             << std::endl
@@ -2754,15 +2754,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 1,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 1,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 1, "
                "8>::Multiply()"
             << std::endl
@@ -2821,15 +2821,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 2,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 2,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 2, "
                "8>::Multiply()"
             << std::endl
@@ -2891,15 +2891,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 3,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 3,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 3, "
                "8>::Multiply()"
             << std::endl
@@ -2967,15 +2967,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 4,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 4,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 4, "
                "8>::Multiply()"
             << std::endl
@@ -3045,15 +3045,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 5,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 5,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 5, "
                "8>::Multiply()"
             << std::endl
@@ -3134,15 +3134,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 6,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 6,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 6, "
                "8>::Multiply()"
             << std::endl
@@ -3226,15 +3226,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 7,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 7,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 7, "
                "8>::Multiply()"
             << std::endl
@@ -3323,15 +3323,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 8,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 8,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 1, 8, "
                "8>::Multiply()"
             << std::endl
@@ -3422,15 +3422,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 2, 1,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 2, 1,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 2, 1, "
                "8>::Multiply()"
             << std::endl
@@ -3501,15 +3501,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 2, 2,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 2, 2,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 2, 2, "
                "8>::Multiply()"
             << std::endl
@@ -3587,15 +3587,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 2, 3,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 2, 3,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 2, 3, "
                "8>::Multiply()"
             << std::endl
@@ -3683,15 +3683,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 2, 4,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 2, 4,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 2, 4, "
                "8>::Multiply()"
             << std::endl
@@ -3785,15 +3785,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 3, 1,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 3, 1,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 3, 1, "
                "8>::Multiply()"
             << std::endl
@@ -3877,15 +3877,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 3, 2,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 3, 2,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 3, 2, "
                "8>::Multiply()"
             << std::endl
@@ -3978,15 +3978,15 @@ inline void MulKernel<
 
 template <>
 inline void MulKernel<
-    uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 3, 3,
-    8>::Multiply(const uint8_t* lhs, const uint8_t* rhs,
+    std::uint8_t, float, QuantizedStaticPreprocessedAsFloat, RowMajor, 3, 3,
+    8>::Multiply(const std::uint8_t* lhs, const std::uint8_t* rhs,
                  const FusedKernelParams<QuantizedStaticPreprocessedAsFloat,
                                          RowMajor>& params,
                  float* result) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") QuantizedStaticPreprocessedAsFloatRowMajor<uint8_t, float, "
+            << ") QuantizedStaticPreprocessedAsFloatRowMajor<std::uint8_t, float, "
                "QuantizedStaticPreprocessedAsFloat, RowMajor, 3, 3, "
                "8>::Multiply()"
             << std::endl
