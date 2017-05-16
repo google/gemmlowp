@@ -122,8 +122,7 @@ class GemmExecutorPackRHS {
         RightStreamF::PackedStride(params.right_stream);
 
     {
-      const std::uint8_t* rhs_chunk =
-          reinterpret_cast<const std::uint8_t*>(params.rhs);
+      const std::uint8_t* rhs_chunk = reinterpret_cast<const std::uint8_t*>(params.rhs);
       const int rhs_chunk_size =
           RightStreamF::UnpackedStride(params.right_stream);
 
@@ -143,8 +142,7 @@ class GemmExecutorPackRHS {
 
     // Multiply RHS by LHS one LHS chunk at a time.
 
-    const std::uint8_t* lhs_chunk =
-        reinterpret_cast<const std::uint8_t*>(params.lhs);
+    const std::uint8_t* lhs_chunk = reinterpret_cast<const std::uint8_t*>(params.lhs);
     std::uint8_t* result_strip = reinterpret_cast<std::uint8_t*>(params.result);
     std::uint8_t* result_chunk = result_strip;
 
@@ -309,8 +307,7 @@ class GemmExecutorPackLHS {
         LeftStreamF::PackedStride(params.left_stream);
 
     {
-      const std::uint8_t* lhs_chunk =
-          reinterpret_cast<const std::uint8_t*>(params.lhs);
+      const std::uint8_t* lhs_chunk = reinterpret_cast<const std::uint8_t*>(params.lhs);
       const int lhs_chunk_size =
           LeftStreamF::UnpackedStride(params.left_stream);
 
@@ -330,8 +327,7 @@ class GemmExecutorPackLHS {
 
     // Multiply RHS by LHS one RHS chunk at a time.
 
-    const std::uint8_t* rhs_chunk =
-        reinterpret_cast<const std::uint8_t*>(params.rhs);
+    const std::uint8_t* rhs_chunk = reinterpret_cast<const std::uint8_t*>(params.rhs);
     std::uint8_t* result_strip = reinterpret_cast<std::uint8_t*>(params.result);
     std::uint8_t* result_chunk = result_strip;
 
