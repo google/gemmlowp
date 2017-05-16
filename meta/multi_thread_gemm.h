@@ -27,8 +27,9 @@ const std::int32_t kMinGemmTaskDimension = 4;
 
 template <typename Executor, typename Params>
 std::uint8_t* PrepareGemmTask(const Params& params, int kernel_m, int kernel_n,
-                         int kernel_k, std::uint8_t* scratch, int m_start, int m,
-                         int n_start, int n, std::vector<Params>* tasks) {
+                              int kernel_k, std::uint8_t* scratch, int m_start,
+                              int m, int n_start, int n,
+                              std::vector<Params>* tasks) {
   tasks->push_back(params);
   Params& task = tasks->back();
   task.scratch = scratch;
@@ -131,7 +132,7 @@ inline void MultiThreadGemm(MultiThreadingContext* context,
 
   auto workers_pool = context->workers_pool();
   std::vector<Task*> tasks;
-  std::for_each(task_params.begin(), task_params.end(), [tasks](Params *param) {
+  std::for_each(task_params.begin(), task_params.end(), [tasks](Params* param) {
     tasks.push_back(new TaskRunnerType(param));
   });
   workers_pool->Execute(tasks);
