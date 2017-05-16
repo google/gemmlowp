@@ -148,9 +148,6 @@ class _NeonRegisters32Bit(object):
 
   def FreeRegister(self, register):
     assert len(register) > 1
-    if register[0] not in ['r', 'd', 'q']:
-      return
-
     num = int(register[1:])
 
     if register[0] == 'r':

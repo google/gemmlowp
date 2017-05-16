@@ -255,9 +255,7 @@ class _MappedParameter(object):
                             self.dereference_increment)
 
   def __repr__(self):
-    if self.register_bits is None:
-      text = '%%[%s]' % self.name
-    elif self.register_bits is 64:
+    if self.register_bits is 64:
       text = '%%x[%s]' % self.name
     elif self.register_bits <= 32:
       text = '%%w[%s]' % self.name
@@ -390,9 +388,6 @@ class _NeonRegisters64Bit(object):
          for i in self.general_ever] + ['v%d' % i for i in self.vector_ever])
 
   def FreeRegister(self, register):
-    if isinstance(register, _MappedParameter):
-      return
-
     if register.register_type == 'v':
       assert register.number in self.vector
       self.vector.remove(register.number)
@@ -802,7 +797,7 @@ class NeonEmitter64(object):
                    _AppendType(add_type, source))
 
   def EmitLdr(self, register, value):
-    self.EmitOp2('ldr', _Cast(32, register), _Cast(None, value))
+    self.EmitOp2('ldr', _Cast(32, register), value)
 
   def EmitVLoad(self, load_no, load_type, destination, source):
     self.EmitVLoadA(load_no, load_type, [destination], source)

@@ -14,8 +14,11 @@
 
 // This is a standalone testbed and benchmark for gemmlowp-style GEMM kernels,
 // either doing integer or float arithmetic.
+// It verifies that a kernel produces correct results, then benchmarks it.
 //
-// It verifies that a kernel produces correct results, then benchmarks it;
+// Some benchmark results are recorded in this spreadsheet:
+//
+// https://docs.google.com/spreadsheets/d/1UPbzbp9rdsD6RXxOr5q6AZ0n1omgEknLYO2ogiw6Kqk/edit?usp=sharing
 //
 // This program is entirely self-contained, and can be compiled manually
 // such as suggested in the command lines below.
