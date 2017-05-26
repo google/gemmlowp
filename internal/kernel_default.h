@@ -80,11 +80,17 @@ GEMMLOWP_SET_DEFAULT_KERNEL(false, false, SSE4_32_Kernel4x4Depth2)
 GEMMLOWP_SET_DEFAULT_KERNEL(false, false, SSE4_64_Kernel12x4Depth2)
 #else
 #ifndef GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK
+#if defined __ARM_ARCH_5TE__
+// SIMD is not available on this platform. The slow fallback will be used.
+// Don't require GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK because there's nothing
+// the user can do about it.
+#else
 #error \
     "SIMD not enabled, you'd be getting a slow software fallback. Consider \
 enabling SIMD extensions (for example using -msse4 if you're on modern x86). \
 If that's not an option, and you would like to continue with the \
 slow fallback, define GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK."
+#endif
 #endif
 #include "kernel_reference.h"
 namespace gemmlowp {
