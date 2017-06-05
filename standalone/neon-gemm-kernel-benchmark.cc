@@ -3644,7 +3644,7 @@ template <typename Kernel>
 double benchmark(int depth) {
   // Minimum duration for this benchmark to run. If the workload finishes
   // sooner, we retry with double the number of iterations.
-  static const double min_benchmark_time_in_seconds = 0.2;
+  static const double min_benchmark_time_in_seconds = 1.0;
 
   typedef typename Kernel::OperandType OperandType;
   typedef typename Kernel::AccumulatorType AccumulatorType;
