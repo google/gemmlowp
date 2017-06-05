@@ -27,18 +27,17 @@
 // targets a specific architecture, one may simply add more).
 
 /*
-Build and run this benchmark on Android/ARM/32bit:
-~/android/toolchains/arm-linux-androideabi/bin/arm-linux-androideabi-clang++ \
--fPIE -pie -O3 --std=c++11 standalone/neon-gemm-kernel-benchmark.cc -o \
-/tmp/benchmark -mfloat-abi=softfp -mfpu=neon-vfpv4 && adb push /tmp/benchmark \
-/data/local/tmp && adb shell /data/local/tmp/benchmark
-
-Build and run this benchmark on Android/ARM/64bit:
-~/android/toolchains/aarch64-linux-android/bin/aarch64-linux-android-clang++ \
--fPIE -static -O3 --std=c++11 standalone/neon-gemm-kernel-benchmark.cc -o \
-/tmp/benchmark && adb push /tmp/benchmark /data/local/tmp && adb shell \
-/data/local/tmp/benchmark
-*/
+ Build and run this benchmark on Android/ARM/32bit:
+ ~/android/toolchains/arm-linux-androideabi/bin/arm-linux-androideabi-clang++ \
+ -fPIE -pie -O3 --std=c++11 standalone/neon-gemm-kernel-benchmark.cc -o \
+ /tmp/benchmark -mfloat-abi=softfp -mfpu=neon-vfpv4 && adb push /tmp/benchmark \
+ /data/local/tmp && adb shell /data/local/tmp/benchmark
+ Build and run this benchmark on Android/ARM/64bit:
+ ~/android/toolchains/aarch64-linux-android/bin/aarch64-linux-android-clang++ \
+ -fPIE -static -O3 --std=c++11 standalone/neon-gemm-kernel-benchmark.cc -o \
+ /tmp/benchmark && adb push /tmp/benchmark /data/local/tmp && adb shell \
+ /data/local/tmp/benchmark
+ */
 
 // For big.LITTLE devices, use 'taskset' to select which cores to benchmark.
 //
@@ -78,6 +77,13 @@ Build and run this benchmark on Android/ARM/64bit:
 const int kDefaultCacheSizeK = 16;
 
 const int kCacheLineSize = 64;
+
+// These definitions are used for labels within assembly code. Required for
+// iOS toolchain compatibility.
+#define GEMMLOWP_LABEL_AFTER_LOOP "1"
+#define GEMMLOWP_LABEL_LOOP "2"
+#define GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES "3"
+#define GEMMLOWP_LABEL_STORE "4"
 
 // BEGIN code copied from gemmlowp/internal/kernel.h
 
@@ -289,9 +295,11 @@ struct NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators {
         "vld1.32 {d30, d31}, [r0]!\n"
 
         "subs %[depth], #2\n"
-        "beq after_loop_%=\n"
 
-        "loop_%=:\n"
+        "beq " GEMMLOWP_LABEL_AFTER_LOOP "f\n"
+
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
         // Overview of register layout:
         //
         // A 2x4 cell of Rhs is stored in 16bit in d0--d1 (q0).
@@ -373,9 +381,10 @@ struct NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators {
         "vmlal.u16 q14, d7, d1[2]\n"
         "vmlal.u16 q15, d7, d1[3]\n"
 
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP "b\n"
 
-        "after_loop_%=:\n"
+        GEMMLOWP_LABEL_AFTER_LOOP
+        ":\n"
 
         // Expand Lhs/Rhs cells to 16 bit.
         "vmovl.u8 q0, d0\n"
@@ -465,7 +474,8 @@ struct NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand {
         "vmov.i32 q8, q5\n"
 
         // Loop head
-        "loop_%=:\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         // Subtract counter.
         "subs %[depth], %[depth], #8\n"
@@ -492,7 +502,8 @@ struct NEON_32bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand {
         "vpadal.u16 q8, q9\n"
 
         // Loop branch
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Horizontal reduce aggregators, step 1
         "vpadd.u32 d0, d0, d1\n"
@@ -572,10 +583,6 @@ struct NEON_32bit_GEMM_Int8Operands_AccumTwoWithin16Bits {
     std::size_t run_depth = depth;
     std::size_t dst_col_stride = 4;
     AccumulatorType* dst_ptr = accum_ptr;
-#define GEMMLOWP_LABEL_AFTER_LOOP "1"
-#define GEMMLOWP_LABEL_LOOP "2"
-#define GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES "3"
-#define GEMMLOWP_LABEL_STORE "4"
     asm volatile(
 
         // Overview of register layout:
@@ -804,10 +811,6 @@ struct NEON_32bit_GEMM_Int8Operands_AccumTwoWithin16Bits {
         "d8", "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17",
         "d18", "d19", "d20", "d21", "d22", "d23", "d24", "d25", "d26", "d27",
         "d28", "d29", "d30", "d31");
-#undef GEMMLOWP_LABEL_LOOP
-#undef GEMMLOWP_LABEL_AFTER_LOOP
-#undef GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES
-#undef GEMMLOWP_LABEL_STORE
   }
 };
 
@@ -839,7 +842,8 @@ struct NEON_32bit_GEMM_Int32_WithScalar {
         "vld1.32 {d22, d23}, [r0]!\n"
         "vld1.32 {d30, d31}, [r0]!\n"
 
-        "loop_%=:\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         // Load 1 Rhs cell of size 1x4
         "vld1.32 {d0, d1}, [%[rhs_ptr]]!\n"
@@ -866,7 +870,8 @@ struct NEON_32bit_GEMM_Int32_WithScalar {
         // Loop. Decrement loop index (depth) by 1, since we just handled 1
         // level of depth.
         "subs %[depth], #1\n"
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Store accumulators
         "mov r0, %[accum_ptr]\n"
@@ -922,7 +927,8 @@ struct NEON_32bit_GEMM_Float32_MLA_WithVectorDuplicatingScalar {
         "vld1.32 {d22, d23}, [r0]!\n"
         "vld1.32 {d30, d31}, [r0]!\n"
 
-        "loop_%=:\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         // Load 3 Lhs cells of size 4x1 each
         "vld1.32 {d2, d3}, [%[lhs_ptr]]!\n"
@@ -950,7 +956,8 @@ struct NEON_32bit_GEMM_Float32_MLA_WithVectorDuplicatingScalar {
         // Loop. Decrement loop index (depth) by 1, since we just handled 1
         // level of depth.
         "subs %[depth], #1\n"
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Store accumulators
         "mov r0, %[accum_ptr]\n"
@@ -1007,7 +1014,8 @@ struct NEON_32bit_GEMM_Float32_FMA_WithVectorDuplicatingScalar {
         "vld1.32 {d22, d23}, [r0]!\n"
         "vld1.32 {d30, d31}, [r0]!\n"
 
-        "loop_%=:\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         // Load 3 Lhs cells of size 4x1 each
         "vld1.32 {d2, d3}, [%[lhs_ptr]]!\n"
@@ -1035,7 +1043,8 @@ struct NEON_32bit_GEMM_Float32_FMA_WithVectorDuplicatingScalar {
         // Loop. Decrement loop index (depth) by 1, since we just handled 1
         // level of depth.
         "subs %[depth], #1\n"
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Store accumulators
         "mov r0, %[accum_ptr]\n"
@@ -1091,7 +1100,8 @@ struct NEON_32bit_GEMM_Float32_MLA_WithScalar {
         "vld1.32 {d22, d23}, [r0]!\n"
         "vld1.32 {d30, d31}, [r0]!\n"
 
-        "loop_%=:\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         // Load 1 Rhs cell of size 1x4
         "vld1.32 {d0, d1}, [%[rhs_ptr]]!\n"
@@ -1118,7 +1128,8 @@ struct NEON_32bit_GEMM_Float32_MLA_WithScalar {
         // Loop. Decrement loop index (depth) by 1, since we just handled 1
         // level of depth.
         "subs %[depth], #1\n"
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Store accumulators
         "mov r0, %[accum_ptr]\n"
@@ -1217,7 +1228,8 @@ struct NEON_32bit_GEMM_Float32_WithScalar_A53 {
         // Load 1st Lhs Cell
         "vld1.32 {d2, d3}, [%[lhs_ptr]]\n"
 
-        "loop_%=:\n"  // Loop head
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         "vldr d4, [%[lhs_ptr], #16]\n"  // Load 1st half of 2nd Lhs cell
         "vmov d1, r2, r3\n"             // Prepare 2nd half of Rhs cell
@@ -1238,31 +1250,32 @@ struct NEON_32bit_GEMM_Float32_WithScalar_A53 {
         "add %[rhs_ptr], %[rhs_ptr], #16\n"  // Move forward by 1 Rhs cell
 
         "vldr d2, [%[lhs_ptr], #48]\n"  // Load 1st half of 1st Lhs cell of next
-                                        // iteration
-        "vmov d7, r2, r3\n"             // Prepare 2nd half of 3rd Lhs cell
-        "vmla.f32 q10, q2, d1[0]\n"     // Multiply 2nd Lhs cell with column 2
-        "ldr r2, [%[lhs_ptr], #56]\n"   // Load 2nd half of 1st Lhs cell of next
-                                        // iter, part 1
-        "vmla.f32 q12, q3, d0[0]\n"     // Multiply 3rd Lhs cell with column 0
-        "ldr r3, [%[lhs_ptr], #60]\n"   // Load 2nd half of 1st Lhs cell of next
-                                        // iter, part 2
-        "vmla.f32 q13, q3, d0[1]\n"     // Multiply 3rd Lhs cell with column 1
+        // iteration
+        "vmov d7, r2, r3\n"            // Prepare 2nd half of 3rd Lhs cell
+        "vmla.f32 q10, q2, d1[0]\n"    // Multiply 2nd Lhs cell with column 2
+        "ldr r2, [%[lhs_ptr], #56]\n"  // Load 2nd half of 1st Lhs cell of next
+        // iter, part 1
+        "vmla.f32 q12, q3, d0[0]\n"    // Multiply 3rd Lhs cell with column 0
+        "ldr r3, [%[lhs_ptr], #60]\n"  // Load 2nd half of 1st Lhs cell of next
+        // iter, part 2
+        "vmla.f32 q13, q3, d0[1]\n"  // Multiply 3rd Lhs cell with column 1
         "add %[lhs_ptr], %[lhs_ptr], #48\n"  // Move forward by 3 Lhs cells
 
-        "vldr d0, [%[rhs_ptr]]\n"    // Load 1st half of Rhs cell of next
-                                     // iteration
-        "vmov d3, r2, r3\n"          // Prepare 2nd half of 1st Lhs cell of next
-                                     // iteration
-        "vmla.f32 q11, q2, d1[1]\n"  // Multiply 2nd Lhs cell with column 3
-        "ldr r2, [%[rhs_ptr], #8]\n"   // Load 2nd half of Rhs cell of next
-                                       // iteration, part 1
+        "vldr d0, [%[rhs_ptr]]\n"  // Load 1st half of Rhs cell of next
+        // iteration
+        "vmov d3, r2, r3\n"  // Prepare 2nd half of 1st Lhs cell of next
+        // iteration
+        "vmla.f32 q11, q2, d1[1]\n"   // Multiply 2nd Lhs cell with column 3
+        "ldr r2, [%[rhs_ptr], #8]\n"  // Load 2nd half of Rhs cell of next
+        // iteration, part 1
         "vmla.f32 q14, q3, d1[0]\n"    // Multiply 3rd Lhs cell with column 2
         "ldr r3, [%[rhs_ptr], #12]\n"  // Load 2nd half of Rhs cell of next
-                                       // iteration, part 2
-        "vmla.f32 q15, q3, d1[1]\n"    // Multiply 3rd Lhs cell with column 3
+        // iteration, part 2
+        "vmla.f32 q15, q3, d1[1]\n"  // Multiply 3rd Lhs cell with column 3
 
         // Loop branch.  This will dual issue in fmla cycle 3 of the 4th block.
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Store accumulators
         "mov r0, %[accum_ptr]\n"
@@ -1358,7 +1371,9 @@ struct NEON_32bit_GEMM_Float32_WithScalar_A53_depth2 {
         // Load 1st Lhs Cell
         "vld1.32 {d2, d3}, [%[lhs_ptr]]\n"
 
-        "loop_%=:\n"  // Loop head - handling 2 levels of depth at once
+        // Loop head - handling 2 levels of depth at once
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         // Level of depth 1
 
@@ -1379,32 +1394,29 @@ struct NEON_32bit_GEMM_Float32_WithScalar_A53_depth2 {
         "vmla.f32 q9, q2, d0[1]\n"      // Multiply 2nd Lhs cell with column 1
 
         "vldr d2, [%[lhs_ptr], #16]\n"  // Load 1st half of 1st Lhs cell of next
-                                        // iteration
-        "vmov d7, r2, r3\n"             // Prepare 2nd half of 3rd Lhs cell
-        "vmla.f32 q10, q2, d1[0]\n"     // Multiply 2nd Lhs cell with column 2
-        "ldr r2, [%[lhs_ptr], #24]\n"   // Load 2nd half of 1st Lhs cell of next
-                                        // iter, part 1
-        "vmla.f32 q12, q3, d0[0]\n"     // Multiply 3rd Lhs cell with column 0
-        "ldr r3, [%[lhs_ptr], #28]\n"   // Load 2nd half of 1st Lhs cell of next
-                                        // iter, part 2
-        "vmla.f32 q13, q3, d0[1]\n"     // Multiply 3rd Lhs cell with column 1
+        // iteration
+        "vmov d7, r2, r3\n"            // Prepare 2nd half of 3rd Lhs cell
+        "vmla.f32 q10, q2, d1[0]\n"    // Multiply 2nd Lhs cell with column 2
+        "ldr r2, [%[lhs_ptr], #24]\n"  // Load 2nd half of 1st Lhs cell of next
+        // iter, part 1
+        "vmla.f32 q12, q3, d0[0]\n"    // Multiply 3rd Lhs cell with column 0
+        "ldr r3, [%[lhs_ptr], #28]\n"  // Load 2nd half of 1st Lhs cell of next
+        // iter, part 2
+        "vmla.f32 q13, q3, d0[1]\n"  // Multiply 3rd Lhs cell with column 1
 
         "vldr d0, [%[rhs_ptr], #16]\n"  // Load 1st half of Rhs cell of next
-                                        // iteration
-        "vmov d3, r2, r3\n"          // Prepare 2nd half of 1st Lhs cell of next
-                                     // iteration
-        "vmla.f32 q11, q2, d1[1]\n"  // Multiply 2nd Lhs cell with column 3
+        // iteration
+        "vmov d3, r2, r3\n"  // Prepare 2nd half of 1st Lhs cell of next
+        // iteration
+        "vmla.f32 q11, q2, d1[1]\n"    // Multiply 2nd Lhs cell with column 3
         "ldr r2, [%[rhs_ptr], #24]\n"  // Load 2nd half of Rhs cell of next
-                                       // iteration, part 1
+        // iteration, part 1
         "vmla.f32 q14, q3, d1[0]\n"    // Multiply 3rd Lhs cell with column 2
         "ldr r3, [%[rhs_ptr], #28]\n"  // Load 2nd half of Rhs cell of next
-                                       // iteration, part 2
-        "vmla.f32 q15, q3, d1[1]\n"    // Multiply 3rd Lhs cell with column 3
+        // iteration, part 2
+        "vmla.f32 q15, q3, d1[1]\n"  // Multiply 3rd Lhs cell with column 3
 
         // Level of depth 2
-
-        "loop_second_unrolled_iter_%=:\n"
-
         "vldr d4, [%[lhs_ptr], #48]\n"  // Load 1st half of 2nd Lhs cell
         "vmov d1, r2, r3\n"             // Prepare 2nd half of Rhs cell
         "vmla.f32 q4, q1, d0[0]\n"      // Multiply 1st Lhs cell with column 0
@@ -1424,31 +1436,33 @@ struct NEON_32bit_GEMM_Float32_WithScalar_A53_depth2 {
         "add %[rhs_ptr], %[rhs_ptr], #32\n"  // Move forward by 1 Rhs cell
 
         "vldr d2, [%[lhs_ptr], #96]\n"  // Load 1st half of 1st Lhs cell of next
-                                        // iteration
+        // iteration
         "vmov d7, r2, r3\n"             // Prepare 2nd half of 3rd Lhs cell
         "vmla.f32 q10, q2, d1[0]\n"     // Multiply 2nd Lhs cell with column 2
         "ldr r2, [%[lhs_ptr], #104]\n"  // Load 2nd half of 1st Lhs cell of next
-                                        // iter, part 1
+        // iter, part 1
         "vmla.f32 q12, q3, d0[0]\n"     // Multiply 3rd Lhs cell with column 0
         "ldr r3, [%[lhs_ptr], #108]\n"  // Load 2nd half of 1st Lhs cell of next
-                                        // iter, part 2
-        "vmla.f32 q13, q3, d0[1]\n"     // Multiply 3rd Lhs cell with column 1
+        // iter, part 2
+        "vmla.f32 q13, q3, d0[1]\n"  // Multiply 3rd Lhs cell with column 1
         "add %[lhs_ptr], %[lhs_ptr], #96\n"  // Move forward by 3 Lhs cells
 
-        "vldr d0, [%[rhs_ptr]]\n"    // Load 1st half of Rhs cell of next
-                                     // iteration
-        "vmov d3, r2, r3\n"          // Prepare 2nd half of 1st Lhs cell of next
-                                     // iteration
-        "vmla.f32 q11, q2, d1[1]\n"  // Multiply 2nd Lhs cell with column 3
-        "ldr r2, [%[rhs_ptr], #8]\n"   // Load 2nd half of Rhs cell of next
-                                       // iteration, part 1
+        "vldr d0, [%[rhs_ptr]]\n"  // Load 1st half of Rhs cell of next
+        // iteration
+        "vmov d3, r2, r3\n"  // Prepare 2nd half of 1st Lhs cell of next
+        // iteration
+        "vmla.f32 q11, q2, d1[1]\n"   // Multiply 2nd Lhs cell with column 3
+        "ldr r2, [%[rhs_ptr], #8]\n"  // Load 2nd half of Rhs cell of next
+        // iteration, part 1
         "vmla.f32 q14, q3, d1[0]\n"    // Multiply 3rd Lhs cell with column 2
         "ldr r3, [%[rhs_ptr], #12]\n"  // Load 2nd half of Rhs cell of next
-                                       // iteration, part 2
-        "vmla.f32 q15, q3, d1[1]\n"    // Multiply 3rd Lhs cell with column 3
+        // iteration, part 2
+        "vmla.f32 q15, q3, d1[1]\n"  // Multiply 3rd Lhs cell with column 3
 
         // Loop branch.  This will dual issue in fmla cycle 3 of the 4th block.
-        "bne loop_%=\n"
+        //"bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Store accumulators
         "mov r0, %[accum_ptr]\n"
@@ -1541,40 +1555,44 @@ struct NEON_32bit_GEMM_Float32_MLA_Rotating {
 
         NEON_32BIT_ROTATING_FLOAT_KERNEL_ROTATE_ACCUMULATOR_CELLS(1, 2, 3)
 
-            "loop_%=:\n"
+        //"loop_%=:\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
-            // Load 1 Rhs cell of size 1x4
-            "vld1.32 {d0, d1}, [%[rhs_ptr]]!\n"
+        // Load 1 Rhs cell of size 1x4
+        "vld1.32 {d0, d1}, [%[rhs_ptr]]!\n"
 
-            // Load 3 Lhs cells of size 4x1 each
-            "vld1.32 {d2, d3}, [%[lhs_ptr]]!\n"
-            "vld1.32 {d4, d5}, [%[lhs_ptr]]!\n"
-            "vld1.32 {d6, d7}, [%[lhs_ptr]]!\n"
+        // Load 3 Lhs cells of size 4x1 each
+        "vld1.32 {d2, d3}, [%[lhs_ptr]]!\n"
+        "vld1.32 {d4, d5}, [%[lhs_ptr]]!\n"
+        "vld1.32 {d6, d7}, [%[lhs_ptr]]!\n"
 
-            // Multiply-accumulate
-            "vmla.f32 q4, q1, q0\n"
-            "vmla.f32 q8, q2, q0\n"
-            "vmla.f32 q12, q3, q0\n"
-            "vext.f32 q0, q0, q0, #1\n"
-            "vmla.f32 q5, q1, q0\n"
-            "vmla.f32 q9, q2, q0\n"
-            "vmla.f32 q13, q3, q0\n"
-            "vext.f32 q0, q0, q0, #1\n"
-            "vmla.f32 q6, q1, q0\n"
-            "vmla.f32 q10, q2, q0\n"
-            "vmla.f32 q14, q3, q0\n"
-            "vext.f32 q0, q0, q0, #1\n"
-            "vmla.f32 q7, q1, q0\n"
-            "vmla.f32 q11, q2, q0\n"
-            "vmla.f32 q15, q3, q0\n"
+        // Multiply-accumulate
+        "vmla.f32 q4, q1, q0\n"
+        "vmla.f32 q8, q2, q0\n"
+        "vmla.f32 q12, q3, q0\n"
+        "vext.f32 q0, q0, q0, #1\n"
+        "vmla.f32 q5, q1, q0\n"
+        "vmla.f32 q9, q2, q0\n"
+        "vmla.f32 q13, q3, q0\n"
+        "vext.f32 q0, q0, q0, #1\n"
+        "vmla.f32 q6, q1, q0\n"
+        "vmla.f32 q10, q2, q0\n"
+        "vmla.f32 q14, q3, q0\n"
+        "vext.f32 q0, q0, q0, #1\n"
+        "vmla.f32 q7, q1, q0\n"
+        "vmla.f32 q11, q2, q0\n"
+        "vmla.f32 q15, q3, q0\n"
 
-            // Loop. Decrement loop index (depth) by 1, since we just handled 1
-            // level of depth.
-            "subs %[depth], #1\n"
-            "bne loop_%=\n"
+        // Loop. Decrement loop index (depth) by 1, since we just handled 1
+        // level of depth.
+        "subs %[depth], #1\n"
+        //"bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
-            // Store accumulators
-            "mov r0, %[accum_ptr]\n"
+        // Store accumulators
+        "mov r0, %[accum_ptr]\n"
 
         NEON_32BIT_ROTATING_FLOAT_KERNEL_ROTATE_ACCUMULATOR_CELLS(3, 2, 1)
 
@@ -1634,37 +1652,40 @@ struct NEON_32bit_GEMM_Float32_FMA_Rotating {
 
         NEON_32BIT_ROTATING_FLOAT_KERNEL_ROTATE_ACCUMULATOR_CELLS(1, 2, 3)
 
-            "loop_%=:\n"
+        //"loop_%=:\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
-            // Load 1 Rhs cell of size 1x4
-            "vld1.32 {d0, d1}, [%[rhs_ptr]]!\n"
+        // Load 1 Rhs cell of size 1x4
+        "vld1.32 {d0, d1}, [%[rhs_ptr]]!\n"
 
-            // Load 3 Lhs cells of size 4x1 each
-            "vld1.32 {d2, d3}, [%[lhs_ptr]]!\n"
-            "vld1.32 {d4, d5}, [%[lhs_ptr]]!\n"
-            "vld1.32 {d6, d7}, [%[lhs_ptr]]!\n"
+        // Load 3 Lhs cells of size 4x1 each
+        "vld1.32 {d2, d3}, [%[lhs_ptr]]!\n"
+        "vld1.32 {d4, d5}, [%[lhs_ptr]]!\n"
+        "vld1.32 {d6, d7}, [%[lhs_ptr]]!\n"
 
-            // Multiply-accumulate
-            "vfma.f32 q4, q1, q0\n"
-            "vfma.f32 q8, q2, q0\n"
-            "vfma.f32 q12, q3, q0\n"
-            "vext.f32 q0, q0, q0, #1\n"
-            "vfma.f32 q5, q1, q0\n"
-            "vfma.f32 q9, q2, q0\n"
-            "vfma.f32 q13, q3, q0\n"
-            "vext.f32 q0, q0, q0, #1\n"
-            "vfma.f32 q6, q1, q0\n"
-            "vfma.f32 q10, q2, q0\n"
-            "vfma.f32 q14, q3, q0\n"
-            "vext.f32 q0, q0, q0, #1\n"
-            "vfma.f32 q7, q1, q0\n"
-            "vfma.f32 q11, q2, q0\n"
-            "vfma.f32 q15, q3, q0\n"
+        // Multiply-accumulate
+        "vfma.f32 q4, q1, q0\n"
+        "vfma.f32 q8, q2, q0\n"
+        "vfma.f32 q12, q3, q0\n"
+        "vext.f32 q0, q0, q0, #1\n"
+        "vfma.f32 q5, q1, q0\n"
+        "vfma.f32 q9, q2, q0\n"
+        "vfma.f32 q13, q3, q0\n"
+        "vext.f32 q0, q0, q0, #1\n"
+        "vfma.f32 q6, q1, q0\n"
+        "vfma.f32 q10, q2, q0\n"
+        "vfma.f32 q14, q3, q0\n"
+        "vext.f32 q0, q0, q0, #1\n"
+        "vfma.f32 q7, q1, q0\n"
+        "vfma.f32 q11, q2, q0\n"
+        "vfma.f32 q15, q3, q0\n"
 
-            // Loop. Decrement loop index (depth) by 1, since we just handled 1
-            // level of depth.
-            "subs %[depth], #1\n"
-            "bne loop_%=\n"
+        // Loop. Decrement loop index (depth) by 1, since we just handled 1
+        // level of depth.
+        "subs %[depth], #1\n"
+        //"bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP "b\n"
 
         NEON_32BIT_ROTATING_FLOAT_KERNEL_ROTATE_ACCUMULATOR_CELLS(3, 2, 1)
 
@@ -1749,9 +1770,11 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators {
         "ld1 {v23.16b}, [x0], #16\n"
         "ld1 {v31.16b}, [x0], #16\n"
 
-        "beq after_loop_%=\n"
+        "beq " GEMMLOWP_LABEL_AFTER_LOOP "f\n"
 
-        "loop_%=:\n"
+        //"loop_%=:\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         // Overview of register layout:
         //
@@ -1856,9 +1879,10 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators {
         "umlal2 v31.4s, v4.8h, v1.h[7]\n"
         "ld1 {v4.8b}, [%[lhs_ptr]], #8\n"
 
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP "b\n"
 
-        "after_loop_%=:\n"
+        GEMMLOWP_LABEL_AFTER_LOOP
+        ":\n"
 
         // Expand Lhs/Rhs cells to 16 bit.
         "uxtl v0.8h, v5.8b\n"
@@ -1996,7 +2020,8 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57 {
         "dup v30.4s, wzr\n"
         "dup v31.4s, wzr\n"
 
-        "loop_%=:\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         // Overview of register layout:
         //
@@ -2075,7 +2100,7 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57 {
         "uadalp  v13.4s, v7.8h\n"
         "umull2   v7.8h, v3.16b, v4.16b\n"
         "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"  // 1st LHS element done - Reuse v4
-                                             // for 3rd LHS element
+        // for 3rd LHS element
         "uadalp  v14.4s, v8.8h\n"
         "umull    v8.8h,  v0.8b,  v5.8b\n"
         "uadalp  v15.4s, v9.8h\n"
@@ -2094,7 +2119,7 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57 {
         "uadalp  v17.4s, v9.8h\n"
         "umull2   v9.8h, v3.16b, v5.16b\n"
         "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"  // 2nd LHS element done - Reuse v5
-                                             // for 4th LHS element
+        // for 4th LHS element
         "uadalp  v18.4s, v10.8h\n"
         "umull   v10.8h,  v0.8b,  v4.8b\n"
         "uadalp  v19.4s, v11.8h\n"
@@ -2113,7 +2138,7 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57 {
         "uadalp  v21.4s, v11.8h\n"
         "umull2  v11.8h, v3.16b, v4.16b\n"
         "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"  // 3rd LHS element done - Reuse v4
-                                             // for 5th LHS element
+        // for 5th LHS element
 
         "uadalp v22.4s, v6.8h\n"
         "umull    v6.8h,  v0.8b,  v5.8b\n"
@@ -2161,7 +2186,8 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57 {
         "uadalp v30.4s, v8.8h\n"
         "uadalp v31.4s, v9.8h\n"
 
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Reduce aggregators horizontally
         "addp v0.4s, v12.4s, v13.4s\n"
@@ -2228,10 +2254,6 @@ struct NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits {
     std::size_t run_depth = depth;
     std::size_t dst_col_stride = 4;
     AccumulatorType* dst_ptr = accum_ptr;
-#define GEMMLOWP_LABEL_AFTER_LOOP_LAST16 "1"
-#define GEMMLOWP_LABEL_LOOP "2"
-#define GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES "3"
-#define GEMMLOWP_LABEL_STORE "4"
     asm volatile(
         // Overview of register layout:
         //
@@ -2320,9 +2342,10 @@ struct NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits {
         "smlal2   v14.8h,  v0.16b,  v5.16b\n"
         "smlal2   v15.8h,  v1.16b,  v5.16b\n"
 
-        "beq after_loop_%=\n"
+        "beq " GEMMLOWP_LABEL_AFTER_LOOP "f\n"
 
-        "loop_%=:\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         "subs %[run_depth], %[run_depth], #16\n"
 
@@ -2383,9 +2406,10 @@ struct NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits {
         "smlal2   v14.8h,  v0.16b,  v5.16b\n"
         "smlal2   v15.8h,  v1.16b,  v5.16b\n"
 
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP "b\n"
 
-        "after_loop_%=:\n"
+        GEMMLOWP_LABEL_AFTER_LOOP
+        ":\n"
 
         // Load accumulators from memory
         "ld1 {v8.16b}, [x0], #16\n"
@@ -2474,10 +2498,6 @@ struct NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits {
         "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17",
         "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27",
         "v28", "v29", "v30", "v31");
-#undef GEMMLOWP_LABEL_LOOP
-#undef GEMMLOWP_LABEL_AFTER_LOOP_LAST16
-#undef GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES
-#undef GEMMLOWP_LABEL_STORE
   }
 };
 
@@ -2521,7 +2541,8 @@ struct NEON_64bit_GEMM_Int32_WithScalar {
         "ld1 {v23.16b}, [x0], #16\n"
         "ld1 {v31.16b}, [x0], #16\n"
 
-        "loop_%=:\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         // Load 2 Rhs cell of size 1x4 each
         "ld1 {v0.4s}, [%[rhs_ptr]], #16\n"
@@ -2561,7 +2582,8 @@ struct NEON_64bit_GEMM_Int32_WithScalar {
         // Loop. Decrement loop index (depth) by 1, since we just handled 1
         // level of depth.
         "subs %w[depth], %w[depth], #1\n"
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Store accumulators
         "mov x0, %[accum_ptr]\n"
@@ -2641,7 +2663,8 @@ struct NEON_64bit_GEMM_Float32_WithVectorDuplicatingScalar {
         "ld1 {v23.16b}, [x0], #16\n"
         "ld1 {v31.16b}, [x0], #16\n"
 
-        "loop_%=:\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         // Load 2 Rhs cell of size 1x4 each
         "ld1 {v5.4s}, [%[rhs_ptr]], #16\n"
@@ -2689,7 +2712,8 @@ struct NEON_64bit_GEMM_Float32_WithVectorDuplicatingScalar {
         // Loop. Decrement loop index (depth) by 1, since we just handled 1
         // level of depth.
         "subs %w[depth], %w[depth], #1\n"
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Store accumulators
         "mov x0, %[accum_ptr]\n"
@@ -2769,7 +2793,8 @@ struct NEON_64bit_GEMM_Float32_WithScalar {
         "ld1 {v23.16b}, [x0], #16\n"
         "ld1 {v31.16b}, [x0], #16\n"
 
-        "loop_%=:\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         // Load 2 Rhs cell of size 1x4 each
         "ld1 {v0.4s}, [%[rhs_ptr]], #16\n"
@@ -2809,7 +2834,8 @@ struct NEON_64bit_GEMM_Float32_WithScalar {
         // Loop. Decrement loop index (depth) by 1, since we just handled 1
         // level of depth.
         "subs %w[depth], %w[depth], #1\n"
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Store accumulators
         "mov x0, %[accum_ptr]\n"
@@ -2895,7 +2921,8 @@ struct NEON_64bit_GEMM_Float32_WithScalar_A57 {
         // And the same for the first Lhs cell.
         "ld1 {v2.4s}, [%[lhs_ptr]], #16\n"
 
-        "loop_%=:\n"  // Loop head
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         // Start the MACs at the head of the loop - 1st cell from each side
         // already loaded.
@@ -2911,7 +2938,7 @@ struct NEON_64bit_GEMM_Float32_WithScalar_A57 {
         "fmla v14.4s, v2.4s, v1.s[2]\n"
         "fmla v15.4s, v2.4s, v1.s[3]\n"
         "ld1 {v2.4s}, [%[lhs_ptr]], #16\n"  // Done with first Lhs cell - load
-                                            // for the next iteration early.
+        // for the next iteration early.
         "fmla v16.4s, v3.4s, v0.s[0]\n"
         "fmla v17.4s, v3.4s, v0.s[1]\n"
         "fmla v18.4s, v3.4s, v0.s[2]\n"
@@ -2925,8 +2952,8 @@ struct NEON_64bit_GEMM_Float32_WithScalar_A57 {
         "fmla v26.4s, v4.4s, v0.s[2]\n"
         "fmla v27.4s, v4.4s, v0.s[3]\n"
         "ld1 {v0.4s}, [%[rhs_ptr]], #16\n"  // Done with the first Rhs cell -
-                                            // load for the next iteration
-                                            // early.
+        // load for the next iteration
+        // early.
         "fmla v28.4s, v4.4s, v1.s[0]\n"
         "fmla v29.4s, v4.4s, v1.s[1]\n"
         // Loop. Decrement loop index (depth) by 1, since we just handled
@@ -2936,7 +2963,8 @@ struct NEON_64bit_GEMM_Float32_WithScalar_A57 {
         "fmla v30.4s, v4.4s, v1.s[2]\n"
         "fmla v31.4s, v4.4s, v1.s[3]\n"
 
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Store accumulators
         "mov x0, %[accum_ptr]\n"
@@ -2977,6 +3005,7 @@ struct NEON_64bit_GEMM_Float32_WithScalar_A57 {
   }
 };
 
+#ifndef __APPLE__
 // Faster kernel contributed by ARM. Tuned for A53.
 struct NEON_64bit_GEMM_Float32_WithScalar_A53 {
   typedef float OperandType;
@@ -3043,31 +3072,32 @@ struct NEON_64bit_GEMM_Float32_WithScalar_A53 {
         "ldr d0, [%[rhs_ptr]]\n"             // Bottom half of first Rhs cell
         "ldr x18, [%[rhs_ptr], #8]\n"        // Upper half
         "add %[rhs_ptr], %[rhs_ptr], #16\n"  // Separate increment (needed as
-                                             // there is no operation to load at
-                                             // reg + 8 but then increment reg
-                                             // by 16).
+        // there is no operation to load at
+        // reg + 8 but then increment reg
+        // by 16).
 
         // v2 should be fully loaded - as it's outside the loop proper it's fine
         // to use a 128-bit load here.
         "ld1 {v2.4s}, [%[lhs_ptr]], #16\n"  // first Lhs cell
 
-        "loop_%=:\n"  // Loop head
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
 
         // First block of four cycles.  Multplies all require v2 and v0; v2 is
         // loaded earlier and v0 is half loaded and completed in the load
         // cycle at the start.
         "ldr d1, [%[rhs_ptr]]\n"  // "load" cycle - loading bottom half of v1
-                                  // (second Rhs cell).
+        // (second Rhs cell).
         "ins v0.d[1], x18\n"  // "load" cycle - moving the upper half of v0 into
-                              // place.
+        // place.
         "fmla v8.4s, v2.4s, v0.s[0]\n"  // "fmla" cycle 1 - first multiply.
         "ldr x18, [%[rhs_ptr], #8]\n"  // "fmla" cycle 1 - load upper half of v1
-                                       // into x18.
+        // into x18.
         "fmla v9.4s, v2.4s, v0.s[1]\n"       // "fmla" cycle 2 - second multiply
         "add %[rhs_ptr], %[rhs_ptr], #16\n"  // "fmla" cycle 2 - increment Rhs
-                                             // pointer (if needed)
+        // pointer (if needed)
         "fmla v10.4s, v2.4s, v0.s[2]\n"  // "fmla" cycle 3 - third multiply.  No
-                                         // more work to dual issue.
+        // more work to dual issue.
 
         // Second block.  Start loading v3 (second Lhs cell), finish loading v1.
         "ldr d3, [%[lhs_ptr]]\n"
@@ -3130,7 +3160,8 @@ struct NEON_64bit_GEMM_Float32_WithScalar_A53 {
         "fmla v31.4s, v4.4s, v1.s[3]\n"
 
         // Loop branch.  This will dual issue in fmla cycle 3 of the 8th block.
-        "bne loop_%=\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Store accumulators
         "mov x0, %[accum_ptr]\n"
@@ -3170,6 +3201,7 @@ struct NEON_64bit_GEMM_Float32_WithScalar_A53 {
         "v27", "v28", "v29", "v30", "v31");
   }
 };
+#endif
 
 #endif  // __aarch64__
 
@@ -3417,8 +3449,10 @@ class CacheLineAlignedBuffer {
  public:
   CacheLineAlignedBuffer(std::size_t size) : size_(size) {
     data_ = nullptr;
+    // Adds a few bytes of padding here, because the 64-bit 'A57' kernel
+    // reads one iteration past the end the buffer, causing a crash on iOS.
     posix_memalign(reinterpret_cast<void**>(&data_), kCacheLineSize,
-                   size_ * sizeof(DataType));
+                   size_ * sizeof(DataType) + 16);
   }
 
   ~CacheLineAlignedBuffer() { free(data_); }
@@ -3602,7 +3636,7 @@ int BenchmarkDepthToFitInCache() {
 
 double current_time_in_seconds() {
   timespec t;
-  clock_gettime(CLOCK_THREAD_CPUTIME_ID, &t);
+  clock_gettime(CLOCK_REALTIME, &t);
   return t.tv_sec + 1e-9 * t.tv_nsec;
 }
 
@@ -3619,8 +3653,6 @@ double benchmark(int depth) {
   CacheLineAlignedBuffer<OperandType> rhs(Kernel::Format::Rhs::kWidth * depth);
   CacheLineAlignedBuffer<AccumulatorType> accum(Kernel::Format::Lhs::kWidth *
                                                 Kernel::Format::Rhs::kWidth);
-
-  std::uint64_t iters_at_a_time = 1;
 
   for (std::uint64_t iters_at_a_time = 1;; iters_at_a_time *= 2) {
     const double t_start = current_time_in_seconds();
@@ -3694,6 +3726,7 @@ int main() {
 #endif
 
 #ifdef __aarch64__
+
   BENCHMARK(NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits);
   BENCHMARK(NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics);
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators);
@@ -3704,6 +3737,10 @@ int main() {
   BENCHMARK(NEON_64bit_GEMM_Float32_WithScalar);
   BENCHMARK(NEON_64bit_GEMM_Float32_WithScalar_intrinsics);
   BENCHMARK(NEON_64bit_GEMM_Float32_WithScalar_A57);
+#ifndef __APPLE__
   BENCHMARK(NEON_64bit_GEMM_Float32_WithScalar_A53);
 #endif
+#endif
+
+  return 0;
 }
