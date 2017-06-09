@@ -146,8 +146,13 @@ const int kDefaultCacheLineSize = 64;
 // Of course, these values are in principle too low for typical x86 CPUs
 // where we should set the L2 value to (L3 cache size / number of cores) at
 // least.
-#if defined(GEMMLOWP_ARM) || defined(GEMMLOWP_ANDROID)
-// ARM or ARM-like hardware (Android implies ARM-like) so here it's OK
+//
+#if defined(GEMMLOWP_ARM) && defined(__APPLE__)
+// iPhone/iPad
+const int kDefaultL1CacheSize = 48 * 1024;
+const int kDefaultL2CacheSize = 2 * 1024 * 1024;
+#elif defined(GEMMLOWP_ARM) || defined(GEMMLOWP_ANDROID)
+// Other ARM or ARM-like hardware (Android implies ARM-like) so here it's OK
 // to tune for ARM, although on x86 Atom we might be able to query
 // cache sizes at runtime, which would be better.
 const int kDefaultL1CacheSize = 16 * 1024;
