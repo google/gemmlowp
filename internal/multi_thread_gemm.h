@@ -59,7 +59,7 @@ inline int Do256NOPs() {
 
 inline void WriteBarrier() {
 #ifdef GEMMLOWP_ARM_32
-  MemoryBarrier();
+  asm volatile("" ::: "memory");
 #elif defined(GEMMLOWP_ARM_64)
   asm volatile("dmb ishst" ::: "memory");
 #elif defined(GEMMLOWP_X86)
@@ -71,7 +71,7 @@ inline void WriteBarrier() {
 
 inline void ReadBarrier() {
 #ifdef GEMMLOWP_ARM_32
-  MemoryBarrier();
+  asm volatile("" ::: "memory");
 #elif defined(GEMMLOWP_ARM_64)
   asm volatile("dmb ishld" ::: "memory");
 #elif defined(GEMMLOWP_X86)
@@ -187,7 +187,13 @@ class BlockingCounter {
   void Wait() {
     ScopedProfilingLabel label("BlockingCounter::Wait");
     while (count_) {
-      MemoryBarrier();
+#ifdef GEMMLOWP_USE_BUSYWAIT
+      ReadBarrier();
+#else
+      // This is likely unnecessary, but is kept to ensure regressions are not
+      // introduced.
+      asm volatile("" ::: "memory");
+#endif
       const std::size_t count_value = count_;
       if (count_value) {
         WaitForVariableChange(&count_, count_value, &cond_, &mutex_);
