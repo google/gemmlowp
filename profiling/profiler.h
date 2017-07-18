@@ -306,12 +306,12 @@ inline pthread_t& ProfilerThread() {
 // In the end, the key atomicity property that we are relying on
 // here is that pointers are changed atomically, and the labels
 // are pointers (to literal strings).
-inline void RecordStack(const ThreadInfo* thread, ProfilingStack* dst) {
+inline void RecordStack(ThreadInfo* thread, ProfilingStack* dst) {
+  ScopedLock sl(thread->stack.lock);
   assert(!dst->size);
   while (dst->size < thread->stack.size) {
     dst->labels[dst->size] = thread->stack.labels[dst->size];
     dst->size++;
-    MemoryBarrier();  // thread->stack can change at any time
   }
 }
 
@@ -330,7 +330,7 @@ inline void* ProfilerThreadFunc(void*) {
   while (!ProfilerThreadShouldFinish()) {
     WaitOneProfilerTick();
     {
-      AutoGlobalLock<ProfilerLockId> lock;
+      ScopedLock sl(GlobalMutexes::Profiler());
       for (auto t : ThreadsUnderProfiling()) {
         ProfilingStack s;
         RecordStack(t, &s);
@@ -347,7 +347,7 @@ inline void* ProfilerThreadFunc(void*) {
 
 // Starts recording samples.
 inline void StartProfiling() {
-  AutoGlobalLock<ProfilerLockId> lock;
+  ScopedLock sl(GlobalMutexes::Profiler());
   ReleaseBuildAssertion(!IsProfiling(), "We're already profiling!");
   IsProfiling() = true;
   ProfilerThreadShouldFinish() = false;
@@ -357,7 +357,7 @@ inline void StartProfiling() {
 // Stops recording samples, and prints a profile tree-view on stdout.
 inline void FinishProfiling() {
   {
-    AutoGlobalLock<ProfilerLockId> lock;
+    ScopedLock sl(GlobalMutexes::Profiler());
     ReleaseBuildAssertion(IsProfiling(), "We weren't profiling!");
     // The ProfilerThreadShouldFinish() mechanism here is really naive and bad,
     // as the scary comments below should make clear.
