@@ -112,6 +112,19 @@
 #define GEMMLOWP_SSE3_64
 #endif
 
+#if defined(__has_feature)
+#if __has_feature(memory_sanitizer)
+#define GEMMLOWP_MSAN
+#endif
+#endif
+
+// We will need to opt out of msan on inline-asm functions.
+#ifdef GEMMLOWP_MSAN
+#define GEMMLOWP_ATTRIBUTE_NO_MSAN __attribute__((no_sanitize("memory")))
+#else
+#define GEMMLOWP_ATTRIBUTE_NO_MSAN
+#endif
+
 #endif  // GEMMLOWP_ALLOW_INLINE_ASM
 
 // Detect Android. Don't conflate with ARM - we care about tuning
