@@ -114,15 +114,12 @@
 
 #if defined(__has_feature)
 #if __has_feature(memory_sanitizer)
-#define GEMMLOWP_MSAN
+#include <sanitizer/msan_interface.h>
+#define GEMMLOWP_MARK_MEMORY_AS_INITIALIZED __msan_unpoison
+#elif __has_feature(address_sanitizer)
+#include <sanitizer/asan_interface.h>
+#define GEMMLOWP_MARK_MEMORY_AS_INITIALIZED __asan_unpoison_memory_region
 #endif
-#endif
-
-// We will need to opt out of msan on inline-asm functions.
-#ifdef GEMMLOWP_MSAN
-#define GEMMLOWP_ATTRIBUTE_NO_MSAN __attribute__((no_sanitize("memory")))
-#else
-#define GEMMLOWP_ATTRIBUTE_NO_MSAN
 #endif
 
 #endif  // GEMMLOWP_ALLOW_INLINE_ASM
@@ -263,6 +260,17 @@ template <int N>
 struct IsPowerOfTwo {
   static const bool value = !(N & (N - 1));
 };
+
+template <typename T>
+void MarkMemoryAsInitialized(T* ptr, int size) {
+#ifdef GEMMLOWP_MARK_MEMORY_AS_INITIALIZED
+  GEMMLOWP_MARK_MEMORY_AS_INITIALIZED(static_cast<void*>(ptr),
+                                      size * sizeof(T));
+#else
+  (void)ptr;
+  (void)size;
+#endif
+}
 
 }  // namespace gemmlowp
 
