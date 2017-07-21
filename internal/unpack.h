@@ -86,22 +86,18 @@ void PrefetchResultBlock(const SrcMapType& src,
   }
 }
 
-// memory-sanitizer is (by its own admission) confused by inline asm.
-// this function is the one that reads the output of inline-asm kernels
-// that ran during the compute stage, and msan false-positives occur here.
 template <typename KernelFormat, typename RegisterBlockType,
           typename SrcMapType, typename LhsOffset, typename RhsOffset,
           typename OutputPipelineExecutorType, typename DstType>
-GEMMLOWP_ATTRIBUTE_NO_MSAN void UnpackResultBlock(
-    const SrcMapType& src, const OutputPipelineExecutorType& executor,
-    DstType* dst,
-    const VectorMap<const std::int32_t, VectorShape::Col>&
-        lhs_sums_of_each_slice,
-    const VectorMap<const std::int32_t, VectorShape::Row>&
-        rhs_sums_of_each_slice,
-    const LhsOffset& lhs_offset, const RhsOffset& rhs_offset, int depth,
-    int src_row, int src_col, int src_global_row, int src_global_col,
-    int dst_row, int dst_col) {
+void UnpackResultBlock(const SrcMapType& src,
+                       const OutputPipelineExecutorType& executor, DstType* dst,
+                       const VectorMap<const std::int32_t, VectorShape::Col>&
+                           lhs_sums_of_each_slice,
+                       const VectorMap<const std::int32_t, VectorShape::Row>&
+                           rhs_sums_of_each_slice,
+                       const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
+                       int depth, int src_row, int src_col, int src_global_row,
+                       int src_global_col, int dst_row, int dst_col) {
   using KernelLhsScalar = typename KernelFormat::Lhs::Scalar;
   using KernelRhsScalar = typename KernelFormat::Rhs::Scalar;
   static constexpr int KernelLhsZeroPointInput =

@@ -63,6 +63,19 @@ class ComputeImpl {
   }
 
  private:
+  static void MarkPackedResultBlockAsInitialized(
+      const MatrixMap<std::int32_t, MapOrder::ColMajor>& packed_result_block) {
+#ifdef GEMMLOWP_MARK_MEMORY_AS_INITIALIZED
+    for (int col = 0; col < packed_result_block.cols(); col++) {
+      MarkMemoryAsInitialized(
+          packed_result_block.data() + col * packed_result_block.cols_stride(),
+          packed_result_block.rows());
+    }
+#else
+    (void)packed_result_block;
+#endif
+  }
+
   void ComputeRun(int start_row, int start_col, int start_depth,
                   int depth) GEMMLOWP_NOINLINE {
     packed_lhs_.seek_run(start_row, start_depth);
@@ -72,6 +85,7 @@ class ComputeImpl {
     kernel_.Run(packed_result_block.data(), packed_result_block.rows_stride(),
                 packed_result_block.cols_stride(), packed_lhs_.current_data(),
                 packed_rhs_.current_data(), start_depth, depth);
+    MarkPackedResultBlockAsInitialized(packed_result_block);
   }
 
   void ComputeL1(int start_row, int rows, int start_col, int cols,
