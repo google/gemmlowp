@@ -34,66 +34,214 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 0>::Transform(
             << std::flush;
 #endif
 #endif
+  /* Can improve performance by pairing load operations with ASIMD ops.
+   * Split the ASIMD registers into two "blocks", A and B.
+   *
+   *   A:  V0 -  V3 : Accumulators
+   *       V4 -  V7 : Temporary (values loaded here)
+   *   B:  V8 - V11 : Accumulators
+   *
+   * The aim is to overlap loading one of these blocks with processing the
+   * other, i.e., B is loaded while the values in A are being processed and
+   * vice versa. Consequently the structure below, which consists of:
+   *
+   *  - a preparation stage which loads the values for (A)
+   *  - a loop of two halves:
+   *    - 1: load (B) while processing (A)
+   *    - 2: load (A) while processing (B)
+   *  - two tails, which process the remaining values in (A) or (B)
+   */
   int params_count_copy = params.count;
+  const auto coefficient = params.one_over_output_range_scale * params.input_range_scale;
+  const auto offset = params.one_over_output_range_scale * (params.input_range_min - params.output_range_min - params.input_range_scale*params.input_range_offset);
+
   asm volatile(
+      // Prepare
+      "dup v12.4s, %w[coefficient]\n"  // Duplicate the coefficient across lanes
+      "dup v13.4s, %w[offset]\n"       // Duplicate the offset across lanes
 
-      // Requantize::Prepare
-      "dup v4.4s, %w[input_range_min]\n"
-      "dup v5.4s, %w[output_range_min]\n"
-      "dup v6.4s, %w[input_range_offset]\n"
-      "dup v7.4s, %w[input_range_scale]\n"
-      "dup v8.4s, %w[one_over_output_range_scale]\n"
-      "fsub v4.4s, v4.4s, v5.4s\n"
-
-      "1:"
+      // Load the first 16-elements in from memory while simultaneously copying
+      // values into the accumulators.
       "subs %x[count], %x[count], #16\n"
+      "ldr q4, [%x[input]]\n"
+      "mov v0.16b, v13.16b\n"
+      "mov v1.16b, v13.16b\n"
 
-      // Requantize::Transform
-      "ld1 {v0.4s, v1.4s, v2.4s, v3.4s}, [%x[input]], #64\n"
-      "prfm pldl1keep, [%x[input], #64]\n"
-      "scvtf v0.4s, v0.4s\n"
-      "scvtf v1.4s, v1.4s\n"
-      "scvtf v2.4s, v2.4s\n"
-      "scvtf v3.4s, v3.4s\n"
-      "fsub v0.4s, v0.4s, v6.4s\n"
-      "fsub v1.4s, v1.4s, v6.4s\n"
-      "fsub v2.4s, v2.4s, v6.4s\n"
-      "fsub v3.4s, v3.4s, v6.4s\n"
-      "fmul v0.4s, v0.4s, v7.4s\n"
-      "fmul v1.4s, v1.4s, v7.4s\n"
-      "fmul v2.4s, v2.4s, v7.4s\n"
-      "fmul v3.4s, v3.4s, v7.4s\n"
-      "fadd v0.4s, v0.4s, v4.4s\n"
-      "fadd v1.4s, v1.4s, v4.4s\n"
-      "fadd v2.4s, v2.4s, v4.4s\n"
-      "fadd v3.4s, v3.4s, v4.4s\n"
-      "fmul v0.4s, v0.4s, v8.4s\n"
-      "fmul v1.4s, v1.4s, v8.4s\n"
-      "fmul v2.4s, v2.4s, v8.4s\n"
-      "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
-      "sqxtn v0.4h, v0.4s\n"
-      "sqxtn2 v0.8h, v1.4s\n"
-      "sqxtn v2.4h, v2.4s\n"
-      "sqxtn2 v2.8h, v3.4s\n"
-      "sqxtun v0.8b, v0.8h\n"
-      "sqxtun2 v0.16b, v2.8h\n"
+      "ldr q5, [%x[input], #16]\n"
+      "mov v2.16b, v13.16b\n"
+      "mov v3.16b, v13.16b\n"
 
-      "st1 {v0.4s}, [%x[output]], #16\n"
-      "prfm pldl1keep, [%x[output]]\n"
+      // Continue loading elements but since the accumulators are full begin to
+      // convert the input values to float.
+      "ldr q6, [%x[input], #32]\n"
+      "scvtf v4.4s, v4.4s\n"
+      "scvtf v5.4s, v5.4s\n"
 
-      "bne 1b\n"
-      : [count] "+r"(params_count_copy), [input] "+r"(input),
+      "ldr q7, [%x[input], #48]\n"
+      "scvtf v6.4s, v6.4s\n"
+      "scvtf v7.4s, v7.4s\n"
+
+      "add %x[input], %x[input], #64\n"  // Progress the input pointer
+
+      // If no more data to load then process only the data that was loaded
+      "beq 2f\n"
+
+      "1:"  // LOOP
+        /* --- BEGIN PART A --- */
+          // Begin to process the values that were stored in the first block of
+          // registers while loading values into the second set of registers
+          // for later processing.
+          "mov v8.16b, v13.16b\n"        // Copy into accumulator (B)
+          "fmla v0.4s, v4.4s, v12.4s\n"  // Process (A)
+          "ldr q4, [%[input]]\n"        // Load values (B)
+
+          "mov v9.16b, v13.16b\n"
+          "fmla v1.4s, v5.4s, v12.4s\n"
+          "ldr q5, [%[input], #16]\n"
+
+          "mov v10.16b, v13.16b\n"
+          "fmla v2.4s, v6.4s, v12.4s\n"
+          "ldr q6, [%[input], #32]\n"
+
+          "mov v11.16b, v13.16b\n"
+          "fmla v3.4s, v7.4s, v12.4s\n"
+          "ldr q7, [%[input], #48]\n"
+
+          // Continue processing (A) while performing some housekeeping, and then
+          // preparing (B) for computation.
+          "add %x[input], %x[input], #64\n"  // Progress the input pointer
+          "fcvtzs v0.4s, v0.4s\n"
+          "fcvtzs v1.4s, v1.4s\n"
+
+          "prfm pldl2keep, [%x[input], #2048]\n"
+          "fcvtzs v2.4s, v2.4s\n"
+          "fcvtzs v3.4s, v3.4s\n"
+
+          "prfm pldl1keep, [%x[input], #64]\n"
+          "sqxtn v0.4h, v0.4s\n"
+          "scvtf v4.4s, v4.4s\n"
+
+          "sqxtn2 v0.8h, v1.4s\n"
+          "scvtf v5.4s, v5.4s\n"
+          "subs %x[count], %x[count], #16\n"
+
+          "sqxtn v2.4h, v2.4s\n"
+          "scvtf v6.4s, v6.4s\n"
+
+          "sqxtn2 v2.8h, v3.4s\n"
+          "scvtf v7.4s, v7.4s\n"
+
+          "sqxtun v0.8b, v0.8h\n"
+          "sqxtun2 v0.16b, v2.8h\n"
+
+          "st1 {v0.16b}, [%x[output]]\n"
+          "add %x[output], %x[output], #16\n"
+
+          // If there are only 16 values left to process then exit this loop and
+          // just process the remaining values.
+          "beq 3f\n"
+        /* --- END PART A --- */
+
+        /* --- BEGIN PART B --- */
+          // Begin to process the values that were loaded into the second block
+          // of registers while loading values into the first set of registers
+          // for processing next time round the loop: code is as above but with
+          // the sets of registers swapped.
+          "mov v0.16b, v13.16b\n"
+          "fmla v8.4s, v4.4s, v12.4s\n"
+          "ldr q4, [%[input]]\n"
+
+          "mov v1.16b, v13.16b\n"
+          "fmla v9.4s, v5.4s, v12.4s\n"
+          "ldr q5, [%[input], #16]\n"
+
+          "mov v2.16b, v13.16b\n"
+          "fmla v10.4s, v6.4s, v12.4s\n"
+          "ldr q6, [%[input], #32]\n"
+
+          "mov v3.16b, v13.16b\n"
+          "fmla v11.4s, v7.4s, v12.4s\n"
+          "ldr q7, [%[input], #48]\n"
+
+          "add %x[input], %x[input], #64\n"
+          "fcvtzs v8.4s, v8.4s\n"
+          "fcvtzs v9.4s, v9.4s\n"
+
+          "prfm pldl2keep, [%x[input], #2048]\n"
+          "fcvtzs v10.4s, v10.4s\n"
+          "fcvtzs v11.4s, v11.4s\n"
+
+          "prfm pldl1keep, [%x[input], #64]\n"
+          "sqxtn v8.4h, v8.4s\n"
+          "scvtf v4.4s, v4.4s\n"
+
+          "sqxtn2 v8.8h, v9.4s\n"
+          "scvtf v5.4s, v5.4s\n"
+          "subs %x[count], %x[count], #16\n"
+
+          "sqxtn v10.4h, v10.4s\n"
+          "scvtf v6.4s, v6.4s\n"
+
+          "sqxtn2 v10.8h, v11.4s\n"
+          "scvtf v7.4s, v7.4s\n"
+
+          "sqxtun v8.8b, v8.8h\n"
+          "sqxtun2 v8.16b, v10.8h\n"
+
+          // "str q8, [%x[output]]\n"
+          "st1 {v8.16b}, [%x[output]]\n"
+          "add %x[output], %x[output], #16\n"
+          "bne 1b\n"
+          // by implication "beq tail_A"
+        /* --- END PART B --- */
+
+      "2:"  // TAIL A
+        // Process the values that have been loaded into the first set of
+        // registers and then finish.
+        "fmla v0.4s, v4.4s, v12.4s\n"
+        "fmla v1.4s, v5.4s, v12.4s\n"
+        "fmla v2.4s, v6.4s, v12.4s\n"
+        "fmla v3.4s, v7.4s, v12.4s\n"
+        "fcvtzs v0.4s, v0.4s\n"
+        "fcvtzs v1.4s, v1.4s\n"
+        "fcvtzs v2.4s, v2.4s\n"
+        "fcvtzs v3.4s, v3.4s\n"
+        "sqxtn v0.4h, v0.4s\n"
+        "sqxtn2 v0.8h, v1.4s\n"
+        "sqxtn v2.4h, v2.4s\n"
+        "sqxtn2 v2.8h, v3.4s\n"
+        "sqxtun v0.8b, v0.8h\n"
+        "sqxtun2 v0.16b, v2.8h\n"
+        "str q0, [%x[output]]\n"
+        "b 4f\n"
+
+      "3:"  // TAIL B
+        // Process the values that were loaded into the second set of registers
+        // and then finish.
+        "fmla v8.4s, v4.4s, v12.4s\n"
+        "fmla v9.4s, v5.4s, v12.4s\n"
+        "fmla v10.4s, v6.4s, v12.4s\n"
+        "fmla v11.4s, v7.4s, v12.4s\n"
+        "fcvtzs v8.4s, v8.4s\n"
+        "fcvtzs v9.4s, v9.4s\n"
+        "fcvtzs v10.4s, v10.4s\n"
+        "fcvtzs v11.4s, v11.4s\n"
+        "sqxtn v8.4h, v8.4s\n"
+        "sqxtn2 v8.8h, v9.4s\n"
+        "sqxtn v10.4h, v10.4s\n"
+        "sqxtn2 v10.8h, v11.4s\n"
+        "sqxtun v8.8b, v8.8h\n"
+        "sqxtun2 v8.16b, v10.8h\n"
+        "str q8, [%x[output]]\n"
+        // by implication "b finish"
+
+      "4:"  // END
+      : [count] "+r"(params_count_copy),
+        [input] "+r"(input),
         [output] "+r"(output)
-      : [input_range_min] "r"(params.input_range_min),
-        [output_range_min] "r"(params.output_range_min),
-        [input_range_offset] "r"(params.input_range_offset),
-        [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
-        [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : [coefficient] "r"(coefficient),
+        [offset] "r"(offset)
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11", "v12", "v13", "cc", "memory");
 }
 
 template <>
@@ -5405,103 +5553,107 @@ inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
             << std::flush;
 #endif
 #endif
+  /* Optimizations:
+   *   - "Unsafe" math optimizations to use FMLA instruction
+   *   - Re-ordering of instructions to increase gaps between load and use and
+   *   to improve instruction mix.
+   */
   int params_rows_copy = params.rows;
+  const auto xsor = params.input_range_scale * params.one_over_output_range_scale;
+  const auto bsor = params.bias_range_scale * params.one_over_output_range_scale;
+  const auto offset =
+    params.output_range_offset + params.one_over_output_range_scale * (
+      params.input_range_min + params.bias_range_min - params.output_range_min
+    );
+
   asm volatile(
-      "ldr w0, %[input_range_min]\n"
-      "dup v8.4s, w0\n"
-      "ldr w0, %[input_range_scale]\n"
-      "dup v9.4s, w0\n"
-      "ldr w0, %[bias_range_min]\n"
-      "dup v10.4s, w0\n"
-      "ldr w0, %[bias_range_scale]\n"
-      "dup v11.4s, w0\n"
-      "ldr w0, %[output_range_min]\n"
-      "dup v12.4s, w0\n"
-      "ldr w0, %[one_over_output_range_scale]\n"
-      "dup v13.4s, w0\n"
-      "ldr w0, %[output_range_offset]\n"
-      "dup v14.4s, w0\n"
+      // Prepare constants
+      "dup v12.4s, %w[offset]\n"
+      "dup v13.4s, %w[xsor]\n"
+      "dup v14.4s, %w[bsor]\n"
+
       "1:"
       "mov x0, %x[count]\n"
       "mov x1, %x[bias]\n"
-      "2:"
-      "subs x0, x0, #16\n"
 
-      // BiasAdd::Transform
-      "ld1 {v0.4s}, [%x[input]], #16\n"
-      "ld1 {v4.4s}, [x1], #16\n"
-      "prfm pldl1keep, [%x[input], #32]\n"
+      "2:"
+      "ldr q0, [%x[input]]\n"
+      "subs x0, x0, #16\n"
+      "add %x[input], %x[input], #16\n"
+
+      "ldr q4, [x1]\n"
+      "add x1, x1, #16\n"
+
+      "mov v8.16b, v12.16b\n"  // + offset
       "uxtl2 v1.8h, v0.16b\n"
+
+      "mov v9.16b, v12.16b\n"
       "uxtl v0.8h, v0.8b\n"
+
+      "mov v10.16b, v12.16b\n"
       "uxtl2 v5.8h, v4.16b\n"
+
+      "mov v11.16b, v12.16b\n"
       "uxtl v4.8h, v4.8b\n"
+      "prfm pldl1keep, [%x[input], #32]\n"
+
       "sxtl2 v3.4s, v1.8h\n"
+      "prfm pldl1keep, [x1, #32]\n"
+
       "sxtl v2.4s, v1.4h\n"
       "sxtl2 v7.4s, v5.8h\n"
       "sxtl v6.4s, v5.4h\n"
+
       "sxtl2 v1.4s, v0.8h\n"
       "sxtl v0.4s, v0.4h\n"
       "sxtl2 v5.4s, v4.8h\n"
       "sxtl v4.4s, v4.4h\n"
-      "scvtf v0.4s, v0.4s\n"
-      "scvtf v1.4s, v1.4s\n"
+
       "scvtf v2.4s, v2.4s\n"
       "scvtf v3.4s, v3.4s\n"
-      "scvtf v4.4s, v4.4s\n"
-      "scvtf v5.4s, v5.4s\n"
-      "scvtf v6.4s, v6.4s\n"
-      "scvtf v7.4s, v7.4s\n"
-      "fmul v0.4s, v0.4s, v9.4s\n"
-      "fmul v1.4s, v1.4s, v9.4s\n"
-      "fmul v2.4s, v2.4s, v9.4s\n"
-      "fmul v3.4s, v3.4s, v9.4s\n"
-      "fmul v4.4s, v4.4s, v11.4s\n"
-      "fmul v5.4s, v5.4s, v11.4s\n"
-      "fmul v6.4s, v6.4s, v11.4s\n"
-      "fmul v7.4s, v7.4s, v11.4s\n"
-      "fadd v0.4s, v0.4s, v8.4s\n"
-      "fadd v1.4s, v1.4s, v8.4s\n"
-      "fadd v2.4s, v2.4s, v8.4s\n"
-      "fadd v3.4s, v3.4s, v8.4s\n"
-      "fadd v4.4s, v4.4s, v10.4s\n"
-      "fadd v5.4s, v5.4s, v10.4s\n"
-      "fadd v6.4s, v6.4s, v10.4s\n"
-      "fadd v7.4s, v7.4s, v10.4s\n"
-      "fadd v0.4s, v0.4s, v4.4s\n"
-      "fadd v1.4s, v1.4s, v5.4s\n"
-      "fadd v2.4s, v2.4s, v6.4s\n"
-      "fadd v3.4s, v3.4s, v7.4s\n"
-      "fsub v0.4s, v0.4s, v12.4s\n"
-      "fsub v1.4s, v1.4s, v12.4s\n"
-      "fsub v2.4s, v2.4s, v12.4s\n"
-      "fsub v3.4s, v3.4s, v12.4s\n"
-      "fmul v0.4s, v0.4s, v13.4s\n"
-      "fmul v1.4s, v1.4s, v13.4s\n"
-      "fmul v2.4s, v2.4s, v13.4s\n"
-      "fmul v3.4s, v3.4s, v13.4s\n"
-      "fadd v0.4s, v0.4s, v14.4s\n"
-      "fadd v1.4s, v1.4s, v14.4s\n"
-      "fadd v2.4s, v2.4s, v14.4s\n"
-      "fadd v3.4s, v3.4s, v14.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
 
-      "st1 {v0.4s, v1.4s, v2.4s, v3.4s}, [%x[output]], #64\n"
-      "prfm pldl1keep, [%x[output]]\n"
+      "scvtf v7.4s, v7.4s\n"
+      "scvtf v6.4s, v6.4s\n"
+
+      "scvtf v1.4s, v1.4s\n"
+      "scvtf v0.4s, v0.4s\n"
+
+      "scvtf v5.4s, v5.4s\n"
+      "scvtf v4.4s, v4.4s\n"
+
+      "fmla v10.4s, v2.4s, v13.4s\n"
+      "fmla v11.4s, v3.4s, v13.4s\n"
+
+      "fmla v9.4s, v1.4s, v13.4s\n"
+      "fmla v8.4s, v0.4s, v13.4s\n"  // x*xsor + offset
+
+      "fmla v10.4s, v6.4s, v14.4s\n"
+      "fmla v11.4s, v7.4s, v14.4s\n"
+
+      "fmla v9.4s, v5.4s, v14.4s\n"
+      "fmla v8.4s, v4.4s, v14.4s\n"  // x*xsor + b*bsor + offset
+
+      "fcvtzs v11.4s, v11.4s\n"
+      "str q11, [%x[output], #48]\n"
+
+      "fcvtzs v10.4s, v10.4s\n"
+      "str q10, [%x[output], #32]\n"
+
+      "fcvtzs v8.4s, v8.4s\n"
+      "str q8, [%x[output]]\n"
+
+      "fcvtzs v9.4s, v9.4s\n"
+      "str q9, [%x[output], #16]\n"
+
+      "add %x[output], %x[output], #64\n"
       "bne 2b\n"
+
       "subs %x[rows], %x[rows], #1\n"
       "bne 1b\n"
       : [input] "+r"(input), [output] "+r"(output)
       : [count] "r"(params.count), [rows] "r"(params_rows_copy),
-        [output_range_offset] "m"(params.output_range_offset),
-        [input_range_scale] "m"(params.input_range_scale),
-        [one_over_output_range_scale] "m"(params.one_over_output_range_scale),
-        [bias_range_min] "m"(params.bias_range_min),
-        [output_range_min] "m"(params.output_range_min),
-        [bias_range_scale] "m"(params.bias_range_scale),
-        [bias] "r"(params.bias), [input_range_min] "m"(params.input_range_min)
+        [offset] "r"(offset), [xsor] "r"(xsor),
+        [bsor] "r"(bsor), [bias] "r"(params.bias)
       : "x0", "x1", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9",
         "v10", "v11", "v12", "v13", "v14", "cc", "memory");
 }
