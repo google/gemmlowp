@@ -1,0 +1,38 @@
+UNITTESTS=test.cc test_allocator.cc test_blocking_counter.cc test_fixedpoint.cc test_math_helpers.cc
+
+UNITTESTS_BIN=$(addprefix ./test/, $(addsuffix .bin, $(basename $(UNITTESTS))))
+
+VPATH=./test ./public
+
+
+PREFIX ?= /usr/local/
+
+INCLUDE_PREFIX =$(PREFIX)/include/gemmlowp
+
+space :=
+space +=
+join-with = $(subst $(space),$1,$(strip $2))
+
+.PHONY: compile clean unittest
+
+CXXFLAGS ?=-march=native -O3 -lpthread -DNDEBUG -g 
+
+compile: $(UNITTESTS_BIN)
+
+clean:
+	rm -f $(UNITTESTS_BIN)
+
+unittest: $(UNITTESTS_BIN)
+	$(call join-with, && ,$(addprefix ./, $^))
+
+%.bin: %.cc ./eight_bit_int_gemm/eight_bit_int_gemm.cc ./test/test_data.cc
+	$(CXX) $(CXXFLAGS) -std=c++11 -o $@ $^
+
+
+install:
+	mkdir -p $(INCLUDE_PREFIX)/{public,meta,internal,profiling,fixedpoint}
+	install -m 755 -t $(INCLUDE_PREFIX)/public public/*.h
+	install -m 755 -t $(INCLUDE_PREFIX)/meta meta/*.h
+	install -m 755 -t $(INCLUDE_PREFIX)/internal internal/*.h
+	install -m 755 -t $(INCLUDE_PREFIX)/profiling profiling/*.h
+	install -m 755 -t $(INCLUDE_PREFIX)/fixedpoint fixedpoint/*.h
