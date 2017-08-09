@@ -502,37 +502,43 @@ class BiasAdd(common.Transform1DKernelGenerator):
     emitter.EmitVLoadAE(8, elements, load_input, input_address, None)
     emitter.EmitVLoadAE(8, elements, load_bias, bias, None)
 
-    # Extend the UINT8s to INT16
+    # Extend the UINT8s to INT16 while copying the offset into the accumulators
     if len(load_input) is 1:
       emitter.EmitVMovl('u8', load_input[0], load_input[0])
+      emitter.EmitVMov('f32', outputs[0], self.offset)  # Offset
       emitter.EmitVMovl('u8', load_bias[0], load_bias[0])
       emitter.EmitVMovl('s16', load_input[0], load_input[0])
       emitter.EmitVMovl('s16', load_bias[0], load_bias[0])
     elif len(load_input) is 2:
       emitter.EmitVMovl('u8', load_input[0], load_input[0])
+      emitter.EmitVMov('f32', outputs[0], self.offset)  # Offset
       emitter.EmitVMovl('u8', load_bias[0], load_bias[0])
+      emitter.EmitVMov('f32', outputs[1], self.offset)  # Offset
       emitter.EmitVMovl2('s16', load_input[0], load_input[1], load_input[0])
       emitter.EmitVMovl2('s16', load_bias[0], load_bias[1], load_bias[0])
     elif len(load_input) is 3:
       emitter.EmitVMovl2('u8', load_input[0], load_input[1], load_input[0])
+      emitter.EmitVMov('f32', outputs[0], self.offset)  # Offset
       emitter.EmitVMovl2('u8', load_bias[0], load_bias[1], load_bias[0])
+      emitter.EmitVMov('f32', outputs[1], self.offset)  # Offset
       emitter.EmitVMovl('s16', load_input[2], load_input[1])
+      emitter.EmitVMov('f32', outputs[2], self.offset)  # Offset
       emitter.EmitVMovl('s16', load_bias[2], load_bias[1])
       emitter.EmitVMovl2('s16', load_input[0], load_input[1], load_input[0])
       emitter.EmitVMovl2('s16', load_bias[0], load_bias[1], load_bias[0])
     elif len(load_input) is 4:
       emitter.EmitVMovl2('u8', load_input[0], load_input[1], load_input[0])
+      emitter.EmitVMov('f32', outputs[0], self.offset)  # Offset
       emitter.EmitVMovl2('u8', load_bias[0], load_bias[1], load_bias[0])
+      emitter.EmitVMov('f32', outputs[1], self.offset)  # Offset
       emitter.EmitVMovl2('s16', load_input[2], load_input[3], load_input[1])
+      emitter.EmitVMov('f32', outputs[2], self.offset)  # Offset
       emitter.EmitVMovl2('s16', load_bias[2], load_bias[3], load_bias[1])
+      emitter.EmitVMov('f32', outputs[3], self.offset)  # Offset
       emitter.EmitVMovl2('s16', load_input[0], load_input[1], load_input[0])
       emitter.EmitVMovl2('s16', load_bias[0], load_bias[1], load_bias[0])
     else:
       assert False
-
-    # Copy the offset into the accumulators
-    for register in outputs:
-      emitter.EmitVMov('f32', register, self.offset)
 
     # Convert read values into appropriate format
     for register in load_input + load_bias:
