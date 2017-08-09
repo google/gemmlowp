@@ -216,6 +216,17 @@ class QuantizeTransformation(object):
 
 class RequantizeTransformation(object):
   """."""
+  # Additional declarations made in the C++ at the start of each specialized
+  # header.
+  declarations = (
+    ("const float", "coefficient",
+     "params.one_over_output_range_scale * params.input_range_scale"),
+    ("const float", "offset",
+     """params.one_over_output_range_scale * (
+       params.input_range_min - params.output_range_min -
+       params.input_range_scale*params.input_range_offset
+     )"""),
+  )
 
   def Check(self, in_type, out_type, kernel_size, leftovers):
     assert in_type is 'int32_t'
@@ -228,27 +239,13 @@ class RequantizeTransformation(object):
     emitter.EmitNewline()
     emitter.EmitComment('Requantize::Prepare')
 
-    self.range_min_delta = _DuplicateGeneralRegister(
+    self.coefficient = _DuplicateGeneralRegister(
         32, emitter, registers,
-        registers.MapParameter('input_range_min', 'params.input_range_min'), 4)
-    self.output_range_min = _DuplicateGeneralRegister(
+        registers.MapParameter('coefficient', 'coefficient'), 4)
+
+    self.offset = _DuplicateGeneralRegister(
         32, emitter, registers,
-        registers.MapParameter('output_range_min', 'params.output_range_min'),
-        4)
-    self.input_range_offset = _DuplicateGeneralRegister(
-        32, emitter, registers,
-        registers.MapParameter('input_range_offset',
-                               'params.input_range_offset'), 4)
-    self.input_range_scale = _DuplicateGeneralRegister(
-        32, emitter, registers,
-        registers.MapParameter('input_range_scale', 'params.input_range_scale'),
-        4)
-    self.one_over_output_range_scale = _DuplicateGeneralRegister(
-        32, emitter, registers,
-        registers.MapParameter('one_over_output_range_scale',
-                               'params.one_over_output_range_scale'), 4)
-    emitter.EmitVSub('f32', self.range_min_delta, self.range_min_delta,
-                     self.output_range_min)
+        registers.MapParameter('offset', 'offset'), 4)
 
   def Transform(self, emitter, registers, input_address, elements,
                 output_address):
@@ -257,49 +254,43 @@ class RequantizeTransformation(object):
     emitter.EmitComment('Requantize::Transform')
     register_count = (elements + 3) / 4
     load = [registers.QuadRegister() for unused_i in range(register_count)]
+    outputs = [registers.QuadRegister() for unused_i in range(register_count)]
     emitter.EmitVLoadAE(32, elements, load, input_address, None)
-    emitter.EmitPldOffset(input_address, emitter.ImmediateConstant(64))
 
     for register in load:
       emitter.EmitVCvt('f32', 's32', register, register)
 
-    for register in load:
-      emitter.EmitVSub('f32', register, register, self.input_range_offset)
+    # Copy in the offset
+    for register in outputs:
+      emitter.EmitVMov('f32', register, self.offset)
 
-    for register in load:
-      emitter.EmitVMul('f32', register, register, self.input_range_scale)
+    # Perform the multiply-accumulate
+    for acc_reg, input_reg in zip(outputs, load):
+      emitter.EmitVMulAcc('f32', acc_reg, input_reg, self.coefficient)
 
-    for register in load:
-      emitter.EmitVAdd('f32', register, register, self.range_min_delta)
-
-    for register in load:
-      emitter.EmitVMul('f32', register, register,
-                       self.one_over_output_range_scale)
-
-    for register in load:
+    for register in outputs:
       emitter.EmitVCvt('s32', 'f32', register, register)
 
-    if len(load) is 1:
-      emitter.EmitVQmovn('s32', load[0], load[0])
-      emitter.EmitVQmovun('s16', load[0], load[0])
-    elif len(load) is 2:
-      emitter.EmitVQmovn2('s32', load[0], load[0], load[1])
-      emitter.EmitVQmovun('s16', load[0], load[0])
-    elif len(load) is 3:
-      emitter.EmitVQmovn2('s32', load[0], load[0], load[1])
-      emitter.EmitVQmovn('s32', load[2], load[2])
-      emitter.EmitVQmovun2('s16', load[0], load[0], load[2])
-    elif len(load) is 4:
-      emitter.EmitVQmovn2('s32', load[0], load[0], load[1])
-      emitter.EmitVQmovn2('s32', load[2], load[2], load[3])
-      emitter.EmitVQmovun2('s16', load[0], load[0], load[2])
+    if len(outputs) is 1:
+      emitter.EmitVQmovn('s32', outputs[0], outputs[0])
+      emitter.EmitVQmovun('s16', outputs[0], outputs[0])
+    elif len(outputs) is 2:
+      emitter.EmitVQmovn2('s32', outputs[0], outputs[0], outputs[1])
+      emitter.EmitVQmovun('s16', outputs[0], outputs[0])
+    elif len(outputs) is 3:
+      emitter.EmitVQmovn2('s32', outputs[0], outputs[0], outputs[1])
+      emitter.EmitVQmovn('s32', outputs[2], outputs[2])
+      emitter.EmitVQmovun2('s16', outputs[0], outputs[0], outputs[2])
+    elif len(outputs) is 4:
+      emitter.EmitVQmovn2('s32', outputs[0], outputs[0], outputs[1])
+      emitter.EmitVQmovn2('s32', outputs[2], outputs[2], outputs[3])
+      emitter.EmitVQmovun2('s16', outputs[0], outputs[0], outputs[2])
     else:
       assert False
 
     emitter.EmitNewline()
-    emitter.EmitVStoreAE(8, elements, load, output_address, None)
-    emitter.EmitPld(output_address)
-    registers.FreeRegisters(load)
+    emitter.EmitVStoreAE(8, elements, outputs, output_address, None)
+    registers.FreeRegisters(load + outputs)
 
 
 class BaseTransform(common.Transform1DKernelGenerator):
@@ -317,6 +308,10 @@ class BaseTransform(common.Transform1DKernelGenerator):
     registers = self.asm_emitter.CreateRegisters()
 
     self.emitter.EmitDeclare('int', 'params_count_copy', 'params.count')
+
+    if hasattr(self.transformation, "declarations"):
+        for dtype, dname, dexpr in self.transformation.declarations:
+            self.emitter.EmitDeclare(dtype, dname, dexpr)
 
     self.asm_emitter.PushIndent(self.emitter.indent)
     self.asm_emitter.EmitAsmBegin()
