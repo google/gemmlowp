@@ -942,6 +942,10 @@ class NeonEmitter64(object):
     self.EmitOp2('prfm', 'pldl1keep',
                  '[%s, %s]' % (load_address_register, offset))
 
+  def EmitPld2Offset(self, load_address_register, offset):
+    self.EmitOp2('prfm', 'pldl2keep',
+                 '[%s, %s]' % (load_address_register, offset))
+
   def EmitVShl(self, shift_type, destination, source, shift):
     self.EmitOp3('sshl',
                  _AppendType(shift_type, destination),

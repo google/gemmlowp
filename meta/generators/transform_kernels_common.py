@@ -14,6 +14,7 @@
 """."""
 
 import common
+from itertools import izip_longest
 
 
 def _DuplicateGeneralRegister(size, emitter, registers, value, min_register):
@@ -474,29 +475,54 @@ class Requantize(common.Transform1DKernelGenerator):
       self.asm_emitter.EmitNewline()
 
     # Perform some housekeeping while processing (A) and preparing (B) for use.
-    for ra in process_registers[:n_procs]:
+    for i, ra in enumerate(process_registers[:n_procs]):
       self.asm_emitter.EmitVCvt('s32', 'f32', ra, ra)
 
-    for rl in load_registers[:n_loads]:
-      self.asm_emitter.EmitVCvt('f32', 's32', rl, rl)
+      if i == 0 and hasattr(self.asm_emitter, "EmitPld2Offset"):
+        self.asm_emitter.EmitPld2Offset(self.input_address, "#2048")
 
-    # Store (A)
-    if n_procs == 1:
-      self.asm_emitter.EmitVQmovn('s32', process_registers[0], process_registers[0])
-      self.asm_emitter.EmitVQmovun('s16', process_registers[0], process_registers[0])
-    elif n_procs == 2:
-      self.asm_emitter.EmitVQmovn2('s32', process_registers[0], process_registers[0], process_registers[1])
-      self.asm_emitter.EmitVQmovun('s16', process_registers[0], process_registers[0])
-    elif n_procs == 3:
-      self.asm_emitter.EmitVQmovn2('s32', process_registers[0], process_registers[0], process_registers[1])
-      self.asm_emitter.EmitVQmovn('s32', process_registers[2], process_registers[2])
-      self.asm_emitter.EmitVQmovun2('s16', process_registers[0], process_registers[0], process_registers[2])
-    elif n_procs == 4:
-      self.asm_emitter.EmitVQmovn2('s32', process_registers[0], process_registers[0], process_registers[1])
-      self.asm_emitter.EmitVQmovn2('s32', process_registers[2], process_registers[2], process_registers[3])
-      self.asm_emitter.EmitVQmovun2('s16', process_registers[0], process_registers[0], process_registers[2])
+      if i == 2:
+        self.asm_emitter.EmitPldOffset(self.input_address, "#64")
 
     self.asm_emitter.EmitNewline()
+
+    # Prepare to store one set of values while converting the other set for use
+    store_converts = tuple()  # No stores to be made
+    if n_procs == 1:
+      store_converts = (
+        lambda: self.asm_emitter.EmitVQmovn('s32', process_registers[0], process_registers[0]),
+        lambda: self.asm_emitter.EmitVQmovun('s16', process_registers[0], process_registers[0]),
+      )
+    elif n_procs == 2:
+      store_converts = (
+        lambda: self.asm_emitter.EmitVQmovn2('s32', process_registers[0], process_registers[0], process_registers[1]),
+        lambda: self.asm_emitter.EmitVQmovun('s16', process_registers[0], process_registers[0]),
+      )
+    elif n_procs == 3:
+      store_converts = (
+        lambda: self.asm_emitter.EmitVQmovn2('s32', process_registers[0], process_registers[0], process_registers[1]),
+        lambda: self.asm_emitter.EmitVQmovn('s32', process_registers[2], process_registers[2]),
+        lambda: self.asm_emitter.EmitVQmovun2('s16', process_registers[0], process_registers[0], process_registers[2]),
+      )
+    elif n_procs == 4:
+      store_converts = (
+        lambda: self.asm_emitter.EmitVQmovn2('s32', process_registers[0], process_registers[0], process_registers[1]),
+        lambda: self.asm_emitter.EmitVQmovn2('s32', process_registers[2], process_registers[2], process_registers[3]),
+        lambda: self.asm_emitter.EmitVQmovun2('s16', process_registers[0], process_registers[0], process_registers[2]),
+      )
+
+    # Interleave the two conversions
+    for store, conv in izip_longest(store_converts, load_registers[:n_loads]):
+      if store is not None:
+        store()  # Call the lambdas defined above
+
+      if conv is not None:
+        self.asm_emitter.EmitVCvt('f32', 's32', conv, conv)
+
+      # Add newline for clarity
+      self.asm_emitter.EmitNewline()
+
+    # Store output values
     self.asm_emitter.EmitVStoreAE(8, process_number, process_registers, self.output_address, None)
 
 
