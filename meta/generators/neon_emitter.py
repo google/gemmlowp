@@ -299,6 +299,12 @@ class NeonEmitter(object):
   def EmitMov(self, param1, param2):
     self.EmitOp2('mov', param1, param2)
 
+  def EmitBBack(self, label):
+    self.EmitOp1('b', '%db' % label)
+
+  def EmitBFront(self, label):
+    self.EmitOp1('b', '%df' % label)
+
   def EmitBeqBack(self, label):
     self.EmitOp1('beq', '%db' % label)
 

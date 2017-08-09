@@ -32,6 +32,27 @@ def _DuplicateGeneralMemoryRegister(size, emitter, registers, value,
   return register
 
 
+class _Indent(object):
+  def __init__(self, emitter, comment=None, label=None):
+    self._emitter = emitter
+    self._comment = comment
+    self._label = label
+
+  def __enter__(self):
+    self._emitter.EmitNewline()
+
+    if self._comment is not None:
+      self._emitter.EmitComment(self._comment)
+
+    if self._label is not None:
+      self._emitter.EmitNumericalLabel(self._label)
+
+    self._emitter.PushIndent()
+
+  def __exit__(self, *args, **kwargs):
+    self._emitter.PopIndent()
+
+
 class MinMaxTransformation(object):
   """."""
 
@@ -214,85 +235,6 @@ class QuantizeTransformation(object):
     registers.FreeRegisters(load)
 
 
-class RequantizeTransformation(object):
-  """."""
-  # Additional declarations made in the C++ at the start of each specialized
-  # header.
-  declarations = (
-    ("const float", "coefficient",
-     "params.one_over_output_range_scale * params.input_range_scale"),
-    ("const float", "offset",
-     """params.one_over_output_range_scale * (
-       params.input_range_min - params.output_range_min -
-       params.input_range_scale*params.input_range_offset
-     )"""),
-  )
-
-  def Check(self, in_type, out_type, kernel_size, leftovers):
-    assert in_type is 'int32_t'
-    assert out_type is 'uint8_t'
-    assert kernel_size is 16
-    assert leftovers < 16
-
-  def Prepare(self, emitter, registers, unused_kernel_size):
-    """Duplicate quantization parameters to vector registers."""
-    emitter.EmitNewline()
-    emitter.EmitComment('Requantize::Prepare')
-
-    self.coefficient = _DuplicateGeneralRegister(
-        32, emitter, registers,
-        registers.MapParameter('coefficient', 'coefficient'), 4)
-
-    self.offset = _DuplicateGeneralRegister(
-        32, emitter, registers,
-        registers.MapParameter('offset', 'offset'), 4)
-
-  def Transform(self, emitter, registers, input_address, elements,
-                output_address):
-    """Emit requantization inner loop code."""
-    emitter.EmitNewline()
-    emitter.EmitComment('Requantize::Transform')
-    register_count = (elements + 3) / 4
-    load = [registers.QuadRegister() for unused_i in range(register_count)]
-    outputs = [registers.QuadRegister() for unused_i in range(register_count)]
-    emitter.EmitVLoadAE(32, elements, load, input_address, None)
-
-    for register in load:
-      emitter.EmitVCvt('f32', 's32', register, register)
-
-    # Copy in the offset
-    for register in outputs:
-      emitter.EmitVMov('f32', register, self.offset)
-
-    # Perform the multiply-accumulate
-    for acc_reg, input_reg in zip(outputs, load):
-      emitter.EmitVMulAcc('f32', acc_reg, input_reg, self.coefficient)
-
-    for register in outputs:
-      emitter.EmitVCvt('s32', 'f32', register, register)
-
-    if len(outputs) is 1:
-      emitter.EmitVQmovn('s32', outputs[0], outputs[0])
-      emitter.EmitVQmovun('s16', outputs[0], outputs[0])
-    elif len(outputs) is 2:
-      emitter.EmitVQmovn2('s32', outputs[0], outputs[0], outputs[1])
-      emitter.EmitVQmovun('s16', outputs[0], outputs[0])
-    elif len(outputs) is 3:
-      emitter.EmitVQmovn2('s32', outputs[0], outputs[0], outputs[1])
-      emitter.EmitVQmovn('s32', outputs[2], outputs[2])
-      emitter.EmitVQmovun2('s16', outputs[0], outputs[0], outputs[2])
-    elif len(outputs) is 4:
-      emitter.EmitVQmovn2('s32', outputs[0], outputs[0], outputs[1])
-      emitter.EmitVQmovn2('s32', outputs[2], outputs[2], outputs[3])
-      emitter.EmitVQmovun2('s16', outputs[0], outputs[0], outputs[2])
-    else:
-      assert False
-
-    emitter.EmitNewline()
-    emitter.EmitVStoreAE(8, elements, outputs, output_address, None)
-    registers.FreeRegisters(load + outputs)
-
-
 class BaseTransform(common.Transform1DKernelGenerator):
   """."""
 
@@ -351,14 +293,6 @@ class BaseTransform(common.Transform1DKernelGenerator):
     self.asm_emitter.PopIndent(len(self.emitter.indent))
 
 
-class Requantize(BaseTransform):
-  """."""
-
-  def __init__(self, cc_emitter, asm_emitter):
-    BaseTransform.__init__(self, cc_emitter, 'Requantize', asm_emitter,
-                           RequantizeTransformation())
-
-
 class Quantize(BaseTransform):
   """."""
 
@@ -381,6 +315,189 @@ class MinMax(BaseTransform):
   def __init__(self, numerical_type, cc_emitter, asm_emitter):
     BaseTransform.__init__(self, cc_emitter, 'MinMax<%s>' % numerical_type,
                            asm_emitter, MinMaxTransformation())
+
+
+class Requantize(common.Transform1DKernelGenerator):
+  def __init__(self, cc_emitter, asm_emitter):
+    super(Requantize, self).__init__(cc_emitter, "Requantize")
+    self.asm_emitter = asm_emitter
+
+  def EmitTransform(self, in_type, out_type, kernel_size, leftovers):
+    # Check arguments are appropriate
+    assert in_type == 'int32_t'
+    assert out_type == 'uint8_t'
+    assert kernel_size == 16
+    assert leftovers < 16
+
+    # Emit declarations required for the later assembly.
+    self.emitter.EmitDeclare('int', 'params_count_copy', 'params.count')
+    self.emitter.EmitDeclare(
+      "const float", "coefficient",
+      "params.one_over_output_range_scale * params.input_range_scale")
+    self.emitter.EmitDeclare(
+      "const float", "offset",
+      """params.one_over_output_range_scale * (
+       params.input_range_min - params.output_range_min -
+       params.input_range_scale*params.input_range_offset
+     )""")
+
+    # Assign registers, we use 4 registers as "load" registers and two banks of
+    # 4 as "output" registers. The two output banks are labelled "A" and "B".
+    registers = self.asm_emitter.CreateRegisters()
+    load_registers = [registers.QuadRegister() for _ in range(4)]
+    registers_a = [registers.QuadRegister() for _ in range(4)]
+    registers_b = [registers.QuadRegister() for _ in range(4)]
+
+    # Modified registers
+    self.count_register = registers.MapOutputParameter('count', 'params_count_copy')
+    self.input_address = registers.MapOutputParameter('input')
+    self.output_address = registers.MapOutputParameter('output')
+
+    # Begin assembly
+    self.asm_emitter.PushIndent(self.emitter.indent)
+    self.asm_emitter.EmitAsmBegin()
+    self._Prepare(registers)
+    self.asm_emitter.EmitNewline()
+
+    # Begin loop
+    self.asm_emitter.EmitComment("Reduce count by leftovers")
+    self.asm_emitter.EmitSubs(self.count_register, self.count_register, "#{:d}".format(leftovers))
+    self.asm_emitter.EmitBeqFront(4)
+    self.asm_emitter.EmitNewline()
+
+    # Load A before entering loop
+    self.asm_emitter.EmitComment("Prepare initial values")
+    self.asm_emitter.EmitSubs(self.count_register, self.count_register, "#16")
+    self._EmitCode(load_registers, registers_b, registers_a, 0, 16)
+    self.asm_emitter.EmitBeqFront(2)
+    self.asm_emitter.EmitNewline()
+
+    # Looped portion of the code, process A while loading B then process B
+    # while loading A.
+    with _Indent(self.asm_emitter, "Requantize::Transform", label=1):
+      self.asm_emitter.EmitComment("Requantize::Transform::Loop part A")
+      self.asm_emitter.EmitSubs(self.count_register, self.count_register, "#16")
+      self._EmitCode(load_registers, registers_a, registers_b)
+
+      # If there are no more blocks of 16-values to load then jump to the tail to
+      # finish processing the last loaded block of 16 and to load and process the
+      # tail.
+      self.asm_emitter.EmitNewline()
+      self.asm_emitter.EmitBeqFront(3)
+      self.asm_emitter.EmitNewline()
+
+      self.asm_emitter.EmitComment("Requantize::Transform::Loop part B")
+      self.asm_emitter.EmitSubs(self.count_register, self.count_register, "#16")
+      self._EmitCode(load_registers, registers_b, registers_a)
+
+      # If there are no more blocks of 16-values to load then fall through to
+      # finish processing the last loaded block of 16 and to load and process the
+      # tail - otherwise loop.
+      self.asm_emitter.EmitNewline()
+      self.asm_emitter.EmitBneBack(1)  # Loop
+
+    # Tails
+    # First tail: process remaining A while loading and processing tail in B
+    # Second tail: process remaining B while loading and processing tail in A
+    tails = (("A", registers_a, registers_b), ("B", registers_b, registers_a))
+    for i, (label, first, second) in enumerate(tails, 2):
+        comment = "Requantize::Transform::Tail {}".format(label)
+        with _Indent(self.asm_emitter, comment, label=i):
+          self._EmitCode(load_registers, first, second, load_number=leftovers)
+          self.asm_emitter.EmitNewline()
+
+          self._EmitCode(load_registers, second, first,
+                         process_number=leftovers, load_number=0)
+
+          self.asm_emitter.EmitNewline()
+          self.asm_emitter.EmitBFront(5)
+
+    # Third tail, process nothing, load and then process leftovers in A
+    with _Indent(self.asm_emitter, "Requantize::Transform::Tail C", 4):
+      self._EmitCode(load_registers, registers_b, registers_a, 0, leftovers)
+      self._EmitCode(load_registers, registers_a, registers_b, leftovers, 0)
+
+    # Explicit end of function, jumped to after end of first tail to avoid
+    # running into second tail.
+    self.asm_emitter.EmitNewline()
+    self.asm_emitter.EmitComment("Requantize::Return")
+    self.asm_emitter.EmitNumericalLabel(5)  # End of function
+
+    registers.FreeRegisters(load_registers + registers_a + registers_b)
+    self.asm_emitter.EmitAsmEnd(registers)
+    self.asm_emitter.PopIndent(len(self.emitter.indent))
+
+  def _Prepare(self, registers):
+    """Prepare by duplicating parameters for later use."""
+    self.asm_emitter.EmitComment("Requantize::Prepare")
+
+    # Duplicate the constants required for the transformation
+    self.coefficient = _DuplicateGeneralRegister(
+        32, self.asm_emitter, registers,
+        registers.MapParameter('coefficient'), 0
+    )
+    self.offset = _DuplicateGeneralRegister(
+        32, self.asm_emitter, registers,
+        registers.MapParameter('offset'), 0
+    )
+
+  def _EmitCode(self, load_registers, process_registers, next_registers,
+                process_number=16, load_number=16):
+    # Compute the number of registers to load and to process
+    n_loads = (load_number + 3) / 4
+    n_procs = (process_number + 3) / 4
+    assert n_loads <= 4
+    assert n_procs <= 4
+
+    # Start by processing loaded and prepared values, while simultaneously
+    # loading new values and copying the offset into the next set of registers
+    # to process.
+    loads_remaining = load_number
+    for i in range(max(n_loads, n_procs)):
+      # Extract registers relevant to this loop
+      ra = process_registers[i]
+      rb = next_registers[i]
+      rl = load_registers[i]
+
+      if i < n_procs:
+        self.asm_emitter.EmitVMulAcc('f32', ra, rl, self.coefficient)
+
+      if i < n_loads:
+        # Update the number of loads to perform
+        to_load = min(loads_remaining, 4)
+        loads_remaining -= to_load
+
+        # Perform a copy and a load of the appropriate width
+        self.asm_emitter.EmitVMov('f32', rb, self.offset)
+        self.asm_emitter.EmitVLoadAE(32, to_load, [rl], self.input_address, None)
+
+      self.asm_emitter.EmitNewline()
+
+    # Perform some housekeeping while processing (A) and preparing (B) for use.
+    for ra in process_registers[:n_procs]:
+      self.asm_emitter.EmitVCvt('s32', 'f32', ra, ra)
+
+    for rl in load_registers[:n_loads]:
+      self.asm_emitter.EmitVCvt('f32', 's32', rl, rl)
+
+    # Store (A)
+    if n_procs == 1:
+      self.asm_emitter.EmitVQmovn('s32', process_registers[0], process_registers[0])
+      self.asm_emitter.EmitVQmovun('s16', process_registers[0], process_registers[0])
+    elif n_procs == 2:
+      self.asm_emitter.EmitVQmovn2('s32', process_registers[0], process_registers[0], process_registers[1])
+      self.asm_emitter.EmitVQmovun('s16', process_registers[0], process_registers[0])
+    elif n_procs == 3:
+      self.asm_emitter.EmitVQmovn2('s32', process_registers[0], process_registers[0], process_registers[1])
+      self.asm_emitter.EmitVQmovn('s32', process_registers[2], process_registers[2])
+      self.asm_emitter.EmitVQmovun2('s16', process_registers[0], process_registers[0], process_registers[2])
+    elif n_procs == 4:
+      self.asm_emitter.EmitVQmovn2('s32', process_registers[0], process_registers[0], process_registers[1])
+      self.asm_emitter.EmitVQmovn2('s32', process_registers[2], process_registers[2], process_registers[3])
+      self.asm_emitter.EmitVQmovun2('s16', process_registers[0], process_registers[0], process_registers[2])
+
+    self.asm_emitter.EmitNewline()
+    self.asm_emitter.EmitVStoreAE(8, process_number, process_registers, self.output_address, None)
 
 
 class BiasAdd(common.Transform1DKernelGenerator):

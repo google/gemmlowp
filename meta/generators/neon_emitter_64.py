@@ -590,6 +590,12 @@ class NeonEmitter64(object):
                    _AppendType(min_type, source_1),
                    _AppendType(min_type, source_2))
 
+  def EmitBBack(self, label):
+    self.EmitOp1('b', '%db' % label)
+
+  def EmitBFront(self, label):
+    self.EmitOp1('b', '%df' % label)
+
   def EmitBeqBack(self, label):
     self.EmitOp1('beq', '%db' % label)
 
