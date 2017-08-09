@@ -132,9 +132,9 @@ inline void MultiThreadGemm(MultiThreadingContext* context,
 
   auto workers_pool = context->workers_pool();
   std::vector<Task*> tasks;
-  std::for_each(task_params.begin(), task_params.end(), [tasks](Params* param) {
-    tasks.push_back(new TaskRunnerType(param));
-  });
+  for (auto& task_param : task_params) {
+    tasks.push_back(new TaskRunnerType(task_param));
+  };
   workers_pool->Execute(tasks);
 }
 
