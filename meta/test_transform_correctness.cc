@@ -144,6 +144,7 @@ void verify_minmax(const MinMaxParams& params) {
 }
 
 void verify_biasadd(const BiasAddParams& params) {
+  unsigned int incorrect = 0;
   for (int i = 0; i < params.kernel.rows * params.kernel.count; ++i) {
     std::int32_t actual = params.output[i];
     std::uint8_t input = params.input[i];
@@ -161,13 +162,22 @@ void verify_biasadd(const BiasAddParams& params) {
     sum *= params.kernel.one_over_output_range_scale;
     sum += params.kernel.output_range_offset;
     std::int32_t expected = static_cast<std::int32_t>(sum);
-    if (std::abs(actual - expected) > 1024) {
+
+    const float error = static_cast<float>(std::abs(actual - expected)) / sum;
+
+    if (error > EPSILON) {
       std::cout << "Wrong: " << i << " : " << actual << " vs. " << expected
                 << std::endl;
-      std::exit(1);
+      incorrect++;
     }
   }
-  std::cout << "BiasAdd: OK" << std::endl;
+  if (!incorrect) {
+    std::cout << "BiasAdd: OK" << std::endl;
+  }
+  else {
+    std::cout << "BiasAdd: " << incorrect << " errors." << std::endl;
+    std::exit(1);
+  }
 }
 
 int main() {

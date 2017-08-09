@@ -406,6 +406,20 @@ class BiasAdd(common.Transform1DKernelGenerator):
     registers = self.asm_emitter.CreateRegisters()
 
     self.emitter.EmitDeclare('int', 'params_rows_copy', 'params.rows')
+    self.emitter.EmitDeclare(
+      "const float", "coeff_input",
+      "params.input_range_scale * params.one_over_output_range_scale"
+    )
+    self.emitter.EmitDeclare(
+      "const float", "coeff_bias",
+      "params.bias_range_scale * params.one_over_output_range_scale"
+    )
+    self.emitter.EmitDeclare(
+      "const float", "offset",
+      """params.output_range_offset + params.one_over_output_range_scale * (
+        params.input_range_min + params.bias_range_min - params.output_range_min
+      )"""
+    )
 
     self.asm_emitter.PushIndent(self.emitter.indent)
     self.asm_emitter.EmitAsmBegin()
@@ -425,34 +439,21 @@ class BiasAdd(common.Transform1DKernelGenerator):
     self.asm_emitter.PopIndent(len(self.emitter.indent))
 
   def _Prepare(self, emitter, registers):
-    self.input_range_min = _DuplicateGeneralMemoryRegister(
-        32, emitter, registers,
-        registers.MapMemoryParameter('input_range_min',
-                                     'params.input_range_min'), 8)
-    self.input_range_scale = _DuplicateGeneralMemoryRegister(
-        32, emitter, registers,
-        registers.MapMemoryParameter('input_range_scale',
-                                     'params.input_range_scale'), 8)
-    self.bias_range_min = _DuplicateGeneralMemoryRegister(
-        32, emitter, registers,
-        registers.MapMemoryParameter('bias_range_min', 'params.bias_range_min'),
-        8)
-    self.bias_range_scale = _DuplicateGeneralMemoryRegister(
-        32, emitter, registers,
-        registers.MapMemoryParameter('bias_range_scale',
-                                     'params.bias_range_scale'), 8)
-    self.output_range_min = _DuplicateGeneralMemoryRegister(
-        32, emitter, registers,
-        registers.MapMemoryParameter('output_range_min',
-                                     'params.output_range_min'), 8)
-    self.one_over_output_range_scale = _DuplicateGeneralMemoryRegister(
-        32, emitter, registers,
-        registers.MapMemoryParameter('one_over_output_range_scale',
-                                     'params.one_over_output_range_scale'), 8)
-    self.output_range_offset = _DuplicateGeneralMemoryRegister(
-        32, emitter, registers,
-        registers.MapMemoryParameter('output_range_offset',
-                                     'params.output_range_offset'), 8)
+    # Non-duplicated parameters (to be duplicated below)
+    nd_offset = registers.MapParameter("offset", "offset")
+    nd_coeff_input = registers.MapParameter("coeff_input", "coeff_input")
+    nd_coeff_bias = registers.MapParameter("coeff_bias", "coeff_bias")
+
+    # Duplicate to fill lanes
+    self.offset = _DuplicateGeneralRegister(
+      32, emitter, registers, nd_offset, 12
+    )
+    self.coeff_input = _DuplicateGeneralRegister(
+      32, emitter, registers, nd_coeff_input, 12
+    )
+    self.coeff_bias = _DuplicateGeneralRegister(
+      32, emitter, registers, nd_coeff_bias, 12
+    )
 
   def _ProcessRow(self, emitter, registers, kernel_size, leftovers):
     const_count = registers.MapParameter('count', 'params.count')
@@ -494,11 +495,14 @@ class BiasAdd(common.Transform1DKernelGenerator):
         registers.QuadRegister() for unused_i in range(register_count)
     ]
     load_bias = [registers.QuadRegister() for unused_i in range(register_count)]
+    outputs = [
+        registers.QuadRegister() for unsused_i in range(register_count)
+    ]
 
     emitter.EmitVLoadAE(8, elements, load_input, input_address, None)
     emitter.EmitVLoadAE(8, elements, load_bias, bias, None)
-    emitter.EmitPldOffset(input_address, emitter.ImmediateConstant(32))
 
+    # Extend the UINT8s to INT16
     if len(load_input) is 1:
       emitter.EmitVMovl('u8', load_input[0], load_input[0])
       emitter.EmitVMovl('u8', load_bias[0], load_bias[0])
@@ -526,41 +530,28 @@ class BiasAdd(common.Transform1DKernelGenerator):
     else:
       assert False
 
+    # Copy the offset into the accumulators
+    for register in outputs:
+      emitter.EmitVMov('f32', register, self.offset)
+
+    # Convert read values into appropriate format
     for register in load_input + load_bias:
       emitter.EmitVCvt('f32', 's32', register, register)
 
-    for register in load_input:
-      emitter.EmitVMul('f32', register, register, self.input_range_scale)
+    # Perform the transform (two multiply-accumulates per output)
+    for acc_reg, input_reg in zip(outputs, load_input):
+      emitter.EmitVMulAcc('f32', acc_reg, input_reg, self.coeff_input)
 
-    for register in load_bias:
-      emitter.EmitVMul('f32', register, register, self.bias_range_scale)
+    for acc_reg, bias_reg in zip(outputs, load_bias):
+      emitter.EmitVMulAcc('f32', acc_reg, bias_reg, self.coeff_bias)
 
-    for register in load_input:
-      emitter.EmitVAdd('f32', register, register, self.input_range_min)
-
-    for register in load_bias:
-      emitter.EmitVAdd('f32', register, register, self.bias_range_min)
-
-    for (register_1, register_2) in zip(load_input, load_bias):
-      emitter.EmitVAdd('f32', register_1, register_1, register_2)
-
-    for register in load_input:
-      emitter.EmitVSub('f32', register, register, self.output_range_min)
-
-    for register in load_input:
-      emitter.EmitVMul('f32', register, register,
-                       self.one_over_output_range_scale)
-
-    for register in load_input:
-      emitter.EmitVAdd('f32', register, register, self.output_range_offset)
-
-    for register in load_input:
+    # Convert the outputs back to an appropriate format
+    for register in outputs:
       emitter.EmitVCvt('s32', 'f32', register, register)
 
     emitter.EmitNewline()
-    emitter.EmitVStoreAE(32, elements, load_input, output_address, None)
-    emitter.EmitPld(output_address)
-    registers.FreeRegisters(load_input + load_bias)
+    emitter.EmitVStoreAE(32, elements, outputs, output_address, None)
+    registers.FreeRegisters(outputs + load_input + load_bias)
 
 
 def GenerateKernels(cc_emitter, asm_emitter, shapes):

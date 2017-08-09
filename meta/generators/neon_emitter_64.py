@@ -760,6 +760,17 @@ class NeonEmitter64(object):
                  _AppendType(mul_type, source_1),
                  _AppendType(mul_type, source_2))
 
+  def EmitVMulAcc(self, mla_type, acc, source_1, source_2):
+    acc, source_1, source_2 = _MakeCompatibleDown(acc, source_1, source_2)
+
+    if _FloatType(mla_type):
+      self.EmitOp3('fmla',
+                   _AppendType(mla_type, acc),
+                   _AppendType(mla_type, source_1),
+                   _AppendType(mla_type, source_2))
+    else:
+      raise NotImplementedError
+
   def EmitVMull(self, mul_type, destination, source_1, source_2):
     wide_type = _WideType(mul_type)
     if _UnsignedType(mul_type):
