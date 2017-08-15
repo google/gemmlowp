@@ -20,10 +20,22 @@
 namespace gemmlowp {
 namespace meta {
 
+#ifdef _WIN32
+inline int GetNumberOfProcessors() {
+  SYSTEM_INFO sysinfo;
+  GetSystemInfo(&sysinfo);
+  return sysinfo.dwNumberOfProcessors;
+}
+#endif
+
 inline int ResolveMaxThreads(int max_threads) {
   if (max_threads == 0) {
     static const int hardware_threads_count =
-        static_cast<int>(sysconf(_SC_NPROCESSORS_CONF));
+#ifndef _WIN32
+      static_cast<int>(sysconf(_SC_NPROCESSORS_CONF));
+#else
+      GetNumberOfProcessors();
+#endif
     return hardware_threads_count;
   }
   return max_threads;

@@ -19,8 +19,21 @@
 #ifndef GEMMLOWP_INTERNAL_MULTI_THREAD_GEMM_H_
 #define GEMMLOWP_INTERNAL_MULTI_THREAD_GEMM_H_
 
+#ifdef _WIN32
+#define GEMMLOWP_STL_THREADING
+#endif
+
+#ifndef GEMMLOWP_STL_THREADING
 #include <pthread.h>
+#else
+#include <mutex>
+#include <thread>
+#endif
+#ifndef _WIN32
 #include <unistd.h>
+#else
+#include <windows.h>
+#endif
 #include <vector>
 
 #include "single_thread_gemm.h"
@@ -58,7 +71,9 @@ inline int Do256NOPs() {
 #undef GEMMLOWP_NOP
 
 inline void WriteBarrier() {
-#ifdef GEMMLOWP_ARM_32
+#if defined(_MSC_VER)
+  MemoryBarrier();
+#elif defined(GEMMLOWP_ARM_32)
   asm volatile("" ::: "memory");
 #elif defined(GEMMLOWP_ARM_64)
   asm volatile("dmb ishst" ::: "memory");
@@ -70,7 +85,9 @@ inline void WriteBarrier() {
 }
 
 inline void ReadBarrier() {
-#ifdef GEMMLOWP_ARM_32
+#if defined(_MSC_VER)
+  MemoryBarrier();
+#elif defined(GEMMLOWP_ARM_32)
   asm volatile("" ::: "memory");
 #elif defined(GEMMLOWP_ARM_64)
   asm volatile("dmb ishld" ::: "memory");
@@ -80,7 +97,6 @@ inline void ReadBarrier() {
 #error "Unsupported architecture for ReadBarrier."
 #endif
 }
-
 #endif
 
 // Waits until *var != initial_value.
@@ -105,6 +121,8 @@ inline void ReadBarrier() {
 // (e.g. worker threads having finished a GEMM and waiting until the next GEMM)
 // so as to avoid permanently spinning.
 //
+
+#ifndef GEMMLOWP_STL_THREADING
 template <typename T>
 T WaitForVariableChange(volatile T* var, T initial_value, pthread_cond_t* cond,
                         pthread_mutex_t* mutex) {
@@ -141,10 +159,47 @@ T WaitForVariableChange(volatile T* var, T initial_value, pthread_cond_t* cond,
   pthread_mutex_unlock(mutex);
   return new_value;
 }
+#else
+template <typename T>
+T WaitForVariableChange(volatile T* var, T initial_value, std::condition_variable &cond,
+                        std::mutex &mutex) {
+#ifdef GEMMLOWP_USE_BUSYWAIT
+  // If we are on a platform that supports it, spin for some time.
+  {
+    int nops = 0;
+    // First, trivial case where the variable already changed value.
+    T new_value = *var;
+    if (new_value != initial_value) {
+      ReadBarrier();
+      return new_value;
+    }
+    // Then try busy-waiting.
+    while (nops < kMaxBusyWaitNOPs) {
+      nops += Do256NOPs();
+      new_value = *var;
+      if (new_value != initial_value) {
+        ReadBarrier();
+        return new_value;
+      }
+    }
+  }
+#endif
+  // Finally, do real passive waiting.
+  std::unique_lock<std::mutex> lock(mutex);
+  T new_value = *var;
+  if (new_value == initial_value) {
+    cond.wait(lock);
+    new_value = *var;
+    assert(new_value != initial_value);
+  }
+  return new_value;
+}
+#endif
 
 // A BlockingCounter lets one thread to wait for N events to occur.
 // This is how the master thread waits for all the worker threads
 // to have finished working.
+#ifndef GEMMLOWP_STL_THREADING
 class BlockingCounter {
  public:
   BlockingCounter()
@@ -207,6 +262,60 @@ class BlockingCounter {
   std::size_t count_;
   std::size_t initial_count_;
 };
+#else
+class BlockingCounter {
+public:
+  BlockingCounter() :
+    count_(0),
+    initial_count_(0) {}
+
+    // Sets/resets the counter; initial_count is the number of
+    // decrementing events that the Wait() call will be waiting for.
+    void Reset(std::size_t initial_count) {
+      std::unique_lock<std::mutex> lock(mutex_);
+      assert(count_ == 0);
+      initial_count_ = initial_count;
+      count_ = initial_count_;
+    }
+
+    // Decrements the counter; if the counter hits zero, signals
+    // the thread that was waiting for that, and returns true.
+    // Otherwise (if the decremented count is still nonzero),
+    // returns false.
+    bool DecrementCount() {
+      std::unique_lock<std::mutex> lock(mutex_);
+      assert(count_ > 0);
+      count_--;
+#ifdef GEMMLOWP_USE_BUSYWAIT
+      WriteBarrier();
+#endif
+      if (count_ == 0) {
+        cond_.notify_one();
+      }
+      bool retval = count_ == 0;
+      return retval;
+    }
+
+    // Waits for the N other threads (N having been set by Reset())
+    // to hit the BlockingCounter.
+    void Wait() {
+      ScopedProfilingLabel label("BlockingCounter::Wait");
+      while (count_) {
+        MemoryBarrier();
+        const std::size_t count_value = count_;
+        if (count_value) {
+          WaitForVariableChange(&count_, count_value, cond_, mutex_);
+        }
+      }
+    }
+
+private:
+    std::condition_variable cond_;
+    std::mutex  mutex_;
+    std::size_t count_;
+    std::size_t initial_count_;
+};
+#endif
 
 // A workload for a worker.
 struct Task {
@@ -226,12 +335,13 @@ class Worker {
     ExitAsSoonAsPossible  // Should exit at earliest convenience.
   };
 
+#ifndef GEMMLOWP_STL_THREADING
   explicit Worker(BlockingCounter* counter_to_decrement_when_ready)
       : task_(nullptr),
-        state_cond_(PTHREAD_COND_INITIALIZER),
-        state_mutex_(PTHREAD_MUTEX_INITIALIZER),
-        state_(State::ThreadStartup),
-        counter_to_decrement_when_ready_(counter_to_decrement_when_ready) {
+      state_cond_(PTHREAD_COND_INITIALIZER),
+      state_mutex_(PTHREAD_MUTEX_INITIALIZER),
+    state_(State::ThreadStartup),
+    counter_to_decrement_when_ready_(counter_to_decrement_when_ready) {
     pthread_create(&thread_, nullptr, ThreadFunc, this);
   }
 
@@ -239,13 +349,30 @@ class Worker {
     ChangeState(State::ExitAsSoonAsPossible);
     pthread_join(thread_, nullptr);
   }
+#else
+  explicit Worker(BlockingCounter* counter_to_decrement_when_ready)
+      : task_(nullptr),
+    state_(State::ThreadStartup),
+    counter_to_decrement_when_ready_(counter_to_decrement_when_ready) {
+    thread_ = std::thread([this] { this->ThreadFunc(); });
+  }
+
+  ~Worker() {
+    ChangeState(State::ExitAsSoonAsPossible);
+    thread_.join();
+  }
+#endif
 
   // Changes State; may be called from either the worker thread
   // or the master thread; however, not all state transitions are legal,
   // which is guarded by assertions.
   void ChangeState(State new_state) {
     ScopedProfilingLabel label("Worker::ChangeState");
+#ifndef GEMMLOWP_STL_THREADING
     pthread_mutex_lock(&state_mutex_);
+#else
+    std::unique_lock<std::mutex> lock(state_mutex_);
+#endif
     assert(new_state != state_);
     switch (state_) {
       case State::ThreadStartup:
@@ -263,11 +390,17 @@ class Worker {
         abort();
     }
     state_ = new_state;
+#ifndef GEMMLOWP_STL_THREADING
     pthread_cond_signal(&state_cond_);
+#else
+    state_cond_.notify_all();
+#endif
     if (state_ == State::Ready) {
       counter_to_decrement_when_ready_->DecrementCount();
     }
+#ifndef GEMMLOWP_STL_THREADING
     pthread_mutex_unlock(&state_mutex_);
+#endif
   }
 
   // Thread entry point.
@@ -282,8 +415,13 @@ class Worker {
       // Get a state to act on
       // In the 'Ready' state, we have nothing to do but to wait until
       // we switch to another state.
+#ifndef GEMMLOWP_STL_THREADING
       State state_to_act_upon = WaitForVariableChange(
-          &state_, State::Ready, &state_cond_, &state_mutex_);
+        &state_, State::Ready, &state_cond_, &state_mutex_);
+#else
+      State state_to_act_upon = WaitForVariableChange(
+        &state_, State::Ready, state_cond_, state_mutex_);
+#endif
 
       // We now have a state to act on, so act.
       switch (state_to_act_upon) {
@@ -321,15 +459,20 @@ class Worker {
   }
 
  private:
+#ifndef GEMMLOWP_STL_THREADING
   // The underlying thread.
   pthread_t thread_;
-
-  // The task to be worked on.
-  Task* task_;
 
   // The condition variable and mutex guarding state changes.
   pthread_cond_t state_cond_;
   pthread_mutex_t state_mutex_;
+#else
+  std::thread thread_;
+  std::condition_variable state_cond_;
+  std::mutex state_mutex_;
+#endif
+  // The task to be worked on.
+  Task* task_;
 
   // The state enum tells if we're currently working, waiting for work, etc.
   State state_;
@@ -365,7 +508,7 @@ class WorkersPool {
   void Execute(const std::vector<Task*>& tasks) {
     assert(tasks.size() >= 1);
     // One of the tasks will be run on the current thread.
-    int workers_count = tasks.size() - 1;
+    int workers_count = (int)tasks.size() - 1;
     CreateWorkers(workers_count);
     assert(workers_count <= workers_.size());
     counter_to_decrement_when_ready_.Reset(workers_count);
@@ -566,10 +709,15 @@ inline int HowManyThreads(int max_num_threads, int rows, int cols, int depth) {
     // This is expensive to query so we do it only once.
     // Too bad for dynamicness. Also, we dont use the c++11 standard getter
     // because Google's coding style currently bans #include <thread_>.
+#ifndef _WIN32
     static const int hardware_threads_count =
-        static_cast<int>(sysconf(_SC_NPROCESSORS_CONF));
-
+      static_cast<int>(sysconf(_SC_NPROCESSORS_CONF));
     max_count = hardware_threads_count;
+#else
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    max_count = sysinfo.dwNumberOfProcessors;
+#endif
   }
 
   // Basic calculation: take into account max pool size, and

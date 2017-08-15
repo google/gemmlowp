@@ -24,7 +24,9 @@
 #ifndef GEMMLOWP_PROFILING_INSTRUMENTATION_H_
 #define GEMMLOWP_PROFILING_INSTRUMENTATION_H_
 
+#ifndef GEMMLOWP_STL_THREADING
 #include <pthread.h>
+#endif
 #include <cstdio>
 
 #ifndef GEMMLOWP_USE_STLPORT
@@ -70,6 +72,7 @@ inline void ReleaseBuildAssertion(bool condition, const char* msg) {
   }
 }
 
+#ifndef GEMMLOWP_STL_THREADING
 class Mutex {
  public:
   Mutex(const Mutex&) = delete;
@@ -85,26 +88,43 @@ class Mutex {
   pthread_mutex_t m;
 };
 
-class GlobalMutexes {
- public:
-  static Mutex* Profiler() {
-    static Mutex m;
-    return &m;
-  }
+#else
+class Mutex {
+public:
+  Mutex(const Mutex&) = delete;
+  Mutex& operator=(const Mutex&) = delete;
 
-  static Mutex* EightBitIntGemm() {
-    static Mutex m;
-    return &m;
-  }
+  Mutex() { }
+  ~Mutex() { }
+
+  void Lock() { m.lock(); }
+  void Unlock() { m.unlock(); }
+
+private:
+    std::mutex m;
+};
+#endif
+
+class GlobalMutexes {
+public:
+    static Mutex* Profiler() {
+        static Mutex m;
+        return &m;
+    }
+
+    static Mutex* EightBitIntGemm() {
+        static Mutex m;
+        return &m;
+    }
 };
 
 // A very simple RAII helper to lock and unlock a Mutex
 struct ScopedLock {
-  ScopedLock(Mutex* m) : _m(m) { _m->Lock(); }
-  ~ScopedLock() { _m->Unlock(); }
+    ScopedLock(Mutex* m) : _m(m) { _m->Lock(); }
+    ~ScopedLock() { _m->Unlock(); }
 
- private:
-  Mutex* _m;
+private:
+    Mutex* _m;
 };
 
 // Profiling definitions. Two paths: when profiling is enabled,

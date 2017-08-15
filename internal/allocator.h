@@ -192,7 +192,11 @@ class Allocator {
  private:
   void DeallocateStorage() {
     assert(!committed_);
+#ifdef _WIN32
+    _aligned_free(storage_);
+#else
     free(storage_);
+#endif
     storage_size_ = 0;
   }
 

@@ -11,8 +11,11 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-
+#ifndef _WIN32
 #include <unistd.h>
+#else
+#include <windows.h>
+#endif
 #ifdef __APPLE__
 #include <sys/time.h>
 #endif
@@ -43,6 +46,19 @@
 #endif
 
 namespace gemmlowp {
+
+#ifdef _WIN32
+// implement clock_gettime() for windows
+#define CLOCK_REALTIME 0
+
+int clock_gettime(int, struct timespec *spec) {
+  __int64 wintime; GetSystemTimeAsFileTime((FILETIME*)&wintime);
+  wintime -= 116444736000000000i64;	            //1jan1601 to 1jan1970
+  spec->tv_sec = wintime / 10000000i64;         //seconds
+  spec->tv_nsec = wintime % 10000000i64 * 100;  //nano-seconds
+  return 0;
+}
+#endif
 
 double time() {
 #ifdef __APPLE__
