@@ -16,6 +16,13 @@ test/benchmark_all_sizes.cc -o /tmp/b -O3 --std=c++11 -fPIE -static \
 
 #include "../public/gemmlowp.h"
 
+#if defined GEMMLOWP_ANDROID && defined GEMMLOWP_ARM_32
+// Compilation workaround
+namespace std {
+  using ::round;
+}
+#endif
+
 // Minimum duration of each benchmark measurement. Also, duration
 // of sleep time between each two consecutive benchmark measurements to
 // prevent over-heating.
