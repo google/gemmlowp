@@ -439,6 +439,7 @@ struct GemmWithPackedRhsTask : Task {
                         const MatrixBlockBounds& _result_block,
                         const LhsOffset& _lhs_offset,
                         const RhsOffset& _rhs_offset,
+                        const BlockParams& _block_params,
                         const OutputPipelineType& _output_pipeline)
       : context(_context),
         kernel(_kernel),
@@ -448,20 +449,16 @@ struct GemmWithPackedRhsTask : Task {
         result_block(_result_block),
         lhs_offset(_lhs_offset),
         rhs_offset(_rhs_offset),
+        block_params(_block_params),
         output_pipeline(_output_pipeline) {}
 
   void Run() override {
     ScopedProfilingLabel label("GemmWithPackedRhsTask");
+    assert(result_block.cols <= block_params.l2_cols);
 
     const int rows = result_block.rows;
     const int cols = result_block.cols;
     const int depth = lhs.cols();
-
-    BlockParams block_params;
-    block_params.Init<KernelFormat>(rows, cols, depth, 1,
-                                    context->l1_bytes_to_use(),
-                                    context->l2_bytes_to_use(),
-                                    context->l2_rhs_factor());
 
     PackedLhs packed_lhs(Side::Lhs, local_allocator, block_params);
 
@@ -469,25 +466,23 @@ struct GemmWithPackedRhsTask : Task {
 
     local_allocator->Commit();
 
-    for (int c = 0; c < cols; c += block_params.l2_cols) {
-      int cs = std::min(block_params.l2_cols, cols - c);
+    for (int r = 0; r < rows; r += block_params.l2_rows) {
+      int rs = std::min(block_params.l2_rows, rows - r);
 
-      for (int r = 0; r < rows; r += block_params.l2_rows) {
-        int rs = std::min(block_params.l2_rows, rows - r);
+      PackLhs(&packed_lhs, lhs.block(r, 0, rs, depth));
 
-        PackLhs(&packed_lhs, lhs.block(r, 0, rs, depth));
+      Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs,
+              depth);
 
-        Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs,
-                depth);
-
-        auto curr_result_block = MatrixBlockBounds(
-            result_block.start_row + r, result_block.start_col + c, rs, cs);
-        UnpackResult<KernelFormat>(
-            &result, curr_result_block, packed_result, depth,
-            packed_lhs.sums_of_each_slice(), packed_rhs.sums_of_each_slice(),
-            lhs_offset.block(curr_result_block.start_row, rs),
-            rhs_offset.block(curr_result_block.start_col, cs), output_pipeline);
-      }
+      auto curr_result_block = MatrixBlockBounds(
+          result_block.start_row + r, result_block.start_col,
+          rs, result_block.cols);
+      UnpackResult<KernelFormat>(
+          &result, curr_result_block, packed_result, depth,
+          packed_lhs.sums_of_each_slice(), packed_rhs.sums_of_each_slice(),
+          lhs_offset.block(curr_result_block.start_row, rs),
+          rhs_offset.block(curr_result_block.start_col, result_block.cols),
+          output_pipeline);
     }
 
     local_allocator->Decommit();
@@ -501,6 +496,7 @@ struct GemmWithPackedRhsTask : Task {
   const MatrixBlockBounds result_block;
   const LhsOffset& lhs_offset;
   const RhsOffset& rhs_offset;
+  const BlockParams& block_params;
   const OutputPipelineType& output_pipeline;
 };
 
@@ -693,7 +689,7 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
           TaskType;
       tasks.push_back(new TaskType(context, kernel, lhs_block, packed_rhs, result,
                                    MatrixBlockBounds(start_row, c, block_rows, cs),
-                                   lhs_offset, rhs_offset, output_pipeline));
+                                   lhs_offset, rhs_offset, block_params, output_pipeline));
     }
     // Execute the work on the workers (and partially on this thread).
     workers_pool->Execute(tasks);
