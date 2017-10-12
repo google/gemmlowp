@@ -365,7 +365,7 @@ class WorkersPool {
   void Execute(const std::vector<Task*>& tasks) {
     assert(tasks.size() >= 1);
     // One of the tasks will be run on the current thread.
-    unsigned long workers_count = tasks.size() - 1;
+    std::size_t workers_count = tasks.size() - 1;
     CreateWorkers(workers_count);
     assert(workers_count <= workers_.size());
     counter_to_decrement_when_ready_.Reset(workers_count);
