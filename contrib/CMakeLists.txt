@@ -18,7 +18,7 @@ add_definitions(-DGEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK)
 
 if(WIN32)
   add_definitions(-DNOMINMAX -DWIN64 -DWIN32_LEAN_AND_MEAN -DNOGDI)
-  add_definitions(/bigobj /nologo /EHsc /GF /MP /Gm-)
+  add_definitions(/bigobj /nologo /EHsc /GF /MP /Gm- /wd4800 /wd4805)
 else()
   set(EXTERNAL_LIBRARIES "pthread")
 endif()
@@ -45,36 +45,40 @@ list(APPEND fixedpoint_private_headers "${gemmlowp_src}/internal/common.h")
 
 # Eight bit int gemm library
 if(WIN32)
-    add_library("eight_bit_int_gemm" STATIC ${eight_bit_int_gemm_sources_with_no_headers})
+    add_library(eight_bit_int_gemm STATIC ${eight_bit_int_gemm_sources_with_no_headers})
 else()
-    add_library("eight_bit_int_gemm" SHARED ${eight_bit_int_gemm_sources_with_no_headers})
+    add_library(eight_bit_int_gemm SHARED ${eight_bit_int_gemm_sources_with_no_headers})
 endif()
-target_link_libraries("eight_bit_int_gemm" ${EXTERNAL_LIBRARIES})
+target_link_libraries(eight_bit_int_gemm ${EXTERNAL_LIBRARIES})
 
 # Benchmark
-add_executable("benchmark" "${gemmlowp_src}/test/benchmark.cc" ${gemmlowp_test_headers})
-target_link_libraries("benchmark" ${EXTERNAL_LIBRARIES})
+add_executable(benchmark "${gemmlowp_src}/test/benchmark.cc" ${gemmlowp_test_headers})
+target_link_libraries(benchmark ${EXTERNAL_LIBRARIES})
+
+add_executable(benchmark_all_sizes "${gemmlowp_src}/test/benchmark_all_sizes.cc" ${gemmlowp_test_headers})
+target_compile_options(benchmark_all_sizes PRIVATE -DBENCHMARK_8bit -DBENCHMARK_QUICK)
+target_link_libraries(benchmark_all_sizes ${EXTERNAL_LIBRARIES})
 
 # Gemmlowp test
-add_executable("test_gemmlowp"
+add_executable(test_gemmlowp
     "${gemmlowp_src}/test/test.cc" "${gemmlowp_src}/test/test_data.cc" ${gemmlowp_test_headers})
-target_link_libraries("test_gemmlowp" "eight_bit_int_gemm")
+target_link_libraries(test_gemmlowp eight_bit_int_gemm)
 
 # Math helpers test
-add_executable("test_math_helpers"
+add_executable(test_math_helpers
     "${gemmlowp_src}/test/test_math_helpers.cc" ${gemmlowp_test_headers})
 
 # BlockingCounter test
-add_executable("test_blocking_counter"
+add_executable(test_blocking_counter
     "${gemmlowp_src}/test/test_blocking_counter.cc" ${gemmlowp_test_headers})
-target_link_libraries("test_blocking_counter" ${EXTERNAL_LIBRARIES})
+target_link_libraries(test_blocking_counter ${EXTERNAL_LIBRARIES})
 
 # Allocator test
-add_executable("test_allocator"
+add_executable(test_allocator
     "${gemmlowp_src}/test/test_allocator.cc" ${gemmlowp_test_headers})
 
 # FixedPoint test
-add_executable("test_fixedpoint"
+add_executable(test_fixedpoint
     "${gemmlowp_src}/test/test_fixedpoint.cc" ${gemmlowp_test_headers})
 
 # Add tests

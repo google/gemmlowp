@@ -26,7 +26,7 @@ computation paradigms, by allowing the user to set up a chain of transformations
 to be performed on internal 32bit accumulators to obtain the final outputs.
 
 The public entry point in [public/gemmlowp.h](../public/gemmlowp.h) allowing to
-set un an arbitrary output pipeline is `GemmWithOutputPipeline`.
+set up an arbitrary output pipeline is `GemmWithOutputPipeline`.
 
 Refer to [quantization.md](quantization.md) for details of how one gets from
 first principles to the actual output pipelines to assemble for successful

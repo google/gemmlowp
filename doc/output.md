@@ -10,8 +10,8 @@ the output pipeline, so as to allow different users to implement different
 quantization paradigms. See [low-precision.md](low-precision.md) and
 [quantization.md](quantization.md).
 
-Besides implementing a quantization paradigms, the other thing that output
-pipelines are good for, is implementing fused operations where a matrix
+Besides implementing a quantization paradigm, the other thing that output
+pipelines is good for, is implementing fused operations where a matrix
 multiplication feeds into other operations applied to its result, without
 additional array traversals. For instance, when implementing neural network
 inference, one might have a Convolutional layer with a bias-addition and an
