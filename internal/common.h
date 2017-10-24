@@ -172,7 +172,7 @@ const int kDefaultL2CacheSize = 384 * 1024;
 // Thus we assume larger cache sizes, though we really should query
 // them at runtime.
 const int kDefaultL1CacheSize = 32 * 1024;
-const int kDefaultL2CacheSize = 128 * 1024;
+const int kDefaultL2CacheSize = 4 * 1024 * 1024;
 #elif defined(GEMMLOWP_X86_32)
 // x86-32 and not Android. Same as x86-64 but less bullish.
 const int kDefaultL1CacheSize = 32 * 1024;
