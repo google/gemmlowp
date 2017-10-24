@@ -450,9 +450,9 @@ struct GemmWithPackedRhsTask : Task {
 
   void Run() override {
     ScopedProfilingLabel label("GemmWithPackedRhsTask");
-    assert(result_block.cols <= block_params.l2_cols);
 
     const int rows = result_block.rows;
+    const int cols = result_block.cols;
     const int depth = lhs.cols();
 
     PackedLhs packed_lhs(Side::Lhs, local_allocator, block_params);
@@ -461,23 +461,25 @@ struct GemmWithPackedRhsTask : Task {
 
     local_allocator->Commit();
 
-    for (int r = 0; r < rows; r += block_params.l2_rows) {
-      int rs = std::min(block_params.l2_rows, rows - r);
+    for (int c = 0; c < cols; c += block_params.l2_cols) {
+      int cs = std::min(block_params.l2_cols, cols - c);
 
-      PackLhs(&packed_lhs, lhs.block(r, 0, rs, depth));
+      for (int r = 0; r < rows; r += block_params.l2_rows) {
+        int rs = std::min(block_params.l2_rows, rows - r);
 
-      Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs,
-              depth);
+        PackLhs(&packed_lhs, lhs.block(r, 0, rs, depth));
 
-      auto curr_result_block =
-          MatrixBlockBounds(result_block.start_row + r, result_block.start_col,
-                            rs, result_block.cols);
-      UnpackResult<KernelFormat>(
-          &result, curr_result_block, packed_result, depth,
-          packed_lhs.sums_of_each_slice(), packed_rhs.sums_of_each_slice(),
-          lhs_offset.block(curr_result_block.start_row, rs),
-          rhs_offset.block(curr_result_block.start_col, result_block.cols),
-          output_pipeline);
+        Compute(kernel, block_params, &packed_result, packed_lhs, packed_rhs,
+                depth);
+
+        auto curr_result_block = MatrixBlockBounds(
+            result_block.start_row + r, result_block.start_col + c, rs, cs);
+        UnpackResult<KernelFormat>(
+            &result, curr_result_block, packed_result, depth,
+            packed_lhs.sums_of_each_slice(), packed_rhs.sums_of_each_slice(),
+            lhs_offset.block(curr_result_block.start_row, rs),
+            rhs_offset.block(curr_result_block.start_col, cs), output_pipeline);
+      }
     }
 
     local_allocator->Decommit();
