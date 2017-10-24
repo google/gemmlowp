@@ -215,7 +215,7 @@ inline void Prefetch(const void* ptr) {
   // leaving __builtin_prefetch a no-op on this architecture.
   // For our purposes, "pldl1keep" is usually what we want, meaning:
   // "prefetch for load, into L1 cache, using each value multiple times".
-  asm volatile("prfm pldl1keep, [%[ptr]]\n" ::[ptr] "r"(ptr) : );
+  asm volatile("prfm pldl1keep, [%[ptr]]\n" ::[ptr] "r"(ptr) :);
 #elif defined \
     __GNUC__  // Clang and GCC define __GNUC__ and have __builtin_prefetch.
   __builtin_prefetch(ptr);
