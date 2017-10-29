@@ -26,6 +26,7 @@ class Thread {
   Thread(BlockingCounter* blocking_counter, int number_of_times_to_decrement)
       : blocking_counter_(blocking_counter),
         number_of_times_to_decrement_(number_of_times_to_decrement),
+        finished_(false),
         made_the_last_decrement_(false) {
     pthread_create(&thread_, nullptr, ThreadFunc, this);
   }
@@ -33,7 +34,9 @@ class Thread {
   ~Thread() { Join(); }
 
   bool Join() const {
-    pthread_join(thread_, nullptr);
+    if (!finished_) {
+      pthread_join(thread_, nullptr);
+    }
     return made_the_last_decrement_;
   }
 
@@ -45,6 +48,7 @@ class Thread {
       Check(!made_the_last_decrement_);
       made_the_last_decrement_ = blocking_counter_->DecrementCount();
     }
+    finished_ = true;
   }
 
   static void* ThreadFunc(void* ptr) {
@@ -55,6 +59,7 @@ class Thread {
   BlockingCounter* const blocking_counter_;
   const int number_of_times_to_decrement_;
   pthread_t thread_;
+  bool finished_;
   bool made_the_last_decrement_;
 };
 
