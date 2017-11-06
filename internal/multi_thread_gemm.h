@@ -19,7 +19,6 @@
 #ifndef GEMMLOWP_INTERNAL_MULTI_THREAD_GEMM_H_
 #define GEMMLOWP_INTERNAL_MULTI_THREAD_GEMM_H_
 
-#include <pthread.h>
 #include <unistd.h>
 #include <vector>
 
@@ -148,10 +147,16 @@ T WaitForVariableChange(volatile T* var, T initial_value, pthread_cond_t* cond,
 class BlockingCounter {
  public:
   BlockingCounter()
-      : cond_(PTHREAD_COND_INITIALIZER),
-        mutex_(PTHREAD_MUTEX_INITIALIZER),
-        count_(0),
-        initial_count_(0) {}
+      : count_(0),
+        initial_count_(0) {
+    pthread_cond_init(&cond_, nullptr);
+    pthread_mutex_init(&mutex_, nullptr);
+  }
+
+  ~BlockingCounter() {
+    pthread_cond_destroy(&cond_);
+    pthread_mutex_destroy(&mutex_);
+  }
 
   // Sets/resets the counter; initial_count is the number of
   // decrementing events that the Wait() call will be waiting for.
@@ -228,16 +233,18 @@ class Worker {
 
   explicit Worker(BlockingCounter* counter_to_decrement_when_ready)
       : task_(nullptr),
-        state_cond_(PTHREAD_COND_INITIALIZER),
-        state_mutex_(PTHREAD_MUTEX_INITIALIZER),
         state_(State::ThreadStartup),
         counter_to_decrement_when_ready_(counter_to_decrement_when_ready) {
+    pthread_cond_init(&state_cond_, nullptr);
+    pthread_mutex_init(&state_mutex_, nullptr);
     pthread_create(&thread_, nullptr, ThreadFunc, this);
   }
 
   ~Worker() {
     ChangeState(State::ExitAsSoonAsPossible);
     pthread_join(thread_, nullptr);
+    pthread_cond_destroy(&state_cond_);
+    pthread_mutex_destroy(&state_mutex_);
   }
 
   // Changes State; may be called from either the worker thread
