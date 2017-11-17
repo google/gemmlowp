@@ -18,7 +18,7 @@
 #ifndef GEMMLOWP_INTERNAL_COMMON_H_
 #define GEMMLOWP_INTERNAL_COMMON_H_
 
-#include <pthread.h>
+#include "../profiling/pthread_everywhere.h"
 
 #include <algorithm>
 #include <cassert>
