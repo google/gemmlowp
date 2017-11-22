@@ -41,23 +41,6 @@
 
 #include "common.h"
 
-#if defined ANDROID || defined __ANDROID__
-#include <android/api-level.h>
-// The 18 here should be 16, but has to be 18 for now due
-// to a Google-internal issue.
-#if __ANDROID_API__ < 18
-#include <malloc.h>
-#define GEMMLOWP_USE_MEMALIGN
-#endif
-// posix_memalign is missing on some 4.1 x86 devices
-#if __ANDROID_API__ == 18
-#ifdef GEMMLOWP_X86_32
-#include <malloc.h>
-#define GEMMLOWP_USE_MEMALIGN
-#endif
-#endif
-#endif
-
 namespace gemmlowp {
 
 enum class TypeId : std::uint8_t { Uint8, Int8, Uint16, Int16, Uint32, Int32 };
@@ -115,13 +98,7 @@ class Allocator {
     if (reserved_bytes_ > storage_size_) {
       DeallocateStorage();
       storage_size_ = RoundUpToPowerOfTwo(reserved_bytes_);
-#ifdef GEMMLOWP_USE_MEMALIGN
-      storage_ = memalign(kAlignment, storage_size_);
-#else
-      if (posix_memalign(&storage_, kAlignment, storage_size_)) {
-        storage_ = nullptr;
-      }
-#endif
+      storage_ = aligned_alloc(kAlignment, storage_size_);
     }
 
     ReleaseBuildAssertion(!storage_size_ || storage_, "allocation failure");
@@ -192,7 +169,7 @@ class Allocator {
  private:
   void DeallocateStorage() {
     assert(!committed_);
-    free(storage_);
+    aligned_free(storage_);
     storage_size_ = 0;
   }
 

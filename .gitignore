@@ -8,3 +8,4 @@
 /.idea/
 CMakeLists.txt
 /bazel-*
+cmake_build/

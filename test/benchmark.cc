@@ -12,7 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include <unistd.h>
 #ifdef __APPLE__
 #include <sys/time.h>
 #endif
@@ -43,18 +42,6 @@
 #endif
 
 namespace gemmlowp {
-
-double time() {
-#ifdef __APPLE__
-  timeval t;
-  gettimeofday(&t, nullptr);
-  return t.tv_sec + 1e-6 * t.tv_usec;
-#else
-  timespec t;
-  clock_gettime(CLOCK_REALTIME, &t);
-  return t.tv_sec + 1e-9 * t.tv_nsec;
-#endif
-}
 
 const double min_accurate_duration = 1e-1;
 const std::size_t min_working_set_size = 16 * 1024 * 1024;
@@ -111,10 +98,10 @@ double time_for_gemms(GemmContext* context, const std::vector<gemm_t>& gemms) {
   std::size_t pool_index = 0;
 
   while (true) {
-    double starttime = time();
+    double starttime = real_time_in_seconds();
     for (int i = 0; i < iters_at_a_time; i++) {
       for (size_t j = 0; j < gemms.size(); j++) {
-        int k = pool_index * gemms.size() + j;
+        size_t k = pool_index * gemms.size() + j;
         Gemm<std::uint8_t, GEMMLOWP_TEST_BIT_DEPTH_PARAMS>(
             context, lhs[k].const_map(), rhs[k].const_map(), &result[k].map(),
             -75, -91, 74980, 123, 20);
@@ -124,7 +111,7 @@ double time_for_gemms(GemmContext* context, const std::vector<gemm_t>& gemms) {
         pool_index = 0;
       }
     }
-    double endtime = time();
+    double endtime = real_time_in_seconds();
 
     const float timing = static_cast<float>(endtime - starttime);
 
@@ -228,8 +215,8 @@ void benchmark_gemm_sizes(GemmContext* context,
   gemmlowp::StartProfiling();
 #endif
 
-  double starttime = time();
-  while (time() < starttime + mintime) {
+  double starttime = real_time_in_seconds();
+  while (real_time_in_seconds() < starttime + mintime) {
     gemm_times.push_back(
         time_for_gemms<LhsType, RhsType, ResultType>(context, gemms));
   }

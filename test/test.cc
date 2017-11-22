@@ -14,7 +14,6 @@
 
 #include "test.h"
 
-#include <unistd.h>
 #include <array>
 #include <cstdint>
 #include <cstdlib>

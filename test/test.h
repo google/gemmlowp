@@ -102,6 +102,19 @@ int Random() {
   return dist(RandomEngine());
 }
 
+#ifdef _MSC_VER
+// msvc does not support 8bit types in uniform_int_distribution<>.
+// Take 32 bit uniform_int_distribution<> and only use the lower 8 bits.
+template <typename OperandRange, typename MatrixType>
+void MakeRandom(MatrixType* m) {
+  ScopedProfilingLabel("MakeRandom(matrix)");
+  for (int c = 0; c < m->cols(); c++) {
+    for (int r = 0; r < m->rows(); r++) {
+      (*m)(r, c) = Random() % OperandRange::kMaxValue;
+    }
+  }
+}
+#else
 template <typename OperandRange, typename MatrixType>
 void MakeRandom(MatrixType* m) {
   ScopedProfilingLabel("MakeRandom(matrix)");
@@ -114,6 +127,7 @@ void MakeRandom(MatrixType* m) {
     }
   }
 }
+#endif
 
 template <typename MatrixType>
 void MakeConstant(MatrixType* m, typename MatrixType::Scalar val) {

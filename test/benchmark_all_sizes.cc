@@ -40,12 +40,6 @@ const int kNumThreads = BENCHMARK_NUM_THREADS;
 const int kNumThreads = 1;
 #endif
 
-double time() {
-  timespec t;
-  clock_gettime(CLOCK_REALTIME, &t);
-  return t.tv_sec + 1e-9 * t.tv_nsec;
-}
-
 namespace gemmlowp {
 
 // gemmlowp itself doesn't have a Matrix class, only a MatrixMap class,
@@ -145,7 +139,7 @@ float benchmark_8bit(int rows, int depth, int cols) {
       &gemm_context, lhs.const_map(), rhs.const_map(), &result.map(), -128,
       -128, output_pipeline);
 
-  double time_start = time();
+  double time_start = real_time_in_seconds();
   double t = time_start;
   int iters = 0;
   int iters_at_a_time = 1;
@@ -158,7 +152,7 @@ float benchmark_8bit(int rows, int depth, int cols) {
       iters++;
     }
     iters_at_a_time *= 2;
-    t = time();
+    t = real_time_in_seconds();
   }
   return (t - time_start) / iters;
 }
@@ -187,7 +181,7 @@ float benchmark_8bit_to_32bit(int rows, int depth, int cols) {
       &gemm_context, lhs.const_map(), rhs.const_map(), &result.map(), -128,
       -128, EmptyPipeline());
 
-  double time_start = time();
+  double time_start = real_time_in_seconds();
   double t = time_start;
   int iters = 0;
   int iters_at_a_time = 1;
@@ -200,7 +194,7 @@ float benchmark_8bit_to_32bit(int rows, int depth, int cols) {
       iters++;
     }
     iters_at_a_time *= 2;
-    t = time();
+    t = real_time_in_seconds();
   }
   return (t - time_start) / iters;
 }
@@ -221,6 +215,10 @@ bool operator<(const Shape& shape1, const Shape& shape2) {
           (shape1.rows < shape2.rows ||
            (shape1.rows == shape2.rows && shape1.cols < shape2.cols)));
 };
+
+#ifdef _WIN32
+#define sleep(t) Sleep(t)
+#endif
 
 float benchmark(const Shape& shape) {
   if (kCooldownBeforeBenchmarkSecs) {
@@ -323,10 +321,10 @@ void run_benchmarks(std::map<Shape, float>* results) {
                   std::end(pass_shapes));
   }
 
-  const double time_start = time();
+  const double time_start = gemmlowp::real_time_in_seconds();
   for (std::size_t i = 0; i < shapes.size(); i++) {
     const double ratio = static_cast<double>(i) / shapes.size();
-    const double elapsed = time() - time_start;
+    const double elapsed = gemmlowp::real_time_in_seconds() - time_start;
     const double elapsed_hours = elapsed / 3600.;
     const double eta_hours = elapsed_hours * (1. - ratio) / ratio;
     fprintf(stderr,
