@@ -75,6 +75,9 @@ inline void pthread_cond_signal(pthread_cond_t* cond) {
 inline void pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
   std::unique_lock<std::mutex> lock(**mutex, std::adopt_lock);
   (*cond)->wait(lock);
+  // detach lock from mutex so when we leave this conext
+  // the lock is not released
+  lock.release();
 }
 inline void pthread_cond_destroy(pthread_cond_t *cond) {
   delete *cond;
