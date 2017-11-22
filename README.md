@@ -122,28 +122,6 @@ $ touch WORKSPACE # declare that to be our workspace root
 $ bazel build gemmlowp:all
 ```
 
-### Building using cmake
-To build gemmlowp with cmake, for example on Windows:
-```
-mkdir cmake_build
-cd cmake_build
-cmake ../contrib  -A x64 -DCMAKE_BUILD_TYPE=Release 
-MSBuild /p:Configuration=Release ALL_BUILD.vcxproj
-```
-If you need additional compile arguments, for example to select SIMD, you can pass them to cmake with:
-```
- -DCMAKE_CXX_FLAGS="/arch:AVX2"
-```
-For Windows the default compiler is msvc. If you want to compile with llvm, add the following arguments to cmake:
-```
- -T "LLVM-vs2014" 
-```
-After the build you can run unit tests with:
-```
-ctest -C Release
-```
-Using cmake for Linux builds does work as well.
-
 ## Testing
 
 ### Testing by manually building and running tests
