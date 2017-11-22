@@ -563,7 +563,7 @@ inline int HowManyThreads(int max_num_threads, int rows, int cols, int depth) {
   }
 
   // Determine the maximum number of threads.
-  int max_count = ResolveMaxThreads(max_num_threads);
+  int max_count = GetHardwareConcurrency(max_num_threads);
 
   // Basic calculation: take into account max pool size, and
   // how many rows we have to feed our kernel.

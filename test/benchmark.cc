@@ -98,7 +98,7 @@ double time_for_gemms(GemmContext* context, const std::vector<gemm_t>& gemms) {
   std::size_t pool_index = 0;
 
   while (true) {
-    double starttime = time();
+    double starttime = real_time_in_seconds();
     for (int i = 0; i < iters_at_a_time; i++) {
       for (size_t j = 0; j < gemms.size(); j++) {
         size_t k = pool_index * gemms.size() + j;
@@ -111,7 +111,7 @@ double time_for_gemms(GemmContext* context, const std::vector<gemm_t>& gemms) {
         pool_index = 0;
       }
     }
-    double endtime = time();
+    double endtime = real_time_in_seconds();
 
     const float timing = static_cast<float>(endtime - starttime);
 
@@ -215,8 +215,8 @@ void benchmark_gemm_sizes(GemmContext* context,
   gemmlowp::StartProfiling();
 #endif
 
-  double starttime = time();
-  while (time() < starttime + mintime) {
+  double starttime = real_time_in_seconds();
+  while (real_time_in_seconds() < starttime + mintime) {
     gemm_times.push_back(
         time_for_gemms<LhsType, RhsType, ResultType>(context, gemms));
   }

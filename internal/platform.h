@@ -20,24 +20,39 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#include <malloc.h>
 #else
 #include <unistd.h>
 #endif
+#include <malloc.h>
+
+#if defined ANDROID || defined __ANDROID__
+#include <android/api-level.h>
+// The 18 here should be 16, but has to be 18 for now due
+// to a Google-internal issue.
+#if __ANDROID_API__ < 18
+#define GEMMLOWP_USE_MEMALIGN
+#endif
+// posix_memalign is missing on some 4.1 x86 devices
+#if __ANDROID_API__ == 18
+#ifdef GEMMLOWP_X86_32
+#define GEMMLOWP_USE_MEMALIGN
+#endif
+#endif
+#endif
+
 
 namespace gemmlowp {
   
 #ifdef _WIN32
-inline int posix_memalign(void **memptr, size_t alignment, size_t size) {
-  *memptr = _aligned_malloc(size, alignment);
-  return (*memptr == NULL);
+inline void *aligned_alloc(size_t alignment, size_t size) {
+  return _aligned_malloc(size, alignment);
 }
 
 inline void aligned_free(void *memptr) {
   _aligned_free(memptr);
 }
 
-inline int ResolveMaxThreads(int max_threads) {
+inline int GetHardwareConcurrency(int max_threads) {
   if (max_threads == 0) {
     SYSTEM_INFO sysinfo;
     GetSystemInfo(&sysinfo);
@@ -46,15 +61,26 @@ inline int ResolveMaxThreads(int max_threads) {
   return max_threads;
 }
 
-inline double time() {
+inline double real_time_in_seconds() {
   __int64 wintime; GetSystemTimeAsFileTime((FILETIME*)&wintime);
   wintime -= 116444736000000000i64;	            //1jan1601 to 1jan1970
   return wintime / 10000000i64 + wintime % 10000000i64 * 100 * 1e-9;
 }
 
 #else
+inline void *aligned_alloc(size_t alignment, size_t size) {
+#ifdef GEMMLOWP_USE_MEMALIGN
+  return memalign(alignment, size);
+#else
+  void *memptr;
+  if (posix_memalign(&memptr, alignment, size)) {
+    memptr = nullptr;
+  }
+  return memptr;
+#endif
+}
 
-inline int ResolveMaxThreads(int max_threads) {
+inline int GetHardwareConcurrency(int max_threads) {
   if (max_threads == 0) {
     static const int hardware_threads_count =
         static_cast<int>(sysconf(_SC_NPROCESSORS_CONF));
@@ -67,7 +93,7 @@ inline void aligned_free(void *memptr) {
   free(memptr);
 }
 
-inline double time() {
+inline double real_time_in_seconds() {
 #ifdef __APPLE__
   timeval t;
   gettimeofday(&t, nullptr);
