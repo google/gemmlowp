@@ -84,6 +84,10 @@ GEMMLOWP_SET_DEFAULT_KERNEL(false, false, SSE4_64_Kernel12x4Depth2)
 // SIMD is not available on this platform. The slow fallback will be used.
 // Don't require GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK because there's nothing
 // the user can do about it.
+#elif defined __powerpc__
+// There is currently no fast kernel using SIMD instructions on POWER. Don't
+// require GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK because there's nothing the user
+// can do about it.
 #else
 #error \
     "SIMD not enabled, you'd be getting a slow software fallback. Consider \

@@ -18,34 +18,12 @@
 #ifndef GEMMLOWP_INTERNAL_COMMON_H_
 #define GEMMLOWP_INTERNAL_COMMON_H_
 
-#ifdef _WIN32
-// win32 would only work with stl threading - set this here
-// so we don't need to pass this from apps like tensorflow.
-#define GEMMLOWP_STL_THREADING
-#define GEMMLOWP_USE_MEMALIGN
-#endif
-#ifdef GEMMLOWP_STL_THREADING
-#include <mutex>
-#include <thread>
-#else
-#include <pthread.h>
-#endif
+#include "../profiling/pthread_everywhere.h"
 
 #include <algorithm>
 #include <cassert>
 #include <cmath>
 #include <cstdlib>
-
-#ifdef _WIN32
-inline void *memalign(size_t alignment, size_t size) {
-  return _aligned_malloc(size, alignment);
-}
-
-inline int posix_memalign(void **memptr, size_t alignment, size_t size) {
-  *memptr = _aligned_malloc(alignment, size);
-  return (*memptr == NULL);
-}
-#endif
 
 #include "../profiling/instrumentation.h"
 
@@ -237,7 +215,7 @@ inline void Prefetch(const void* ptr) {
   // leaving __builtin_prefetch a no-op on this architecture.
   // For our purposes, "pldl1keep" is usually what we want, meaning:
   // "prefetch for load, into L1 cache, using each value multiple times".
-  asm volatile("prfm pldl1keep, [%[ptr]]\n" ::[ptr] "r"(ptr) : );
+  asm volatile("prfm pldl1keep, [%[ptr]]\n" ::[ptr] "r"(ptr) :);
 #elif defined \
     __GNUC__  // Clang and GCC define __GNUC__ and have __builtin_prefetch.
   __builtin_prefetch(ptr);

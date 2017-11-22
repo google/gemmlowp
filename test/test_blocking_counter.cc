@@ -14,6 +14,7 @@
 
 #include "test.h"
 
+#include <pthread.h>
 #include <vector>
 
 #include "../internal/multi_thread_gemm.h"
@@ -25,22 +26,17 @@ class Thread {
   Thread(BlockingCounter* blocking_counter, int number_of_times_to_decrement)
       : blocking_counter_(blocking_counter),
         number_of_times_to_decrement_(number_of_times_to_decrement),
+        finished_(false),
         made_the_last_decrement_(false) {
-#ifndef GEMMLOWP_STL_THREADING
     pthread_create(&thread_, nullptr, ThreadFunc, this);
-#else
-    thread_ = std::thread([this] { this->ThreadFunc(); });
-#endif
   }
 
   ~Thread() { Join(); }
 
-  bool Join() {
-#ifndef GEMMLOWP_STL_THREADING
-    pthread_join(thread_, nullptr);
-#else
-    thread_.join();
-#endif
+  bool Join() const {
+    if (!finished_) {
+      pthread_join(thread_, nullptr);
+    }
     return made_the_last_decrement_;
   }
 
@@ -52,6 +48,7 @@ class Thread {
       Check(!made_the_last_decrement_);
       made_the_last_decrement_ = blocking_counter_->DecrementCount();
     }
+    finished_ = true;
   }
 
   static void* ThreadFunc(void* ptr) {
@@ -61,11 +58,8 @@ class Thread {
 
   BlockingCounter* const blocking_counter_;
   const int number_of_times_to_decrement_;
-#ifndef GEMMLOWP_STL_THREADING
   pthread_t thread_;
-#else
-  std::thread thread_;
-#endif
+  bool finished_;
   bool made_the_last_decrement_;
 };
 
@@ -84,10 +78,7 @@ void test_blocking_counter(BlockingCounter* blocking_counter, int num_threads,
     if (threads[i]->Join()) {
       num_threads_that_made_the_last_decrement++;
     }
-#ifndef GEMMLOWP_STL_THREADING
-    // stl on windows complains because the destructor does a join again.
     delete threads[i];
-#endif
   }
   Check(num_threads_that_made_the_last_decrement == 1);
 }
