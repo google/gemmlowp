@@ -40,25 +40,6 @@ const int kNumThreads = BENCHMARK_NUM_THREADS;
 const int kNumThreads = 1;
 #endif
 
-#ifdef _WIN32
-// implement clock_gettime() for windows
-#define CLOCK_REALTIME 0
-
-int clock_gettime(int, struct timespec *spec) {
-	__int64 wintime; GetSystemTimeAsFileTime((FILETIME*)&wintime);
-	wintime -= 116444736000000000i64;	            //1jan1601 to 1jan1970
-	spec->tv_sec = wintime / 10000000i64;         //seconds
-	spec->tv_nsec = wintime % 10000000i64 * 100;  //nano-seconds
-	return 0;
-}
-#endif
-
-double time() {
-  timespec t;
-  clock_gettime(CLOCK_REALTIME, &t);
-  return t.tv_sec + 1e-9 * t.tv_nsec;
-}
-
 namespace gemmlowp {
 
 // gemmlowp itself doesn't have a Matrix class, only a MatrixMap class,
@@ -340,10 +321,10 @@ void run_benchmarks(std::map<Shape, float>* results) {
                   std::end(pass_shapes));
   }
 
-  const double time_start = time();
+  const double time_start = gemmlowp::time();
   for (std::size_t i = 0; i < shapes.size(); i++) {
     const double ratio = static_cast<double>(i) / shapes.size();
-    const double elapsed = time() - time_start;
+    const double elapsed = gemmlowp::time() - time_start;
     const double elapsed_hours = elapsed / 3600.;
     const double eta_hours = elapsed_hours * (1. - ratio) / ratio;
     fprintf(stderr,

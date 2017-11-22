@@ -14,9 +14,6 @@
 
 #include "test.h"
 
-#ifndef _WIN32
-#include <unistd.h>
-#endif
 #include <array>
 #include <cstdint>
 #include <cstdlib>

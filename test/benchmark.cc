@@ -11,11 +11,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
-#ifndef _WIN32
-#include <unistd.h>
-#else
-#include <windows.h>
-#endif
+
 #ifdef __APPLE__
 #include <sys/time.h>
 #endif
@@ -46,31 +42,6 @@
 #endif
 
 namespace gemmlowp {
-
-#ifdef _WIN32
-// implement clock_gettime() for windows
-#define CLOCK_REALTIME 0
-
-int clock_gettime(int, struct timespec *spec) {
-  __int64 wintime; GetSystemTimeAsFileTime((FILETIME*)&wintime);
-  wintime -= 116444736000000000i64;	            //1jan1601 to 1jan1970
-  spec->tv_sec = wintime / 10000000i64;         //seconds
-  spec->tv_nsec = wintime % 10000000i64 * 100;  //nano-seconds
-  return 0;
-}
-#endif
-
-double time() {
-#ifdef __APPLE__
-  timeval t;
-  gettimeofday(&t, nullptr);
-  return t.tv_sec + 1e-6 * t.tv_usec;
-#else
-  timespec t;
-  clock_gettime(CLOCK_REALTIME, &t);
-  return t.tv_sec + 1e-9 * t.tv_nsec;
-#endif
-}
 
 const double min_accurate_duration = 1e-1;
 const std::size_t min_working_set_size = 16 * 1024 * 1024;
@@ -130,7 +101,7 @@ double time_for_gemms(GemmContext* context, const std::vector<gemm_t>& gemms) {
     double starttime = time();
     for (int i = 0; i < iters_at_a_time; i++) {
       for (size_t j = 0; j < gemms.size(); j++) {
-        int k = pool_index * gemms.size() + j;
+        size_t k = pool_index * gemms.size() + j;
         Gemm<std::uint8_t, GEMMLOWP_TEST_BIT_DEPTH_PARAMS>(
             context, lhs[k].const_map(), rhs[k].const_map(), &result[k].map(),
             -75, -91, 74980, 123, 20);

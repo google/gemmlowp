@@ -13,8 +13,8 @@
 // limitations under the License.
 
 #include "test.h"
+#include "../profiling/pthread_everywhere.h"
 
-#include <pthread.h>
 #include <vector>
 
 #include "../internal/multi_thread_gemm.h"

@@ -1,6 +1,7 @@
 # Gemmlowp CMake file written for Debian.
 # Copyright © 2016 Zhou Mo <cdluminate@gmail.com>
 # Licence Apache-2.0
+
 cmake_minimum_required(VERSION 3.7)
 
 # Project
@@ -17,8 +18,13 @@ get_filename_component(gemmlowp_src ${gemmlowp_SOURCE_DIR} PATH)
 add_definitions(-DGEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK)
 
 if(WIN32)
+  # one can enable simd from the cmake command line, ie -DCMAKE_CXX_FLAGS="/arch:AVX2
   add_definitions(-DNOMINMAX -DWIN64 -DWIN32_LEAN_AND_MEAN -DNOGDI)
-  add_definitions(/bigobj /nologo /EHsc /GF /MP /Gm- /wd4800 /wd4805)
+  add_definitions(/bigobj /nologo /EHsc /GF /MP /Gm- /wd4800 /wd4805 /wd4244)
+  if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
+    # if we compile for windows with clang, allow inline asm
+    add_definitions(-DGEMMLOWP_ALLOW_INLINE_ASM)
+  endif()
 else()
   set(EXTERNAL_LIBRARIES "pthread")
 endif()
@@ -51,11 +57,13 @@ else()
 endif()
 target_link_libraries(eight_bit_int_gemm ${EXTERNAL_LIBRARIES})
 
-# Benchmark
-add_executable(benchmark "${gemmlowp_src}/test/benchmark.cc" ${gemmlowp_test_headers})
+# Benchmarks
+add_executable(benchmark
+    "${gemmlowp_src}/test/benchmark.cc" ${gemmlowp_test_headers})
 target_link_libraries(benchmark ${EXTERNAL_LIBRARIES})
 
-add_executable(benchmark_all_sizes "${gemmlowp_src}/test/benchmark_all_sizes.cc" ${gemmlowp_test_headers})
+add_executable(benchmark_all_sizes
+    "${gemmlowp_src}/test/benchmark_all_sizes.cc" ${gemmlowp_test_headers})
 target_compile_options(benchmark_all_sizes PRIVATE -DBENCHMARK_8bit -DBENCHMARK_QUICK)
 target_link_libraries(benchmark_all_sizes ${EXTERNAL_LIBRARIES})
 

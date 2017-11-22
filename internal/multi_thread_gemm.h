@@ -19,7 +19,6 @@
 #ifndef GEMMLOWP_INTERNAL_MULTI_THREAD_GEMM_H_
 #define GEMMLOWP_INTERNAL_MULTI_THREAD_GEMM_H_
 
-#include <unistd.h>
 #include <vector>
 
 #include "single_thread_gemm.h"
@@ -57,7 +56,9 @@ inline int Do256NOPs() {
 #undef GEMMLOWP_NOP
 
 inline void WriteBarrier() {
-#ifdef GEMMLOWP_ARM_32
+#if defined(_MSC_VER)
+  MemoryBarrier();
+#elif defined(GEMMLOWP_ARM_32)
   asm volatile("" ::: "memory");
 #elif defined(GEMMLOWP_ARM_64)
   asm volatile("dmb ishst" ::: "memory");
@@ -69,7 +70,9 @@ inline void WriteBarrier() {
 }
 
 inline void ReadBarrier() {
-#ifdef GEMMLOWP_ARM_32
+#if defined(_MSC_VER)
+  MemoryBarrier();
+#elif defined(GEMMLOWP_ARM_32)
   asm volatile("" ::: "memory");
 #elif defined(GEMMLOWP_ARM_64)
   asm volatile("dmb ishld" ::: "memory");
@@ -197,7 +200,9 @@ class BlockingCounter {
 #else
       // This is likely unnecessary, but is kept to ensure regressions are not
       // introduced.
+#ifndef _WIN32
       asm volatile("" ::: "memory");
+#endif
 #endif
       const std::size_t count_value = count_;
       if (count_value) {
@@ -558,19 +563,7 @@ inline int HowManyThreads(int max_num_threads, int rows, int cols, int depth) {
   }
 
   // Determine the maximum number of threads.
-  int max_count = max_num_threads;
-  // The special value 0 means try to determine the total number of cores.
-  if (max_count == 0) {
-    // No user-set maximum number of threads, so we need to
-    // do some hardware detection.
-    // This is expensive to query so we do it only once.
-    // Too bad for dynamicness. Also, we dont use the c++11 standard getter
-    // because Google's coding style currently bans #include <thread_>.
-    static const int hardware_threads_count =
-        static_cast<int>(sysconf(_SC_NPROCESSORS_CONF));
-
-    max_count = hardware_threads_count;
-  }
+  int max_count = ResolveMaxThreads(max_num_threads);
 
   // Basic calculation: take into account max pool size, and
   // how many rows we have to feed our kernel.
