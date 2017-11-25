@@ -22,6 +22,8 @@
 #include <windows.h>
 #else
 #include <unistd.h>
+#include <time.h>
+#include <stdlib.h>
 #endif
 #include <malloc.h>
 
@@ -42,7 +44,7 @@
 
 
 namespace gemmlowp {
-  
+
 #ifdef _WIN32
 inline void *aligned_alloc(size_t alignment, size_t size) {
   return _aligned_malloc(size, alignment);
