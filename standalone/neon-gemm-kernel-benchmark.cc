@@ -61,6 +61,7 @@
 #include <cassert>
 #include <cstdint>
 #include <cstdlib>
+#include <cstring>
 #include <iostream>
 #include <random>
 #include <type_traits>
@@ -2501,6 +2502,291 @@ struct NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits {
   }
 };
 
+#ifdef __ARM_FEATURE_DOTPROD
+// Kernels utilizing the Armv8.2 Dot Product extension.
+//
+// The dot product instructions work by taking 4 consecutive 8-bit depth
+// values from each operand, multiplying the 4 pairs together and
+// accumulating all the results into the corresponding 32-bit accumulator
+// lane.  As such, the operation is identical to a 32-bit instruction (like
+// FMLA used in SGEMM), except that 4 depth values are processed at a time
+// instead of 1.
+
+// Thus, this first kernel is a carbon copy of
+// "NEON_64bit_GEMM_Float32_WithScalar_A57" (which should provide good
+// performance for most processors) below with the opcode (fmla -> udot) and
+// types (float32 -> uint8/uint32) changed.
+//
+// A signed version of this kernel could be produced by replacing "udot"
+// with "sdot" - performance should be identical to this udot kernel.
+struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_dotproduct {
+  typedef std::uint8_t OperandType;
+  typedef std::uint32_t AccumulatorType;
+  typedef KernelFormat<
+      KernelSideFormat<CellFormat<4, 4, CellOrder::WidthMajor>, 3>,
+      KernelSideFormat<CellFormat<4, 4, CellOrder::WidthMajor>, 2> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr,
+                  AccumulatorType* accum_ptr, int depth) {
+    asm volatile(
+        // Load accumulators
+        "mov x0, %[accum_ptr]\n"
+        "ld1 {v8.4s}, [x0], #16\n"
+        "ld1 {v16.4s}, [x0], #16\n"
+        "ld1 {v24.4s}, [x0], #16\n"
+        "ld1 {v9.4s}, [x0], #16\n"
+        "ld1 {v17.4s}, [x0], #16\n"
+        "ld1 {v25.4s}, [x0], #16\n"
+        "ld1 {v10.4s}, [x0], #16\n"
+        "ld1 {v18.4s}, [x0], #16\n"
+        "ld1 {v26.4s}, [x0], #16\n"
+        "ld1 {v11.4s}, [x0], #16\n"
+        "ld1 {v19.4s}, [x0], #16\n"
+        "ld1 {v27.4s}, [x0], #16\n"
+        "ld1 {v12.4s}, [x0], #16\n"
+        "ld1 {v20.4s}, [x0], #16\n"
+        "ld1 {v28.4s}, [x0], #16\n"
+        "ld1 {v13.4s}, [x0], #16\n"
+        "ld1 {v21.4s}, [x0], #16\n"
+        "ld1 {v29.4s}, [x0], #16\n"
+        "ld1 {v14.4s}, [x0], #16\n"
+        "ld1 {v22.4s}, [x0], #16\n"
+        "ld1 {v30.4s}, [x0], #16\n"
+        "ld1 {v15.4s}, [x0], #16\n"
+        "ld1 {v23.4s}, [x0], #16\n"
+        "ld1 {v31.4s}, [x0], #16\n"
+
+        // The start of the loop assumes first Rhs cell is already loaded, so
+        // do it here for first iteration.
+        "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
+
+        // And the same for the first Lhs cell.
+        "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
+
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
+
+        // Start the MACs at the head of the loop - 1st cell from each side
+        // already loaded.
+        "udot v8.4s, v2.16b, v0.b[0]\n"
+        "udot v9.4s, v2.16b, v0.b[1]\n"
+        "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"  // Load second Rhs cell.
+        "udot v10.4s, v2.16b, v0.b[2]\n"
+        "udot v11.4s, v2.16b, v0.b[3]\n"
+        "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"  // Load second Lhs cell.
+        "udot v12.4s, v2.16b, v1.b[0]\n"
+        "udot v13.4s, v2.16b, v1.b[1]\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"  // Load third Lhs cell.
+        "udot v14.4s, v2.16b, v1.b[2]\n"
+        "udot v15.4s, v2.16b, v1.b[3]\n"
+        "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"  // Done with first Lhs cell - load
+        // for the next iteration early.
+        "udot v16.4s, v3.16b, v0.b[0]\n"
+        "udot v17.4s, v3.16b, v0.b[1]\n"
+        "udot v18.4s, v3.16b, v0.b[2]\n"
+        "udot v19.4s, v3.16b, v0.b[3]\n"
+        "udot v20.4s, v3.16b, v1.b[0]\n"
+        "udot v21.4s, v3.16b, v1.b[1]\n"
+        "udot v22.4s, v3.16b, v1.b[2]\n"
+        "udot v23.4s, v3.16b, v1.b[3]\n"
+        "udot v24.4s, v4.16b, v0.b[0]\n"
+        "udot v25.4s, v4.16b, v0.b[1]\n"
+        "udot v26.4s, v4.16b, v0.b[2]\n"
+        "udot v27.4s, v4.16b, v0.b[3]\n"
+        "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"  // Done with the first Rhs cell -
+        // load for the next iteration early.
+        "udot v28.4s, v4.16b, v1.b[0]\n"
+        "udot v29.4s, v4.16b, v1.b[1]\n"
+
+        // Loop.  Decrement loop index (depth) by 4 as udot processes 4
+        // depth values.
+        "subs %w[depth], %w[depth], #4\n"
+        "udot v30.4s, v4.16b, v1.b[2]\n"
+        "udot v31.4s, v4.16b, v1.b[3]\n"
+
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
+
+        // Store accumulators
+        "mov x0, %[accum_ptr]\n"
+        "st1 {v8.16b}, [x0], #16\n"
+        "st1 {v16.16b}, [x0], #16\n"
+        "st1 {v24.16b}, [x0], #16\n"
+        "st1 {v9.16b}, [x0], #16\n"
+        "st1 {v17.16b}, [x0], #16\n"
+        "st1 {v25.16b}, [x0], #16\n"
+        "st1 {v10.16b}, [x0], #16\n"
+        "st1 {v18.16b}, [x0], #16\n"
+        "st1 {v26.16b}, [x0], #16\n"
+        "st1 {v11.16b}, [x0], #16\n"
+        "st1 {v19.16b}, [x0], #16\n"
+        "st1 {v27.16b}, [x0], #16\n"
+        "st1 {v12.16b}, [x0], #16\n"
+        "st1 {v20.16b}, [x0], #16\n"
+        "st1 {v28.16b}, [x0], #16\n"
+        "st1 {v13.16b}, [x0], #16\n"
+        "st1 {v21.16b}, [x0], #16\n"
+        "st1 {v29.16b}, [x0], #16\n"
+        "st1 {v14.16b}, [x0], #16\n"
+        "st1 {v22.16b}, [x0], #16\n"
+        "st1 {v30.16b}, [x0], #16\n"
+        "st1 {v15.16b}, [x0], #16\n"
+        "st1 {v23.16b}, [x0], #16\n"
+        "st1 {v31.16b}, [x0], #16\n"
+        :  // outputs
+        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+        [depth] "+r"(depth)
+        :  // inputs
+        [accum_ptr] "r"(accum_ptr)
+        :  // clobbers
+        "cc", "memory", "x0", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+        "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17",
+        "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27",
+        "v28", "v29", "v30", "v31");
+  }
+};
+
+// As above, except tuned for Cortex-A55r1.
+//
+// Similarly, this is a clone of NEON_64bit_GEMM_Float32_WithScalar_A55r1
+// with the names changed.
+struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_dotproduct_A55r1 {
+  typedef std::uint8_t OperandType;
+  typedef std::uint32_t AccumulatorType;
+  typedef KernelFormat<
+      KernelSideFormat<CellFormat<4, 4, CellOrder::WidthMajor>, 3>,
+      KernelSideFormat<CellFormat<4, 4, CellOrder::WidthMajor>, 2> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr,
+                  AccumulatorType* accum_ptr, int depth) {
+    asm volatile(
+        // Load accumulators
+        "mov x0, %[accum_ptr]\n"
+        "ld1 {v8.4s}, [x0], #16\n"
+        "ld1 {v16.4s}, [x0], #16\n"
+        "ld1 {v24.4s}, [x0], #16\n"
+        "ld1 {v9.4s}, [x0], #16\n"
+        "ld1 {v17.4s}, [x0], #16\n"
+        "ld1 {v25.4s}, [x0], #16\n"
+        "ld1 {v10.4s}, [x0], #16\n"
+        "ld1 {v18.4s}, [x0], #16\n"
+        "ld1 {v26.4s}, [x0], #16\n"
+        "ld1 {v11.4s}, [x0], #16\n"
+        "ld1 {v19.4s}, [x0], #16\n"
+        "ld1 {v27.4s}, [x0], #16\n"
+        "ld1 {v12.4s}, [x0], #16\n"
+        "ld1 {v20.4s}, [x0], #16\n"
+        "ld1 {v28.4s}, [x0], #16\n"
+        "ld1 {v13.4s}, [x0], #16\n"
+        "ld1 {v21.4s}, [x0], #16\n"
+        "ld1 {v29.4s}, [x0], #16\n"
+        "ld1 {v14.4s}, [x0], #16\n"
+        "ld1 {v22.4s}, [x0], #16\n"
+        "ld1 {v30.4s}, [x0], #16\n"
+        "ld1 {v15.4s}, [x0], #16\n"
+        "ld1 {v23.4s}, [x0], #16\n"
+        "ld1 {v31.4s}, [x0], #16\n"
+
+        // For details on how this kernel works, see the Float32 kernel below.
+
+        "ldr d0, [%[rhs_ptr]]\n"
+        "ldr x18, [%[rhs_ptr], #8]\n"
+
+        "ldr q2, [%[lhs_ptr]]\n"
+        "ldr q3, [%[lhs_ptr], #16]\n"
+
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
+
+        "udot v8.4s, v2.16b, v0.b[0]\n"
+        "ldr d1, [%[rhs_ptr], #16]\n"         // Bottom half of v1
+        "udot v9.4s, v2.16b, v0.b[1]\n"
+        "ins v0.d[1], x18\n"                  // Finish loading v0
+        "udot v16.4s, v3.16b, v0.b[0]\n"      // out of sequence - used to reduce load/use pressure.
+        "ldr x18, [%[rhs_ptr], #24]\n"        // Top half of v1 to X register
+        "udot v17.4s, v3.16b, v0.b[1]\n"      // out of sequence - used to reduce load/use pressure.
+        "add %[rhs_ptr], %[rhs_ptr], #32\n"   // RHS loads complete - increment pointer.
+        "udot v10.4s, v2.16b, v0.b[2]\n"
+        "ldr d4, [%[lhs_ptr], #32]\n"         // Bottom half of v4
+        "udot v11.4s, v2.16b, v0.b[3]\n"
+        "ins v1.d[1], x18\n"                  // Finish loading v1
+        "udot v12.4s, v2.16b, v1.b[0]\n"
+        "ldr x18, [%[lhs_ptr], #40]\n"        // Top half of v4 to X register
+        "udot v13.4s, v2.16b, v1.b[1]\n"
+        "add %[lhs_ptr], %[lhs_ptr], #48\n"   // LHS loads complete - increment pointer.
+        "udot v14.4s, v2.16b, v1.b[2]\n"
+
+        "udot v15.4s, v2.16b, v1.b[3]\n"
+        "ldr d2, [%[lhs_ptr]]\n"              // Bottom half of v2 (for next time)
+        "udot v18.4s, v3.16b, v0.b[2]\n"
+        "ins v4.d[1], x18\n"                  // Finish loading v4
+        "udot v19.4s, v3.16b, v0.b[3]\n"
+        "ldr x18, [%[lhs_ptr], #8]\n"         // Top half of next v2 to X register
+        "udot v20.4s, v3.16b, v1.b[0]\n"
+        "subs %w[depth], %w[depth], #4\n"
+        "udot v21.4s, v3.16b, v1.b[1]\n"
+
+        "udot v22.4s, v3.16b, v1.b[2]\n"
+
+        "udot v23.4s, v3.16b, v1.b[3]\n"
+        "ldr d3, [%[lhs_ptr], #16]\n"         // Bottom half of v3 (for next time)
+        "udot v24.4s, v4.16b, v0.b[0]\n"
+        "ins v2.d[1], x18\n"                  // Finish loading next v2
+        "udot v25.4s, v4.16b, v0.b[1]\n"
+        "ldr x18, [%[lhs_ptr], #24]\n"        // Top half of next v3 to X register
+        "udot v26.4s, v4.16b, v0.b[2]\n"
+
+        "udot v27.4s, v4.16b, v0.b[3]\n"
+        "ldr d0, [%[rhs_ptr]]\n"              // Bottom half of v0 (for next time)
+        "udot v28.4s, v4.16b, v1.b[0]\n"
+        "ins v3.d[1], x18\n"                  // Finish loading next v3
+        "udot v29.4s, v4.16b, v1.b[1]\n"
+        "ldr x18, [%[rhs_ptr], #8]\n"         // Top half of next v0 to X register
+        "udot v30.4s, v4.16b, v1.b[2]\n"
+
+        "udot v31.4s, v4.16b, v1.b[3]\n"
+        "bne " GEMMLOWP_LABEL_LOOP "b\n"
+
+        // Store accumulators
+        "mov x0, %[accum_ptr]\n"
+        "st1 {v8.4s}, [x0], #16\n"
+        "st1 {v16.4s}, [x0], #16\n"
+        "st1 {v24.4s}, [x0], #16\n"
+        "st1 {v9.4s}, [x0], #16\n"
+        "st1 {v17.4s}, [x0], #16\n"
+        "st1 {v25.4s}, [x0], #16\n"
+        "st1 {v10.4s}, [x0], #16\n"
+        "st1 {v18.4s}, [x0], #16\n"
+        "st1 {v26.4s}, [x0], #16\n"
+        "st1 {v11.4s}, [x0], #16\n"
+        "st1 {v19.4s}, [x0], #16\n"
+        "st1 {v27.4s}, [x0], #16\n"
+        "st1 {v12.4s}, [x0], #16\n"
+        "st1 {v20.4s}, [x0], #16\n"
+        "st1 {v28.4s}, [x0], #16\n"
+        "st1 {v13.4s}, [x0], #16\n"
+        "st1 {v21.4s}, [x0], #16\n"
+        "st1 {v29.4s}, [x0], #16\n"
+        "st1 {v14.4s}, [x0], #16\n"
+        "st1 {v22.4s}, [x0], #16\n"
+        "st1 {v30.4s}, [x0], #16\n"
+        "st1 {v15.4s}, [x0], #16\n"
+        "st1 {v23.4s}, [x0], #16\n"
+        "st1 {v31.4s}, [x0], #16\n"
+        :  // outputs
+        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+        [depth] "+r"(depth)
+        :  // inputs
+        [accum_ptr] "r"(accum_ptr)
+        :  // clobbers
+        "cc", "memory", "x0", "x18", "v0", "v1", "v2", "v3", "v4", "v5", "v6",
+        "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16",
+        "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26",
+        "v27", "v28", "v29", "v30", "v31");
+  }
+};
+#endif  // __ARM_FEATURE_DOTPROD
+
 // We don't actually use int32*int32 in production. This is just an
 // experiment to help dissociate the effect of integer-vs-float, from the
 // effect of operands width.
@@ -3203,6 +3489,169 @@ struct NEON_64bit_GEMM_Float32_WithScalar_A53 {
 };
 #endif
 
+// Faster kernel contributed by ARM. Tuned for A55r1.
+struct NEON_64bit_GEMM_Float32_WithScalar_A55r1 {
+  typedef float OperandType;
+  typedef float AccumulatorType;
+  typedef KernelFormat<
+      KernelSideFormat<CellFormat<4, 1, CellOrder::DepthMajor>, 3>,
+      KernelSideFormat<CellFormat<4, 1, CellOrder::DepthMajor>, 2> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr,
+                  AccumulatorType* accum_ptr, int depth) {
+    asm volatile(
+        // Load accumulators
+        "mov x0, %[accum_ptr]\n"
+        "ld1 {v8.4s}, [x0], #16\n"
+        "ld1 {v16.4s}, [x0], #16\n"
+        "ld1 {v24.4s}, [x0], #16\n"
+        "ld1 {v9.4s}, [x0], #16\n"
+        "ld1 {v17.4s}, [x0], #16\n"
+        "ld1 {v25.4s}, [x0], #16\n"
+        "ld1 {v10.4s}, [x0], #16\n"
+        "ld1 {v18.4s}, [x0], #16\n"
+        "ld1 {v26.4s}, [x0], #16\n"
+        "ld1 {v11.4s}, [x0], #16\n"
+        "ld1 {v19.4s}, [x0], #16\n"
+        "ld1 {v27.4s}, [x0], #16\n"
+        "ld1 {v12.4s}, [x0], #16\n"
+        "ld1 {v20.4s}, [x0], #16\n"
+        "ld1 {v28.4s}, [x0], #16\n"
+        "ld1 {v13.4s}, [x0], #16\n"
+        "ld1 {v21.4s}, [x0], #16\n"
+        "ld1 {v29.4s}, [x0], #16\n"
+        "ld1 {v14.4s}, [x0], #16\n"
+        "ld1 {v22.4s}, [x0], #16\n"
+        "ld1 {v30.4s}, [x0], #16\n"
+        "ld1 {v15.4s}, [x0], #16\n"
+        "ld1 {v23.4s}, [x0], #16\n"
+        "ld1 {v31.4s}, [x0], #16\n"
+
+        // A55r1 requires a hybrid of the A53 and standard approaches.
+        //
+        // Like A53, this processor prefers 64-bit loads.
+        //
+        // Unlike A53, it is capable of dual-issuing a 64-bit vector load
+        // (or INS) with a FMLA instruction.
+        //
+        // Therefore we aim to issue an FMLA instruction every cycle.
+        // Alongside three FMLAs we can dual issue a (vector) 64-bit load, a
+        // scalar 64-bit load and finally an INS to replicate the effect of
+        // a single 128-bit load.
+        //
+        // The loop contains 24 FMLA instructions, and 5 vector registers
+        // need to be loaded, consuming 15 dual issue slots.  This leaves 9
+        // dual issue slots.  Four of these are used for loop housekeeping
+        // (2 pointer adds, 1 counter update and 1 branch), leaving 5 left
+        // over (marked by blank lines).
+        //
+        // Choice of x18 to store the upper halves on their way into the
+        // vector registers is arbitrary.  Added to the clobber list so that
+        // the compiler will make it available.
+
+
+        // At the start of the loop, it is assumed that v0 is "half loaded" -
+        // bottom half in place in d0 and the upper half in x18 ready to
+        // insert.  So set that up here for the first iteration:
+        "ldr d0, [%[rhs_ptr]]\n"             // Bottom half of first Rhs cell
+        "ldr x18, [%[rhs_ptr], #8]\n"        // Upper half
+
+        // v2-v3 should be fully loaded - as it's outside the loop proper it's fine
+        // to use a 128-bit load here.
+        "ldr q2, [%[lhs_ptr]]\n"      // first Lhs cell
+        "ldr q3, [%[lhs_ptr], #16]\n" // second Lhs cell
+
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
+
+        "fmla v8.4s, v2.4s, v0.s[0]\n"
+        "ldr d1, [%[rhs_ptr], #16]\n"         // Bottom half of v1
+        "fmla v9.4s, v2.4s, v0.s[1]\n"
+        "ins v0.d[1], x18\n"                  // Finish loading v0
+        "fmla v16.4s, v3.4s, v0.s[0]\n"       // out of sequence - used to reduce load/use pressure.
+        "ldr x18, [%[rhs_ptr], #24]\n"        // Top half of v1 to X register
+        "fmla v17.4s, v3.4s, v0.s[1]\n"       // out of sequence - used to reduce load/use pressure.
+        "add %[rhs_ptr], %[rhs_ptr], #32\n"   // RHS loads complete - increment pointer.
+        "fmla v10.4s, v2.4s, v0.s[2]\n"
+        "ldr d4, [%[lhs_ptr], #32]\n"         // Bottom half of v4
+        "fmla v11.4s, v2.4s, v0.s[3]\n"
+        "ins v1.d[1], x18\n"                  // Finish loading v1
+        "fmla v12.4s, v2.4s, v1.s[0]\n"
+        "ldr x18, [%[lhs_ptr], #40]\n"        // Top half of v4 to X register
+        "fmla v13.4s, v2.4s, v1.s[1]\n"
+        "add %[lhs_ptr], %[lhs_ptr], #48\n"   // LHS loads complete - increment pointer.
+        "fmla v14.4s, v2.4s, v1.s[2]\n"
+
+        "fmla v15.4s, v2.4s, v1.s[3]\n"
+        "ldr d2, [%[lhs_ptr]]\n"              // Bottom half of v2 (for next time)
+        "fmla v18.4s, v3.4s, v0.s[2]\n"
+        "ins v4.d[1], x18\n"                  // Finish loading v4
+        "fmla v19.4s, v3.4s, v0.s[3]\n"
+        "ldr x18, [%[lhs_ptr], #8]\n"         // Top half of next v2 to X register
+        "fmla v20.4s, v3.4s, v1.s[0]\n"
+        "subs %w[depth], %w[depth], #1\n"
+        "fmla v21.4s, v3.4s, v1.s[1]\n"
+
+        "fmla v22.4s, v3.4s, v1.s[2]\n"
+
+        "fmla v23.4s, v3.4s, v1.s[3]\n"
+        "ldr d3, [%[lhs_ptr], #16]\n"         // Bottom half of v3 (for next time)
+        "fmla v24.4s, v4.4s, v0.s[0]\n"
+        "ins v2.d[1], x18\n"                  // Finish loading next v2
+        "fmla v25.4s, v4.4s, v0.s[1]\n"
+        "ldr x18, [%[lhs_ptr], #24]\n"        // Top half of next v3 to X register
+        "fmla v26.4s, v4.4s, v0.s[2]\n"
+
+        "fmla v27.4s, v4.4s, v0.s[3]\n"
+        "ldr d0, [%[rhs_ptr]]\n"              // Bottom half of v0 (for next time)
+        "fmla v28.4s, v4.4s, v1.s[0]\n"
+        "ins v3.d[1], x18\n"                  // Finish loading next v3
+        "fmla v29.4s, v4.4s, v1.s[1]\n"
+        "ldr x18, [%[rhs_ptr], #8]\n"         // Top half of next v0 to X register
+        "fmla v30.4s, v4.4s, v1.s[2]\n"
+
+        "fmla v31.4s, v4.4s, v1.s[3]\n"
+        "bne " GEMMLOWP_LABEL_LOOP "b\n"
+
+        // Store accumulators
+        "mov x0, %[accum_ptr]\n"
+        "st1 {v8.4s}, [x0], #16\n"
+        "st1 {v16.4s}, [x0], #16\n"
+        "st1 {v24.4s}, [x0], #16\n"
+        "st1 {v9.4s}, [x0], #16\n"
+        "st1 {v17.4s}, [x0], #16\n"
+        "st1 {v25.4s}, [x0], #16\n"
+        "st1 {v10.4s}, [x0], #16\n"
+        "st1 {v18.4s}, [x0], #16\n"
+        "st1 {v26.4s}, [x0], #16\n"
+        "st1 {v11.4s}, [x0], #16\n"
+        "st1 {v19.4s}, [x0], #16\n"
+        "st1 {v27.4s}, [x0], #16\n"
+        "st1 {v12.4s}, [x0], #16\n"
+        "st1 {v20.4s}, [x0], #16\n"
+        "st1 {v28.4s}, [x0], #16\n"
+        "st1 {v13.4s}, [x0], #16\n"
+        "st1 {v21.4s}, [x0], #16\n"
+        "st1 {v29.4s}, [x0], #16\n"
+        "st1 {v14.4s}, [x0], #16\n"
+        "st1 {v22.4s}, [x0], #16\n"
+        "st1 {v30.4s}, [x0], #16\n"
+        "st1 {v15.4s}, [x0], #16\n"
+        "st1 {v23.4s}, [x0], #16\n"
+        "st1 {v31.4s}, [x0], #16\n"
+        :  // outputs
+        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+        [depth] "+r"(depth)
+        :  // inputs
+        [accum_ptr] "r"(accum_ptr)
+        :  // clobbers
+        "cc", "memory", "x0", "x18", "v0", "v1", "v2", "v3", "v4", "v5", "v6",
+        "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16",
+        "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26",
+        "v27", "v28", "v29", "v30", "v31");
+  }
+};
+
 #endif  // __aarch64__
 
 #ifndef __aarch64__
@@ -3726,12 +4175,15 @@ int main() {
 #endif
 
 #ifdef __aarch64__
-
   BENCHMARK(NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits);
   BENCHMARK(NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics);
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators);
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_intrinsics);
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_noexpand_A57);
+#ifdef __ARM_FEATURE_DOTPROD
+  BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_dotproduct);
+  BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_dotproduct_A55r1);
+#endif
   BENCHMARK(NEON_64bit_GEMM_Int32_WithScalar);
   BENCHMARK(NEON_64bit_GEMM_Float32_WithVectorDuplicatingScalar);
   BENCHMARK(NEON_64bit_GEMM_Float32_WithScalar);
@@ -3740,6 +4192,7 @@ int main() {
 #ifndef __APPLE__
   BENCHMARK(NEON_64bit_GEMM_Float32_WithScalar_A53);
 #endif
+  BENCHMARK(NEON_64bit_GEMM_Float32_WithScalar_A55r1);
 #endif
 
   return 0;
