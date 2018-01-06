@@ -430,6 +430,8 @@ void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
 #include "pack_neon.h"
 #elif defined(GEMMLOWP_SSE4)
 #include "pack_sse.h"
+#elif defined(GEMMLOWP_MSA)
+#include "pack_msa.h"
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_PACK_H_

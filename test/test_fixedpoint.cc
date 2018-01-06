@@ -50,6 +50,15 @@ SimdVector LoadSimdVector(const std::int32_t* src) {
 void StoreSimdVector(std::int32_t* dst, SimdVector v) {
   _mm_storeu_si128(reinterpret_cast<__m128i*>(dst), v);
 }
+#elif defined(GEMMLOWP_MSA)
+using SimdVector = v4i32;
+constexpr std::size_t SimdVectorSize = 4;
+SimdVector LoadSimdVector(const std::int32_t* src) {
+  return __builtin_msa_ld_w(const_cast<std::int32_t*>(src), 0);
+}
+void StoreSimdVector(std::int32_t* dst, SimdVector v) {
+  __builtin_msa_st_w(v, dst, 0);
+}
 #else
 using SimdVector = std::int32_t;
 constexpr std::size_t SimdVectorSize = 1;

@@ -430,6 +430,8 @@ struct OutputPipelineExecutor {
 #include "output_neon.h"
 #elif defined(GEMMLOWP_SSE4)
 #include "output_sse.h"
+#elif defined(GEMMLOWP_MSA)
+#include "output_msa.h"
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_OUTPUT_H_

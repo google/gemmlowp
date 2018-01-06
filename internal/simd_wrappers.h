@@ -503,6 +503,8 @@ using RegBlockUint8 = RegisterBlock<std::uint8_t, R, C>;
 #include "simd_wrappers_neon.h"
 #elif defined GEMMLOWP_SSE4
 #include "simd_wrappers_sse.h"
+#elif defined GEMMLOWP_MSA
+#include "simd_wrappers_msa.h"
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_SIMD_WRAPPERS_H_

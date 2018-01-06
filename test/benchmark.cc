@@ -36,6 +36,10 @@
 #warning "Building without NEON support on ARM, check your compiler setup!"
 #endif
 
+#if defined(__mips) && !defined(GEMMLOWP_MSA)
+#warning "Building without MSA support on MIPS, check your compiler setup!"
+#endif
+
 #if defined(__SSE4_2__) && !defined(GEMMLOWP_SSE4)
 #warning \
     "Building without SSE4.2 support on SSE4.2 enabled machine, check your compiler setup!"
