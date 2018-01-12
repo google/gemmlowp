@@ -12,11 +12,6 @@ set(CMAKE_CXX_STANDARD 11)
 
 get_filename_component(gemmlowp_src ${gemmlowp_SOURCE_DIR} PATH)
 
-# Enabling SIMD is recommended for modern x86 machines
-#add_definitions(-msse4)
-# However here we take the best compatibility
-add_definitions(-DGEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK)
-
 if(WIN32)
   # one can enable simd from the cmake command line, ie -DCMAKE_CXX_FLAGS="/arch:AVX2
   add_definitions(-DNOMINMAX -DWIN64 -DWIN32_LEAN_AND_MEAN -DNOGDI)

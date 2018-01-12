@@ -10,6 +10,8 @@ The meaning of "low precision" is detailed in this document:
 
 Some of the general design is explained in [doc/design.md](doc/design.md).
 
+**Warning:** This library goes very slow if compiled incorrectly; see below.
+
 ## Disclaimer
 
 This is not an official Google product (experimental or otherwise), it is just
@@ -54,13 +56,17 @@ Current optimized code paths:
 *   ARM with NEON (both 32bit and 64bit).
 *   Intel x86 with SSE 4.1 (both 32bit and 64bit).
 
-If you are building for x86, it's important that you pass in the `-msse4.1`
-compiler flag when building, or you'll end up using slow reference code. If
-you're building with Bazel, you can do this by running `bazel build gemmlowp:all
---copt=-msse4.1`. If you're building for a machine with no SIMD support in
-gemmlowp then by default you'll see an error. If you want to run with the
-reference implementations anyway, you can override the error by specifying
-`GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK` as a build define.
+When building for x86, it's very important to pass `-msse4.1` to the compiler,
+otherwise gemmlowp will use slow reference code. Bazel users can compile by
+running `bazel build --copt=-msse4.1 //gemmlowp:all`. The compiled binary should
+work on all Intel CPUs since 2008 (including low power microarchitectures) as
+well as AMD CPUs since 2011.
+
+Please note when compiling binaries that don't need to be distributed, it's
+generally a better idea to pass `-march=native` to the compiler. That flag
+implies `-msse4.1` flag, along with others that might be helpful. This of course
+assumes the host machine supports those instructions. Bazel users should prefer
+to run `bazel build --config=opt //gemmlowp:all` instead.
 
 Details of what it takes to make an efficient port of gemmlowp, namely writing a
 suitable GEMM kernel and accompanying packing code, are explained in this file:
