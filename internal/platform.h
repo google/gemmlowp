@@ -20,12 +20,18 @@
 
 #ifdef _WIN32
 #include <windows.h>
+#include <malloc.h>
+#elif __APPLE__
+#include <unistd.h>
+#include <stdlib.h>
+#include <sys/time.h>
+#include <sys/malloc.h>
 #else
 #include <unistd.h>
 #include <time.h>
 #include <stdlib.h>
-#endif
 #include <malloc.h>
+#endif
 
 #if defined ANDROID || defined __ANDROID__
 #include <android/api-level.h>
