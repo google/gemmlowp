@@ -55,6 +55,19 @@
 #define GEMMLOWP_ARM
 #endif
 
+// Detect MIPS, 32-bit or 64-bit
+#if defined(__mips) && !defined(__LP64__)
+#define GEMMLOWP_MIPS_32
+#endif
+
+#if defined(__mips) && defined(__LP64__)
+#define GEMMLOWP_MIPS_64
+#endif
+
+#if defined(GEMMLOWP_MIPS_32) || defined(GEMMLOWP_MIPS_64)
+#define GEMMLOWP_MIPS
+#endif
+
 // Detect x86, 32-bit or 64-bit
 #if defined(__i386__) || defined(_M_IX86) || defined(_X86_) || defined(__i386)
 #define GEMMLOWP_X86_32
@@ -85,6 +98,23 @@
 
 #if defined(GEMMLOWP_NEON) && defined(GEMMLOWP_ARM_64)
 #define GEMMLOWP_NEON_64
+#endif
+
+// Detect MIPS MSA.
+// Limit MSA optimizations to little-endian CPUs for now.
+// TODO: Perhaps, eventually support MSA optimizations on big-endian CPUs?
+#if defined(GEMMLOWP_MIPS) && (__mips_isa_rev >= 5) && defined(__mips_msa) && \
+  defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#define GEMMLOWP_MSA
+#endif
+
+// Convenience MIPS MSA tokens for 32-bit or 64-bit.
+#if defined(GEMMLOWP_MSA) && defined(GEMMLOWP_MIPS_32)
+#define GEMMLOWP_MSA_32
+#endif
+
+#if defined(GEMMLOWP_MSA) && defined(GEMMLOWP_MIPS_64)
+#define GEMMLOWP_MSA_64
 #endif
 
 // Detect SSE.
@@ -178,6 +208,10 @@ const int kDefaultL2CacheSize = 4 * 1024 * 1024;
 // x86-32 and not Android. Same as x86-64 but less bullish.
 const int kDefaultL1CacheSize = 32 * 1024;
 const int kDefaultL2CacheSize = 2 * 1024 * 1024;
+#elif defined(GEMMLOWP_MIPS)
+// MIPS and not Android. TODO: MIPS and Android?
+const int kDefaultL1CacheSize = 32 * 1024;
+const int kDefaultL2CacheSize = 1024 * 1024;
 #else
 // Less common hardware. Maybe some unusual or older or embedded thing.
 // Assume smaller caches, but don't depart too far from what we do
