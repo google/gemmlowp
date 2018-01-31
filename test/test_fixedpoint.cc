@@ -73,6 +73,16 @@ void Store<int16x8_m128i>(std::int16_t* dst, int16x8_m128i v) {
   _mm_storeu_si128(reinterpret_cast<__m128i*>(dst), v.v);
 }
 #endif
+#ifdef defined(GEMMLOWP_MSA)
+template <>
+v4i32 Load<v4i32>(const std::int32_t* src) {
+  return __builtin_msa_ld_w(const_cast<std::int32_t*>(src), 0);
+}
+template <>
+void Store<v4i32>(std::int32_t* dst, v4i32 v) {
+  __builtin_msa_st_w(v, dst, 0);
+}
+#endif
 
 template <typename tSimdType>
 class TestFixedPoint {
@@ -547,5 +557,8 @@ int main() {
 #ifdef GEMMLOWP_NEON
   gemmlowp::TestFixedPoint<int32x4_t>().RunTests("NEON int32x4_t");
   gemmlowp::TestFixedPoint<int16x8_t>().RunTests("NEON int16x8_t");
+#endif
+#ifdef GEMMLOWP_MSA
+  gemmlowp::TestFixedPoint<v4i32>().RunTests("MSA v4i32");
 #endif
 }

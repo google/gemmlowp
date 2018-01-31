@@ -12,9 +12,6 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#ifndef GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK
-#define GEMMLOWP_ALLOW_SLOW_SCALAR_FALLBACK
-#endif
 #include "eight_bit_int_gemm.h"
 
 #include <memory>
@@ -307,7 +304,7 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
                      std::int32_t b_offset, int ldb, std::uint8_t* c,
                      std::int32_t c_offset, std::int32_t c_mult_int,
                      std::int32_t c_shift, int ldc, BitDepthSetting bit_depth) {
-  AutoGlobalLock<EightBitIntGemmLockId> lock;
+  ScopedLock sl(GlobalMutexes::EightBitIntGemm());
   GemmContext* context = GetOrCreateGlobalContext();
 
 #if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON)
@@ -344,7 +341,7 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
                      const std::uint8_t* b, std::int32_t b_offset,
                      std::int32_t ldb, float* c, float c_offset,
                      std::int32_t ldc, BitDepthSetting bit_depth) {
-  AutoGlobalLock<EightBitIntGemmLockId> lock;
+  ScopedLock sl(GlobalMutexes::EightBitIntGemm());
   GemmContext* context = GetOrCreateGlobalContext();
 
 #if defined(GEMMLOWP_USE_META_FASTPATH) && defined(GEMMLOWP_NEON)
@@ -405,13 +402,13 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
 }
 
 void SetMaxNumThreads(int n) {
-  AutoGlobalLock<EightBitIntGemmLockId> lock;
+  ScopedLock sl(GlobalMutexes::EightBitIntGemm());
   GemmContext* context = GetOrCreateGlobalContext();
   context->set_max_num_threads(n);
 }
 
 void FreePersistentResources() {
-  AutoGlobalLock<EightBitIntGemmLockId> lock;
+  ScopedLock sl(GlobalMutexes::EightBitIntGemm());
   DestroyGlobalContext();
   DestroyGlobalScratch();
 }

@@ -20,15 +20,6 @@
 namespace gemmlowp {
 namespace meta {
 
-inline int ResolveMaxThreads(int max_threads) {
-  if (max_threads == 0) {
-    static const int hardware_threads_count =
-        static_cast<int>(sysconf(_SC_NPROCESSORS_CONF));
-    return hardware_threads_count;
-  }
-  return max_threads;
-}
-
 template <typename WorkersPool>
 class SimpleContext {
  public:

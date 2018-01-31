@@ -27,8 +27,9 @@ const std::int32_t kMinGemmTaskDimension = 4;
 
 template <typename Executor, typename Params>
 std::uint8_t* PrepareGemmTask(const Params& params, int kernel_m, int kernel_n,
-                         int kernel_k, std::uint8_t* scratch, int m_start, int m,
-                         int n_start, int n, std::vector<Params>* tasks) {
+                              int kernel_k, std::uint8_t* scratch, int m_start,
+                              int m, int n_start, int n,
+                              std::vector<Params>* tasks) {
   tasks->push_back(params);
   Params& task = tasks->back();
   task.scratch = scratch;
@@ -55,7 +56,7 @@ std::uint8_t* PrepareGemmTask(const Params& params, int kernel_m, int kernel_n,
 template <typename MultiThreadingContext, typename Executor, typename Params>
 bool PrepareGemmTasks(MultiThreadingContext* context, const Params& params,
                       int kernel_m, int kernel_n, int kernel_k,
-                      std::vector<Params>* tasks) {
+                      std::vector<Params>* task_params) {
   const int max_threads = ResolveMaxThreads(context->max_num_threads());
   const int max_tasks_by_size =
       (params.m * params.n * params.k) / kMinGemmTaskSize;
@@ -78,23 +79,23 @@ bool PrepareGemmTasks(MultiThreadingContext* context, const Params& params,
     for (int i = 0; i < real_tasks - 1; ++i) {
       scratch = PrepareGemmTask<Executor, Params>(
           params, kernel_m, kernel_n, kernel_k, scratch, i * m_chunk, m_chunk,
-          0, params.n, tasks);
+          0, params.n, task_params);
     }
     const int sum_m = (real_tasks - 1) * m_chunk;
     PrepareGemmTask<Executor, Params>(params, kernel_m, kernel_n, kernel_k,
                                       scratch, sum_m, params.m - sum_m, 0,
-                                      params.n, tasks);
+                                      params.n, task_params);
   } else {
     const int n_chunk = params.n / real_tasks;
     for (int i = 0; i < real_tasks - 1; ++i) {
       scratch = PrepareGemmTask<Executor, Params>(
           params, kernel_m, kernel_n, kernel_k, scratch, 0, params.m,
-          i * n_chunk, n_chunk, tasks);
+          i * n_chunk, n_chunk, task_params);
     }
     int sum_n = (real_tasks - 1) * n_chunk;
     PrepareGemmTask<Executor, Params>(params, kernel_m, kernel_n, kernel_k,
                                       scratch, 0, params.m, sum_n,
-                                      params.n - sum_n, tasks);
+                                      params.n - sum_n, task_params);
   }
 
   return true;
@@ -105,7 +106,7 @@ template <typename Executor, typename Params, int kernel_m, int kernel_n,
 struct GemmTaskRunner : gemmlowp::Task {
   GemmTaskRunner(const Params& params) : params(params) {}
 
-  void Run() const override {
+  void Run() override {
     Gemm<Executor, Params, kernel_m, kernel_n, kernel_k>(params);
   }
 
@@ -122,24 +123,19 @@ inline void MultiThreadGemm(MultiThreadingContext* context,
                                    kernel_k>
       TaskRunnerType;
 
-  std::vector<Params> tasks;
+  std::vector<Params> task_params;
   if (!internal::PrepareGemmTasks<MultiThreadingContext, Executor, Params>(
-          context, params, kernel_m, kernel_n, kernel_k, &tasks)) {
+          context, params, kernel_m, kernel_n, kernel_k, &task_params)) {
     Gemm<Executor, Params, kernel_m, kernel_n, kernel_k>(params);
     return;
   }
 
-  const int worker_tasks_count = tasks.size() - 1;
   auto workers_pool = context->workers_pool();
-
-  workers_pool->CreateWorkers(worker_tasks_count);
-  workers_pool->Prepare(worker_tasks_count);
-
-  for (int i = 0; i < worker_tasks_count; ++i) {
-    workers_pool->StartWorker(i, new TaskRunnerType(tasks[i]));
-  }
-  Gemm<Executor, Params, kernel_m, kernel_n, kernel_k>(tasks.back());
-  workers_pool->Wait();
+  std::vector<Task*> tasks;
+  for (auto& task_param : task_params) {
+    tasks.push_back(new TaskRunnerType(task_param));
+  };
+  workers_pool->Execute(tasks);
 }
 
 }  // namespace meta

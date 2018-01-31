@@ -24,12 +24,12 @@ namespace gemmlowp {
 namespace meta {
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 0>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 0>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 0>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 0>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -97,12 +97,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 0>::Tr
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 1>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 1>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 1>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 1>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -192,12 +192,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 1>::Tr
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 2>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 2>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 2>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 2>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -287,12 +287,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 2>::Tr
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 3>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 3>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 3>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 3>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -384,12 +384,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 3>::Tr
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 4>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 4>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 4>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 4>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -479,12 +479,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 4>::Tr
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 5>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 5>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 5>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 5>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -583,12 +583,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 5>::Tr
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 6>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 6>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 6>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 6>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -687,12 +687,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 6>::Tr
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 7>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 7>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 7>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 7>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -793,12 +793,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 7>::Tr
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 8>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 8>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 8>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 8>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -895,12 +895,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 8>::Tr
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 9>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 9>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 9>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 9>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -1007,12 +1007,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 9>::Tr
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 10>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 10>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 10>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 10>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -1119,12 +1119,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 10>::T
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 11>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 11>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 11>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 11>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -1233,12 +1233,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 11>::T
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 12>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 12>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 12>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 12>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -1344,12 +1344,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 12>::T
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 13>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 13>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 13>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 13>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -1464,12 +1464,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 13>::T
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 14>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 14>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 14>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 14>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -1584,12 +1584,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 14>::T
 }
 
 template <>
-inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 15>::Transform(
-    const std::int32_t* input, const Requantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 15>::Transform(
+    const int32_t* input, const Requantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Requantize<std::int32_t, std::uint8_t, Requantize, 16, 15>::Transform()"
+            << ") Requantize<int32_t, uint8_t, Requantize, 16, 15>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -1706,12 +1706,12 @@ inline void Transform1DKernel<std::int32_t, std::uint8_t, Requantize, 16, 15>::T
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 0>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 0>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 0>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 0>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -1765,12 +1765,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 0>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 1>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 1>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 1>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 1>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -1844,12 +1844,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 1>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 2>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 2>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 2>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 2>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -1923,12 +1923,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 2>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 3>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 3>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 3>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 3>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -2004,12 +2004,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 3>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 4>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 4>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 4>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 4>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -2083,12 +2083,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 4>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 5>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 5>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 5>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 5>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -2169,12 +2169,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 5>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 6>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 6>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 6>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 6>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -2255,12 +2255,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 6>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 7>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 7>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 7>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 7>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -2343,12 +2343,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 7>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 8>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 8>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 8>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 8>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -2427,12 +2427,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 8>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 9>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 9>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 9>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 9>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -2519,12 +2519,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 9>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 10>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 10>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 10>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 10>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -2611,12 +2611,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 10>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 11>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 11>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 11>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 11>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -2705,12 +2705,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 11>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 12>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 12>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 12>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 12>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -2796,12 +2796,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 12>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 13>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 13>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 13>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 13>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -2894,12 +2894,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 13>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 14>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 14>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 14>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 14>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -2992,12 +2992,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 14>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 15>::Transform(
-    const float* input, const Quantize& params, std::uint8_t* output) {
+inline void Transform1DKernel<float, uint8_t, Quantize, 16, 15>::Transform(
+    const float* input, const Quantize& params, uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Quantize<float, std::uint8_t, Quantize, 16, 15>::Transform()"
+            << ") Quantize<float, uint8_t, Quantize, 16, 15>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -3092,12 +3092,12 @@ inline void Transform1DKernel<float, std::uint8_t, Quantize, 16, 15>::Transform(
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 0>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 0>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 0>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 0>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -3151,12 +3151,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 0>::Transform
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 1>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 1>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 1>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 1>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -3230,12 +3230,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 1>::Transform
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 2>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 2>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 2>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 2>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -3309,12 +3309,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 2>::Transform
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 3>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 3>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 3>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 3>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -3390,12 +3390,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 3>::Transform
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 4>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 4>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 4>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 4>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -3469,12 +3469,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 4>::Transform
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 5>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 5>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 5>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 5>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -3555,12 +3555,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 5>::Transform
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 6>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 6>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 6>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 6>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -3641,12 +3641,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 6>::Transform
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 7>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 7>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 7>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 7>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -3729,12 +3729,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 7>::Transform
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 8>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 8>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 8>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 8>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -3813,12 +3813,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 8>::Transform
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 9>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 9>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 9>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 9>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -3905,12 +3905,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 9>::Transform
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 10>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 10>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 10>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 10>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -3997,12 +3997,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 10>::Transfor
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 11>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 11>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 11>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 11>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -4091,12 +4091,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 11>::Transfor
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 12>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 12>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 12>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 12>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -4182,12 +4182,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 12>::Transfor
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 13>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 13>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 13>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 13>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -4280,12 +4280,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 13>::Transfor
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 14>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 14>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 14>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 14>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -4378,12 +4378,12 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 14>::Transfor
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 15>::Transform(
-    const std::uint8_t* input, const Dequantize& params, float* output) {
+inline void Transform1DKernel<uint8_t, float, Dequantize, 16, 15>::Transform(
+    const uint8_t* input, const Dequantize& params, float* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") Dequantize<std::uint8_t, float, Dequantize, 16, 15>::Transform()"
+            << ") Dequantize<uint8_t, float, Dequantize, 16, 15>::Transform()"
             << std::endl
             << std::flush;
 #endif
@@ -4478,14 +4478,14 @@ inline void Transform1DKernel<std::uint8_t, float, Dequantize, 16, 15>::Transfor
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              0>::Transform(const std::uint8_t* input,
-                                            const MinMax<std::uint8_t>& params,
-                                            std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              0>::Transform(const uint8_t* input,
+                                            const MinMax<uint8_t>& params,
+                                            uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "0>::Transform()"
             << std::endl
             << std::flush;
@@ -4518,14 +4518,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              1>::Transform(const std::uint8_t* input,
-                                            const MinMax<std::uint8_t>& params,
-                                            std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              1>::Transform(const uint8_t* input,
+                                            const MinMax<uint8_t>& params,
+                                            uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "1>::Transform()"
             << std::endl
             << std::flush;
@@ -4574,14 +4574,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              2>::Transform(const std::uint8_t* input,
-                                            const MinMax<std::uint8_t>& params,
-                                            std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              2>::Transform(const uint8_t* input,
+                                            const MinMax<uint8_t>& params,
+                                            uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "2>::Transform()"
             << std::endl
             << std::flush;
@@ -4630,14 +4630,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              3>::Transform(const std::uint8_t* input,
-                                            const MinMax<std::uint8_t>& params,
-                                            std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              3>::Transform(const uint8_t* input,
+                                            const MinMax<uint8_t>& params,
+                                            uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "3>::Transform()"
             << std::endl
             << std::flush;
@@ -4688,14 +4688,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              4>::Transform(const std::uint8_t* input,
-                                            const MinMax<std::uint8_t>& params,
-                                            std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              4>::Transform(const uint8_t* input,
+                                            const MinMax<uint8_t>& params,
+                                            uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "4>::Transform()"
             << std::endl
             << std::flush;
@@ -4744,14 +4744,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              5>::Transform(const std::uint8_t* input,
-                                            const MinMax<std::uint8_t>& params,
-                                            std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              5>::Transform(const uint8_t* input,
+                                            const MinMax<uint8_t>& params,
+                                            uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "5>::Transform()"
             << std::endl
             << std::flush;
@@ -4802,14 +4802,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              6>::Transform(const std::uint8_t* input,
-                                            const MinMax<std::uint8_t>& params,
-                                            std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              6>::Transform(const uint8_t* input,
+                                            const MinMax<uint8_t>& params,
+                                            uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "6>::Transform()"
             << std::endl
             << std::flush;
@@ -4860,14 +4860,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              7>::Transform(const std::uint8_t* input,
-                                            const MinMax<std::uint8_t>& params,
-                                            std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              7>::Transform(const uint8_t* input,
+                                            const MinMax<uint8_t>& params,
+                                            uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "7>::Transform()"
             << std::endl
             << std::flush;
@@ -4920,14 +4920,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              8>::Transform(const std::uint8_t* input,
-                                            const MinMax<std::uint8_t>& params,
-                                            std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              8>::Transform(const uint8_t* input,
+                                            const MinMax<uint8_t>& params,
+                                            uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "8>::Transform()"
             << std::endl
             << std::flush;
@@ -4976,14 +4976,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              9>::Transform(const std::uint8_t* input,
-                                            const MinMax<std::uint8_t>& params,
-                                            std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              9>::Transform(const uint8_t* input,
+                                            const MinMax<uint8_t>& params,
+                                            uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "9>::Transform()"
             << std::endl
             << std::flush;
@@ -5034,14 +5034,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              10>::Transform(const std::uint8_t* input,
-                                             const MinMax<std::uint8_t>& params,
-                                             std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              10>::Transform(const uint8_t* input,
+                                             const MinMax<uint8_t>& params,
+                                             uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "10>::Transform()"
             << std::endl
             << std::flush;
@@ -5092,14 +5092,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              11>::Transform(const std::uint8_t* input,
-                                             const MinMax<std::uint8_t>& params,
-                                             std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              11>::Transform(const uint8_t* input,
+                                             const MinMax<uint8_t>& params,
+                                             uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "11>::Transform()"
             << std::endl
             << std::flush;
@@ -5152,14 +5152,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              12>::Transform(const std::uint8_t* input,
-                                             const MinMax<std::uint8_t>& params,
-                                             std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              12>::Transform(const uint8_t* input,
+                                             const MinMax<uint8_t>& params,
+                                             uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "12>::Transform()"
             << std::endl
             << std::flush;
@@ -5210,14 +5210,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              13>::Transform(const std::uint8_t* input,
-                                             const MinMax<std::uint8_t>& params,
-                                             std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              13>::Transform(const uint8_t* input,
+                                             const MinMax<uint8_t>& params,
+                                             uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "13>::Transform()"
             << std::endl
             << std::flush;
@@ -5270,14 +5270,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              14>::Transform(const std::uint8_t* input,
-                                             const MinMax<std::uint8_t>& params,
-                                             std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              14>::Transform(const uint8_t* input,
+                                             const MinMax<uint8_t>& params,
+                                             uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "14>::Transform()"
             << std::endl
             << std::flush;
@@ -5330,14 +5330,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16,
-                              15>::Transform(const std::uint8_t* input,
-                                             const MinMax<std::uint8_t>& params,
-                                             std::uint8_t* output) {
+inline void Transform1DKernel<uint8_t, uint8_t, MinMax<uint8_t>, 16,
+                              15>::Transform(const uint8_t* input,
+                                             const MinMax<uint8_t>& params,
+                                             uint8_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") MinMax<std::uint8_t><std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 16, "
+            << ") MinMax<uint8_t><uint8_t, uint8_t, MinMax<uint8_t>, 16, "
                "15>::Transform()"
             << std::endl
             << std::flush;
@@ -5392,14 +5392,14 @@ inline void Transform1DKernel<std::uint8_t, std::uint8_t, MinMax<std::uint8_t>, 
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              0>::Transform(const std::uint8_t* input,
-                                            const BiasAdd<std::uint8_t>& params,
-                                            std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              0>::Transform(const uint8_t* input,
+                                            const BiasAdd<uint8_t>& params,
+                                            int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "0>::Transform()"
             << std::endl
             << std::flush;
@@ -5407,19 +5407,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -5507,14 +5507,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              1>::Transform(const std::uint8_t* input,
-                                            const BiasAdd<std::uint8_t>& params,
-                                            std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              1>::Transform(const uint8_t* input,
+                                            const BiasAdd<uint8_t>& params,
+                                            int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "1>::Transform()"
             << std::endl
             << std::flush;
@@ -5522,19 +5522,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -5648,14 +5648,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              2>::Transform(const std::uint8_t* input,
-                                            const BiasAdd<std::uint8_t>& params,
-                                            std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              2>::Transform(const uint8_t* input,
+                                            const BiasAdd<uint8_t>& params,
+                                            int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "2>::Transform()"
             << std::endl
             << std::flush;
@@ -5663,19 +5663,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -5789,14 +5789,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              3>::Transform(const std::uint8_t* input,
-                                            const BiasAdd<std::uint8_t>& params,
-                                            std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              3>::Transform(const uint8_t* input,
+                                            const BiasAdd<uint8_t>& params,
+                                            int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "3>::Transform()"
             << std::endl
             << std::flush;
@@ -5804,19 +5804,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -5933,14 +5933,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              4>::Transform(const std::uint8_t* input,
-                                            const BiasAdd<std::uint8_t>& params,
-                                            std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              4>::Transform(const uint8_t* input,
+                                            const BiasAdd<uint8_t>& params,
+                                            int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "4>::Transform()"
             << std::endl
             << std::flush;
@@ -5948,19 +5948,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -6074,14 +6074,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              5>::Transform(const std::uint8_t* input,
-                                            const BiasAdd<std::uint8_t>& params,
-                                            std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              5>::Transform(const uint8_t* input,
+                                            const BiasAdd<uint8_t>& params,
+                                            int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "5>::Transform()"
             << std::endl
             << std::flush;
@@ -6089,19 +6089,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -6231,14 +6231,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              6>::Transform(const std::uint8_t* input,
-                                            const BiasAdd<std::uint8_t>& params,
-                                            std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              6>::Transform(const uint8_t* input,
+                                            const BiasAdd<uint8_t>& params,
+                                            int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "6>::Transform()"
             << std::endl
             << std::flush;
@@ -6246,19 +6246,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -6388,14 +6388,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              7>::Transform(const std::uint8_t* input,
-                                            const BiasAdd<std::uint8_t>& params,
-                                            std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              7>::Transform(const uint8_t* input,
+                                            const BiasAdd<uint8_t>& params,
+                                            int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "7>::Transform()"
             << std::endl
             << std::flush;
@@ -6403,19 +6403,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -6548,14 +6548,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              8>::Transform(const std::uint8_t* input,
-                                            const BiasAdd<std::uint8_t>& params,
-                                            std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              8>::Transform(const uint8_t* input,
+                                            const BiasAdd<uint8_t>& params,
+                                            int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "8>::Transform()"
             << std::endl
             << std::flush;
@@ -6563,19 +6563,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -6702,14 +6702,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              9>::Transform(const std::uint8_t* input,
-                                            const BiasAdd<std::uint8_t>& params,
-                                            std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              9>::Transform(const uint8_t* input,
+                                            const BiasAdd<uint8_t>& params,
+                                            int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "9>::Transform()"
             << std::endl
             << std::flush;
@@ -6717,19 +6717,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -6874,14 +6874,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              10>::Transform(const std::uint8_t* input,
-                                             const BiasAdd<std::uint8_t>& params,
-                                             std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              10>::Transform(const uint8_t* input,
+                                             const BiasAdd<uint8_t>& params,
+                                             int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "10>::Transform()"
             << std::endl
             << std::flush;
@@ -6889,19 +6889,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -7046,14 +7046,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              11>::Transform(const std::uint8_t* input,
-                                             const BiasAdd<std::uint8_t>& params,
-                                             std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              11>::Transform(const uint8_t* input,
+                                             const BiasAdd<uint8_t>& params,
+                                             int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "11>::Transform()"
             << std::endl
             << std::flush;
@@ -7061,19 +7061,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -7221,14 +7221,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              12>::Transform(const std::uint8_t* input,
-                                             const BiasAdd<std::uint8_t>& params,
-                                             std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              12>::Transform(const uint8_t* input,
+                                             const BiasAdd<uint8_t>& params,
+                                             int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "12>::Transform()"
             << std::endl
             << std::flush;
@@ -7236,19 +7236,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -7392,14 +7392,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              13>::Transform(const std::uint8_t* input,
-                                             const BiasAdd<std::uint8_t>& params,
-                                             std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              13>::Transform(const uint8_t* input,
+                                             const BiasAdd<uint8_t>& params,
+                                             int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "13>::Transform()"
             << std::endl
             << std::flush;
@@ -7407,19 +7407,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -7579,14 +7579,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              14>::Transform(const std::uint8_t* input,
-                                             const BiasAdd<std::uint8_t>& params,
-                                             std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              14>::Transform(const uint8_t* input,
+                                             const BiasAdd<uint8_t>& params,
+                                             int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "14>::Transform()"
             << std::endl
             << std::flush;
@@ -7594,19 +7594,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"
@@ -7766,14 +7766,14 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 }
 
 template <>
-inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16,
-                              15>::Transform(const std::uint8_t* input,
-                                             const BiasAdd<std::uint8_t>& params,
-                                             std::int32_t* output) {
+inline void Transform1DKernel<uint8_t, int32_t, BiasAdd<uint8_t>, 16,
+                              15>::Transform(const uint8_t* input,
+                                             const BiasAdd<uint8_t>& params,
+                                             int32_t* output) {
 #ifdef DEBUG
 #ifdef DEBUG_METAGEMM_VERBOSE
   std::cout << __FILE__ << "(" << __LINE__
-            << ") BiasAdd<std::uint8_t><std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>, 16, "
+            << ") BiasAdd<uint8_t><uint8_t, int32_t, BiasAdd<uint8_t>, 16, "
                "15>::Transform()"
             << std::endl
             << std::flush;
@@ -7781,19 +7781,19 @@ inline void Transform1DKernel<std::uint8_t, std::int32_t, BiasAdd<std::uint8_t>,
 #endif
   int params_rows_copy = params.rows;
   asm volatile(
-      "ldr w0, %x[input_range_min]\n"
+      "ldr w0, %[input_range_min]\n"
       "dup v8.4s, w0\n"
-      "ldr w0, %x[input_range_scale]\n"
+      "ldr w0, %[input_range_scale]\n"
       "dup v9.4s, w0\n"
-      "ldr w0, %x[bias_range_min]\n"
+      "ldr w0, %[bias_range_min]\n"
       "dup v10.4s, w0\n"
-      "ldr w0, %x[bias_range_scale]\n"
+      "ldr w0, %[bias_range_scale]\n"
       "dup v11.4s, w0\n"
-      "ldr w0, %x[output_range_min]\n"
+      "ldr w0, %[output_range_min]\n"
       "dup v12.4s, w0\n"
-      "ldr w0, %x[one_over_output_range_scale]\n"
+      "ldr w0, %[one_over_output_range_scale]\n"
       "dup v13.4s, w0\n"
-      "ldr w0, %x[output_range_offset]\n"
+      "ldr w0, %[output_range_offset]\n"
       "dup v14.4s, w0\n"
       "1:"
       "mov x0, %x[count]\n"

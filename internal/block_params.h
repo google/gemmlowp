@@ -43,29 +43,33 @@ struct BlockParams {
   int l2_depth;
 
   template <typename KernelFormat>
-  void Init(int rows, int cols, int depth, int num_threads) {
-    FindL2BlockSizes<KernelFormat>(rows, cols, depth, num_threads, &l2_rows,
+  void Init(int rows, int cols, int depth, int num_threads, int l1_bytes_to_use,
+            int l2_bytes_to_use, float l2_rhs_factor) {
+    FindL2BlockSizes<KernelFormat>(rows, cols, depth, num_threads,
+                                   l2_bytes_to_use, l2_rhs_factor, &l2_rows,
                                    &l2_cols, &l2_depth);
-    FindL1BlockSizes<KernelFormat>(l2_rows, l2_cols, l2_depth, &l1_rows,
-                                   &l1_cols, &l1_depth);
+    FindL1BlockSizes<KernelFormat>(l2_rows, l2_cols, l2_depth, l1_bytes_to_use,
+                                   &l1_rows, &l1_cols, &l1_depth);
   }
 
   template <typename KernelFormat>
   static void FindL2BlockSizes(int rows, int cols, int depth, int num_threads,
+                               int l2_bytes_to_use, float l2_rhs_factor,
                                int* out_l2_rows, int* out_l2_cols,
                                int* out_l2_depth) {
     int l2_rows = 0;
     int l2_cols = 0;
     int l2_depth = 0;
+
+    int per_thread_rows =
+        std::max(1, RoundUp<KernelFormat::kRows>(rows) / num_threads);
+
     // No L2 blocking in the depth dimension at the moment.
     // Too much loss of accuracy due to storing intermediate results in
     // low precision.
     // However, we still want to round l2_depth up to the next multiple
     // of register size, so as to avoid having to special-case unaligned depths.
     l2_depth = RoundUp<kRegisterSize>(depth);
-
-    const int l2_bytes_to_use = kDefaultL2CacheSize;
-    const float l2_rhs_factor = kDefaultL2RhsFactor;
 
     {
       int max_cache_friendly_l2_cols = std::max(
@@ -80,15 +84,15 @@ struct BlockParams {
     // dimension concerns only the LHS. Blocking only RHS matrix for L2 enhances
     // the performance on x86.
     if (l2_rhs_factor == 1.0f) {
-      l2_rows = RoundUp<KernelFormat::kRows>(rows);
+      l2_rows = RoundUp<KernelFormat::kRows>(per_thread_rows);
     } else {
       int max_cache_friendly_l2_rows =
           std::max(1, (l2_bytes_to_use - l2_depth * l2_cols) /
                           (num_threads * (l2_depth + 4 * l2_cols)));
-      int min_l2_rows_blocks =
-          std::max(1, CeilQuotient(rows, max_cache_friendly_l2_rows));
-      l2_rows =
-          RoundUp<KernelFormat::kRows>(CeilQuotient(rows, min_l2_rows_blocks));
+      int min_l2_rows_blocks = std::max(
+          1, CeilQuotient(per_thread_rows, max_cache_friendly_l2_rows));
+      l2_rows = RoundUp<KernelFormat::kRows>(
+          CeilQuotient(per_thread_rows, min_l2_rows_blocks));
     }
 
     *out_l2_rows = l2_rows;
@@ -97,7 +101,8 @@ struct BlockParams {
   }
 
   template <typename KernelFormat>
-  static void FindL1BlockSizes(int rows, int cols, int depth, int* out_l1_rows,
+  static void FindL1BlockSizes(int rows, int cols, int depth,
+                               int l1_bytes_to_use, int* out_l1_rows,
                                int* out_l1_cols, int* out_l1_depth) {
     int l1_rows = 0;
     int l1_cols = 0;
@@ -111,8 +116,6 @@ struct BlockParams {
     // No L1 blocking in the columns dimension at the moment.
     // Thought not to be needed. Similar to Eigen.
     l1_cols = cols;
-
-    const int l1_bytes_to_use = kDefaultL1CacheSize;
 
     {
       int max_cache_friendly_l1_depth = std::max(

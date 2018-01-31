@@ -49,30 +49,13 @@ struct NEON_32_Kernel12x4Depth2 : KernelBase {
 //  so use numerical ones instead. See
 // http://stackoverflow.com/questions/3898435/labels-in-gcc-inline-assembly
 // If you add any labels, remember to undef them at the end.
-#define GEMMLOWP_LOOP_NEON_KERNEL_12X4_DEPTH2 "1"
-#define GEMMLOWP_STORE_RESULT_NEON_KERNEL_12X4_DEPTH2 "2"
+#define GEMMLOWP_LABEL_CLEAR_ACCUMULATORS "1"
+#define GEMMLOWP_LABEL_BEFORE_LOOP "2"
+#define GEMMLOWP_LABEL_LOOP "3"
+#define GEMMLOWP_LABEL_AFTER_LOOP "4"
 
     assert(dst_row_stride == 1);
     asm volatile(
-        // Clear accumulator registers (see layout below)
-        "vmov.s32 q4, #0\n"
-        "vmov.s32 q8, q4\n"
-        "vmov.s32 q12, q4\n"
-        "vmov.s32 q5, q4\n"
-        "vmov.s32 q9, q4\n"
-        "vmov.s32 q13, q4\n"
-        "vmov.s32 q6, q4\n"
-        "vmov.s32 q10, q4\n"
-        "vmov.s32 q14, q4\n"
-        "vmov.s32 q7, q4\n"
-        "vmov.s32 q11, q4\n"
-        "vmov.s32 q15, q4\n"
-
-        /* Main loop */
-
-        GEMMLOWP_LOOP_NEON_KERNEL_12X4_DEPTH2
-        ":\n"
-
         // Overview of register layout:
         //
         // A 2x4 cell of Rhs is stored in 16bit in d0--d1 (q0).
@@ -110,12 +93,125 @@ struct NEON_32_Kernel12x4Depth2 : KernelBase {
         //                            Accumulator
 
         // Load 1 Rhs cell of size 2x4
-        "vld1.8 {d0}, [%[rhs_ptr]:64]!\n"
-
+        "vld1.8 {d0}, [%[rhs_ptr]]!\n"
         // Load 3 Lhs cells of size 4x2 each
-        "vld1.8 {d2}, [%[lhs_ptr]:64]!\n"
-        "vld1.8 {d4}, [%[lhs_ptr]:64]!\n"
-        "vld1.8 {d6}, [%[lhs_ptr]:64]!\n"
+        "vld1.8 {d2}, [%[lhs_ptr]]!\n"
+        "vld1.8 {d4}, [%[lhs_ptr]]!\n"
+        "vld1.8 {d6}, [%[lhs_ptr]]!\n"
+
+        // Check if start_depth==0 to decide whether we will clear
+        // accumulators or load existing accumulators.
+        "cmp %[start_depth], #0\n"
+
+        // Multiply dst_col_stride by 4 == sizeof(int32) to use
+        // it as a byte offset below.
+        "lsl %[dst_col_stride], #2\n"
+
+        "beq " GEMMLOWP_LABEL_CLEAR_ACCUMULATORS
+        "f\n"
+
+        // Load accumulators (start_depth != 0)
+        "mov r1, %[dst_ptr]\n"
+        "subs %[run_depth], #2\n"
+        "mov r0, r1\n"
+        "vld1.32 {d8, d9},   [r0]!\n"
+        "add r1, %[dst_col_stride]\n"
+        "vld1.32 {d16, d17}, [r0]!\n"
+        "vld1.32 {d24, d25}, [r0]\n"
+        "mov r0, r1\n"
+        "vld1.32 {d10, d11}, [r0]!\n"
+        "add r1, %[dst_col_stride]\n"
+        "vld1.32 {d18, d19}, [r0]!\n"
+        "vld1.32 {d26, d27}, [r0]\n"
+        "mov r0, r1\n"
+        "vld1.32 {d12, d13}, [r0]!\n"
+        "add r1, %[dst_col_stride]\n"
+        "vld1.32 {d20, d21}, [r0]!\n"
+        "vld1.32 {d28, d29}, [r0]\n"
+        "mov r0, r1\n"
+        "vld1.32 {d14, d15}, [r0]!\n"
+        "vld1.32 {d22, d23}, [r0]!\n"
+        "vld1.32 {d30, d31}, [r0]\n"
+
+        "b " GEMMLOWP_LABEL_BEFORE_LOOP "f\n"
+
+        GEMMLOWP_LABEL_CLEAR_ACCUMULATORS
+        ":\n"
+
+        // Clear accumulators (start_depth == 0)
+        "vmov.s32 q4, #0\n"
+        "subs %[run_depth], #2\n"
+        "vmov.s32 q8, q4\n"
+        "vmov.s32 q12, q4\n"
+        "vmov.s32 q5, q4\n"
+        "vmov.s32 q9, q4\n"
+        "vmov.s32 q13, q4\n"
+        "vmov.s32 q6, q4\n"
+        "vmov.s32 q10, q4\n"
+        "vmov.s32 q14, q4\n"
+        "vmov.s32 q7, q4\n"
+        "vmov.s32 q11, q4\n"
+        "vmov.s32 q15, q4\n"
+
+        GEMMLOWP_LABEL_BEFORE_LOOP
+        ":\n"
+
+        // If there are only two levels of depth, skip the loop.
+        "beq " GEMMLOWP_LABEL_AFTER_LOOP "f\n"
+
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
+        // Expand Lhs/Rhs cells to 16 bit.
+        // Note: moving theses vmovls further down to allow for
+        // longer data pipelining helps a little on A57 but is
+        // harmful on A53 --- It looks as if A53 doesn't like
+        // interleaving vmovl's into the vmlal's.
+        "vmovl.u8 q0, d0\n"
+        "vmovl.u8 q1, d2\n"
+        "vmovl.u8 q2, d4\n"
+        "vmovl.u8 q3, d6\n"
+
+        // Multiply-accumulate, level of depth 0
+        "vmlal.u16 q4, d2, d0[0]\n"
+        "vmlal.u16 q5, d2, d0[1]\n"
+        "vmlal.u16 q6, d2, d0[2]\n"
+        "vmlal.u16 q7, d2, d0[3]\n"
+        "vldr d2, [%[lhs_ptr]]\n"
+        "vmlal.u16 q8, d4, d0[0]\n"
+        "vmlal.u16 q9, d4, d0[1]\n"
+        "vmlal.u16 q10, d4, d0[2]\n"
+        "vmlal.u16 q11, d4, d0[3]\n"
+        "vldr d4, [%[lhs_ptr], #8]\n"
+        "vmlal.u16 q12, d6, d0[0]\n"
+        "vmlal.u16 q13, d6, d0[1]\n"
+        "vmlal.u16 q14, d6, d0[2]\n"
+        "vmlal.u16 q15, d6, d0[3]\n"
+        "vldr d6, [%[lhs_ptr], #16]\n"
+        "vldr d0, [%[rhs_ptr]]\n"
+
+        // Multiply-accumulate, level of depth 1
+        "vmlal.u16 q4, d3, d1[0]\n"
+        "vmlal.u16 q5, d3, d1[1]\n"
+        "add %[lhs_ptr], #24\n"
+        "vmlal.u16 q6, d3, d1[2]\n"
+        "vmlal.u16 q7, d3, d1[3]\n"
+        "add %[rhs_ptr], #8\n"
+        "vmlal.u16 q8, d5, d1[0]\n"
+        "vmlal.u16 q9, d5, d1[1]\n"
+        "subs %[run_depth], #2\n"
+        "vmlal.u16 q10, d5, d1[2]\n"
+        "vmlal.u16 q11, d5, d1[3]\n"
+        "vmlal.u16 q12, d7, d1[0]\n"
+        "vmlal.u16 q13, d7, d1[1]\n"
+        "vmlal.u16 q14, d7, d1[2]\n"
+        "vmlal.u16 q15, d7, d1[3]\n"
+
+        "bne " GEMMLOWP_LABEL_LOOP "b\n"
+
+        GEMMLOWP_LABEL_AFTER_LOOP
+        ":\n"
+
+        // Do remaining arithmetic for the last 2 levels of depth.
 
         // Expand Lhs/Rhs cells to 16 bit.
         "vmovl.u8 q0, d0\n"
@@ -151,99 +247,27 @@ struct NEON_32_Kernel12x4Depth2 : KernelBase {
         "vmlal.u16 q14, d7, d1[2]\n"
         "vmlal.u16 q15, d7, d1[3]\n"
 
-        // Loop. Decrement loop index (depth) by 2, since we just handled 2
-        // levels of depth (Kernel::kDepth=2).
-        "subs %[run_depth], #2\n"
-        "bne " GEMMLOWP_LOOP_NEON_KERNEL_12X4_DEPTH2
-        "b\n"
-
-        /* end of main loop */
-
-        /* Accumulate our local accumulator registers into the destination block
-           */
-
-        // Compute stride between consecutive columns, in bytes
-        "mov r0, #4\n"  // multiply by 4 = sizeof(int32)
-        "mul %[dst_col_stride], r0\n"
-
-        // If start_depth == 0, then there is no preexisting accumulator
-        // to accumulate, so we can simply store our result.
-        "cmp %[start_depth], #0\n"
-        "beq " GEMMLOWP_STORE_RESULT_NEON_KERNEL_12X4_DEPTH2
-        "f\n"
-
-        "mov r0, %[dst_ptr]\n"
-
-        // Load a column
-        "mov r1, r0\n"
-        "vld1.32 {d0, d1}, [r1]!\n"
-        "vld1.32 {d2, d3}, [r1]!\n"
-        "vld1.32 {d4, d5}, [r1]!\n"
-        // Accumulate a column
-        "vadd.s32 q4, q4, q0\n"
-        "vadd.s32 q8, q8, q1\n"
-        "vadd.s32 q12, q12, q2\n"
-
-        "add r0, %[dst_col_stride]\n"
-        // Load a column
-        "mov r1, r0\n"
-        "vld1.32 {d0, d1}, [r1]!\n"
-        "vld1.32 {d2, d3}, [r1]!\n"
-        "vld1.32 {d4, d5}, [r1]!\n"
-        // Accumulate a column
-        "vadd.s32 q5, q5, q0\n"
-        "vadd.s32 q9, q9, q1\n"
-        "vadd.s32 q13, q13, q2\n"
-
-        "add r0, %[dst_col_stride]\n"
-        // Load a column
-        "mov r1, r0\n"
-        "vld1.32 {d0, d1}, [r1]!\n"
-        "vld1.32 {d2, d3}, [r1]!\n"
-        "vld1.32 {d4, d5}, [r1]!\n"
-        // Accumulate a column
-        "vadd.s32 q6, q6, q0\n"
-        "vadd.s32 q10, q10, q1\n"
-        "vadd.s32 q14, q14, q2\n"
-
-        "add r0, %[dst_col_stride]\n"
-        // Load a column
-        "mov r1, r0\n"
-        "vld1.32 {d0, d1}, [r1]!\n"
-        "vld1.32 {d2, d3}, [r1]!\n"
-        "vld1.32 {d4, d5}, [r1]!\n"
-        // Accumulate a column
-        "vadd.s32 q7, q7, q0\n"
-        "vadd.s32 q11, q11, q1\n"
-        "vadd.s32 q15, q15, q2\n"
-
-        GEMMLOWP_STORE_RESULT_NEON_KERNEL_12X4_DEPTH2
-        ":\n"
-
-        "mov r0, %[dst_ptr]\n"
-        // Store a column
-        "mov r1, r0\n"
-        "vst1.32 {d8, d9}, [r1]!\n"
-        "vst1.32 {d16, d17}, [r1]!\n"
-        "vst1.32 {d24, d25}, [r1]!\n"
-        // Store a column
-        "add r0, %[dst_col_stride]\n"
-        "mov r1, r0\n"
-        "vst1.32 {d10, d11}, [r1]!\n"
-        "vst1.32 {d18, d19}, [r1]!\n"
-        "vst1.32 {d26, d27}, [r1]!\n"
-        // Store a column
-        "add r0, %[dst_col_stride]\n"
-        "mov r1, r0\n"
-        "vst1.32 {d12, d13}, [r1]!\n"
-        "vst1.32 {d20, d21}, [r1]!\n"
-        "vst1.32 {d28, d29}, [r1]!\n"
-        // Store a column
-        "add r0, %[dst_col_stride]\n"
-        "mov r1, r0\n"
-        "vst1.32 {d14, d15}, [r1]!\n"
-        "vst1.32 {d22, d23}, [r1]!\n"
-        "vst1.32 {d30, d31}, [r1]!\n"
+        // Store accumulators
+        "mov r1, %[dst_ptr]\n"
+        "mov r0, r1\n"
+        "vst1.32 {d8, d9},   [r0]!\n"
+        "add r1, %[dst_col_stride]\n"
+        "vst1.32 {d16, d17}, [r0]!\n"
+        "vst1.32 {d24, d25}, [r0]\n"
+        "mov r0, r1\n"
+        "vst1.32 {d10, d11}, [r0]!\n"
+        "add r1, %[dst_col_stride]\n"
+        "vst1.32 {d18, d19}, [r0]!\n"
+        "vst1.32 {d26, d27}, [r0]\n"
+        "mov r0, r1\n"
+        "vst1.32 {d12, d13}, [r0]!\n"
+        "add r1, %[dst_col_stride]\n"
+        "vst1.32 {d20, d21}, [r0]!\n"
+        "vst1.32 {d28, d29}, [r0]\n"
+        "mov r0, r1\n"
+        "vst1.32 {d14, d15}, [r0]!\n"
+        "vst1.32 {d22, d23}, [r0]!\n"
+        "vst1.32 {d30, d31}, [r0]\n"
         :  // outputs
         [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
         [dst_ptr] "+r"(dst_ptr),
@@ -259,8 +283,10 @@ struct NEON_32_Kernel12x4Depth2 : KernelBase {
         "d11", "d12", "d13", "d14", "d15", "d16", "d17", "d18", "d19", "d20",
         "d21", "d22", "d23", "d24", "d25", "d26", "d27", "d28", "d29", "d30",
         "d31");
-#undef GEMMLOWP_LOOP_NEON_KERNEL_12X4_DEPTH2
-#undef GEMMLOWP_STORE_RESULT_NEON_KERNEL_12X4_DEPTH2
+#undef GEMMLOWP_LABEL_CLEAR_ACCUMULATORS
+#undef GEMMLOWP_LABEL_BEFORE_LOOP
+#undef GEMMLOWP_LABEL_LOOP
+#undef GEMMLOWP_LABEL_AFTER_LOOP
   }
 };
 
@@ -638,10 +664,603 @@ struct NEON_32_Kernel12x4Depth2Assuming12BitProducts : KernelBase {
   }
 };
 
+struct NEON_32bit_GEMM_Int8Operands_LhsNonzero : KernelBase {
+  typedef KernelFormat<
+      KernelSideFormatInt8<CellFormat<4, 16, CellOrder::WidthMajor>, 1>,
+      KernelSideFormatInt8<CellFormat<2, 16, CellOrder::WidthMajor>, 1> >
+      Format;
+  const char* Name() const override {
+    return "NEON, 4x2, depth 16, accumulating two within signed int16";
+  }
+
+  // TODO(benoitjacob): reorder function arguments so dst comes last
+  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride,
+           std::size_t dst_col_stride, const std::uint8_t* lhs_ptr,
+           const std::uint8_t* rhs_ptr, std::size_t start_depth,
+           std::size_t run_depth) const override {
+#define GEMMLOWP_LABEL_AFTER_LOOP "1"
+#define GEMMLOWP_LABEL_LOOP "2"
+#define GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES "3"
+#define GEMMLOWP_LABEL_STORE "4"
+    asm volatile(
+        // Multiply dst_col_stride by 4 == sizeof(int32) to use
+        // it as a byte offset below.
+        "lsl %[dst_col_stride], %[dst_col_stride], #2\n"
+
+        // Overview of register layout:
+        //
+        // A 2x16 block of Rhs is stored in 8 bit in d0--d3.
+        // A 4x16 block of Lhs is stored in 8 bit in d4--d7. That is only
+        // half of the register space required, so we loop over these registers
+        // twice. Only half of it, a 2x16 block, is stored in d4--d7 at
+        // any given time.
+        //
+        // A 4x2 block of accumulators is stored in q8--q15 (as 4x32 bit
+        // components which need to be horizontally-added at the end)
+        //
+        // The Lhs vectors are multiplied by the Rhs vectors with a widening
+        // multiply over the 8 first levels of depth, producing int16x8
+        // vectors of products for each position in the accumulator matrix.
+        // Here comes the special trick: since the operands are signed int8,
+        // their range being [ -2^7 , 2^7 ), their products are in range
+        // [ -2^14 , 2^14 - 1 ), meaning that we can add two such values
+        // without any risk of overflowing int16.
+        // We thus proceed with the 8 next levels of depth, multiplying
+        // again Lhs by Rhs, accumulating into this existing int16x8 vector.
+        //
+        // Only then, having processed 16 levels of depth, do we need to
+        // horizontally add these int16x8 accumulators into the final
+        // int32x4 accumulators.
+        //
+        // As we do not have enough registers to store all 16 int16x8
+        // temporary-16bit-accumulators, we have them cycle through q4--q7.
+        //
+        //
+        // Register layout (ignoring the q4--q7 temporary 16bit accumulators):
+        //
+        //                               +----+----+
+        //                               | d0 | d2 |
+        //                               | .  | .  |
+        //                               | .  | .  |
+        //                               | .  | .  |
+        //                       Rhs     +----+----+
+        //                               | d1 | d3 |
+        //                               | .  | .  |
+        //                               | .  | .  |
+        //                               | .  | .  |
+        //                               +----+----+
+        //
+        //                               |    |    |
+        //
+        //    Lhs                        |    |    |
+        //
+        //  +--------+--------+ - - - -  +----+----+
+        //  | d4 ... | d5 ... |          | q8 | q9 |
+        //  | d6 ... | d7 ... |          | q10| q11|
+        //  | d4 ... | d5 ... |          | q12| q13|
+        //  | d6 ... | d7 ... |          | q14| q15|
+        //  +--------+--------+ - - - -  +----+----+
+        //
+        //                               Accumulator
+        //
+
+        // Clear accumulators, and, interleaved with it,
+        // initial loads of the first loop iteration,
+        // taken out of the loop so that in the loop itself we have
+        // optimal streaming of data from memory.
+        "vldr d0, [%[rhs_ptr], #0]\n"
+        "vmov.i32 q8, #0\n"
+        "vldr d4, [%[lhs_ptr], #0]\n"
+        "vmov.i32 q9, #0\n"
+        "vldr d2, [%[rhs_ptr], #16]\n"
+        "vmov.i32 q10, q8\n"
+        "vldr d6, [%[lhs_ptr], #16]\n"
+        "vmov.i32 q11, q8\n"
+        "vldr d1, [%[rhs_ptr], #8]\n"
+        "vmov.i32 q12, q8\n"
+        "vldr d5, [%[lhs_ptr], #8]\n"
+        "vmov.i32 q13, q8\n"
+        "vldr d3, [%[rhs_ptr], #24]\n"
+        "vmov.i32 q14, q8\n"
+        "vldr d7, [%[lhs_ptr], #24]\n"
+        "vmov.i32 q15, q8\n"
+
+        // General loop.
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
+
+        // Multiply 8 first levels of depth.
+        "vmull.s8    q4,  d0,  d4\n"
+        "add %[rhs_ptr], %[rhs_ptr], #32\n"
+        "vmull.s8    q5,  d2,  d4\n"
+        "vldr d4, [%[lhs_ptr], #32]\n"
+        "vmull.s8    q6,  d0,  d6\n"
+        "vmull.s8    q7,  d2,  d6\n"
+        "vldr d6, [%[lhs_ptr], #48]\n"
+
+        // Multiply-accumulate second-half, again into the same
+        // 16bit local accumulator registers. This is where we
+        // take advantage of having int8 instead of uint8 and therefore
+        // being able to accumulate two products into int16.
+        "vmlal.s8    q4,  d1,  d5\n"
+        "vmlal.s8    q5,  d3,  d5\n"
+        "vldr d5, [%[lhs_ptr], #40]\n"
+        "vmlal.s8    q6,  d1,  d7\n"
+        "vmlal.s8    q7,  d3,  d7\n"
+        "vldr d7, [%[lhs_ptr], #56]\n"
+
+        // Add pairwise, accumulate into 32-bit accumulators.
+        "vpadal.s16   q8,  q4\n"
+        "add %[lhs_ptr], %[lhs_ptr], #64\n"
+        "vpadal.s16   q9,  q5\n"
+        "subs %[run_depth], %[run_depth], #16\n"
+        "vpadal.s16   q10, q6\n"
+        "vpadal.s16   q11, q7\n"
+
+        "beq " GEMMLOWP_LABEL_AFTER_LOOP
+        "f\n"
+
+        // Multiply first half.
+        "vmull.s8    q4,  d0,  d4\n"
+        "vmull.s8    q5,  d2,  d4\n"
+        "vldr d4, [%[lhs_ptr], #0]\n"
+        "vmull.s8    q6,  d0,  d6\n"
+        "vldr d0, [%[rhs_ptr], #0]\n"
+        "vmull.s8    q7,  d2,  d6\n"
+        "vldr d2, [%[rhs_ptr], #16]\n"
+
+        // Multiply-accumulate second-half, again into the same
+        // 16bit local accumulator registers. This is where we
+        // take advantage of having int8 instead of uint8 and therefore
+        // being able to accumulate two products into int16.
+        "vmlal.s8    q4,  d1,  d5\n"
+        "vldr d6, [%[lhs_ptr], #16]\n"
+        "vmlal.s8    q5,  d3,  d5\n"
+        "vldr d5, [%[lhs_ptr], #8]\n"
+        "vmlal.s8    q6,  d1,  d7\n"
+        "vldr d1, [%[rhs_ptr], #8]\n"
+        "vmlal.s8    q7,  d3,  d7\n"
+        "vldr d3, [%[rhs_ptr], #24]\n"
+
+        // Add pairwise, accumulate into 32-bit accumulators.
+        "vpadal.s16   q12, q4\n"
+        "vldr d7, [%[lhs_ptr], #24]\n"
+        "vpadal.s16   q13, q5\n"
+        "vpadal.s16   q14, q6\n"
+        "vpadal.s16   q15, q7\n"
+
+        "b " GEMMLOWP_LABEL_LOOP "b\n"
+
+        GEMMLOWP_LABEL_AFTER_LOOP
+        ":\n"
+
+        // Multiply first half.
+        "vmull.s8    q4,  d0,  d4\n"
+        "vmull.s8    q5,  d2,  d4\n"
+        "vmull.s8    q6,  d0,  d6\n"
+        "vmull.s8    q7,  d2,  d6\n"
+
+        // Multiply-accumulate second-half, again into the same
+        // 16bit local accumulator registers. This is where we
+        // take advantage of having int8 instead of uint8 and therefore
+        // being able to accumulate two products into int16.
+        "vmlal.s8    q4,  d1,  d5\n"
+        "vmlal.s8    q5,  d3,  d5\n"
+        "vmlal.s8    q6,  d1,  d7\n"
+        "vmlal.s8    q7,  d3,  d7\n"
+
+        // Add pairwise, accumulate into 32-bit accumulators.
+        "vpadal.s16   q12, q4\n"
+        "vpadal.s16   q13, q5\n"
+        "vpadal.s16   q14, q6\n"
+        "vpadal.s16   q15, q7\n"
+        "cmp %[start_depth], #0\n"
+
+        // Reduce 32bit accumulators horizontally.
+        "vpadd.s32 d0, d16, d17\n"
+        "vpadd.s32 d1, d18, d19\n"
+        "vpadd.s32 d2, d20, d21\n"
+        "vpadd.s32 d3, d22, d23\n"
+        "vpadd.s32 d4, d24, d25\n"
+        "vpadd.s32 d5, d26, d27\n"
+        "vpadd.s32 d6, d28, d29\n"
+        "vpadd.s32 d7, d30, d31\n"
+
+        "bne " GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES
+        "f\n"
+
+        // Reduce 32bit accumulators horizontally, second pass
+        // (each pass adds pairwise. we need to add 4-wise).
+        "vpadd.s32 d8, d0, d2\n"
+        "vpadd.s32 d9, d4, d6\n"
+        "vpadd.s32 d10, d1, d3\n"
+        "vpadd.s32 d11, d5, d7\n"
+
+        "b " GEMMLOWP_LABEL_STORE "f\n"
+
+        GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES
+        ":\n"
+
+        // Reduce 32bit accumulators horizontally, second pass
+        // (each pass adds pairwise. we need to add 4-wise),
+        // and load destination values from memory.
+        "mov r0, %[dst_ptr]\n"
+        "vld1.32 {d16, d17}, [r0], %[dst_col_stride]\n"
+        "vpadd.s32 d8, d0, d2\n"
+        "vpadd.s32 d9, d4, d6\n"
+        "vld1.32 {d18, d19}, [r0]\n"
+        "vpadd.s32 d10, d1, d3\n"
+        "vpadd.s32 d11, d5, d7\n"
+
+        // Add horizontally-reduced accumulators into
+        // the values loaded from memory
+        "vadd.s32 q4, q8, q4\n"
+        "vadd.s32 q5, q9, q5\n"
+
+        GEMMLOWP_LABEL_STORE
+        ":\n"
+        // Store back into memory
+        "mov r0, %[dst_ptr]\n"
+        "vst1.32 {d8, d9}, [r0], %[dst_col_stride]\n"
+        "vst1.32 {d10, d11}, [r0]\n"
+        :  // outputs
+        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+        [dst_ptr] "+r"(dst_ptr), [run_depth] "+r"(run_depth)
+        :  // inputs
+        [start_depth] "r"(start_depth),
+        [dst_col_stride] "r"(dst_col_stride)
+        :  // clobbers
+        "cc", "memory", "r0", "d0", "d1", "d2", "d3", "d4", "d5", "d6", "d7",
+        "d8", "d9", "d10", "d11", "d12", "d13", "d14", "d15", "d16", "d17",
+        "d18", "d19", "d20", "d21", "d22", "d23", "d24", "d25", "d26", "d27",
+        "d28", "d29", "d30", "d31");
+#undef GEMMLOWP_LABEL_LOOP
+#undef GEMMLOWP_LABEL_AFTER_LOOP
+#undef GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES
+#undef GEMMLOWP_LABEL_STORE
+  }
+};
+
 #endif  // GEMMLOWP_NEON_32
 
 // The kernels here are specifically arm 64bit assembly, not arm 32bit.
 #ifdef GEMMLOWP_NEON_64
+
+struct NEON_64bit_GEMM_Int8Operands_LhsNonzero : KernelBase {
+  typedef KernelFormat<
+      KernelSideFormatInt8<CellFormat<4, 16, CellOrder::WidthMajor>, 1>,
+      KernelSideFormatInt8<CellFormat<4, 16, CellOrder::WidthMajor>, 1> >
+      Format;
+  const char* Name() const override {
+    return "NEON, 4x4, depth 16, accumulating two within signed int16";
+  }
+
+  // TODO(benoitjacob): reorder function arguments so dst comes last
+  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride,
+           std::size_t dst_col_stride, const std::uint8_t* lhs_ptr,
+           const std::uint8_t* rhs_ptr, std::size_t start_depth,
+           std::size_t run_depth) const override {
+#define GEMMLOWP_LABEL_AFTER_LOOP_LAST16 "1"
+#define GEMMLOWP_LABEL_LOOP "2"
+#define GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES "3"
+#define GEMMLOWP_LABEL_STORE "4"
+    asm volatile(
+        // Clear accumulators, and, interleaved with it,
+        // initial loads of the first loop iteration,
+        // taken out of the loop so that in the loop itself we have
+        // optimal streaming of data from memory.
+        "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
+        "dup v16.4s, wzr\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+        "dup v17.4s, wzr\n"
+        "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
+        "dup v18.4s, wzr\n"
+        "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+        "dup v19.4s, wzr\n"
+        "ld1 {v2.16b}, [%[rhs_ptr]], #16\n"
+        "dup v20.4s, wzr\n"
+        "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
+        "dup v21.4s, wzr\n"
+        "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+        "dup v22.4s, wzr\n"
+        "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+        "dup v23.4s, wzr\n"
+        "dup v24.4s, wzr\n"
+        "dup v25.4s, wzr\n"
+        "dup v26.4s, wzr\n"
+        "dup v27.4s, wzr\n"
+        "dup v28.4s, wzr\n"
+        "dup v29.4s, wzr\n"
+        "dup v30.4s, wzr\n"
+        "dup v31.4s, wzr\n"
+
+        // Multiply dst_col_stride by 4 == sizeof(int32) to use
+        // it as a byte offset below.
+        "lsl %[dst_col_stride], %[dst_col_stride], #2\n"
+
+        // Initial arithmetic of the first loop iteration,
+        // taken out of the loop so that in the loop itself we have
+        // optimal streaming of data from memory.
+        "smull    v8.8h,  v0.8b,  v4.8b\n"
+        "smull    v9.8h,  v1.8b,  v4.8b\n"
+        "smull    v10.8h,  v2.8b,  v4.8b\n"
+        "smull    v11.8h,  v3.8b,  v4.8b\n"
+        "smull    v12.8h,  v0.8b,  v5.8b\n"
+        "smull    v13.8h,  v1.8b,  v5.8b\n"
+        "smull    v14.8h,  v2.8b,  v5.8b\n"
+        "smull    v15.8h,  v3.8b,  v5.8b\n"
+
+        // Multiply-accumulate second-half, again into the same
+        // 16bit local accumulator registers. This is where we
+        // take advantage of having int8 instead of uint8 and therefore
+        // being able to accumulate two products into int16.
+        "smlal2   v8.8h,  v0.16b,  v4.16b\n"
+        "smlal2   v9.8h,  v1.16b,  v4.16b\n"
+        "smlal2   v10.8h,  v2.16b,  v4.16b\n"
+        "smlal2   v11.8h,  v3.16b,  v4.16b\n"
+        "smlal2   v12.8h,  v0.16b,  v5.16b\n"
+        "smlal2   v13.8h,  v1.16b,  v5.16b\n"
+        "smlal2   v14.8h,  v2.16b,  v5.16b\n"
+        "smlal2   v15.8h,  v3.16b,  v5.16b\n"
+
+        "subs %[run_depth], %[run_depth], #16\n"
+
+        // If the loop depth is only 16, then we can skip the general loop
+        // and go straight to the final part of the code.
+        "beq " GEMMLOWP_LABEL_AFTER_LOOP_LAST16 "f\n"
+
+        // General loop.
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
+
+        // Overview of register layout:
+        //
+        // A 4x16 block of Rhs is stored in 8 bit in v0--v3.
+        // A 4x16 block of Lhs is stored in 8 bit in v4--v7.
+        //
+        // A 4x4 block of accumulators is stored in v16-v31 (as 4x32 bit
+        // components which need to be horizontally-added at the end)
+        //
+        // The Lhs vectors are multiplied by the Rhs vectors with a widening
+        // multiply over the 8 first levels of depth, producing int16x8
+        // vectors of products for each position in the accumulator matrix.
+        // Here comes the special trick: since the operands are signed int8,
+        // their range being [ -2^7 , 2^7 ), their products are in range
+        // [ -2^14 , 2^14 - 1 ), meaning that we can add two such values
+        // without any risk of overflowing int16.
+        // We thus proceed with the 8 next levels of depth, multiplying
+        // again Lhs by Rhs, accumulating into this existing int16x8 vector.
+        //
+        // Only then, having processed 16 levels of depth, do we need to
+        // horizontally add these int16x8 accumulators into the final
+        // int32x4 accumulators.
+        //
+        // As we do not have enough registers to store all 16 int16x8
+        // temporary-16bit-accumulators, we have them cycle through v8--v15.
+        //
+        //
+        // Register layout (ignoring the v8--v15 temporary 16bit accumulators):
+        //
+        //                               +--------+--------+--------+--------+
+        //                               |v0.b[0] |v1.b[0] |v2.b[0] |v3.b[0] |
+        //                          Rhs  +--------+--------+--------+--------+
+        //                               |  ...   |  ...   |  ...   |  ...   |
+        //                               +--------+--------+--------+--------|
+        //                               |v0.b[15]|v1.b[15]|v2.b[15]|v3.b[15]|
+        //                               +--------+--------+--------+--------+
+        //
+        //                               |        |        |        |        |
+        //
+        //    Lhs                        |        |        |        |        |
+        //
+        //  +-------+-----+--------+ - - +--------+--------+--------+--------+
+        //  |v4.b[0]| ... |v4.b[15]|     | v16.4s | v17.4s | v18.4s | v19.4s |
+        //  |v5.b[0]| ... |v5.b[15]|     | v20.4s | v21.4s | v22.4s | v23.4s |
+        //  |v6.b[0]| ... |v6.b[15]|     | v24.4s | v25.4s | v26.4s | v27.4s |
+        //  |v7.b[0]| ... |v7.b[15]|     | v28.4s | v29.4s | v30.4s | v31.4s |
+        //  +-------+--------------+ - - +--------+--------+--------+--------+
+        //
+        //                                                Accumulator
+        //
+
+        // Some multiplications and 16-bit accumulation were already done above,
+        // so we start right away in the middle.
+        "sadalp  v16.4s, v8.8h\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+        "smull    v8.8h,  v0.8b,  v6.8b\n"
+        "sadalp  v17.4s, v9.8h\n"
+        "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+        "smull    v9.8h,  v1.8b,  v6.8b\n"
+        "sadalp  v18.4s, v10.8h\n"
+        "smull    v10.8h,  v2.8b,  v6.8b\n"
+        "sadalp  v19.4s, v11.8h\n"
+        "smull    v11.8h,  v3.8b,  v6.8b\n"
+        "sadalp  v20.4s, v12.8h\n"
+        "smull    v12.8h,  v0.8b,  v7.8b\n"
+        "sadalp  v21.4s, v13.8h\n"
+        "smull    v13.8h,  v1.8b,  v7.8b\n"
+        "sadalp  v22.4s, v14.8h\n"
+        "smull    v14.8h,  v2.8b,  v7.8b\n"
+        "sadalp  v23.4s, v15.8h\n"
+        "smull    v15.8h,  v3.8b,  v7.8b\n"
+
+        // Multiply-accumulate second-half, again into the same
+        // 16bit local accumulator registers. This is where we
+        // take advantage of having int8 instead of uint8 and therefore
+        // being able to accumulate two products into int16.
+        "smlal2   v8.8h,  v0.16b,  v6.16b\n"
+        "smlal2   v9.8h,  v1.16b,  v6.16b\n"
+        "smlal2   v10.8h,  v2.16b,  v6.16b\n"
+        "smlal2   v11.8h,  v3.16b,  v6.16b\n"
+
+        "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+
+        "smlal2   v12.8h,  v0.16b,  v7.16b\n"
+        "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
+        "smlal2   v13.8h,  v1.16b,  v7.16b\n"
+        "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
+        "smlal2   v14.8h,  v2.16b,  v7.16b\n"
+        "ld1 {v2.16b}, [%[rhs_ptr]], #16\n"
+        "smlal2   v15.8h,  v3.16b,  v7.16b\n"
+        "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
+
+        "sadalp  v24.4s, v8.8h\n"
+        "smull    v8.8h,  v0.8b,  v4.8b\n"
+        "sadalp  v25.4s, v9.8h\n"
+        "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+        "smull    v9.8h,  v1.8b,  v4.8b\n"
+        "sadalp  v26.4s, v10.8h\n"
+        "smull    v10.8h,  v2.8b,  v4.8b\n"
+        "sadalp  v27.4s, v11.8h\n"
+        "smull    v11.8h,  v3.8b,  v4.8b\n"
+        "sadalp  v28.4s, v12.8h\n"
+        "smull    v12.8h,  v0.8b,  v5.8b\n"
+        "sadalp  v29.4s, v13.8h\n"
+        "smull    v13.8h,  v1.8b,  v5.8b\n"
+        "sadalp  v30.4s, v14.8h\n"
+        "smull    v14.8h,  v2.8b,  v5.8b\n"
+        "sadalp  v31.4s, v15.8h\n"
+        "smull    v15.8h,  v3.8b,  v5.8b\n"
+
+        // Multiply-accumulate second-half, again into the same
+        // 16bit local accumulator registers. This is where we
+        // take advantage of having int8 instead of uint8 and therefore
+        // being able to accumulate two products into int16.
+        "smlal2   v8.8h,  v0.16b,  v4.16b\n"
+        "smlal2   v9.8h,  v1.16b,  v4.16b\n"
+        "smlal2   v10.8h,  v2.16b,  v4.16b\n"
+        "smlal2   v11.8h,  v3.16b,  v4.16b\n"
+
+        // Loop. Decrement loop index (depth) by 16, since we just handled
+        // 16 levels of depth.  Do this subs a bit before the end of the loop
+        // for better dispatch on A57.
+        "subs %[run_depth], %[run_depth], #16\n"
+
+        "smlal2   v12.8h,  v0.16b,  v5.16b\n"
+        "smlal2   v13.8h,  v1.16b,  v5.16b\n"
+        "smlal2   v14.8h,  v2.16b,  v5.16b\n"
+        "smlal2   v15.8h,  v3.16b,  v5.16b\n"
+
+        "bne " GEMMLOWP_LABEL_LOOP "b\n"
+
+        // Final code for the last 16 levels of depth.
+        // There is nothing to load anymore, only some arithmetic to finish.
+        GEMMLOWP_LABEL_AFTER_LOOP_LAST16
+        ":\n"
+
+        // Some multiplications and 16-bit accumulation were already done above,
+        // so we start right away in the middle.
+        "sadalp  v16.4s, v8.8h\n"
+        "smull    v8.8h,  v0.8b,  v6.8b\n"
+        "sadalp  v17.4s, v9.8h\n"
+        "smull    v9.8h,  v1.8b,  v6.8b\n"
+        "sadalp  v18.4s, v10.8h\n"
+        "smull    v10.8h,  v2.8b,  v6.8b\n"
+        "sadalp  v19.4s, v11.8h\n"
+        "smull    v11.8h,  v3.8b,  v6.8b\n"
+        "sadalp  v20.4s, v12.8h\n"
+        "smull    v12.8h,  v0.8b,  v7.8b\n"
+        "sadalp  v21.4s, v13.8h\n"
+        "smull    v13.8h,  v1.8b,  v7.8b\n"
+        "sadalp  v22.4s, v14.8h\n"
+        "smull    v14.8h,  v2.8b,  v7.8b\n"
+        "sadalp  v23.4s, v15.8h\n"
+        "smull    v15.8h,  v3.8b,  v7.8b\n"
+
+        // Multiply-accumulate second-half, again into the same
+        // 16bit local accumulator registers. This is where we
+        // take advantage of having int8 instead of uint8 and therefore
+        // being able to accumulate two products into int16.
+        "smlal2   v8.8h,  v0.16b,  v6.16b\n"
+        "smlal2   v9.8h,  v1.16b,  v6.16b\n"
+        "smlal2   v10.8h,  v2.16b,  v6.16b\n"
+        "smlal2   v11.8h,  v3.16b,  v6.16b\n"
+        "smlal2   v12.8h,  v0.16b,  v7.16b\n"
+        "smlal2   v13.8h,  v1.16b,  v7.16b\n"
+        "smlal2   v14.8h,  v2.16b,  v7.16b\n"
+        "smlal2   v15.8h,  v3.16b,  v7.16b\n"
+
+        "sadalp  v24.4s, v8.8h\n"
+        "sadalp  v25.4s, v9.8h\n"
+        "sadalp  v26.4s, v10.8h\n"
+        "sadalp  v27.4s, v11.8h\n"
+        "sadalp  v28.4s, v12.8h\n"
+        "sadalp  v29.4s, v13.8h\n"
+        "sadalp  v30.4s, v14.8h\n"
+        "sadalp  v31.4s, v15.8h\n"
+
+        // Reduce 32bit accumulators horizontally.
+        "addp v0.4s, v16.4s, v20.4s\n"
+        "addp v2.4s, v17.4s, v21.4s\n"
+        "addp v4.4s, v18.4s, v22.4s\n"
+        "addp v6.4s, v19.4s, v23.4s\n"
+        "addp v1.4s, v24.4s, v28.4s\n"
+        "addp v3.4s, v25.4s, v29.4s\n"
+        "addp v5.4s, v26.4s, v30.4s\n"
+        "addp v7.4s, v27.4s, v31.4s\n"
+
+        "cmp %[start_depth], #0\n"
+        "bne " GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES
+        "f\n"
+
+        // Reduce 32bit accumulators horizontally, second pass
+        // (each pass adds pairwise. we need to add 4-wise).
+        "addp v12.4s, v0.4s, v1.4s\n"
+        "addp v13.4s, v2.4s, v3.4s\n"
+        "addp v14.4s, v4.4s, v5.4s\n"
+        "addp v15.4s, v6.4s, v7.4s\n"
+
+        "b " GEMMLOWP_LABEL_STORE "f\n"
+
+        GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES
+        ":\n"
+
+        // Reduce 32bit accumulators horizontally, second pass
+        // (each pass adds pairwise. we need to add 4-wise),
+        // and load destination values from memory.
+        "mov x0, %[dst_ptr]\n"
+        "ld1 {v12.16b}, [x0], %[dst_col_stride]\n"
+        "addp v8.4s, v0.4s, v1.4s\n"
+        "ld1 {v13.16b}, [x0], %[dst_col_stride]\n"
+        "addp v9.4s, v2.4s, v3.4s\n"
+        "ld1 {v14.16b}, [x0], %[dst_col_stride]\n"
+        "addp v10.4s, v4.4s, v5.4s\n"
+        "ld1 {v15.16b}, [x0]\n"
+        "addp v11.4s, v6.4s, v7.4s\n"
+
+        // Add horizontally-reduced accumulators into
+        // the values loaded from memory
+        "add v12.4s, v12.4s, v8.4s\n"
+        "add v13.4s, v13.4s, v9.4s\n"
+        "add v14.4s, v14.4s, v10.4s\n"
+        "add v15.4s, v15.4s, v11.4s\n"
+
+        GEMMLOWP_LABEL_STORE
+        ":\n"
+        // Store back into memory
+        "mov x0, %[dst_ptr]\n"
+        "st1 {v12.16b}, [x0], %[dst_col_stride]\n"
+        "st1 {v13.16b}, [x0], %[dst_col_stride]\n"
+        "st1 {v14.16b}, [x0], %[dst_col_stride]\n"
+        "st1 {v15.16b}, [x0]\n"
+        :  // outputs
+        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+        [dst_ptr] "+r"(dst_ptr), [run_depth] "+r"(run_depth),
+        [dst_col_stride] "+r"(dst_col_stride)
+        :  // inputs
+        [start_depth] "r"(start_depth)
+        :  // clobbers
+        "cc", "memory", "x0", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+        "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17",
+        "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27",
+        "v28", "v29", "v30", "v31");
+#undef GEMMLOWP_LABEL_LOOP
+#undef GEMMLOWP_LABEL_AFTER_LOOP_LAST16
+#undef GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES
+#undef GEMMLOWP_LABEL_STORE
+  }
+};
+
 
 // Our main GEMM kernel.
 struct NEON_64_Kernel12x8Depth2 : KernelBase {
@@ -658,13 +1277,81 @@ struct NEON_64_Kernel12x8Depth2 : KernelBase {
            std::size_t run_depth) const override {
     ScopedProfilingLabel label("optimized kernel (NEON 12x8)");
 // See comments above for why we need local numerical labels in our asm.
-#define GEMMLOWP_LOOP_NEON_64_KERNEL_12X8_DEPTH2 "1"
-#define GEMMLOWP_STORE_RESULT_NEON_64_KERNEL_12x8_DEPTH2 "2"
+#define GEMMLOWP_LABEL_CLEAR_ACCUMULATORS "1"
+#define GEMMLOWP_LABEL_BEFORE_LOOP "2"
+#define GEMMLOWP_LABEL_LOOP "3"
+#define GEMMLOWP_LABEL_AFTER_LOOP "4"
 
     assert(dst_row_stride == 1);
     asm volatile(
+        // Load 1 Rhs cell of size 2x8
+        "ld1 {v5.8b}, [%[rhs_ptr]], #8\n"
+        "ld1 {v6.8b}, [%[rhs_ptr]], #8\n"
+
+        // Load 3 Lhs cells of size 4x2 each
+        "ld1 {v2.8b}, [%[lhs_ptr]], #8\n"
+        "ld1 {v3.8b}, [%[lhs_ptr]], #8\n"
+        "ld1 {v4.8b}, [%[lhs_ptr]], #8\n"
+
+        // Multiply dst_col_stride by 4 == sizeof(int32) to use
+        // it as a byte offset below.
+        "lsl %[dst_col_stride], %[dst_col_stride], #2\n"
+
+        "cmp %[start_depth], #0\n"
+        "beq " GEMMLOWP_LABEL_CLEAR_ACCUMULATORS
+        "f\n"
+
+        // Load accumulators
+        "mov x1, %[dst_ptr]\n"
+        "mov x0, x1\n"
+        "ld1 {v8.16b}, [x0], #16\n"
+        "subs %[run_depth], %[run_depth], #2\n"
+        "ld1 {v16.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "ld1 {v24.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "ld1 {v9.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "ld1 {v17.16b}, [x0], #16\n"
+        "ld1 {v25.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "ld1 {v10.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "ld1 {v18.16b}, [x0], #16\n"
+        "ld1 {v26.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "ld1 {v11.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "ld1 {v19.16b}, [x0], #16\n"
+        "ld1 {v27.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "ld1 {v12.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "ld1 {v20.16b}, [x0], #16\n"
+        "ld1 {v28.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "ld1 {v13.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "ld1 {v21.16b}, [x0], #16\n"
+        "ld1 {v29.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "ld1 {v14.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "ld1 {v22.16b}, [x0], #16\n"
+        "ld1 {v30.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "ld1 {v15.16b}, [x0], #16\n"
+        "ld1 {v23.16b}, [x0], #16\n"
+        "ld1 {v31.16b}, [x0]\n"
+
+        "b " GEMMLOWP_LABEL_BEFORE_LOOP "f\n"
+
+        GEMMLOWP_LABEL_CLEAR_ACCUMULATORS
+        ":\n"
+
         // Clear accumulator registers (see layout below)
         "dup v8.4s, wzr\n"
+        "subs %[run_depth], %[run_depth], #2\n"
         "dup v9.4s, wzr\n"
         "dup v10.4s, wzr\n"
         "dup v11.4s, wzr\n"
@@ -689,9 +1376,12 @@ struct NEON_64_Kernel12x8Depth2 : KernelBase {
         "dup v30.4s, wzr\n"
         "dup v31.4s, wzr\n"
 
-        /* Main loop */
+        GEMMLOWP_LABEL_BEFORE_LOOP
+        ":\n"
 
-        GEMMLOWP_LOOP_NEON_64_KERNEL_12X8_DEPTH2
+        "beq " GEMMLOWP_LABEL_AFTER_LOOP "f\n"
+
+        GEMMLOWP_LABEL_LOOP
         ":\n"
 
         // Overview of register layout:
@@ -729,18 +1419,82 @@ struct NEON_64_Kernel12x8Depth2 : KernelBase {
         //
         //                            Accumulator
 
-        // Load 1 Rhs cell of size 2x8
-        "ld1 {v0.8b}, [%[rhs_ptr]], #8\n"
-        "ld1 {v1.8b}, [%[rhs_ptr]], #8\n"
+        // Expand Lhs/Rhs cells to 16 bit.
+        "uxtl v0.8h, v5.8b\n"
+        "ld1 {v5.8b}, [%[rhs_ptr]], #8\n"
+        "uxtl v1.8h, v6.8b\n"
+        "ld1 {v6.8b}, [%[rhs_ptr]], #8\n"
+        "uxtl v2.8h, v2.8b\n"
+        "uxtl v3.8h, v3.8b\n"
+        "uxtl v4.8h, v4.8b\n"
 
-        // Load 3 Lhs cells of size 4x2 each
+        // Multiply-accumulate, top third
+        "umlal v8.4s, v2.4h, v0.h[0]\n"
+        "umlal v9.4s, v2.4h, v0.h[1]\n"
+        "umlal v10.4s, v2.4h, v0.h[2]\n"
+        "umlal v11.4s, v2.4h, v0.h[3]\n"
+        "umlal v12.4s, v2.4h, v1.h[0]\n"
+        "umlal v13.4s, v2.4h, v1.h[1]\n"
+        "umlal v14.4s, v2.4h, v1.h[2]\n"
+        "umlal v15.4s, v2.4h, v1.h[3]\n"
+        "umlal2 v8.4s, v2.8h, v0.h[4]\n"
+        "umlal2 v9.4s, v2.8h, v0.h[5]\n"
+        "umlal2 v10.4s, v2.8h, v0.h[6]\n"
+        "umlal2 v11.4s, v2.8h, v0.h[7]\n"
+        "umlal2 v12.4s, v2.8h, v1.h[4]\n"
+        "umlal2 v13.4s, v2.8h, v1.h[5]\n"
+        "umlal2 v14.4s, v2.8h, v1.h[6]\n"
+        "umlal2 v15.4s, v2.8h, v1.h[7]\n"
         "ld1 {v2.8b}, [%[lhs_ptr]], #8\n"
+
+        // Multiply-accumulate, middle third
+        "umlal v16.4s, v3.4h, v0.h[0]\n"
+        "umlal v17.4s, v3.4h, v0.h[1]\n"
+        "umlal v18.4s, v3.4h, v0.h[2]\n"
+        "umlal v19.4s, v3.4h, v0.h[3]\n"
+        "umlal v20.4s, v3.4h, v1.h[0]\n"
+        "umlal v21.4s, v3.4h, v1.h[1]\n"
+        "umlal v22.4s, v3.4h, v1.h[2]\n"
+        "umlal v23.4s, v3.4h, v1.h[3]\n"
+        "umlal2 v16.4s, v3.8h, v0.h[4]\n"
+        "umlal2 v17.4s, v3.8h, v0.h[5]\n"
+        "umlal2 v18.4s, v3.8h, v0.h[6]\n"
+        "umlal2 v19.4s, v3.8h, v0.h[7]\n"
+        "umlal2 v20.4s, v3.8h, v1.h[4]\n"
+        "umlal2 v21.4s, v3.8h, v1.h[5]\n"
+        "umlal2 v22.4s, v3.8h, v1.h[6]\n"
+        "umlal2 v23.4s, v3.8h, v1.h[7]\n"
         "ld1 {v3.8b}, [%[lhs_ptr]], #8\n"
+
+        "subs %[run_depth], %[run_depth], #2\n"
+
+        // Multiply-accumulate, bottom third
+        "umlal v24.4s, v4.4h, v0.h[0]\n"
+        "umlal v25.4s, v4.4h, v0.h[1]\n"
+        "umlal v26.4s, v4.4h, v0.h[2]\n"
+        "umlal v27.4s, v4.4h, v0.h[3]\n"
+        "umlal v28.4s, v4.4h, v1.h[0]\n"
+        "umlal v29.4s, v4.4h, v1.h[1]\n"
+        "umlal v30.4s, v4.4h, v1.h[2]\n"
+        "umlal v31.4s, v4.4h, v1.h[3]\n"
+        "umlal2 v24.4s, v4.8h, v0.h[4]\n"
+        "umlal2 v25.4s, v4.8h, v0.h[5]\n"
+        "umlal2 v26.4s, v4.8h, v0.h[6]\n"
+        "umlal2 v27.4s, v4.8h, v0.h[7]\n"
+        "umlal2 v28.4s, v4.8h, v1.h[4]\n"
+        "umlal2 v29.4s, v4.8h, v1.h[5]\n"
+        "umlal2 v30.4s, v4.8h, v1.h[6]\n"
+        "umlal2 v31.4s, v4.8h, v1.h[7]\n"
         "ld1 {v4.8b}, [%[lhs_ptr]], #8\n"
 
+        "bne " GEMMLOWP_LABEL_LOOP "b\n"
+
+        GEMMLOWP_LABEL_AFTER_LOOP
+        ":\n"
+
         // Expand Lhs/Rhs cells to 16 bit.
-        "uxtl v0.8h, v0.8b\n"
-        "uxtl v1.8h, v1.8b\n"
+        "uxtl v0.8h, v5.8b\n"
+        "uxtl v1.8h, v6.8b\n"
         "uxtl v2.8h, v2.8b\n"
         "uxtl v3.8h, v3.8b\n"
         "uxtl v4.8h, v4.8b\n"
@@ -797,167 +1551,52 @@ struct NEON_64_Kernel12x8Depth2 : KernelBase {
         "umlal2 v30.4s, v4.8h, v1.h[6]\n"
         "umlal2 v31.4s, v4.8h, v1.h[7]\n"
 
-        // Loop. Decrement loop index (depth) by 2, since we just handled 2
-        // levels of depth (Kernel::kDepth=2).
+        // Store accumulators
+        "mov x1, %[dst_ptr]\n"
+        "mov x0, x1\n"
+        "st1 {v8.16b}, [x0], #16\n"
         "subs %[run_depth], %[run_depth], #2\n"
-        "bne " GEMMLOWP_LOOP_NEON_64_KERNEL_12X8_DEPTH2
-        "b\n"
-
-        /* end of main loop */
-
-        /* Accumulate our local accumulator registers into the destination block
-           */
-
-        // Compute stride between consecutive columns, in bytes
-        "mov x0, #4\n"  // multiply by 4 = sizeof(int32)
-        "mul %[dst_col_stride], %[dst_col_stride], x0\n"
-
-        // If start_depth == 0, then there is no preexisting accumulator
-        // to accumulate, so we can simply store our result.
-        "cmp %[start_depth], #0\n"
-        "beq " GEMMLOWP_STORE_RESULT_NEON_64_KERNEL_12x8_DEPTH2
-        "f\n"
-
-        "mov x0, %[dst_ptr]\n"
-
-        // Load a column
-        "mov x1, x0\n"
-        "ld1 {v0.4s}, [x1], #16\n"
-        "ld1 {v1.4s}, [x1], #16\n"
-        "ld1 {v2.4s}, [x1], #16\n"
-        // Accumulate a column
-        "add v8.4s, v8.4s, v0.4s\n"
-        "add v16.4s, v16.4s, v1.4s\n"
-        "add v24.4s, v24.4s, v2.4s\n"
-
-        "add x0, x0, %[dst_col_stride]\n"
-        // Load a column
-        "mov x1, x0\n"
-        "ld1 {v0.4s}, [x1], #16\n"
-        "ld1 {v1.4s}, [x1], #16\n"
-        "ld1 {v2.4s}, [x1], #16\n"
-        // Accumulate a column
-        "add v9.4s, v9.4s, v0.4s\n"
-        "add v17.4s, v17.4s, v1.4s\n"
-        "add v25.4s, v25.4s, v2.4s\n"
-
-        "add x0, x0, %[dst_col_stride]\n"
-        // Load a column
-        "mov x1, x0\n"
-        "ld1 {v0.4s}, [x1], #16\n"
-        "ld1 {v1.4s}, [x1], #16\n"
-        "ld1 {v2.4s}, [x1], #16\n"
-        // Accumulate a column
-        "add v10.4s, v10.4s, v0.4s\n"
-        "add v18.4s, v18.4s, v1.4s\n"
-        "add v26.4s, v26.4s, v2.4s\n"
-
-        "add x0, x0, %[dst_col_stride]\n"
-        // Load a column
-        "mov x1, x0\n"
-        "ld1 {v0.4s}, [x1], #16\n"
-        "ld1 {v1.4s}, [x1], #16\n"
-        "ld1 {v2.4s}, [x1], #16\n"
-        // Accumulate a column
-        "add v11.4s, v11.4s, v0.4s\n"
-        "add v19.4s, v19.4s, v1.4s\n"
-        "add v27.4s, v27.4s, v2.4s\n"
-
-        "add x0, x0, %[dst_col_stride]\n"
-        // Load a column
-        "mov x1, x0\n"
-        "ld1 {v0.4s}, [x1], #16\n"
-        "ld1 {v1.4s}, [x1], #16\n"
-        "ld1 {v2.4s}, [x1], #16\n"
-        // Accumulate a column
-        "add v12.4s, v12.4s, v0.4s\n"
-        "add v20.4s, v20.4s, v1.4s\n"
-        "add v28.4s, v28.4s, v2.4s\n"
-
-        "add x0, x0, %[dst_col_stride]\n"
-        // Load a column
-        "mov x1, x0\n"
-        "ld1 {v0.4s}, [x1], #16\n"
-        "ld1 {v1.4s}, [x1], #16\n"
-        "ld1 {v2.4s}, [x1], #16\n"
-        // Accumulate a column
-        "add v13.4s, v13.4s, v0.4s\n"
-        "add v21.4s, v21.4s, v1.4s\n"
-        "add v29.4s, v29.4s, v2.4s\n"
-
-        "add x0, x0, %[dst_col_stride]\n"
-        // Load a column
-        "mov x1, x0\n"
-        "ld1 {v0.4s}, [x1], #16\n"
-        "ld1 {v1.4s}, [x1], #16\n"
-        "ld1 {v2.4s}, [x1], #16\n"
-        // Accumulate a column
-        "add v14.4s, v14.4s, v0.4s\n"
-        "add v22.4s, v22.4s, v1.4s\n"
-        "add v30.4s, v30.4s, v2.4s\n"
-
-        "add x0, x0, %[dst_col_stride]\n"
-        // Load a column
-        "mov x1, x0\n"
-        "ld1 {v0.4s}, [x1], #16\n"
-        "ld1 {v1.4s}, [x1], #16\n"
-        "ld1 {v2.4s}, [x1], #16\n"
-        // Accumulate a column
-        "add v15.4s, v15.4s, v0.4s\n"
-        "add v23.4s, v23.4s, v1.4s\n"
-        "add v31.4s, v31.4s, v2.4s\n"
-
-        GEMMLOWP_STORE_RESULT_NEON_64_KERNEL_12x8_DEPTH2
-        ":\n"
-
-        "mov x0, %[dst_ptr]\n"
-        // Store a column
-        "mov x1, x0\n"
-        "st1 {v8.4s}, [x1], #16\n"
-        "st1 {v16.4s}, [x1], #16\n"
-        "st1 {v24.4s}, [x1], #16\n"
-        // Store a column
-        "add x0, x0, %[dst_col_stride]\n"
-        "mov x1, x0\n"
-        "st1 {v9.4s}, [x1], #16\n"
-        "st1 {v17.4s}, [x1], #16\n"
-        "st1 {v25.4s}, [x1], #16\n"
-        // Store a column
-        "add x0, x0, %[dst_col_stride]\n"
-        "mov x1, x0\n"
-        "st1 {v10.4s}, [x1], #16\n"
-        "st1 {v18.4s}, [x1], #16\n"
-        "st1 {v26.4s}, [x1], #16\n"
-        // Store a column
-        "add x0, x0, %[dst_col_stride]\n"
-        "mov x1, x0\n"
-        "st1 {v11.4s}, [x1], #16\n"
-        "st1 {v19.4s}, [x1], #16\n"
-        "st1 {v27.4s}, [x1], #16\n"
-        // Store a column
-        "add x0, x0, %[dst_col_stride]\n"
-        "mov x1, x0\n"
-        "st1 {v12.4s}, [x1], #16\n"
-        "st1 {v20.4s}, [x1], #16\n"
-        "st1 {v28.4s}, [x1], #16\n"
-        // Store a column
-        "add x0, x0, %[dst_col_stride]\n"
-        "mov x1, x0\n"
-        "st1 {v13.4s}, [x1], #16\n"
-        "st1 {v21.4s}, [x1], #16\n"
-        "st1 {v29.4s}, [x1], #16\n"
-        // Store a column
-        "add x0, x0, %[dst_col_stride]\n"
-        "mov x1, x0\n"
-        "st1 {v14.4s}, [x1], #16\n"
-        "st1 {v22.4s}, [x1], #16\n"
-        "st1 {v30.4s}, [x1], #16\n"
-        // Store a column
-        "add x0, x0, %[dst_col_stride]\n"
-        "mov x1, x0\n"
-        "st1 {v15.4s}, [x1], #16\n"
-        "st1 {v23.4s}, [x1], #16\n"
-        "st1 {v31.4s}, [x1], #16\n"
+        "st1 {v16.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "st1 {v24.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "st1 {v9.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "st1 {v17.16b}, [x0], #16\n"
+        "st1 {v25.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "st1 {v10.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "st1 {v18.16b}, [x0], #16\n"
+        "st1 {v26.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "st1 {v11.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "st1 {v19.16b}, [x0], #16\n"
+        "st1 {v27.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "st1 {v12.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "st1 {v20.16b}, [x0], #16\n"
+        "st1 {v28.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "st1 {v13.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "st1 {v21.16b}, [x0], #16\n"
+        "st1 {v29.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "st1 {v14.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "st1 {v22.16b}, [x0], #16\n"
+        "st1 {v30.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "st1 {v15.16b}, [x0], #16\n"
+        "st1 {v23.16b}, [x0], #16\n"
+        "st1 {v31.16b}, [x0]\n"
+#undef GEMMLOWP_LABEL_CLEAR_ACCUMULATORS
+#undef GEMMLOWP_LABEL_BEFORE_LOOP
+#undef GEMMLOWP_LABEL_LOOP
+#undef GEMMLOWP_LABEL_AFTER_LOOP
         :  // outputs
         [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
         [dst_ptr] "+r"(dst_ptr),
@@ -970,77 +1609,10 @@ struct NEON_64_Kernel12x8Depth2 : KernelBase {
         "v7", "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16",
         "v17", "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26",
         "v27", "v28", "v29", "v30", "v31");
-#undef GEMMLOWP_LOOP_NEON_64_KERNEL_12X8_DEPTH2
-#undef GEMMLOWP_STORE_RESULT_NEON_64_KERNEL_12x8_DEPTH2
   }
 };
 
 #endif  // GEMMLOWP_NEON_64
-
-// Our main GEMV kernel.
-// Because our GEMV performance is low and not dominated by the kernel
-// at the moment, it's not worth optimizing too hard yet.
-// Using intrinsics allows us to write one implementation for both 32bit and
-// 64bit ARM, and should also perform OK here because the register pressure
-// is not so high in this GEMV kernel.
-// When/if we get serious about GEMV performance, we will want to
-// implement it to bypass packing altogether, and use source data in-place
-// with different GEMV kernels for row-major and column-major LHS.
-template <int Cells>
-struct NEONKernel4Nx1Depth2 : KernelBase {
-  typedef KernelFormat<KernelSideFormat<CellFormat<4, 2>, Cells>,
-                       KernelSideFormat<CellFormat<1, 2>, 1> >
-      Format;
-
-  const char* Name() const override { return "NEON intrinsics, 4Nx1, depth 2"; }
-
-  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride,
-           std::size_t dst_col_stride, const std::uint8_t* lhs_ptr,
-           const std::uint8_t* rhs_ptr, std::size_t start_depth,
-           std::size_t run_depth) const override {
-    ScopedProfilingLabel label("optimized kernel (NEON 4Nx1)");
-
-    assert(dst_row_stride == 1);
-
-    // Clear accumulators
-    uint32x4_t acc[Cells];
-    for (int cell = 0; cell < Cells; cell++) {
-      acc[cell] = vdupq_n_u32(0);
-    }
-    // Main loop
-    for (std::size_t d = 0; d < run_depth; d += 2) {
-      // Load LHS cells
-      uint16x8_t lhs[Cells];
-      for (int cell = 0; cell < Cells; cell++) {
-        lhs[cell] = vmovl_u8(vld1_u8(lhs_ptr));
-        lhs_ptr += 8;
-      }
-      // Load RHS cell
-      std::uint16_t rhs0 = rhs_ptr[0];
-      std::uint16_t rhs1 = rhs_ptr[1];
-      rhs_ptr += 2;
-      // Multiply-accumulate, level of depth 0
-      for (int cell = 0; cell < Cells; cell++) {
-        acc[cell] = vmlal_n_u16(acc[cell], vget_low_u16(lhs[cell]), rhs0);
-      }
-      // Multiply-accumulate, level of depth 1
-      for (int cell = 0; cell < Cells; cell++) {
-        acc[cell] = vmlal_n_u16(acc[cell], vget_high_u16(lhs[cell]), rhs1);
-      }
-    }
-    // If start_depth is nonzero, accumulate with the existing accumulator
-    if (start_depth) {
-      for (int cell = 0; cell < Cells; cell++) {
-        acc[cell] = vaddq_u32(
-            acc[cell], vreinterpretq_u32_s32(vld1q_s32(dst_ptr + 4 * cell)));
-      }
-    }
-    // Store the accumulators
-    for (int cell = 0; cell < Cells; cell++) {
-      vst1q_s32(dst_ptr + 4 * cell, vreinterpretq_s32_u32(acc[cell]));
-    }
-  }
-};
 
 }  // namespace gemmlowp
 

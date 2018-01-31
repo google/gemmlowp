@@ -223,6 +223,13 @@ class Stream<InType, lanes_count, pack_size, leftovers, RowMajorWithSum> {
     std::cout << "  packed advance: " << PackedAdvance(params) << std::endl;
     std::cout << "  unpacked stride: " << UnpackedStride(params) << std::endl;
     std::cout << "  packed stride: " << PackedStride(params) << std::endl;
+    std::cout << "  params:" << std::endl;
+    std::cout << "    count: " << params.count << std::endl;
+    std::cout << "    stride: " << params.stride << std::endl;
+    std::cout << "    multiplicative_sum_offset: "
+              << params.multiplicative_sum_offset << std::endl;
+    std::cout << "    additive_sum_offset: " << params.additive_sum_offset
+              << std::endl;
   }
 #endif
 #endif
@@ -281,6 +288,13 @@ class Stream<InType, lanes_count, pack_size, leftovers, ColumnMajorWithSum> {
     std::cout << "  packed advance: " << PackedAdvance(params) << std::endl;
     std::cout << "  unpacked stride: " << UnpackedStride(params) << std::endl;
     std::cout << "  packed stride: " << PackedStride(params) << std::endl;
+    std::cout << "  params:" << std::endl;
+    std::cout << "    count: " << params.count << std::endl;
+    std::cout << "    stride: " << params.stride << std::endl;
+    std::cout << "    multiplicative_sum_offset: "
+              << params.multiplicative_sum_offset << std::endl;
+    std::cout << "    additive_sum_offset: " << params.additive_sum_offset
+              << std::endl;
   }
 #endif
 #endif

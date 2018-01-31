@@ -14,274 +14,341 @@
 
 // output_sse.h: optimized SSE4.2 specializations of the templates in output.h.
 
-#ifndef GEMMLOWP_INTERNAL_OUTPUT_SSE4_H_
-#define GEMMLOWP_INTERNAL_OUTPUT_SSE4_H_
+#ifndef GEMMLOWP_INTERNAL_OUTPUT_SSE_H_
+#define GEMMLOWP_INTERNAL_OUTPUT_SSE_H_
+
+#include "output.h"
 
 #include <smmintrin.h>
-#include "output.h"
 
 namespace gemmlowp {
 
-typedef struct _int32x16x1_t { __m128i val[4]; } int32x16x1_t;
+template <>
+struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
+                                 RegBufferInt32<4>> {
+  typedef RegBufferInt32<4> InputType;
+  typedef RegBufferUint8<4> OutputType;
 
-// Definitions of Fragment types wrapping SSE4.2 vector types.
-typedef Fragment<__m128i, 4, 1, MapOrder::ColMajor> SSE4FragmentInt32x4x1;
-typedef Fragment<int32x16x1_t, 16, 1, MapOrder::ColMajor>
-    SSE4FragmentInt32x16x1;
-typedef Fragment<std::uint32_t, 4, 1, MapOrder::ColMajor> SSE4FragmentUint8x4x1;
-typedef Fragment<__m128i, 16, 1, MapOrder::ColMajor> SSE4FragmentUint8x16x1;
+  typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-template <typename OutputStageType>
-struct OutputStageEvalImpl<OutputStageType, SSE4FragmentInt32x16x1> {
-  typedef SSE4FragmentInt32x16x1 InputType;
-  typedef SSE4FragmentInt32x16x1 OutputType;
-  typedef OutputStageEvalImpl<OutputStageType, SSE4FragmentInt32x4x1>
-      ImplInt32x4;
-  OutputStageEvalImpl(const OutputStageType& s) : impl_int32x4(s) {}
+  OutputStageEvalBufferImpl(const OutputStage&) {}
 
-  OutputType Eval(InputType input, int row, int col) const {
+  OutputType Eval(InputType input) const {
     OutputType output;
-
-    for (int i = 0; i < 4; i++) {
-      output.data.val[i] =
-          impl_int32x4.Eval(input.data.val[i], row + 4 * i, col);
-    }
+    __m128i res_16 = _mm_packs_epi32(input.reg[0], input.reg[0]);
+    __m128i res_8 = _mm_packus_epi16(res_16, res_16);
+    output.reg[0] = _mm_cvtsi128_si32(res_8);
     return output;
   }
-
-  ImplInt32x4 impl_int32x4;
 };
 
-// Implementation of OutputStageQuantizeDownInt32ToUint8Scale for
-// SSE4FragmentInt32x4x1
 template <>
-struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
-                           SSE4FragmentInt32x4x1> {
-  typedef SSE4FragmentInt32x4x1 InputType;
-  typedef SSE4FragmentInt32x4x1 OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8Scale OutputStage;
+struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
+                                 RegBufferInt32<8>> {
+  typedef RegBufferInt32<8> InputType;
+  typedef RegBufferUint8<8> OutputType;
 
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
-
-  OutputType Eval(InputType input, int, int) const {
-    const std::int32_t result_shift = output_stage.result_shift;
-    const __m128i result_mult_int =
-        _mm_set1_epi32(output_stage.result_mult_int);
-    const __m128i result_offset = _mm_set1_epi32(output_stage.result_offset);
-    const __m128i a =
-        _mm_mullo_epi32(_mm_add_epi32(input, result_offset), result_mult_int);
-    return RoundingDivideByPOT(a, result_shift);
-  }
-
-  const OutputStage& output_stage;
-};
-
-// Implementation of OutputStageQuantizeDownInt32ToUint8ScalePC for
-// SSE4FragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<
-    OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Col>,
-    SSE4FragmentInt32x4x1> {
-  typedef SSE4FragmentInt32x4x1 InputType;
-  typedef SSE4FragmentInt32x4x1 OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Col>
-      OutputStage;
-
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
-
-  OutputType Eval(InputType input, int row, int /*col*/) const {
-    const std::int32_t result_shift = output_stage.result_shift;
-    const __m128i result_mult_int =
-        _mm_lddqu_si128(reinterpret_cast<const __m128i*>(
-            output_stage.result_mult_int.data(row)));
-    const __m128i result_offset = _mm_lddqu_si128(
-        reinterpret_cast<const __m128i*>(output_stage.result_offset.data(row)));
-    const __m128i a =
-        _mm_mullo_epi32(_mm_add_epi32(input, result_offset), result_mult_int);
-    return RoundingDivideByPOT(a, result_shift);
-  }
-
-  const OutputStage& output_stage;
-};
-
-// Implementation of OutputStageQuantizeDownInt32ToUint8ScalePC for
-// SSE4FragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<
-    OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Row>,
-    SSE4FragmentInt32x4x1> {
-  typedef SSE4FragmentInt32x4x1 InputType;
-  typedef SSE4FragmentInt32x4x1 OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Row>
-      OutputStage;
-
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
-
-  OutputType Eval(InputType input, int row, int col) const {
-    const std::int32_t result_shift = output_stage.result_shift;
-    const __m128i result_mult_int =
-        _mm_lddqu_si128(reinterpret_cast<const __m128i*>(
-            output_stage.result_mult_int.data(col)));
-    const __m128i result_offset = _mm_lddqu_si128(
-        reinterpret_cast<const __m128i*>(output_stage.result_offset.data(row)));
-    const __m128i a =
-        _mm_mullo_epi32(_mm_add_epi32(input, result_offset), result_mult_int);
-    return RoundingDivideByPOT(a, result_shift);
-  }
-
-  const OutputStage& output_stage;
-};
-
-// Implementation of OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint for
-// SSE4FragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
-                           SSE4FragmentInt32x4x1> {
-  typedef SSE4FragmentInt32x4x1 InputType;
-  typedef SSE4FragmentInt32x4x1 OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint OutputStage;
-
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
-
-  OutputType Eval(InputType input, int, int) const {
-    const __m128i mulhigh_val = SaturatingRoundingDoublingHighMul(
-        input.data, _mm_set1_epi32(output_stage.result_fixedpoint_multiplier));
-    const std::int32_t result_shift = output_stage.result_shift;
-    const __m128i shifted_val = RoundingDivideByPOT(mulhigh_val, result_shift);
-    return Add(shifted_val,
-               _mm_set1_epi32(output_stage.result_offset_after_shift));
-  }
-
-  const OutputStage& output_stage;
-};
-
-// Implementation of OutputStageSaturatingCastToUint8 for SSE4FragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
-                           SSE4FragmentInt32x4x1> {
-  typedef SSE4FragmentInt32x4x1 InputType;
-  typedef SSE4FragmentUint8x4x1 OutputType;
   typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-  OutputStageEvalImpl(const OutputStage&) {}
+  OutputStageEvalBufferImpl(const OutputStage&) {}
 
-  OutputType Eval(InputType input, int, int) const {
-    const __m128i zero = _mm_set1_epi32(0);
-    __m128i res_16 = _mm_packs_epi32(input, zero);
-    __m128i res_8 = _mm_packus_epi16(res_16, zero);
-    return _mm_cvtsi128_si32(res_8);
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    __m128i res_16 = _mm_packs_epi32(input.reg[0], input.reg[1]);
+    __m128i res_8 = _mm_packus_epi16(res_16, res_16);
+    output.reg[0] = _mm_extract_epi32(res_8, 0);
+    output.reg[1] = _mm_extract_epi32(res_8, 1);
+    return output;
   }
 };
 
-// In the case of OutputStageSaturatingCastToUint8, the handling of
-// SSE4FragmentInt32x16x1 data can be made much more efficient by handling
-// it all at once, instead of as 4 separate int32x4 values as in the above
-// generic partial specialization. This also avoids the poor (50%) register
-// utilization of FragmentUint8x4x1: by handling 16 scalar values at once,
-// we are able to fill a uint8x16_t.
 template <>
-struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
-                           SSE4FragmentInt32x16x1> {
-  typedef SSE4FragmentInt32x16x1 InputType;
-  typedef SSE4FragmentUint8x16x1 OutputType;
+struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
+                                 RegBufferInt32<16>> {
+  typedef RegBufferInt32<16> InputType;
+  typedef RegBufferUint8<16> OutputType;
+
   typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-  OutputStageEvalImpl(const OutputStage&) {}
+  OutputStageEvalBufferImpl(const OutputStage&) {}
 
-  OutputType Eval(InputType input, int, int) const {
-    __m128i q16[2];
-    for (int i = 0; i < 2; i++) {
-      q16[i] =
-          _mm_packus_epi32(input.data.val[2 * i], input.data.val[2 * i + 1]);
-    }
-    return _mm_packus_epi16(q16[0], q16[1]);
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    __m128i res_16_0 = _mm_packs_epi32(input.reg[0], input.reg[1]);
+    __m128i res_16_1 = _mm_packs_epi32(input.reg[2], input.reg[3]);
+    output.reg[0] = _mm_packus_epi16(res_16_0, res_16_1);
+    return output;
   }
 };
 
-// Implementation of OutputStageBiasAddition for SSE4FragmentInt32x4x1
-template <typename VectorType>
-struct OutputStageEvalImpl<OutputStageBiasAddition<VectorType>,
-                           SSE4FragmentInt32x4x1> {
-  typedef SSE4FragmentInt32x4x1 InputType;
-  typedef SSE4FragmentInt32x4x1 OutputType;
-  typedef OutputStageBiasAddition<VectorType> OutputStage;
+template <>
+struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
+                                 RegBufferInt32<32>> {
+  typedef RegBufferInt32<32> InputType;
+  typedef RegBufferUint8<32> OutputType;
 
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
+  typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-  OutputType Eval(InputType input, int row, int col) const {
-    __m128i bias;
-    if (VectorType::kShape == VectorShape::Row) {
-      bias = _mm_set1_epi32(output_stage.bias_vector(col));
+  OutputStageEvalBufferImpl(const OutputStage&) {}
+
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    __m128i res_16_0 = _mm_packs_epi32(input.reg[0], input.reg[1]);
+    __m128i res_16_1 = _mm_packs_epi32(input.reg[2], input.reg[3]);
+    output.reg[0] = _mm_packus_epi16(res_16_0, res_16_1);
+    __m128i res_16_2 = _mm_packs_epi32(input.reg[4], input.reg[5]);
+    __m128i res_16_3 = _mm_packs_epi32(input.reg[6], input.reg[7]);
+    output.reg[1] = _mm_packus_epi16(res_16_2, res_16_3);
+    return output;
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockInt32<4, 1>, DstType> {
+  static void Run(const RegBlockInt32<4, 1>& src, DstType* dst, int row,
+                  int col) {
+    if (DstType::kOrder == MapOrder::ColMajor) {
+      StoreInt32x4(dst->data(row, col), src.buf.reg[0]);
     } else {
-      bias = _mm_lddqu_si128(
-          reinterpret_cast<const __m128i*>(output_stage.bias_vector.data(row)));
+      *dst->data(row + 0, col) = GetLane<0>(src.buf.reg[0]);
+      *dst->data(row + 1, col) = GetLane<1>(src.buf.reg[0]);
+      *dst->data(row + 2, col) = GetLane<2>(src.buf.reg[0]);
+      *dst->data(row + 3, col) = GetLane<3>(src.buf.reg[0]);
     }
-    return _mm_add_epi32(input, bias);
   }
-
-  const OutputStage& output_stage;
 };
 
-// Implementation of OutputStageClamp for SSE4FragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<OutputStageClamp, SSE4FragmentInt32x4x1> {
-  typedef SSE4FragmentInt32x4x1 InputType;
-  typedef SSE4FragmentInt32x4x1 OutputType;
-  typedef OutputStageClamp OutputStage;
-
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
-
-  OutputType Eval(InputType input, int, int) const {
-    const __m128i min = _mm_set1_epi32(output_stage.min);
-    const __m128i max = _mm_set1_epi32(output_stage.max);
-    return _mm_min_epi32(_mm_max_epi32(input, min), max);
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockInt32<8, 1>, DstType> {
+  static void Run(const RegBlockInt32<8, 1>& src, DstType* dst, int row,
+                  int col) {
+    if (DstType::kOrder == MapOrder::ColMajor) {
+      StoreInt32x4(dst->data(row, col), src.buf.reg[0]);
+      StoreInt32x4(dst->data(row + 4, col), src.buf.reg[1]);
+    } else {
+      *dst->data(row + 0, col) = GetLane<0>(src.buf.reg[0]);
+      *dst->data(row + 1, col) = GetLane<1>(src.buf.reg[0]);
+      *dst->data(row + 2, col) = GetLane<2>(src.buf.reg[0]);
+      *dst->data(row + 3, col) = GetLane<3>(src.buf.reg[0]);
+      *dst->data(row + 4, col) = GetLane<0>(src.buf.reg[1]);
+      *dst->data(row + 5, col) = GetLane<1>(src.buf.reg[1]);
+      *dst->data(row + 6, col) = GetLane<2>(src.buf.reg[1]);
+      *dst->data(row + 7, col) = GetLane<3>(src.buf.reg[1]);
+    }
   }
-
-  const OutputStage& output_stage;
 };
 
-// Implementation of OutputStageTanh for SSE4FragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<OutputStageTanh, SSE4FragmentInt32x4x1>
-    : OutputStageTanhEvalImpl<SSE4FragmentInt32x4x1> {
-  OutputStageEvalImpl(const OutputStageTanh& output_stage)
-      : OutputStageTanhEvalImpl(output_stage) {}
+inline RegBlockInt32<4, 4> Transpose(const RegBlockInt32<4, 4>& src) {
+  __m128i t0 = _mm_unpacklo_epi32(src.buf.reg[0], src.buf.reg[1]);
+  __m128i t1 = _mm_unpacklo_epi32(src.buf.reg[2], src.buf.reg[3]);
+  __m128i t2 = _mm_unpackhi_epi32(src.buf.reg[0], src.buf.reg[1]);
+  __m128i t3 = _mm_unpackhi_epi32(src.buf.reg[2], src.buf.reg[3]);
+
+  RegBlockInt32<4, 4> result;
+  result.buf.reg[0] = _mm_unpacklo_epi64(t0, t1);
+  result.buf.reg[1] = _mm_unpackhi_epi64(t0, t1);
+  result.buf.reg[2] = _mm_unpacklo_epi64(t2, t3);
+  result.buf.reg[3] = _mm_unpackhi_epi64(t2, t3);
+  return result;
+}
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockInt32<4, 4>, DstType> {
+  static void Run(const RegBlockInt32<4, 4>& src, DstType* dst, int row,
+                  int col) {
+    if (DstType::kOrder == MapOrder::ColMajor) {
+      for (int i = 0; i < 4; i++) {
+        StoreInt32x4(dst->data(row, col + i), src.buf.reg[i]);
+      }
+    } else {
+      const auto transpose = Transpose(src);
+      for (int i = 0; i < 4; i++) {
+        StoreInt32x4(dst->data(row + i, col), transpose.buf.reg[i]);
+      }
+    }
+  }
 };
 
-// Specialization of StoreFinalOutput for SSE4FragmentUint8x4x1.
 template <typename DstType>
-inline void StoreFinalOutput(SSE4FragmentUint8x4x1 value, DstType* dst, int row,
-                             int col) {
-  unsigned char* tmp = dst->data(row, col);
-  for (int i = 0; i < 4; i++) tmp[i] = (value >> (i * 8)) & 0xff;
-}
-
-// Specialization of StoreFinalOutput for SSE4FragmentUint8x16x1.
-template <typename DstType>
-inline void StoreFinalOutput(SSE4FragmentUint8x16x1 value, DstType* dst,
-                             int row, int col) {
-  _mm_storeu_si128(reinterpret_cast<__m128i*>(dst->data(row, col)), value);
-}
-
-// Specialization of StoreFinalOutput for SSE4FragmentInt32x4x1, storing into
-// a int32 destination.
-template <typename DstType>
-inline void StoreFinalOutput(SSE4FragmentInt32x4x1 value, DstType* dst, int row,
-                             int col) {
-  _mm_storeu_si128(reinterpret_cast<__m128i*>(dst->data(row, col)), value);
-}
-
-// Specialization of StoreFinalOutput for SSE4FragmentInt32x16x1, storing into
-// a int32 destination.
-template <typename DstType>
-inline void StoreFinalOutput(SSE4FragmentInt32x16x1 value, DstType* dst,
-                             int row, int col) {
-  for (int i = 0; i < 4; i++) {
-    _mm_storeu_si128(reinterpret_cast<__m128i*>(dst->data(row + 4 * i, col)),
-                     value.data.val[i]);
+struct StoreFinalOutputImpl<RegBlockInt32<8, 4>, DstType> {
+  static void Run(const RegBlockInt32<8, 4>& src, DstType* dst, int row,
+                  int col) {
+    if (DstType::kOrder == MapOrder::ColMajor) {
+      for (int i = 0; i < 4; i++) {
+        StoreInt32x4(dst->data(row, col + i), src.buf.reg[2 * i]);
+        StoreInt32x4(dst->data(row + 4, col + i), src.buf.reg[2 * i + 1]);
+      }
+    } else {
+      RegBlockInt32<4, 4> top;
+      top.buf.reg[0] = src.buf.reg[0];
+      top.buf.reg[1] = src.buf.reg[2];
+      top.buf.reg[2] = src.buf.reg[4];
+      top.buf.reg[3] = src.buf.reg[6];
+      const auto transpose_top = Transpose(top);
+      for (int i = 0; i < 4; i++) {
+        StoreInt32x4(dst->data(row + i, col), transpose_top.buf.reg[i]);
+      }
+      RegBlockInt32<4, 4> bottom;
+      bottom.buf.reg[0] = src.buf.reg[1];
+      bottom.buf.reg[1] = src.buf.reg[3];
+      bottom.buf.reg[2] = src.buf.reg[5];
+      bottom.buf.reg[3] = src.buf.reg[7];
+      const auto transpose_bottom = Transpose(bottom);
+      for (int i = 0; i < 4; i++) {
+        StoreInt32x4(dst->data(row + 4 + i, col), transpose_bottom.buf.reg[i]);
+      }
+    }
   }
-}
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockInt32<8, 8>, DstType> {
+  static void Run(const RegBlockInt32<8, 8>& src, DstType* dst, int row,
+                  int col) {
+    if (DstType::kOrder == MapOrder::ColMajor) {
+      for (int i = 0; i < 8; i++) {
+        StoreInt32x4(dst->data(row, col + i), src.buf.reg[2 * i]);
+        StoreInt32x4(dst->data(row + 4, col + i), src.buf.reg[2 * i + 1]);
+      }
+    } else {
+      RegBlockInt32<4, 4> top_left;
+      top_left.buf.reg[0] = src.buf.reg[0];
+      top_left.buf.reg[1] = src.buf.reg[2];
+      top_left.buf.reg[2] = src.buf.reg[4];
+      top_left.buf.reg[3] = src.buf.reg[6];
+      const auto transpose_top_left = Transpose(top_left);
+      for (int i = 0; i < 4; i++) {
+        StoreInt32x4(dst->data(row + i, col), transpose_top_left.buf.reg[i]);
+      }
+      RegBlockInt32<4, 4> bottom_left;
+      bottom_left.buf.reg[0] = src.buf.reg[1];
+      bottom_left.buf.reg[1] = src.buf.reg[3];
+      bottom_left.buf.reg[2] = src.buf.reg[5];
+      bottom_left.buf.reg[3] = src.buf.reg[7];
+      const auto transpose_bottom_left = Transpose(bottom_left);
+      for (int i = 0; i < 4; i++) {
+        StoreInt32x4(dst->data(row + 4 + i, col),
+                     transpose_bottom_left.buf.reg[i]);
+      }
+      RegBlockInt32<4, 4> top_right;
+      top_right.buf.reg[0] = src.buf.reg[8];
+      top_right.buf.reg[1] = src.buf.reg[10];
+      top_right.buf.reg[2] = src.buf.reg[12];
+      top_right.buf.reg[3] = src.buf.reg[14];
+      const auto transpose_top_right = Transpose(top_right);
+      for (int i = 0; i < 4; i++) {
+        StoreInt32x4(dst->data(row + i, col + 4),
+                     transpose_top_right.buf.reg[i]);
+      }
+      RegBlockInt32<4, 4> bottom_right;
+      bottom_right.buf.reg[0] = src.buf.reg[9];
+      bottom_right.buf.reg[1] = src.buf.reg[11];
+      bottom_right.buf.reg[2] = src.buf.reg[13];
+      bottom_right.buf.reg[3] = src.buf.reg[15];
+      const auto transpose_bottom_right = Transpose(bottom_right);
+      for (int i = 0; i < 4; i++) {
+        StoreInt32x4(dst->data(row + 4 + i, col + 4),
+                     transpose_bottom_right.buf.reg[i]);
+      }
+    }
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockInt32<1, 4>, DstType> {
+  static void Run(const RegBlockInt32<1, 4>& src, DstType* dst, int row,
+                  int col) {
+    if (DstType::kOrder == MapOrder::ColMajor) {
+      *dst->data(row, col + 0) = GetLane<0>(src.buf.reg[0]);
+      *dst->data(row, col + 1) = GetLane<1>(src.buf.reg[0]);
+      *dst->data(row, col + 2) = GetLane<2>(src.buf.reg[0]);
+      *dst->data(row, col + 3) = GetLane<3>(src.buf.reg[0]);
+    } else {
+      StoreInt32x4(dst->data(row, col), src.buf.reg[0]);
+    }
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockUint8<4, 1>, DstType> {
+  static void Run(const RegBlockUint8<4, 1>& src, DstType* dst, int row,
+                  int col) {
+    const std::uint32_t src_reg = src.buf.reg[0];
+    for (int i = 0; i < 4; i++) {
+      *dst->data(row + i, col) = (src_reg >> (8 * i));
+    }
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockUint8<8, 1>, DstType> {
+  static void Run(const RegBlockUint8<8, 1>& src, DstType* dst, int row,
+                  int col) {
+    for (int i = 0; i < 4; i++) {
+      *dst->data(row + i, col) = (src.buf.reg[0] >> (8 * i));
+    }
+    for (int i = 0; i < 4; i++) {
+      *dst->data(row + 4 + i, col) = (src.buf.reg[1] >> (8 * i));
+    }
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockUint8<1, 4>, DstType> {
+  static void Run(const RegBlockUint8<1, 4>& src, DstType* dst, int row,
+                  int col) {
+    for (int i = 0; i < 4; i++) {
+      *dst->data(row, col + i) = (src.buf.reg[0] >> (8 * i));
+    }
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockUint8<4, 4>, DstType> {
+  static void Run(const RegBlockUint8<4, 4>& src, DstType* dst, int row,
+                  int col) {
+    std::uint8_t buf[16];
+    StoreUint8x16(buf, src.buf.reg[0]);
+    for (int c = 0; c < 4; c++) {
+      for (int r = 0; r < 4; r++) {
+        *dst->data(row + r, col + c) = buf[r + 4 * c];
+      }
+    }
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockUint8<8, 4>, DstType> {
+  static void Run(const RegBlockUint8<8, 4>& src, DstType* dst, int row,
+                  int col) {
+    std::uint8_t buf[32];
+    StoreUint8x16(buf, src.buf.reg[0]);
+    StoreUint8x16(buf + 16, src.buf.reg[1]);
+    for (int c = 0; c < 4; c++) {
+      for (int r = 0; r < 8; r++) {
+        *dst->data(row + r, col + c) = buf[r + 8 * c];
+      }
+    }
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockUint8<8, 8>, DstType> {
+  static void Run(const RegBlockUint8<8, 8>& src, DstType* dst, int row,
+                  int col) {
+    std::uint8_t buf[64];
+    StoreUint8x16(buf, src.buf.reg[0]);
+    StoreUint8x16(buf + 16, src.buf.reg[1]);
+    StoreUint8x16(buf + 32, src.buf.reg[2]);
+    StoreUint8x16(buf + 48, src.buf.reg[3]);
+    for (int c = 0; c < 8; c++) {
+      for (int r = 0; r < 8; r++) {
+        *dst->data(row + r, col + c) = buf[r + 8 * c];
+      }
+    }
+  }
+};
 
 }  // namespace gemmlowp
 
-#endif  // GEMMLOWP_INTERNAL_OUTPUT_SSE4_H_
+#endif  // GEMMLOWP_INTERNAL_OUTPUT_SSE_H_

@@ -23,270 +23,409 @@
 
 namespace gemmlowp {
 
-// Definitions of Fragment types wrapping NEON vector types.
-typedef Fragment<int32x4_t, 4, 1, MapOrder::ColMajor> NEONFragmentInt32x4x1;
-typedef Fragment<int32x4x4_t, 16, 1, MapOrder::ColMajor> NEONFragmentInt32x16x1;
-typedef Fragment<uint8x8_t, 4, 1, MapOrder::ColMajor> NEONFragmentUint8x4x1;
-typedef Fragment<uint8x16_t, 16, 1, MapOrder::ColMajor> NEONFragmentUint8x16x1;
+template <>
+struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
+                                 RegBufferInt32<4>> {
+  typedef RegBufferInt32<4> InputType;
+  typedef RegBufferUint8<4> OutputType;
 
-// The code in unpack_neon.h will whenever possible process
-// 16 entries at once (4 SIMD vectors of 4 entries each at once),
-// to offer the compiler better optimization opportunities, reducing
-// register dependencies. From the perspective of interfacing with the output
-// pipeline, this takes the form of passing Fragment types wrapping int32x4x4_t
-// data. In most cases, such data is handled simply by handling separately its
-// 4 int32x4_t components. This partial specialization handles that for
-// arbitrary output stages implementing a int32x4_t path. Only some output
-// stages below will override this to use custom code to handle int32x4x4_t
-// data all at once (see OutputStageSaturatingCastToUint8 below).
-template <typename OutputStageType>
-struct OutputStageEvalImpl<OutputStageType, NEONFragmentInt32x16x1> {
-  typedef NEONFragmentInt32x16x1 InputType;
-  typedef NEONFragmentInt32x16x1 OutputType;
-  typedef OutputStageEvalImpl<OutputStageType, NEONFragmentInt32x4x1>
-      ImplInt32x4;
-  OutputStageEvalImpl(const OutputStageType& s) : impl_int32x4(s) {}
+  typedef OutputStageSaturatingCastToUint8 OutputStage;
 
-  OutputType Eval(InputType input, int row, int col) const {
+  OutputStageEvalBufferImpl(const OutputStage&) {}
+
+  OutputType Eval(InputType input) const {
     OutputType output;
+    int16x4_t res_16 = vqmovn_s32(input.reg[0]);
+    uint8x8_t res_8 = vqmovun_s16(vcombine_s16(res_16, res_16));
+    output.reg[0] = vget_lane_u32(vreinterpret_u32_u8(res_8), 0);
+    return output;
+  }
+};
 
+template <>
+struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
+                                 RegBufferInt32<8>> {
+  typedef RegBufferInt32<8> InputType;
+  typedef RegBufferUint8<8> OutputType;
+
+  typedef OutputStageSaturatingCastToUint8 OutputStage;
+
+  OutputStageEvalBufferImpl(const OutputStage&) {}
+
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    int16x8_t res_16 =
+        vcombine_s16(vqmovn_s32(input.reg[0]), vqmovn_s32(input.reg[1]));
+    output.reg[0] = vqmovun_s16(res_16);
+    return output;
+  }
+};
+
+template <>
+struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
+                                 RegBufferInt32<16>> {
+  typedef RegBufferInt32<16> InputType;
+  typedef RegBufferUint8<16> OutputType;
+
+  typedef OutputStageSaturatingCastToUint8 OutputStage;
+
+  OutputStageEvalBufferImpl(const OutputStage&) {}
+
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    int16x8_t res_16_0 =
+        vcombine_s16(vqmovn_s32(input.reg[0]), vqmovn_s32(input.reg[1]));
+    int16x8_t res_16_1 =
+        vcombine_s16(vqmovn_s32(input.reg[2]), vqmovn_s32(input.reg[3]));
+    output.reg[0] = vqmovun_s16(res_16_0);
+    output.reg[1] = vqmovun_s16(res_16_1);
+    return output;
+  }
+};
+
+template <>
+struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
+                                 RegBufferInt32<32>> {
+  typedef RegBufferInt32<32> InputType;
+  typedef RegBufferUint8<32> OutputType;
+
+  typedef OutputStageSaturatingCastToUint8 OutputStage;
+
+  OutputStageEvalBufferImpl(const OutputStage&) {}
+
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    int16x8_t res_16[4];
     for (int i = 0; i < 4; i++) {
-      output.data.val[i] =
-          impl_int32x4.Eval(input.data.val[i], row + 4 * i, col);
+      res_16[i] = vcombine_s16(vqmovn_s32(input.reg[2 * i]),
+                               vqmovn_s32(input.reg[2 * i + 1]));
+    }
+    for (int i = 0; i < 4; i++) {
+      output.reg[i] = vqmovun_s16(res_16[i]);
     }
     return output;
   }
-
-  ImplInt32x4 impl_int32x4;
 };
 
-// Implementation of OutputStageQuantizeDownInt32ToUint8Scale for
-// NEONFragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8Scale,
-                           NEONFragmentInt32x4x1> {
-  typedef NEONFragmentInt32x4x1 InputType;
-  typedef NEONFragmentInt32x4x1 OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8Scale OutputStage;
-
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
-
-  OutputType Eval(InputType input, int, int) const {
-    const std::int32_t result_shift = output_stage.result_shift;
-    const std::int32_t result_mult_int = output_stage.result_mult_int;
-    const std::int32_t result_offset = output_stage.result_offset;
-    const int32x4_t a = vaddq_s32(vdupq_n_s32(result_offset), input);
-    const int32x4_t b = vmulq_n_s32(a, result_mult_int);
-    return RoundingDivideByPOT(b, result_shift);
-  }
-
-  const OutputStage& output_stage;
-};
-
-// Implementation of OutputStageQuantizeDownInt32ToUint8ScalePC for
-// NEONFragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<
-    OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Col>,
-    NEONFragmentInt32x4x1> {
-  typedef NEONFragmentInt32x4x1 InputType;
-  typedef NEONFragmentInt32x4x1 OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Col>
-      OutputStage;
-
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
-
-  OutputType Eval(InputType input, int row, int col) const {
-    const std::int32_t result_shift = output_stage.result_shift;
-    const int32x4_t result_mult_int =
-        vld1q_s32(output_stage.result_mult_int.data(row));
-    const int32x4_t result_offset =
-        vld1q_s32(output_stage.result_offset.data(row));
-    const int32x4_t a = vaddq_s32(result_offset, input);
-    const int32x4_t b = vmulq_s32(a, result_mult_int);
-    return RoundingDivideByPOT(b, result_shift);
-  }
-
-  const OutputStage& output_stage;
-};
-
-// Implementation of OutputStageQuantizeDownInt32ToUint8ScalePC for
-// NEONFragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<
-    OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Row>,
-    NEONFragmentInt32x4x1> {
-  typedef NEONFragmentInt32x4x1 InputType;
-  typedef NEONFragmentInt32x4x1 OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8ScalePC<VectorShape::Row>
-      OutputStage;
-
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
-
-  OutputType Eval(InputType input, int row, int col) const {
-    const std::int32_t result_shift = output_stage.result_shift;
-    const int32x4_t result_mult_int =
-        vld1q_s32(output_stage.result_mult_int.data(col));
-    const int32x4_t result_offset =
-        vld1q_s32(output_stage.result_offset.data(row));
-    const int32x4_t a = vaddq_s32(result_offset, input);
-    const int32x4_t b = vmulq_s32(a, result_mult_int);
-    return RoundingDivideByPOT(b, result_shift);
-  }
-
-  const OutputStage& output_stage;
-};
-
-// Implementation of OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint for
-// NEONFragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
-                           NEONFragmentInt32x4x1> {
-  typedef NEONFragmentInt32x4x1 InputType;
-  typedef NEONFragmentInt32x4x1 OutputType;
-  typedef OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint OutputStage;
-
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
-
-  OutputType Eval(InputType input, int, int) const {
-    const std::int32_t result_shift = output_stage.result_shift;
-    const std::int32_t result_fixedpoint_multiplier =
-        output_stage.result_fixedpoint_multiplier;
-    const int32x4_t m = vqrdmulhq_n_s32(input, result_fixedpoint_multiplier);
-    const int32x4_t c = RoundingDivideByPOT(m, result_shift);
-    return vaddq_s32(c, vdupq_n_s32(output_stage.result_offset_after_shift));
-  }
-
-  const OutputStage& output_stage;
-};
-
-// Implementation of OutputStageSaturatingCastToUint8 for NEONFragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
-                           NEONFragmentInt32x4x1> {
-  typedef NEONFragmentInt32x4x1 InputType;
-  typedef NEONFragmentUint8x4x1 OutputType;
-  typedef OutputStageSaturatingCastToUint8 OutputStage;
-
-  OutputStageEvalImpl(const OutputStage&) {}
-
-  OutputType Eval(InputType input, int, int) const {
-    int16x8_t q16 = vcombine_s16(vqmovn_s32(input), vdup_n_s16(0));
-    return vqmovun_s16(q16);
-  }
-};
-
-// In the case of OutputStageSaturatingCastToUint8, the handling of
-// NEONFragmentInt32x16x1 data can be made much more efficient by handling
-// it all at once, instead of as 4 separate int32x4 values as in the above
-// generic partial specialization. This also avoids the poor (50%) register
-// utilization of FragmentUint8x4x1: by handling 16 scalar values at once,
-// we are able to fill a uint8x16_t.
-template <>
-struct OutputStageEvalImpl<OutputStageSaturatingCastToUint8,
-                           NEONFragmentInt32x16x1> {
-  typedef NEONFragmentInt32x16x1 InputType;
-  typedef NEONFragmentUint8x16x1 OutputType;
-  typedef OutputStageSaturatingCastToUint8 OutputStage;
-
-  OutputStageEvalImpl(const OutputStage&) {}
-
-  OutputType Eval(InputType input, int, int) const {
-    int16x8_t q16[2];
-    for (int i = 0; i < 2; i++) {
-      q16[i] = vcombine_s16(vqmovn_s32(input.data.val[2 * i]),
-                            vqmovn_s32(input.data.val[2 * i + 1]));
-    }
-    return vcombine_u8(vqmovun_s16(q16[0]), vqmovun_s16(q16[1]));
-  }
-};
-
-// Implementation of OutputStageBiasAddition for NEONFragmentInt32x4x1
-template <typename VectorType>
-struct OutputStageEvalImpl<OutputStageBiasAddition<VectorType>,
-                           NEONFragmentInt32x4x1> {
-  typedef NEONFragmentInt32x4x1 InputType;
-  typedef NEONFragmentInt32x4x1 OutputType;
-  typedef OutputStageBiasAddition<VectorType> OutputStage;
-
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
-
-  OutputType Eval(InputType input, int row, int col) const {
-    int32x4_t bias;
-    if (VectorType::kShape == VectorShape::Row) {
-      bias = vdupq_n_s32(output_stage.bias_vector(col));
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockInt32<8, 1>, DstType> {
+  static void Run(const RegBlockInt32<8, 1>& src, DstType* dst, int row,
+                  int col) {
+    if (DstType::kOrder == MapOrder::ColMajor) {
+      StoreInt32x4(dst->data(row, col), src.buf.reg[0]);
+      StoreInt32x4(dst->data(row + 4, col), src.buf.reg[1]);
     } else {
-      bias = vld1q_s32(output_stage.bias_vector.data(row));
+      *dst->data(row + 0, col) = GetLane<0>(src.buf.reg[0]);
+      *dst->data(row + 1, col) = GetLane<1>(src.buf.reg[0]);
+      *dst->data(row + 2, col) = GetLane<2>(src.buf.reg[0]);
+      *dst->data(row + 3, col) = GetLane<3>(src.buf.reg[0]);
+      *dst->data(row + 4, col) = GetLane<0>(src.buf.reg[1]);
+      *dst->data(row + 5, col) = GetLane<1>(src.buf.reg[1]);
+      *dst->data(row + 6, col) = GetLane<2>(src.buf.reg[1]);
+      *dst->data(row + 7, col) = GetLane<3>(src.buf.reg[1]);
     }
-    return vaddq_s32(input, bias);
   }
-
-  const OutputStage& output_stage;
 };
 
-// Implementation of OutputStageClamp for NEONFragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<OutputStageClamp, NEONFragmentInt32x4x1> {
-  typedef NEONFragmentInt32x4x1 InputType;
-  typedef NEONFragmentInt32x4x1 OutputType;
-  typedef OutputStageClamp OutputStage;
+inline RegBlockInt32<4, 4> Transpose(const RegBlockInt32<4, 4>& src) {
+  const int32x4x2_t t0 = vtrnq_s32(src.buf.reg[0], src.buf.reg[1]);
+  const int32x4x2_t t1 = vtrnq_s32(src.buf.reg[2], src.buf.reg[3]);
+  RegBlockInt32<4, 4> result;
+  result.buf.reg[0] =
+      vcombine_s32(vget_low_s32(t0.val[0]), vget_low_s32(t1.val[0]));
+  result.buf.reg[1] =
+      vcombine_s32(vget_low_s32(t0.val[1]), vget_low_s32(t1.val[1]));
+  result.buf.reg[2] =
+      vcombine_s32(vget_high_s32(t0.val[0]), vget_high_s32(t1.val[0]));
+  result.buf.reg[3] =
+      vcombine_s32(vget_high_s32(t0.val[1]), vget_high_s32(t1.val[1]));
+  return result;
+}
 
-  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
-
-  OutputType Eval(InputType input, int, int) const {
-    const int32x4_t min = vdupq_n_s32(output_stage.min);
-    const int32x4_t max = vdupq_n_s32(output_stage.max);
-    return vminq_s32(vmaxq_s32(input, min), max);
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockInt32<4, 4>, DstType> {
+  static void Run(const RegBlockInt32<4, 4>& src, DstType* dst, int row,
+                  int col) {
+    const auto& block =
+        DstType::kOrder == MapOrder::ColMajor ? src : Transpose(src);
+    std::int32_t* dst_ptr = dst->data(row, col);
+    int stride = dst->stride();
+    for (int i = 0; i < 4; i++) {
+      vst1q_s32(dst_ptr + i * stride, block.buf.reg[i]);
+    }
   }
-
-  const OutputStage& output_stage;
 };
 
-// Implementation of OutputStageTanh for NEONFragmentInt32x4x1
-template <>
-struct OutputStageEvalImpl<OutputStageTanh, NEONFragmentInt32x4x1>
-    : OutputStageTanhEvalImpl<NEONFragmentInt32x4x1> {
-  OutputStageEvalImpl(const OutputStageTanh& output_stage)
-      : OutputStageTanhEvalImpl(output_stage) {}
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockInt32<8, 4>, DstType> {
+  static void Run(const RegBlockInt32<8, 4>& src, DstType* dst, int row,
+                  int col) {
+    std::int32_t* dst_ptr = dst->data(row, col);
+    if (DstType::kOrder == MapOrder::ColMajor) {
+      int col_stride = dst->cols_stride();
+      for (int i = 0; i < 4; i++) {
+        vst1q_s32(dst_ptr + i * col_stride + 0, src.buf.reg[2 * i + 0]);
+        vst1q_s32(dst_ptr + i * col_stride + 4, src.buf.reg[2 * i + 1]);
+      }
+    } else {
+      int row_stride = dst->rows_stride();
+      RegBlockInt32<4, 4> top;
+      top.buf.reg[0] = src.buf.reg[0];
+      top.buf.reg[1] = src.buf.reg[2];
+      top.buf.reg[2] = src.buf.reg[4];
+      top.buf.reg[3] = src.buf.reg[6];
+      const auto transpose_top = Transpose(top);
+      for (int i = 0; i < 4; i++) {
+        vst1q_s32(dst_ptr + i * row_stride, transpose_top.buf.reg[i]);
+      }
+      RegBlockInt32<4, 4> bottom;
+      bottom.buf.reg[0] = src.buf.reg[1];
+      bottom.buf.reg[1] = src.buf.reg[3];
+      bottom.buf.reg[2] = src.buf.reg[5];
+      bottom.buf.reg[3] = src.buf.reg[7];
+      const auto transpose_bottom = Transpose(bottom);
+      for (int i = 0; i < 4; i++) {
+        vst1q_s32(dst_ptr + (i + 4) * row_stride, transpose_bottom.buf.reg[i]);
+      }
+    }
+  }
 };
 
-// Specialization of StoreFinalOutput for NEONFragmentUint8x4x1.
-// This is quite inefficient, but we have no choice: instructions storing 32bit
-// at once also assume 32bit alignment. In practice, this slowness is not a
-// problem because we use the x16 path for most values.
 template <typename DstType>
-inline void StoreFinalOutput(NEONFragmentUint8x4x1 value, DstType* dst, int row,
-                             int col) {
-  vst1_lane_u8(dst->data(row + 0, col), value, 0);
-  vst1_lane_u8(dst->data(row + 1, col), value, 1);
-  vst1_lane_u8(dst->data(row + 2, col), value, 2);
-  vst1_lane_u8(dst->data(row + 3, col), value, 3);
-}
-
-// Specialization of StoreFinalOutput for NEONFragmentUint8x16x1.
-template <typename DstType>
-inline void StoreFinalOutput(NEONFragmentUint8x16x1 value, DstType* dst,
-                             int row, int col) {
-  vst1q_u8(dst->data(row, col), value);
-}
-
-// Specialization of StoreFinalOutput for NEONFragmentInt32x4x1, storing into a
-// int32 destination.
-template <typename DstType>
-inline void StoreFinalOutput(NEONFragmentInt32x4x1 value, DstType* dst, int row,
-                             int col) {
-  vst1q_s32(dst->data(row, col), value);
-}
-
-// Specialization of StoreFinalOutput for NEONFragmentInt32x16x1, storing into
-// a int32 destination.
-template <typename DstType>
-inline void StoreFinalOutput(NEONFragmentInt32x16x1 value, DstType* dst,
-                             int row, int col) {
-  for (int i = 0; i < 4; i++) {
-    vst1q_s32(dst->data(row + 4 * i, col), value.data.val[i]);
+struct StoreFinalOutputImpl<RegBlockInt32<8, 8>, DstType> {
+  static void Run(const RegBlockInt32<8, 8>& src, DstType* dst, int row,
+                  int col) {
+    std::int32_t* dst_ptr = dst->data(row, col);
+    if (DstType::kOrder == MapOrder::ColMajor) {
+      int col_stride = dst->cols_stride();
+      for (int i = 0; i < 8; i++) {
+        vst1q_s32(dst_ptr + i * col_stride, src.buf.reg[2 * i]);
+        vst1q_s32(dst_ptr + i * col_stride + 4, src.buf.reg[2 * i + 1]);
+      }
+    } else {
+      int row_stride = dst->rows_stride();
+      RegBlockInt32<4, 4> top_left;
+      top_left.buf.reg[0] = src.buf.reg[0];
+      top_left.buf.reg[1] = src.buf.reg[2];
+      top_left.buf.reg[2] = src.buf.reg[4];
+      top_left.buf.reg[3] = src.buf.reg[6];
+      const auto transpose_top_left = Transpose(top_left);
+      for (int i = 0; i < 4; i++) {
+        vst1q_s32(dst_ptr + i * row_stride, transpose_top_left.buf.reg[i]);
+      }
+      RegBlockInt32<4, 4> bottom_left;
+      bottom_left.buf.reg[0] = src.buf.reg[1];
+      bottom_left.buf.reg[1] = src.buf.reg[3];
+      bottom_left.buf.reg[2] = src.buf.reg[5];
+      bottom_left.buf.reg[3] = src.buf.reg[7];
+      const auto transpose_bottom_left = Transpose(bottom_left);
+      for (int i = 0; i < 4; i++) {
+        vst1q_s32(dst_ptr + (i + 4) * row_stride,
+                  transpose_bottom_left.buf.reg[i]);
+      }
+      RegBlockInt32<4, 4> top_right;
+      top_right.buf.reg[0] = src.buf.reg[8];
+      top_right.buf.reg[1] = src.buf.reg[10];
+      top_right.buf.reg[2] = src.buf.reg[12];
+      top_right.buf.reg[3] = src.buf.reg[14];
+      const auto transpose_top_right = Transpose(top_right);
+      for (int i = 0; i < 4; i++) {
+        vst1q_s32(dst_ptr + i * row_stride + 4, transpose_top_right.buf.reg[i]);
+      }
+      RegBlockInt32<4, 4> bottom_right;
+      bottom_right.buf.reg[0] = src.buf.reg[9];
+      bottom_right.buf.reg[1] = src.buf.reg[11];
+      bottom_right.buf.reg[2] = src.buf.reg[13];
+      bottom_right.buf.reg[3] = src.buf.reg[15];
+      const auto transpose_bottom_right = Transpose(bottom_right);
+      for (int i = 0; i < 4; i++) {
+        vst1q_s32(dst_ptr + (i + 4) * row_stride + 4,
+                  transpose_bottom_right.buf.reg[i]);
+      }
+    }
   }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockInt32<4, 1>, DstType> {
+  static void Run(const RegBlockInt32<4, 1>& src, DstType* dst, int row,
+                  int col) {
+    std::int32_t* dst_ptr = dst->data(row, col);
+    if (DstType::kOrder == MapOrder::ColMajor) {
+      vst1q_s32(dst_ptr, src.buf.reg[0]);
+    } else {
+      int row_stride = dst->rows_stride();
+      vst1q_lane_s32(dst_ptr + 0 * row_stride, src.buf.reg[0], 0);
+      vst1q_lane_s32(dst_ptr + 1 * row_stride, src.buf.reg[0], 1);
+      vst1q_lane_s32(dst_ptr + 2 * row_stride, src.buf.reg[0], 2);
+      vst1q_lane_s32(dst_ptr + 3 * row_stride, src.buf.reg[0], 3);
+    }
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockInt32<1, 4>, DstType> {
+  static void Run(const RegBlockInt32<1, 4>& src, DstType* dst, int row,
+                  int col) {
+    std::int32_t* dst_ptr = dst->data(row, col);
+    if (DstType::kOrder == MapOrder::RowMajor) {
+      vst1q_s32(dst_ptr, src.buf.reg[0]);
+    } else {
+      int col_stride = dst->cols_stride();
+      vst1q_lane_s32(dst_ptr + 0 * col_stride, src.buf.reg[0], 0);
+      vst1q_lane_s32(dst_ptr + 1 * col_stride, src.buf.reg[0], 1);
+      vst1q_lane_s32(dst_ptr + 2 * col_stride, src.buf.reg[0], 2);
+      vst1q_lane_s32(dst_ptr + 3 * col_stride, src.buf.reg[0], 3);
+    }
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockUint8<4, 1>, DstType> {
+  static void Run(const RegBlockUint8<4, 1>& src, DstType* dst, int row,
+                  int col) {
+    const std::uint32_t src_reg = src.buf.reg[0];
+    for (int i = 0; i < 4; i++) {
+      *dst->data(row + i, col) = (src_reg >> (8 * i));
+    }
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockUint8<1, 4>, DstType> {
+  static void Run(const RegBlockUint8<1, 4>& src, DstType* dst, int row,
+                  int col) {
+    for (int i = 0; i < 4; i++) {
+      *dst->data(row, col + i) = (src.buf.reg[0] >> (8 * i));
+    }
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockUint8<8, 1>, DstType> {
+  static void Run(const RegBlockUint8<8, 1>& src, DstType* dst, int row,
+                  int col) {
+    std::uint8_t* dst_ptr = dst->data(row, col);
+    if (DstType::kOrder == MapOrder::ColMajor) {
+      vst1_u8(dst_ptr, src.buf.reg[0]);
+    } else {
+      const int row_stride = dst->rows_stride();
+      vst1_lane_u8(dst_ptr + 0 * row_stride, src.buf.reg[0], 0);
+      vst1_lane_u8(dst_ptr + 1 * row_stride, src.buf.reg[0], 1);
+      vst1_lane_u8(dst_ptr + 2 * row_stride, src.buf.reg[0], 2);
+      vst1_lane_u8(dst_ptr + 3 * row_stride, src.buf.reg[0], 3);
+      vst1_lane_u8(dst_ptr + 4 * row_stride, src.buf.reg[0], 4);
+      vst1_lane_u8(dst_ptr + 5 * row_stride, src.buf.reg[0], 5);
+      vst1_lane_u8(dst_ptr + 6 * row_stride, src.buf.reg[0], 6);
+      vst1_lane_u8(dst_ptr + 7 * row_stride, src.buf.reg[0], 7);
+    }
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockUint8<4, 4>, DstType> {
+  static void Run(const RegBlockUint8<4, 4>& src, DstType* dst, int row,
+                  int col) {
+    std::uint8_t* dst_ptr = dst->data(row, col);
+    const int row_stride = dst->rows_stride();
+    const int col_stride = dst->cols_stride();
+    for (int i = 0; i < 2; i++) {
+      vst1_lane_u8(dst_ptr + 0 * row_stride + (2 * i + 0) * col_stride,
+                   src.buf.reg[i], 0);
+      vst1_lane_u8(dst_ptr + 1 * row_stride + (2 * i + 0) * col_stride,
+                   src.buf.reg[i], 1);
+      vst1_lane_u8(dst_ptr + 2 * row_stride + (2 * i + 0) * col_stride,
+                   src.buf.reg[i], 2);
+      vst1_lane_u8(dst_ptr + 3 * row_stride + (2 * i + 0) * col_stride,
+                   src.buf.reg[i], 3);
+      vst1_lane_u8(dst_ptr + 0 * row_stride + (2 * i + 1) * col_stride,
+                   src.buf.reg[i], 4);
+      vst1_lane_u8(dst_ptr + 1 * row_stride + (2 * i + 1) * col_stride,
+                   src.buf.reg[i], 5);
+      vst1_lane_u8(dst_ptr + 2 * row_stride + (2 * i + 1) * col_stride,
+                   src.buf.reg[i], 6);
+      vst1_lane_u8(dst_ptr + 3 * row_stride + (2 * i + 1) * col_stride,
+                   src.buf.reg[i], 7);
+    }
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockUint8<8, 4>, DstType> {
+  static void Run(const RegBlockUint8<8, 4>& src, DstType* dst, int row,
+                  int col) {
+    std::uint8_t* dst_ptr = dst->data(row, col);
+    if (DstType::kOrder == MapOrder::ColMajor) {
+      int col_stride = dst->cols_stride();
+      for (int i = 0; i < 4; i++) {
+        vst1_u8(dst_ptr + i * col_stride, src.buf.reg[i]);
+      }
+    } else {
+      for (int i = 0; i < 4; i++) {
+        int row_stride = dst->rows_stride();
+        std::uint8_t* col_ptr = dst_ptr + i;
+        vst1_lane_u8(col_ptr + 0 * row_stride, src.buf.reg[i], 0);
+        vst1_lane_u8(col_ptr + 1 * row_stride, src.buf.reg[i], 1);
+        vst1_lane_u8(col_ptr + 2 * row_stride, src.buf.reg[i], 2);
+        vst1_lane_u8(col_ptr + 3 * row_stride, src.buf.reg[i], 3);
+        vst1_lane_u8(col_ptr + 4 * row_stride, src.buf.reg[i], 4);
+        vst1_lane_u8(col_ptr + 5 * row_stride, src.buf.reg[i], 5);
+        vst1_lane_u8(col_ptr + 6 * row_stride, src.buf.reg[i], 6);
+        vst1_lane_u8(col_ptr + 7 * row_stride, src.buf.reg[i], 7);
+      }
+    }
+  }
+};
+
+inline RegBlockUint8<8, 8> Transpose(const RegBlockUint8<8, 8>& src) {
+  uint8x8x2_t a[4];
+  a[0] = vtrn_u8(src.buf.reg[0], src.buf.reg[1]);
+  a[1] = vtrn_u8(src.buf.reg[2], src.buf.reg[3]);
+  a[2] = vtrn_u8(src.buf.reg[4], src.buf.reg[5]);
+  a[3] = vtrn_u8(src.buf.reg[6], src.buf.reg[7]);
+  uint16x4x2_t b[4];
+  b[0] = vtrn_u16(vreinterpret_u16_u8(a[0].val[0]),
+                  vreinterpret_u16_u8(a[1].val[0]));
+  b[1] = vtrn_u16(vreinterpret_u16_u8(a[0].val[1]),
+                  vreinterpret_u16_u8(a[1].val[1]));
+  b[2] = vtrn_u16(vreinterpret_u16_u8(a[2].val[0]),
+                  vreinterpret_u16_u8(a[3].val[0]));
+  b[3] = vtrn_u16(vreinterpret_u16_u8(a[2].val[1]),
+                  vreinterpret_u16_u8(a[3].val[1]));
+  uint32x2x2_t c[4];
+  c[0] = vtrn_u32(vreinterpret_u32_u16(b[0].val[0]),
+                  vreinterpret_u32_u16(b[2].val[0]));
+  c[1] = vtrn_u32(vreinterpret_u32_u16(b[1].val[0]),
+                  vreinterpret_u32_u16(b[3].val[0]));
+  c[2] = vtrn_u32(vreinterpret_u32_u16(b[0].val[1]),
+                  vreinterpret_u32_u16(b[2].val[1]));
+  c[3] = vtrn_u32(vreinterpret_u32_u16(b[1].val[1]),
+                  vreinterpret_u32_u16(b[3].val[1]));
+  RegBlockUint8<8, 8> result;
+  result.buf.reg[0] = vreinterpret_u8_u32(c[0].val[0]);
+  result.buf.reg[1] = vreinterpret_u8_u32(c[1].val[0]);
+  result.buf.reg[2] = vreinterpret_u8_u32(c[2].val[0]);
+  result.buf.reg[3] = vreinterpret_u8_u32(c[3].val[0]);
+  result.buf.reg[4] = vreinterpret_u8_u32(c[0].val[1]);
+  result.buf.reg[5] = vreinterpret_u8_u32(c[1].val[1]);
+  result.buf.reg[6] = vreinterpret_u8_u32(c[2].val[1]);
+  result.buf.reg[7] = vreinterpret_u8_u32(c[3].val[1]);
+  return result;
 }
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockUint8<8, 8>, DstType> {
+  static void Run(const RegBlockUint8<8, 8>& src, DstType* dst, int row,
+                  int col) {
+    const auto& block =
+        DstType::kOrder == MapOrder::ColMajor ? src : Transpose(src);
+    std::uint8_t* dst_ptr = dst->data(row, col);
+    int stride = dst->stride();
+    for (int i = 0; i < 8; i++) {
+      vst1_u8(dst_ptr + i * stride, block.buf.reg[i]);
+    }
+  }
+};
 
 }  // namespace gemmlowp
 

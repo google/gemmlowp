@@ -24,7 +24,6 @@
 #ifndef GEMMLOWP_PROFILING_INSTRUMENTATION_H_
 #define GEMMLOWP_PROFILING_INSTRUMENTATION_H_
 
-#include <pthread.h>
 #include <cstdio>
 
 #ifndef GEMMLOWP_USE_STLPORT
@@ -52,15 +51,6 @@ using ::uintptr_t;
 #include <set>
 #endif
 
-// We should always use C++11 thread_local; unfortunately that
-// isn't fully supported on Apple yet.
-#ifdef __APPLE__
-#define GEMMLOWP_THREAD_LOCAL static __thread
-#define GEMMLOWP_USING_OLD_THREAD_LOCAL
-#else
-#define GEMMLOWP_THREAD_LOCAL thread_local
-#endif
-
 namespace gemmlowp {
 
 inline void ReleaseBuildAssertion(bool condition, const char* msg) {
@@ -70,41 +60,42 @@ inline void ReleaseBuildAssertion(bool condition, const char* msg) {
   }
 }
 
-// To be used as template parameter for GlobalLock.
-// GlobalLock<ProfilerLockId> is the profiler global lock:
-// registering threads, starting profiling, finishing profiling, and
-// the profiler itself as it samples threads, all need to lock it.
-struct ProfilerLockId;
+class Mutex {
+ public:
+  Mutex(const Mutex&) = delete;
+  Mutex& operator=(const Mutex&) = delete;
 
-// A very plain global lock. Templated in LockId so we can have multiple
-// locks, one for each LockId type.
-template <typename LockId>
-class GlobalLock {
-  static pthread_mutex_t* Mutex() {
-    static pthread_mutex_t m = PTHREAD_MUTEX_INITIALIZER;
+  Mutex() { pthread_mutex_init(&m, NULL); }
+  ~Mutex() { pthread_mutex_destroy(&m); }
+
+  void Lock() { pthread_mutex_lock(&m); }
+  void Unlock() { pthread_mutex_unlock(&m); }
+
+ private:
+  pthread_mutex_t m;
+};
+
+class GlobalMutexes {
+ public:
+  static Mutex* Profiler() {
+    static Mutex m;
     return &m;
   }
 
- public:
-  static void Lock() { pthread_mutex_lock(Mutex()); }
-  static void Unlock() { pthread_mutex_unlock(Mutex()); }
+  static Mutex* EightBitIntGemm() {
+    static Mutex m;
+    return &m;
+  }
 };
 
-// A very simple RAII helper to lock and unlock a GlobalLock
-template <typename LockId>
-struct AutoGlobalLock {
-  AutoGlobalLock() { GlobalLock<LockId>::Lock(); }
-  ~AutoGlobalLock() { GlobalLock<LockId>::Unlock(); }
-};
+// A very simple RAII helper to lock and unlock a Mutex
+struct ScopedLock {
+  ScopedLock(Mutex* m) : _m(m) { _m->Lock(); }
+  ~ScopedLock() { _m->Unlock(); }
 
-// MemoryBarrier is purely a compile-time thing; it tells two things
-// to the compiler:
-//   1) It prevents reordering code across it
-//     (thanks to the 'volatile' after 'asm')
-//   2) It requires the compiler to assume that any value previously
-//     read from memory, may have changed. Thus it offers an alternative
-//     to using 'volatile' variables.
-inline void MemoryBarrier() { asm volatile("" ::: "memory"); }
+ private:
+  Mutex* _m;
+};
 
 // Profiling definitions. Two paths: when profiling is enabled,
 // and when profiling is disabled.
@@ -115,34 +106,31 @@ inline void MemoryBarrier() { asm volatile("" ::: "memory"); }
 // contains pointers to literal strings that were manually entered
 // in the instrumented code (see ScopedProfilingLabel).
 struct ProfilingStack {
-  static const std::size_t kMaxSize = 15;
+  static const std::size_t kMaxSize = 14;
   typedef const char* LabelsArrayType[kMaxSize];
   LabelsArrayType labels;
   std::size_t size;
+  Mutex* lock;
 
   ProfilingStack() { memset(this, 0, sizeof(ProfilingStack)); }
 
   void Push(const char* label) {
-    MemoryBarrier();
+    ScopedLock sl(lock);
     ReleaseBuildAssertion(size < kMaxSize, "ProfilingStack overflow");
     labels[size] = label;
-    MemoryBarrier();
     size++;
-    MemoryBarrier();
   }
 
   void Pop() {
-    MemoryBarrier();
+    ScopedLock sl(lock);
     ReleaseBuildAssertion(size > 0, "ProfilingStack underflow");
     size--;
-    MemoryBarrier();
   }
 
   void UpdateTop(const char* new_label) {
-    MemoryBarrier();
+    ScopedLock sl(lock);
     assert(size);
     labels[size - 1] = new_label;
-    MemoryBarrier();
   }
 
   ProfilingStack& operator=(const ProfilingStack& other) {
@@ -174,29 +162,35 @@ struct ThreadInfo {
   ThreadInfo() {
     pthread_key_create(&key, ThreadExitCallback);
     pthread_setspecific(key, this);
+    stack.lock = new Mutex();
   }
 
   static void ThreadExitCallback(void* ptr) {
-    AutoGlobalLock<ProfilerLockId> lock;
+    ScopedLock sl(GlobalMutexes::Profiler());
     ThreadInfo* self = static_cast<ThreadInfo*>(ptr);
     ThreadsUnderProfiling().erase(self);
     pthread_key_delete(self->key);
+    delete self->stack.lock;
   }
 };
 
 inline ThreadInfo& ThreadLocalThreadInfo() {
-#ifdef GEMMLOWP_USING_OLD_THREAD_LOCAL
-  // We're leaking this ThreadInfo structure, because Apple doesn't support
-  // non-trivial constructors or destructors for their __thread type modifier.
-  GEMMLOWP_THREAD_LOCAL ThreadInfo* i = nullptr;
-  if (i == nullptr) {
-    i = new ThreadInfo();
+  static pthread_key_t key;
+  static auto DeleteThreadInfo = [](void* threadInfoPtr) {
+    ThreadInfo* threadInfo = static_cast<ThreadInfo*>(threadInfoPtr);
+    if (threadInfo) {
+      delete threadInfo;
+    }
+  };
+
+  static int key_result = pthread_key_create(&key, DeleteThreadInfo);
+
+  ThreadInfo* threadInfo = static_cast<ThreadInfo*>(pthread_getspecific(key));
+  if (!threadInfo) {
+    threadInfo = new ThreadInfo();
+    pthread_setspecific(key, threadInfo);
   }
-  return *i;
-#else
-  GEMMLOWP_THREAD_LOCAL ThreadInfo i;
-  return i;
-#endif
+  return *threadInfo;
 }
 
 // ScopedProfilingLabel is how one instruments code for profiling
@@ -221,7 +215,7 @@ class ScopedProfilingLabel {
 
 // To be called once on each thread to be profiled.
 inline void RegisterCurrentThreadForProfiling() {
-  AutoGlobalLock<ProfilerLockId> lock;
+  ScopedLock sl(GlobalMutexes::Profiler());
   ThreadsUnderProfiling().insert(&ThreadLocalThreadInfo());
 }
 

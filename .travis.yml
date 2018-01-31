@@ -1,0 +1,26 @@
+language: android
+
+os:
+  - linux
+
+sudo: false
+
+compiler:
+  - clang
+
+env:
+  - NDK_VERSION=r14b TEST=arm
+  - TEST=x86
+
+script:
+  - ./scripts/ci-test.sh
+
+android:
+  components:
+    - build-tools-22.0.1
+    - android-22
+    - ndk-bundle
+    - sys-img-armeabi-v7a-android-22
+
+before_script:
+  - ./scripts/ci-before.sh

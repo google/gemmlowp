@@ -27,6 +27,10 @@
 #include "../meta/legacy_multi_thread_gemm.h"
 #include "../public/gemmlowp.h"
 #include "test.h"
+// lets include these so we make sure they always compile
+#include "../meta/multi_thread_gemm.h"
+#include "../meta/multi_thread_transform.h"
+#include "../meta/legacy_multi_thread_common.h"
 
 #if defined(__arm__) && !defined(GEMMLOWP_NEON)
 #warning "Building without NEON support on ARM, check your compiler setup!"
@@ -55,18 +59,6 @@ void prepare_test_data(std::uint8_t* data, std::int32_t rows, std::int32_t cols,
   }
 }
 
-#ifdef VERBOSE
-bool verbose = VERBOSE;
-#else
-bool verbose = false;
-#endif
-
-#ifdef QUIET
-bool quiet = QUIET;
-#else
-bool quiet = true;
-#endif
-
 void check_result(std::uint8_t* left, std::uint8_t* right, std::uint8_t* result,
                   std::int32_t rows, std::int32_t cols, std::int32_t depth,
                   std::int32_t lhs_offset, std::int32_t rhs_offset,
@@ -93,33 +85,18 @@ void check_result(std::uint8_t* left, std::uint8_t* right, std::uint8_t* result,
       }
       expected = static_cast<std::int32_t>(static_cast<std::uint8_t>(expected));
       std::int32_t actual = static_cast<std::int32_t>(result[i * cols + j]);
-      if (actual == expected) {
-        if (!quiet) {
-          if (verbose) {
-            std::cout << expected << "==" << actual << " ";
-          } else {
-            std::cout << ".";
-          }
-        }
-      } else {
-        if (!quiet) {
-          if (verbose) {
-            std::cout << expected << "!=" << actual << " ";
-          } else {
-            std::cout << "x";
-          }
-        }
+      if (actual != expected) {
+        std::cout << "(" << i << ", " << j << "): " << expected << "!="
+                  << actual << std::endl;
         wrong++;
       }
-    }
-    if (!quiet) {
-      std::cout << std::endl;
     }
   }
   if (wrong > 0) {
     std::cout << "Wrong: " << rows << "x" << cols << "x" << depth << " : "
               << wrong << "/" << (rows * cols) << std::endl
               << std::flush;
+    std::exit(1);
   } else {
     std::cout << "." << std::flush;
   }
@@ -140,35 +117,23 @@ void check_result_f(std::uint8_t* left, std::uint8_t* right, float* result,
       }
       float expected_float = static_cast<float>(expected) * result_offset;
       float actual_float = result[i * cols + j];
-      if (actual_float == expected_float) {
-        if (!quiet) {
-          if (verbose) {
-            std::cout << expected_float << "==" << actual_float << " ";
-          } else {
-            std::cout << ".";
-          }
-        }
-      } else {
-        if (!quiet) {
-          if (verbose) {
-            std::cout << expected_float << "!=" << actual_float << " ";
-          } else {
-            std::cout << "x";
-          }
-        }
+      if (actual_float != expected_float) {
+        std::cout << "(" << i << ", " << j << "): " << expected_float << "!="
+                  << actual_float << std::endl;
         wrong++;
       }
     }
-    if (!quiet) {
-      std::cout << std::endl;
-    }
   }
   if (wrong > 0) {
-    std::cout << "Wrong: " << wrong << std::endl << std::flush;
+    std::cout << "Wrong: " << rows << "x" << cols << "x" << depth << " : "
+              << wrong << "/" << (rows * cols) << std::endl
+              << std::flush;
+    std::exit(1);
   } else {
     std::cout << "." << std::flush;
   }
 }
+
 
 void check_result_i32(std::uint8_t* left, std::uint8_t* right,
                       std::int32_t* result, std::int32_t rows,
@@ -184,32 +149,18 @@ void check_result_i32(std::uint8_t* left, std::uint8_t* right,
             (static_cast<std::int32_t>(right[depth * j + k]) + rhs_offset);
       }
       std::int32_t actual = result[i * cols + j];
-      if (actual == expected) {
-        if (!quiet) {
-          if (verbose) {
-            std::cout << expected << "==" << actual << " ";
-          } else {
-            std::cout << ".";
-          }
-        }
-      } else {
-        if (!quiet) {
-          if (verbose) {
-            std::cout << expected << "!=" << actual << " ";
-          } else {
-            std::cout << "x";
-          }
-        }
+      if (actual != expected) {
+        std::cout << "(" << i << ", " << j << "): " << expected << "!="
+                  << actual << std::endl;
         wrong++;
       }
     }
-    if (!quiet) {
-      std::cout << std::endl
-                << "row: " << i << " wrong: " << wrong << std::endl;
-    }
   }
   if (wrong > 0) {
-    std::cout << "Wrong: " << wrong << std::endl << std::flush;
+    std::cout << "Wrong: " << rows << "x" << cols << "x" << depth << " : "
+              << wrong << "/" << (rows * cols) << std::endl
+              << std::flush;
+    std::exit(1);
   } else {
     std::cout << "." << std::flush;
   }
@@ -302,7 +253,13 @@ void i32_suite(int mi, int ni, int ki, int mx, int nx, int kx, int md, int nd,
   std::cout << std::endl;
 }
 
-int main() {
+int main(int argc, char* argv[]) {
+  bool run_long_test = false;
+
+  if (argc > 1 && strcmp(argv[1], "long")) {
+    run_long_test = true;
+  }
+
   const std::int32_t min_n = 1;
   const std::int32_t min_m = 1;
   const std::int32_t min_k = 8;
@@ -319,58 +276,65 @@ int main() {
   std::uint8_t* scratch = new std::uint8_t[1024 * 1024 * 64];
 
   gemmlowp::WorkersPool pool;
-  pool.CreateWorkers(3);
 
-  for (int repetitions = 1; repetitions < 11; ++repetitions) {
-    int t = std::min(repetitions, 4);
+  int max_repetitions = run_long_test ? 10 : 1;
+
+  for (int repetitions = 0; repetitions < max_repetitions; ++repetitions) {
+    int t = std::min(repetitions + 1, 4);
     std::cout << "Threads: " << t << std::endl << std::flush;
 
     std::cout << "Quantized 8 bit." << std::endl << std::flush;
 
     std::cout << "Small." << std::endl << std::flush;
-    q_suite(1, 1, 8, 16, 16, 32, 1, 1, 1, scratch, left, right, result, &pool,
+    q_suite(1, 1, 1, 16, 16, 32, 1, 1, 1, scratch, left, right, result, &pool,
             t);
 
-    std::cout << "Big." << std::endl << std::flush;
-    q_suite(1, 1, 8, 512, 512, 2048, 111, 111, 111, scratch, left, right,
-            result, &pool, t);
+    if (run_long_test) {
+      std::cout << "Big." << std::endl << std::flush;
+      q_suite(1, 1, 1, 512, 512, 2048, 111, 111, 111, scratch, left, right,
+              result, &pool, t);
+    }
 
     std::cout << "Gemv." << std::endl << std::flush;
-    q_suite(1, 1, 8, 2, 512, 2048, 1, 111, 111, scratch, left, right, result,
+    q_suite(1, 1, 1, 2, 512, 2048, 1, 111, 111, scratch, left, right, result,
             &pool, t);
-    q_suite(1, 1, 8, 512, 2, 2048, 111, 1, 111, scratch, left, right, result,
+    q_suite(1, 1, 1, 512, 2, 2048, 111, 1, 111, scratch, left, right, result,
             &pool, t);
 
     std::cout << std::endl << "Floats." << std::endl << std::flush;
 
     std::cout << "Small." << std::endl << std::flush;
-    f_suite(1, 1, 8, 16, 16, 32, 1, 1, 1, scratch, left, right, result_float,
+    f_suite(1, 1, 1, 16, 16, 32, 1, 1, 1, scratch, left, right, result_float,
             &pool, t);
 
-    std::cout << "Big." << std::endl << std::flush;
-    f_suite(1, 1, 8, 512, 512, 2048, 111, 111, 111, scratch, left, right,
-            result_float, &pool, t);
+    if (run_long_test) {
+      std::cout << "Big." << std::endl << std::flush;
+      f_suite(1, 1, 1, 512, 512, 2048, 111, 111, 111, scratch, left, right,
+              result_float, &pool, t);
+    }
 
     std::cout << "Gemv." << std::endl << std::flush;
-    f_suite(1, 1, 8, 2, 512, 2048, 1, 111, 111, scratch, left, right,
+    f_suite(1, 1, 1, 2, 512, 2048, 1, 111, 111, scratch, left, right,
             result_float, &pool, t);
-    f_suite(1, 1, 8, 512, 2, 2048, 111, 1, 111, scratch, left, right,
+    f_suite(1, 1, 1, 512, 2, 2048, 111, 1, 111, scratch, left, right,
             result_float, &pool, t);
 
     std::cout << std::endl << "Int32." << std::endl << std::flush;
 
     std::cout << "Small." << std::endl << std::flush;
-    i32_suite(1, 1, 8, 16, 16, 32, 1, 1, 1, scratch, left, right, result_i32,
+    i32_suite(1, 1, 1, 16, 16, 32, 1, 1, 1, scratch, left, right, result_i32,
               &pool, t);
 
-    std::cout << "Big." << std::endl << std::flush;
-    i32_suite(1, 1, 8, 512, 512, 2048, 111, 111, 111, scratch, left, right,
-              result_i32, &pool, t);
+    if (run_long_test) {
+      std::cout << "Big." << std::endl << std::flush;
+      i32_suite(1, 1, 1, 512, 512, 2048, 111, 111, 111, scratch, left, right,
+                result_i32, &pool, t);
+    }
 
     std::cout << "Gemv." << std::endl << std::flush;
-    i32_suite(1, 1, 8, 2, 512, 2048, 1, 111, 111, scratch, left, right,
+    i32_suite(1, 1, 1, 2, 512, 2048, 1, 111, 111, scratch, left, right,
               result_i32, &pool, t);
-    i32_suite(1, 1, 8, 512, 2, 2048, 111, 1, 111, scratch, left, right,
+    i32_suite(1, 1, 1, 512, 2, 2048, 111, 1, 111, scratch, left, right,
               result_i32, &pool, t);
 
     std::cout << std::endl << std::flush;

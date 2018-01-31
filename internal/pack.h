@@ -208,12 +208,15 @@ class PackingRegisterBlockBase {
  public:
   typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
   typedef typename KernelSideFormat::Cell CellFormat;
+  typedef typename KernelSideFormat::Scalar KernelScalar;
   static const int kCells = KernelSideFormat::kCells;
   static const int kCellWidth = CellFormat::kWidth;
   static const int kKernelWidth = CellFormat::kWidth * kCells;
   static const int kCellDepth = CellFormat::kDepth;
   static const int kCellSize = CellFormat::kSize;
   static const SideMapOrder kSrcOrder = SrcMapType::kOrder;
+  static const int kZeroPointInputValue =
+      ZeroPointInputValue<KernelScalar>::kValue;
 
   PackingRegisterBlockBase() : complete_src_(nullptr, 0, 0, 0) {}
 
@@ -235,7 +238,7 @@ class PackingRegisterBlockBase {
   // Copies an incomplete block of source data into a local temporary
   // complete block by zero-extending it.
   void MakeCompleteSrc(const SrcMapType& src) {
-    memset(buf_, 0, kKernelWidth * kRegisterSize);
+    memset(buf_, kZeroPointInputValue, kKernelWidth * kRegisterSize);
     if (kSrcOrder == SideMapOrder::WidthMajor) {
       for (int w = 0; w < src.width(); w++) {
         memcpy(buf_ + w * kRegisterSize, src.data(w, 0), src.depth());
@@ -266,8 +269,11 @@ class PackingRegisterBlockBase {
           std::int32_t sum = 0;
           for (int d = 0; d < kCellDepth; d++) {
             const std::uint8_t src_val = src_cell_map(w, d);
-            dst_ptr[OffsetIntoCell<CellFormat>(w, d)] = src_val;
-            sum += src_val;
+            const std::int16_t kernel_val_unwrapped =
+                src_val - kZeroPointInputValue;
+            const std::uint8_t kernel_val_uint8 = kernel_val_unwrapped;
+            dst_ptr[OffsetIntoCell<CellFormat>(w, d)] = kernel_val_uint8;
+            sum += kernel_val_unwrapped;
           }
           cell_sums_of_each_slice_ptr[w] += sum;
         }
@@ -398,7 +404,6 @@ void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
   typedef typename MatrixMapType::Scalar Scalar;
   typedef SideMap<Scalar, kSideMapOrder> SideMapType;
   SideMapType src_side_map(src.data(), src.rows(), src.cols(), src.stride());
-  const int accumulation_depth = src_side_map.depth();
   typedef PackSideBlockImpl<SideMapType, PackedSideBlock> ImplType;
   ImplType impl(dst, src_side_map);
   impl.PackL2();
@@ -414,7 +419,6 @@ void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
   typedef typename MatrixMapType::Scalar Scalar;
   typedef SideMap<Scalar, kSideMapOrder> SideMapType;
   SideMapType src_side_map(src.data(), src.cols(), src.rows(), src.stride());
-  const int accumulation_depth = src_side_map.depth();
   typedef PackSideBlockImpl<SideMapType, PackedSideBlock> ImplType;
   ImplType impl(dst, src_side_map);
   impl.PackL2();
@@ -426,6 +430,8 @@ void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
 #include "pack_neon.h"
 #elif defined(GEMMLOWP_SSE4)
 #include "pack_sse.h"
+#elif defined(GEMMLOWP_MSA)
+#include "pack_msa.h"
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_PACK_H_

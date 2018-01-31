@@ -28,7 +28,7 @@ const int kMinTransformTaskSize = 32000;
 template <typename MultiThreadingContext, typename Params>
 inline bool PrepareTransform1DTasks(MultiThreadingContext* context,
                                     const Params& params, int kernel_size,
-                                    std::vector<Params>* tasks) {
+                                    std::vector<Params>* task_params) {
   typedef Transform1DUtil<typename Params::InType, typename Params::OutType,
                           typename Params::Kernel>
       Util;
@@ -46,14 +46,14 @@ inline bool PrepareTransform1DTasks(MultiThreadingContext* context,
 
   const int chunk = params.kernel.count / real_tasks;
   for (int i = 0; i < real_tasks - 1; ++i) {
-    tasks->push_back(params);
-    Params& task = tasks->back();
+    task_params->push_back(params);
+    Params& task = task_params->back();
     task.kernel.count = chunk;
     task.input = Util::OffsetInput(params.kernel, params.input, i * chunk);
     task.output = Util::OffsetOutput(params.kernel, params.output, i * chunk);
   }
-  tasks->push_back(params);
-  Params& task = tasks->back();
+  task_params->push_back(params);
+  Params& task = task_params->back();
   const int sum_chunk = (real_tasks - 1) * chunk;
   task.kernel.count = params.kernel.count - sum_chunk;
   task.input = Util::OffsetInput(params.kernel, params.input, sum_chunk);
@@ -65,7 +65,7 @@ template <typename Params, int kernel_size>
 struct Transform1DTaskRunner : gemmlowp::Task {
   Transform1DTaskRunner(const Params& params) : params(params) {}
 
-  void Run() const override { Transform1D<Params, kernel_size>(params); }
+  void Run() override { Transform1D<Params, kernel_size>(params); }
 
   Params params;
 };
@@ -77,24 +77,19 @@ inline void MultiThreadTransform1D(MultiThreadingContext* context,
                                    const Params& params) {
   typedef internal::Transform1DTaskRunner<Params, kernel_size> TaskRunnerType;
 
-  std::vector<Params> tasks;
+  std::vector<Params> task_params;
   if (!internal::PrepareTransform1DTasks<MultiThreadingContext, Params>(
-          context, params, kernel_size, &tasks)) {
+          context, params, kernel_size, &task_params)) {
     Transform1D<Params, kernel_size>(params);
     return;
   }
 
-  const int worker_tasks_count = tasks.size() - 1;
   auto workers_pool = context->workers_pool();
-
-  workers_pool->CreateWorkers(worker_tasks_count);
-  workers_pool->Prepare(worker_tasks_count);
-
-  for (int i = 0; i < worker_tasks_count; ++i) {
-    workers_pool->StartWorker(i, new TaskRunnerType(tasks[i]));
+  std::vector<Task*> tasks;
+  for (auto& task_param : task_params) {
+    tasks.push_back(new TaskRunnerType(task_param));
   }
-  Transform1D<Params, kernel_size>(tasks.back());
-  workers_pool->Wait();
+  workers_pool->Execute(tasks);
 }
 
 }  // namespace meta

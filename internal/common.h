@@ -18,7 +18,8 @@
 #ifndef GEMMLOWP_INTERNAL_COMMON_H_
 #define GEMMLOWP_INTERNAL_COMMON_H_
 
-#include <pthread.h>
+#include "../internal/platform.h"
+#include "../profiling/pthread_everywhere.h"
 
 #include <algorithm>
 #include <cassert>
@@ -54,6 +55,19 @@
 #define GEMMLOWP_ARM
 #endif
 
+// Detect MIPS, 32-bit or 64-bit
+#if defined(__mips) && !defined(__LP64__)
+#define GEMMLOWP_MIPS_32
+#endif
+
+#if defined(__mips) && defined(__LP64__)
+#define GEMMLOWP_MIPS_64
+#endif
+
+#if defined(GEMMLOWP_MIPS_32) || defined(GEMMLOWP_MIPS_64)
+#define GEMMLOWP_MIPS
+#endif
+
 // Detect x86, 32-bit or 64-bit
 #if defined(__i386__) || defined(_M_IX86) || defined(_X86_) || defined(__i386)
 #define GEMMLOWP_X86_32
@@ -86,6 +100,23 @@
 #define GEMMLOWP_NEON_64
 #endif
 
+// Detect MIPS MSA.
+// Limit MSA optimizations to little-endian CPUs for now.
+// TODO: Perhaps, eventually support MSA optimizations on big-endian CPUs?
+#if defined(GEMMLOWP_MIPS) && (__mips_isa_rev >= 5) && defined(__mips_msa) && \
+  defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+#define GEMMLOWP_MSA
+#endif
+
+// Convenience MIPS MSA tokens for 32-bit or 64-bit.
+#if defined(GEMMLOWP_MSA) && defined(GEMMLOWP_MIPS_32)
+#define GEMMLOWP_MSA_32
+#endif
+
+#if defined(GEMMLOWP_MSA) && defined(GEMMLOWP_MIPS_64)
+#define GEMMLOWP_MSA_64
+#endif
+
 // Detect SSE.
 #ifdef __SSE4_1__
 #define GEMMLOWP_SSE4
@@ -110,6 +141,16 @@
 
 #if defined(GEMMLOWP_SSE3) && defined(GEMMLOWP_X86_64)
 #define GEMMLOWP_SSE3_64
+#endif
+
+#if defined(__has_feature)
+#if __has_feature(memory_sanitizer)
+#include <sanitizer/msan_interface.h>
+#define GEMMLOWP_MARK_MEMORY_AS_INITIALIZED __msan_unpoison
+#elif __has_feature(address_sanitizer)
+#include <sanitizer/asan_interface.h>
+#define GEMMLOWP_MARK_MEMORY_AS_INITIALIZED __asan_unpoison_memory_region
+#endif
 #endif
 
 #endif  // GEMMLOWP_ALLOW_INLINE_ASM
@@ -146,8 +187,13 @@ const int kDefaultCacheLineSize = 64;
 // Of course, these values are in principle too low for typical x86 CPUs
 // where we should set the L2 value to (L3 cache size / number of cores) at
 // least.
-#if defined(GEMMLOWP_ARM) || defined(GEMMLOWP_ANDROID)
-// ARM or ARM-like hardware (Android implies ARM-like) so here it's OK
+//
+#if defined(GEMMLOWP_ARM) && defined(__APPLE__)
+// iPhone/iPad
+const int kDefaultL1CacheSize = 48 * 1024;
+const int kDefaultL2CacheSize = 2 * 1024 * 1024;
+#elif defined(GEMMLOWP_ARM) || defined(GEMMLOWP_ANDROID)
+// Other ARM or ARM-like hardware (Android implies ARM-like) so here it's OK
 // to tune for ARM, although on x86 Atom we might be able to query
 // cache sizes at runtime, which would be better.
 const int kDefaultL1CacheSize = 16 * 1024;
@@ -162,6 +208,10 @@ const int kDefaultL2CacheSize = 4 * 1024 * 1024;
 // x86-32 and not Android. Same as x86-64 but less bullish.
 const int kDefaultL1CacheSize = 32 * 1024;
 const int kDefaultL2CacheSize = 2 * 1024 * 1024;
+#elif defined(GEMMLOWP_MIPS)
+// MIPS and not Android. TODO: MIPS and Android?
+const int kDefaultL1CacheSize = 32 * 1024;
+const int kDefaultL2CacheSize = 1024 * 1024;
 #else
 // Less common hardware. Maybe some unusual or older or embedded thing.
 // Assume smaller caches, but don't depart too far from what we do
@@ -192,13 +242,17 @@ const float kDefaultL2RhsFactor = 0.75f;
 // are consistent with this value.
 const int kRegisterSize = 16;
 
-// Requantization to less-than-8-bit is costly, so it only worth
-// doing if the GEMM width is large enough
-const int kMinimumWidthForRequantization = 100;
-
 // Hints the CPU to prefetch the cache line containing ptr.
 inline void Prefetch(const void* ptr) {
-#ifdef __GNUC__  // Clang and GCC define __GNUC__ and have __builtin_prefetch.
+#if defined GEMMLOWP_ARM_64 && defined GEMMLOWP_ALLOW_INLINE_ASM
+  // Aarch64 has very detailed prefetch instructions, that compilers
+  // can't know how to map __builtin_prefetch to, and as a result, don't,
+  // leaving __builtin_prefetch a no-op on this architecture.
+  // For our purposes, "pldl1keep" is usually what we want, meaning:
+  // "prefetch for load, into L1 cache, using each value multiple times".
+  asm volatile("prfm pldl1keep, [%[ptr]]\n" ::[ptr] "r"(ptr) :);
+#elif defined \
+    __GNUC__  // Clang and GCC define __GNUC__ and have __builtin_prefetch.
   __builtin_prefetch(ptr);
 #else
   (void)ptr;
@@ -241,6 +295,17 @@ template <int N>
 struct IsPowerOfTwo {
   static const bool value = !(N & (N - 1));
 };
+
+template <typename T>
+void MarkMemoryAsInitialized(T* ptr, int size) {
+#ifdef GEMMLOWP_MARK_MEMORY_AS_INITIALIZED
+  GEMMLOWP_MARK_MEMORY_AS_INITIALIZED(static_cast<void*>(ptr),
+                                      size * sizeof(T));
+#else
+  (void)ptr;
+  (void)size;
+#endif
+}
 
 }  // namespace gemmlowp
 
