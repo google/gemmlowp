@@ -73,7 +73,7 @@ void Store<int16x8_m128i>(std::int16_t* dst, int16x8_m128i v) {
   _mm_storeu_si128(reinterpret_cast<__m128i*>(dst), v.v);
 }
 #endif
-#ifdef defined(GEMMLOWP_MSA)
+#ifdef GEMMLOWP_MSA
 template <>
 v4i32 Load<v4i32>(const std::int32_t* src) {
   return __builtin_msa_ld_w(const_cast<std::int32_t*>(src), 0);
