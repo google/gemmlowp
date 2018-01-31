@@ -11,4 +11,4 @@ if [ $TEST == "arm" ]; then
 fi
 if [ $TEST == "x86" ]; then
   make -f Makefile.travis unittest
-fi  
+fi
