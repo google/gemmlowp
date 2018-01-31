@@ -153,10 +153,10 @@ class PackingRegisterBlock<
     // Load source WidthMajor data
     uint16x8_t src_lines[kCells * 4];
     for (int i = 0; i < kCells; i++) {
-// This packing path is used with our current
-// less-than-8-bit kernel, and the partial unrolling of this loop
-// results in substantially faster code (thanks to better
-// register allocation) on Nexus 5.
+      // This packing path is used with our current
+      // less-than-8-bit kernel, and the partial unrolling of this loop
+      // results in substantially faster code (thanks to better
+      // register allocation) on Nexus 5.
 
 #define GEMMLOWP_UNROLLED_LOOP_ITER(k)                            \
   src_lines[4 * i + k] = vreinterpretq_u16_u8(vld1q_u8(src_ptr)); \

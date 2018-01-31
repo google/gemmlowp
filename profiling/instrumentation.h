@@ -31,15 +31,15 @@
 #else
 #include <stdint.h>
 namespace std {
-using ::uint8_t;
-using ::uint16_t;
-using ::uint32_t;
-using ::int8_t;
 using ::int16_t;
 using ::int32_t;
+using ::int8_t;
 using ::size_t;
+using ::uint16_t;
+using ::uint32_t;
+using ::uint8_t;
 using ::uintptr_t;
-}
+}  // namespace std
 #endif
 
 #include <algorithm>

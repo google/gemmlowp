@@ -149,9 +149,7 @@ T WaitForVariableChange(volatile T* var, T initial_value, pthread_cond_t* cond,
 // to have finished working.
 class BlockingCounter {
  public:
-  BlockingCounter()
-      : count_(0),
-        initial_count_(0) {
+  BlockingCounter() : count_(0), initial_count_(0) {
     pthread_cond_init(&cond_, nullptr);
     pthread_mutex_init(&mutex_, nullptr);
   }

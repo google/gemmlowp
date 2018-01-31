@@ -104,7 +104,7 @@
 // Limit MSA optimizations to little-endian CPUs for now.
 // TODO: Perhaps, eventually support MSA optimizations on big-endian CPUs?
 #if defined(GEMMLOWP_MIPS) && (__mips_isa_rev >= 5) && defined(__mips_msa) && \
-  defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+    defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
 #define GEMMLOWP_MSA
 #endif
 

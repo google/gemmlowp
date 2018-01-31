@@ -85,13 +85,9 @@ inline Int32x4 Mul(Int32x4 a, std::int32_t b) {
   return __builtin_msa_mulv_w(a, __builtin_msa_fill_w(b));
 }
 
-inline Int32x4 Min(Int32x4 a, Int32x4 b) {
-  return __builtin_msa_min_s_w(a, b);
-}
+inline Int32x4 Min(Int32x4 a, Int32x4 b) { return __builtin_msa_min_s_w(a, b); }
 
-inline Int32x4 Max(Int32x4 a, Int32x4 b) {
-  return __builtin_msa_max_s_w(a, b);
-}
+inline Int32x4 Max(Int32x4 a, Int32x4 b) { return __builtin_msa_max_s_w(a, b); }
 
 inline Int32x4 SaturatingRoundingDoublingHighMul(Int32x4 a, std::int32_t b) {
   return __builtin_msa_mulr_q_w(a, __builtin_msa_fill_w(b));

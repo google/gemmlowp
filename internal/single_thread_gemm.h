@@ -89,10 +89,9 @@ void SingleThreadGemm(SingleThreadGemmContext* context,
   Allocator* allocator = context->allocator();
 
   BlockParams block_params;
-  block_params.Init<KernelFormat>(rows, cols, depth, 1,
-                                  context->l1_bytes_to_use(),
-                                  context->l2_bytes_to_use(),
-                                  context->l2_rhs_factor());
+  block_params.Init<KernelFormat>(
+      rows, cols, depth, 1, context->l1_bytes_to_use(),
+      context->l2_bytes_to_use(), context->l2_rhs_factor());
 
 #ifdef GEMMLOWP_PROFILING_SIZES
   // Using a static map of label strings. Not reentrant at all!

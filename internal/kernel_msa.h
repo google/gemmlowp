@@ -31,13 +31,13 @@ namespace gemmlowp {
 
 // Some convenience macros to hide differences between MIPS32 and MIPS64.
 #ifdef GEMMLOWP_MIPS_64
-#define GEMMLOWP_MIPS_XADDU      "daddu"
-#define GEMMLOWP_MIPS_XADDIU     "daddiu"
-#define GEMMLOWP_MIPS_XSLL       "dsll"
+#define GEMMLOWP_MIPS_XADDU "daddu"
+#define GEMMLOWP_MIPS_XADDIU "daddiu"
+#define GEMMLOWP_MIPS_XSLL "dsll"
 #else
-#define GEMMLOWP_MIPS_XADDU      "addu"
-#define GEMMLOWP_MIPS_XADDIU     "addiu"
-#define GEMMLOWP_MIPS_XSLL       "sll"
+#define GEMMLOWP_MIPS_XADDU "addu"
+#define GEMMLOWP_MIPS_XADDIU "addiu"
+#define GEMMLOWP_MIPS_XSLL "sll"
 #endif
 
 // Our main GEMM kernel.
@@ -67,38 +67,40 @@ struct MSA_Kernel12x8Depth2 : KernelBase {
 
         // Multiply dst_col_stride by 4 == sizeof(int32) to use
         // it as a byte offset below.
-        GEMMLOWP_MIPS_XSLL " %[dst_col_stride], %[dst_col_stride], 2\n"
+        GEMMLOWP_MIPS_XSLL
+        " %[dst_col_stride], %[dst_col_stride], 2\n"
 
         // Check if start_depth==0 to decide whether we will clear
         // accumulators or load existing accumulators.
         "beqz   %[start_depth], " GEMMLOWP_LABEL_CLEAR_ACCUMULATORS "f\n"
 
         // Load accumulators (start_depth != 0).
-        GEMMLOWP_MIPS_XADDU " $a0, %[dst_ptr], %[dst_col_stride]\n"
+        GEMMLOWP_MIPS_XADDU
+        " $a0, %[dst_ptr], %[dst_col_stride]\n"
         "ld.w   $w0,  (0*16)(%[dst_ptr])\n"
         "ld.w   $w4,  (1*16)(%[dst_ptr])\n"
-        "ld.w   $w8,  (2*16)(%[dst_ptr])\n"
-        GEMMLOWP_MIPS_XADDU " $a1, $a0, %[dst_col_stride]\n"
+        "ld.w   $w8,  (2*16)(%[dst_ptr])\n" GEMMLOWP_MIPS_XADDU
+        " $a1, $a0, %[dst_col_stride]\n"
         "ld.w   $w1,  (0*16)($a0)\n"
         "ld.w   $w5,  (1*16)($a0)\n"
-        "ld.w   $w9,  (2*16)($a0)\n"
-        GEMMLOWP_MIPS_XADDU " $a0, $a1, %[dst_col_stride]\n"
+        "ld.w   $w9,  (2*16)($a0)\n" GEMMLOWP_MIPS_XADDU
+        " $a0, $a1, %[dst_col_stride]\n"
         "ld.w   $w2,  (0*16)($a1)\n"
         "ld.w   $w6,  (1*16)($a1)\n"
-        "ld.w   $w10, (2*16)($a1)\n"
-        GEMMLOWP_MIPS_XADDU " $a1, $a0, %[dst_col_stride]\n"
+        "ld.w   $w10, (2*16)($a1)\n" GEMMLOWP_MIPS_XADDU
+        " $a1, $a0, %[dst_col_stride]\n"
         "ld.w   $w3,  (0*16)($a0)\n"
         "ld.w   $w7,  (1*16)($a0)\n"
-        "ld.w   $w11, (2*16)($a0)\n"
-        GEMMLOWP_MIPS_XADDU " $a0, $a1, %[dst_col_stride]\n"
+        "ld.w   $w11, (2*16)($a0)\n" GEMMLOWP_MIPS_XADDU
+        " $a0, $a1, %[dst_col_stride]\n"
         "ld.w   $w12, (0*16)($a1)\n"
         "ld.w   $w16, (1*16)($a1)\n"
-        "ld.w   $w20, (2*16)($a1)\n"
-        GEMMLOWP_MIPS_XADDU " $a1, $a0, %[dst_col_stride]\n"
+        "ld.w   $w20, (2*16)($a1)\n" GEMMLOWP_MIPS_XADDU
+        " $a1, $a0, %[dst_col_stride]\n"
         "ld.w   $w13, (0*16)($a0)\n"
         "ld.w   $w17, (1*16)($a0)\n"
-        "ld.w   $w21, (2*16)($a0)\n"
-        GEMMLOWP_MIPS_XADDU " $a0, $a1, %[dst_col_stride]\n"
+        "ld.w   $w21, (2*16)($a0)\n" GEMMLOWP_MIPS_XADDU
+        " $a0, $a1, %[dst_col_stride]\n"
         "ld.w   $w14, (0*16)($a1)\n"
         "ld.w   $w18, (1*16)($a1)\n"
         "ld.w   $w22, (2*16)($a1)\n"
@@ -107,7 +109,8 @@ struct MSA_Kernel12x8Depth2 : KernelBase {
         "ld.w   $w23, (2*16)($a0)\n"
         "b " GEMMLOWP_LABEL_BEFORE_LOOP "f\n"
 
-        GEMMLOWP_LABEL_CLEAR_ACCUMULATORS ":\n"
+        GEMMLOWP_LABEL_CLEAR_ACCUMULATORS
+        ":\n"
         // Clear accumulators (start_depth == 0).
         "ldi.w  $w0,  0\n"
         "ldi.w  $w4,  0\n"
@@ -136,7 +139,8 @@ struct MSA_Kernel12x8Depth2 : KernelBase {
 
         GEMMLOWP_LABEL_BEFORE_LOOP ":\n"
 
-        GEMMLOWP_LABEL_LOOP ":\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
         // Overview of register layout:
         //
         // A half of the 2 2x4 cells of Rhs is stored in 16bit in w27-w30
@@ -198,8 +202,8 @@ struct MSA_Kernel12x8Depth2 : KernelBase {
         "ilvr.h $w25, $w28, $w25\n"
         "ilvr.h $w26, $w29, $w26\n"
 
-        // Combine and interleave depth 0 and depth 1 elements of rhs[] for dpadd_u.w
-        // (for the first half).
+        // Combine and interleave depth 0 and depth 1 elements of rhs[] for
+        // dpadd_u.w (for the first half).
         "ins    $a0, $v0, 16, 8\n"
         "ins    $a1, $v1, 16, 8\n"
         "ins    $a2, $t8, 16, 8\n"
@@ -236,8 +240,8 @@ struct MSA_Kernel12x8Depth2 : KernelBase {
         "dpadd_u.w $w7, $w25, $w30\n"
         "dpadd_u.w $w11, $w26, $w30\n"
 
-        // Combine and interleave depth 0 and depth 1 elements of rhs[] for dpadd_u.w
-        // (for the second half).
+        // Combine and interleave depth 0 and depth 1 elements of rhs[] for
+        // dpadd_u.w (for the second half).
         "ins    $a0, $v0, 16, 8\n"
         "ins    $a1, $v1, 16, 8\n"
         "ins    $a2, $t8, 16, 8\n"
@@ -263,39 +267,40 @@ struct MSA_Kernel12x8Depth2 : KernelBase {
         "dpadd_u.w $w19, $w25, $w30\n"
         "dpadd_u.w $w23, $w26, $w30\n"
 
-        GEMMLOWP_MIPS_XADDIU " %[run_depth], -2\n"
-        GEMMLOWP_MIPS_XADDIU " %[lhs_ptr], 24\n"
-        GEMMLOWP_MIPS_XADDIU " %[rhs_ptr], 16\n"
+        GEMMLOWP_MIPS_XADDIU " %[run_depth], -2\n" GEMMLOWP_MIPS_XADDIU
+        " %[lhs_ptr], 24\n" GEMMLOWP_MIPS_XADDIU
+        " %[rhs_ptr], 16\n"
         "bnez   %[run_depth]," GEMMLOWP_LABEL_LOOP "b\n"
 
         GEMMLOWP_LABEL_AFTER_LOOP ":\n"
 
         // Store accumulators.
-        GEMMLOWP_MIPS_XADDU " $a0, %[dst_ptr], %[dst_col_stride]\n"
+        GEMMLOWP_MIPS_XADDU
+        " $a0, %[dst_ptr], %[dst_col_stride]\n"
         "st.w   $w0,  (0*16)(%[dst_ptr])\n"
         "st.w   $w4,  (1*16)(%[dst_ptr])\n"
-        "st.w   $w8,  (2*16)(%[dst_ptr])\n"
-        GEMMLOWP_MIPS_XADDU " $a1, $a0, %[dst_col_stride]\n"
+        "st.w   $w8,  (2*16)(%[dst_ptr])\n" GEMMLOWP_MIPS_XADDU
+        " $a1, $a0, %[dst_col_stride]\n"
         "st.w   $w1,  (0*16)($a0)\n"
         "st.w   $w5,  (1*16)($a0)\n"
-        "st.w   $w9,  (2*16)($a0)\n"
-        GEMMLOWP_MIPS_XADDU " $a0, $a1, %[dst_col_stride]\n"
+        "st.w   $w9,  (2*16)($a0)\n" GEMMLOWP_MIPS_XADDU
+        " $a0, $a1, %[dst_col_stride]\n"
         "st.w   $w2,  (0*16)($a1)\n"
         "st.w   $w6,  (1*16)($a1)\n"
-        "st.w   $w10, (2*16)($a1)\n"
-        GEMMLOWP_MIPS_XADDU " $a1, $a0, %[dst_col_stride]\n"
+        "st.w   $w10, (2*16)($a1)\n" GEMMLOWP_MIPS_XADDU
+        " $a1, $a0, %[dst_col_stride]\n"
         "st.w   $w3,  (0*16)($a0)\n"
         "st.w   $w7,  (1*16)($a0)\n"
-        "st.w   $w11, (2*16)($a0)\n"
-        GEMMLOWP_MIPS_XADDU " $a0, $a1, %[dst_col_stride]\n"
+        "st.w   $w11, (2*16)($a0)\n" GEMMLOWP_MIPS_XADDU
+        " $a0, $a1, %[dst_col_stride]\n"
         "st.w   $w12, (0*16)($a1)\n"
         "st.w   $w16, (1*16)($a1)\n"
-        "st.w   $w20, (2*16)($a1)\n"
-        GEMMLOWP_MIPS_XADDU " $a1, $a0, %[dst_col_stride]\n"
+        "st.w   $w20, (2*16)($a1)\n" GEMMLOWP_MIPS_XADDU
+        " $a1, $a0, %[dst_col_stride]\n"
         "st.w   $w13, (0*16)($a0)\n"
         "st.w   $w17, (1*16)($a0)\n"
-        "st.w   $w21, (2*16)($a0)\n"
-        GEMMLOWP_MIPS_XADDU " $a0, $a1, %[dst_col_stride]\n"
+        "st.w   $w21, (2*16)($a0)\n" GEMMLOWP_MIPS_XADDU
+        " $a0, $a1, %[dst_col_stride]\n"
         "st.w   $w14, (0*16)($a1)\n"
         "st.w   $w18, (1*16)($a1)\n"
         "st.w   $w22, (2*16)($a1)\n"
@@ -310,14 +315,11 @@ struct MSA_Kernel12x8Depth2 : KernelBase {
         [dst_ptr] "r"(dst_ptr),
         [start_depth] "r"(start_depth)
         :  // clobbers
-        "memory",
-        "v0", "v1",
-        "a0", "a1", "a2", "a3",
-        "t8", "t9",
-        "$f0", "$f1", "$f2", "$f3", "$f4", "$f5", "$f6", "$f7",
-        "$f8", "$f9", "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
-        "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
-        "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31");
+        "memory", "v0", "v1", "a0", "a1", "a2", "a3", "t8", "t9", "$f0", "$f1",
+        "$f2", "$f3", "$f4", "$f5", "$f6", "$f7", "$f8", "$f9", "$f10", "$f11",
+        "$f12", "$f13", "$f14", "$f15", "$f16", "$f17", "$f18", "$f19", "$f20",
+        "$f21", "$f22", "$f23", "$f24", "$f25", "$f26", "$f27", "$f28", "$f29",
+        "$f30", "$f31");
 
 #undef GEMMLOWP_LABEL_CLEAR_ACCUMULATORS
 #undef GEMMLOWP_LABEL_BEFORE_LOOP

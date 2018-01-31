@@ -39,18 +39,17 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
     // (this takes full care of non-negative elements).
     v4i32 tmp = __builtin_msa_sat_s_w(input.reg[0], 8);
     // Pack every 32-bit element into 16 bits.
-    tmp = reinterpret_cast<v4i32>(__builtin_msa_pckev_h(reinterpret_cast<v8i16>(tmp),
-                                                        reinterpret_cast<v8i16>(tmp)));
+    tmp = reinterpret_cast<v4i32>(__builtin_msa_pckev_h(
+        reinterpret_cast<v8i16>(tmp), reinterpret_cast<v8i16>(tmp)));
     // Detect negative elements with arithmetic shift right (we
     // get a 16-bit mask of all zeroes or all ones for every element).
     v8i16 signs = __builtin_msa_srai_h(reinterpret_cast<v8i16>(tmp), 15);
     // Zero out negative elements.
-    signs = reinterpret_cast<v8i16>(__builtin_msa_bseli_b(reinterpret_cast<v16u8>(signs),
-                                                          reinterpret_cast<v16u8>(tmp),
-                                                          0));
+    signs = reinterpret_cast<v8i16>(__builtin_msa_bseli_b(
+        reinterpret_cast<v16u8>(signs), reinterpret_cast<v16u8>(tmp), 0));
     // Pack every element into 8 bits.
-    tmp = reinterpret_cast<v4i32>(__builtin_msa_pckev_b(reinterpret_cast<v16i8>(signs),
-                                                        reinterpret_cast<v16i8>(signs)));
+    tmp = reinterpret_cast<v4i32>(__builtin_msa_pckev_b(
+        reinterpret_cast<v16i8>(signs), reinterpret_cast<v16i8>(signs)));
     // Return 4 uint8_t elements as uint32_t.
     output.reg[0] = __builtin_msa_copy_s_w(tmp, 0);
     return output;
@@ -75,18 +74,17 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
     v4i32 tmp_hi = __builtin_msa_sat_s_w(input.reg[1], 8);
     // Pack every 32-bit element into 16 bits,
     // combining all 8 elements into one vector.
-    tmp_lo = reinterpret_cast<v4i32>(__builtin_msa_pckev_h(reinterpret_cast<v8i16>(tmp_hi),
-                                                           reinterpret_cast<v8i16>(tmp_lo)));
+    tmp_lo = reinterpret_cast<v4i32>(__builtin_msa_pckev_h(
+        reinterpret_cast<v8i16>(tmp_hi), reinterpret_cast<v8i16>(tmp_lo)));
     // Detect negative elements with arithmetic shift right (we
     // get a 16-bit mask of all zeroes or all ones for every element).
     v8i16 signs = __builtin_msa_srai_h(reinterpret_cast<v8i16>(tmp_lo), 15);
     // Zero out negative elements.
-    signs = reinterpret_cast<v8i16>(__builtin_msa_bseli_b(reinterpret_cast<v16u8>(signs),
-                                                          reinterpret_cast<v16u8>(tmp_lo),
-                                                          0));
+    signs = reinterpret_cast<v8i16>(__builtin_msa_bseli_b(
+        reinterpret_cast<v16u8>(signs), reinterpret_cast<v16u8>(tmp_lo), 0));
     // Pack every element into 8 bits.
-    tmp_lo = reinterpret_cast<v4i32>(__builtin_msa_pckev_b(reinterpret_cast<v16i8>(signs),
-                                                           reinterpret_cast<v16i8>(signs)));
+    tmp_lo = reinterpret_cast<v4i32>(__builtin_msa_pckev_b(
+        reinterpret_cast<v16i8>(signs), reinterpret_cast<v16i8>(signs)));
     // Return 8 uint8_t elements as 2 uint32_t's.
     output.reg[0] = __builtin_msa_copy_s_w(tmp_lo, 0);
     output.reg[1] = __builtin_msa_copy_s_w(tmp_lo, 1);
@@ -94,28 +92,26 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
   }
 };
 
-#define GEMMLOWP_MIPS_SAT16(out, in0, in1, in2, in3) \
-{                                                                                            \
-  v4i32 tmp0 = __builtin_msa_sat_s_w(in0, 8);                                                \
-  v4i32 tmp1 = __builtin_msa_sat_s_w(in1, 8);                                                \
-  v4i32 tmp2 = __builtin_msa_sat_s_w(in2, 8);                                                \
-  v4i32 tmp3 = __builtin_msa_sat_s_w(in3, 8);                                                \
-  tmp0 = reinterpret_cast<v4i32>(__builtin_msa_pckev_h(reinterpret_cast<v8i16>(tmp1),        \
-                                                       reinterpret_cast<v8i16>(tmp0)));      \
-  tmp2 = reinterpret_cast<v4i32>(__builtin_msa_pckev_h(reinterpret_cast<v8i16>(tmp3),        \
-                                                       reinterpret_cast<v8i16>(tmp2)));      \
-  v8i16 signs0 = __builtin_msa_srai_h(reinterpret_cast<v8i16>(tmp0), 15);                    \
-  v8i16 signs1 = __builtin_msa_srai_h(reinterpret_cast<v8i16>(tmp2), 15);                    \
-  signs0 = reinterpret_cast<v8i16>(__builtin_msa_bseli_b(reinterpret_cast<v16u8>(signs0),    \
-                                                         reinterpret_cast<v16u8>(tmp0),      \
-                                                         0));                                \
-  signs1 = reinterpret_cast<v8i16>(__builtin_msa_bseli_b(reinterpret_cast<v16u8>(signs1),    \
-                                                         reinterpret_cast<v16u8>(tmp2),      \
-                                                         0));                                \
-  signs0 = reinterpret_cast<v8i16>(__builtin_msa_pckev_b(reinterpret_cast<v16i8>(signs1),    \
-                                                         reinterpret_cast<v16i8>(signs0)));  \
-  out = reinterpret_cast<v16i8>(signs0);                                                     \
-}
+#define GEMMLOWP_MIPS_SAT16(out, in0, in1, in2, in3)                         \
+  {                                                                          \
+    v4i32 tmp0 = __builtin_msa_sat_s_w(in0, 8);                              \
+    v4i32 tmp1 = __builtin_msa_sat_s_w(in1, 8);                              \
+    v4i32 tmp2 = __builtin_msa_sat_s_w(in2, 8);                              \
+    v4i32 tmp3 = __builtin_msa_sat_s_w(in3, 8);                              \
+    tmp0 = reinterpret_cast<v4i32>(__builtin_msa_pckev_h(                    \
+        reinterpret_cast<v8i16>(tmp1), reinterpret_cast<v8i16>(tmp0)));      \
+    tmp2 = reinterpret_cast<v4i32>(__builtin_msa_pckev_h(                    \
+        reinterpret_cast<v8i16>(tmp3), reinterpret_cast<v8i16>(tmp2)));      \
+    v8i16 signs0 = __builtin_msa_srai_h(reinterpret_cast<v8i16>(tmp0), 15);  \
+    v8i16 signs1 = __builtin_msa_srai_h(reinterpret_cast<v8i16>(tmp2), 15);  \
+    signs0 = reinterpret_cast<v8i16>(__builtin_msa_bseli_b(                  \
+        reinterpret_cast<v16u8>(signs0), reinterpret_cast<v16u8>(tmp0), 0)); \
+    signs1 = reinterpret_cast<v8i16>(__builtin_msa_bseli_b(                  \
+        reinterpret_cast<v16u8>(signs1), reinterpret_cast<v16u8>(tmp2), 0)); \
+    signs0 = reinterpret_cast<v8i16>(__builtin_msa_pckev_b(                  \
+        reinterpret_cast<v16i8>(signs1), reinterpret_cast<v16i8>(signs0)));  \
+    out = reinterpret_cast<v16i8>(signs0);                                   \
+  }
 
 template <>
 struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
@@ -129,7 +125,8 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
 
   OutputType Eval(InputType input) const {
     OutputType output;
-    GEMMLOWP_MIPS_SAT16(output.reg[0], input.reg[0], input.reg[1], input.reg[2], input.reg[3]);
+    GEMMLOWP_MIPS_SAT16(output.reg[0], input.reg[0], input.reg[1], input.reg[2],
+                        input.reg[3]);
     return output;
   }
 };
@@ -146,8 +143,10 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
 
   OutputType Eval(InputType input) const {
     OutputType output;
-    GEMMLOWP_MIPS_SAT16(output.reg[0], input.reg[0], input.reg[1], input.reg[2], input.reg[3]);
-    GEMMLOWP_MIPS_SAT16(output.reg[1], input.reg[4], input.reg[5], input.reg[6], input.reg[7]);
+    GEMMLOWP_MIPS_SAT16(output.reg[0], input.reg[0], input.reg[1], input.reg[2],
+                        input.reg[3]);
+    GEMMLOWP_MIPS_SAT16(output.reg[1], input.reg[4], input.reg[5], input.reg[6],
+                        input.reg[7]);
     return output;
   }
 };
@@ -194,16 +193,16 @@ inline RegBlockInt32<4, 4> Transpose(const RegBlockInt32<4, 4>& src) {
   v4i32 tmp0, tmp1;
   tmp0 = __builtin_msa_ilvr_w(src.buf.reg[1], src.buf.reg[0]);
   tmp1 = __builtin_msa_ilvr_w(src.buf.reg[3], src.buf.reg[2]);
-  result.buf.reg[0] = reinterpret_cast<v4i32>(__builtin_msa_ilvr_d(reinterpret_cast<v2i64>(tmp1),
-                                                                   reinterpret_cast<v2i64>(tmp0)));
-  result.buf.reg[1] = reinterpret_cast<v4i32>(__builtin_msa_ilvl_d(reinterpret_cast<v2i64>(tmp1),
-                                                                   reinterpret_cast<v2i64>(tmp0)));
+  result.buf.reg[0] = reinterpret_cast<v4i32>(__builtin_msa_ilvr_d(
+      reinterpret_cast<v2i64>(tmp1), reinterpret_cast<v2i64>(tmp0)));
+  result.buf.reg[1] = reinterpret_cast<v4i32>(__builtin_msa_ilvl_d(
+      reinterpret_cast<v2i64>(tmp1), reinterpret_cast<v2i64>(tmp0)));
   tmp0 = __builtin_msa_ilvl_w(src.buf.reg[1], src.buf.reg[0]);
   tmp1 = __builtin_msa_ilvl_w(src.buf.reg[3], src.buf.reg[2]);
-  result.buf.reg[2] = reinterpret_cast<v4i32>(__builtin_msa_ilvr_d(reinterpret_cast<v2i64>(tmp1),
-                                                                   reinterpret_cast<v2i64>(tmp0)));
-  result.buf.reg[3] = reinterpret_cast<v4i32>(__builtin_msa_ilvl_d(reinterpret_cast<v2i64>(tmp1),
-                                                                   reinterpret_cast<v2i64>(tmp0)));
+  result.buf.reg[2] = reinterpret_cast<v4i32>(__builtin_msa_ilvr_d(
+      reinterpret_cast<v2i64>(tmp1), reinterpret_cast<v2i64>(tmp0)));
+  result.buf.reg[3] = reinterpret_cast<v4i32>(__builtin_msa_ilvl_d(
+      reinterpret_cast<v2i64>(tmp1), reinterpret_cast<v2i64>(tmp0)));
   return result;
 }
 

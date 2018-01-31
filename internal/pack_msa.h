@@ -52,7 +52,8 @@ class PackingRegisterBlock<
     // Load source WidthMajor data
     v16i8 src_lines[4 * kCells];
     for (int i = 0; i < 4 * kCells; i++) {
-      src_lines[i] = __builtin_msa_ld_b(const_cast<std::uint8_t*>(src_ptr + i * stride), 0);
+      src_lines[i] = __builtin_msa_ld_b(
+          const_cast<std::uint8_t*>(src_ptr + i * stride), 0);
     }
     // Reorder the data within registers to make DepthMajor 4x2 cells
     v16i8 src_lines_intertwined_2x[2 * kCells][2];
@@ -87,15 +88,19 @@ class PackingRegisterBlock<
         if (kCells % 2 == 0) {
           for (int cell = 0; cell < kCells; cell += 2) {
             v2i64 tmp = __builtin_msa_ilvr_d(
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * cell + outer][inner]));
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * cell + outer][inner]));
             __builtin_msa_st_b(reinterpret_cast<v16i8>(tmp), dst_ptr, 0);
             dst_ptr += 16;
           }
           for (int cell = 0; cell < kCells; cell += 2) {
             v2i64 tmp = __builtin_msa_ilvl_d(
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * cell + outer][inner]));
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * cell + outer][inner]));
             __builtin_msa_st_b(reinterpret_cast<v16i8>(tmp), dst_ptr, 0);
             dst_ptr += 16;
           }
@@ -103,24 +108,29 @@ class PackingRegisterBlock<
           // Store even number of low vector halves.
           for (int cell = 0; cell < kCells - 1; cell += 2) {
             v2i64 tmp = __builtin_msa_ilvr_d(
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * cell + outer][inner]));
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * cell + outer][inner]));
             __builtin_msa_st_b(reinterpret_cast<v16i8>(tmp), dst_ptr, 0);
             dst_ptr += 16;
           }
           // Store last low half and first high half.
-          v2i64 tmp = reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * 0 + outer][inner]);
+          v2i64 tmp = reinterpret_cast<v2i64>(
+              src_lines_intertwined_4x[2 * 0 + outer][inner]);
           tmp = __builtin_msa_insve_d(
-              tmp,
-              0,
-              reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * (kCells - 1) + outer][inner]));
+              tmp, 0,
+              reinterpret_cast<v2i64>(
+                  src_lines_intertwined_4x[2 * (kCells - 1) + outer][inner]));
           __builtin_msa_st_b(reinterpret_cast<v16i8>(tmp), dst_ptr, 0);
           dst_ptr += 16;
           // Store even number of high vector halves.
           for (int cell = 1; cell < kCells; cell += 2) {
             v2i64 tmp = __builtin_msa_ilvl_d(
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * cell + outer][inner]));
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * cell + outer][inner]));
             __builtin_msa_st_b(reinterpret_cast<v16i8>(tmp), dst_ptr, 0);
             dst_ptr += 16;
           }
@@ -135,11 +145,9 @@ class PackingRegisterBlock<
         int i = 2 * outer + inner;
         for (int cell = 0; cell < kCells; cell++) {
           v8i16 tmp0 = reinterpret_cast<v8i16>(__builtin_msa_ilvr_b(
-              zeroes,
-              src_lines_intertwined_4x[2 * cell + outer][inner]));
+              zeroes, src_lines_intertwined_4x[2 * cell + outer][inner]));
           v8i16 tmp1 = reinterpret_cast<v8i16>(__builtin_msa_ilvl_b(
-              zeroes,
-              src_lines_intertwined_4x[2 * cell + outer][inner]));
+              zeroes, src_lines_intertwined_4x[2 * cell + outer][inner]));
           sums_of_2_cells[cell][i] = __builtin_msa_addv_h(tmp0, tmp1);
         }
       }
@@ -148,20 +156,18 @@ class PackingRegisterBlock<
     for (int i = 0; i < 4; i++) {
       for (int cell = 0; cell < kCells; cell++) {
         v4i32 tmp0 = reinterpret_cast<v4i32>(__builtin_msa_ilvr_h(
-            reinterpret_cast<v8i16>(zeroes),
-            sums_of_2_cells[cell][i]));
+            reinterpret_cast<v8i16>(zeroes), sums_of_2_cells[cell][i]));
         v4i32 tmp1 = reinterpret_cast<v4i32>(__builtin_msa_ilvl_h(
-            reinterpret_cast<v8i16>(zeroes),
-            sums_of_2_cells[cell][i]));
+            reinterpret_cast<v8i16>(zeroes), sums_of_2_cells[cell][i]));
         sums_of_4_cells[cell][i] = __builtin_msa_addv_w(tmp0, tmp1);
       }
     }
     // Update the sums_of_each_slice vector
     for (int cell = 0; cell < kCells; cell++) {
-      v4i32 s01 =
-          __builtin_msa_addv_w(sums_of_4_cells[cell][0], sums_of_4_cells[cell][1]);
-      v4i32 s23 =
-          __builtin_msa_addv_w(sums_of_4_cells[cell][2], sums_of_4_cells[cell][3]);
+      v4i32 s01 = __builtin_msa_addv_w(sums_of_4_cells[cell][0],
+                                       sums_of_4_cells[cell][1]);
+      v4i32 s23 = __builtin_msa_addv_w(sums_of_4_cells[cell][2],
+                                       sums_of_4_cells[cell][3]);
       v4i32 s = __builtin_msa_addv_w(s01, s23);
       std::int32_t* sums_of_each_slice_ptr =
           dst->sums_of_each_slice() + start_width + 4 * cell;
@@ -200,8 +206,9 @@ class PackingRegisterBlock<
     // Load source WidthMajor data
     v8i16 src_lines[kCells * 4];
     for (int i = 0; i < kCells; i++) {
-#define GEMMLOWP_UNROLLED_LOOP_ITER(k)                                              \
-  src_lines[4 * i + k] = __builtin_msa_ld_h(const_cast<std::uint8_t*>(src_ptr), 0); \
+#define GEMMLOWP_UNROLLED_LOOP_ITER(k)                           \
+  src_lines[4 * i + k] =                                         \
+      __builtin_msa_ld_h(const_cast<std::uint8_t*>(src_ptr), 0); \
   src_ptr += stride;
 
       GEMMLOWP_UNROLLED_LOOP_ITER(0)
@@ -244,15 +251,19 @@ class PackingRegisterBlock<
         if (kCells % 2 == 0) {
           for (int cell = 0; cell < kCells; cell += 2) {
             v2i64 tmp = __builtin_msa_ilvr_d(
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * cell + outer][inner]));
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * cell + outer][inner]));
             __builtin_msa_st_b(reinterpret_cast<v16i8>(tmp), dst_ptr, 0);
             dst_ptr += 16;
           }
           for (int cell = 0; cell < kCells; cell += 2) {
             v2i64 tmp = __builtin_msa_ilvl_d(
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * cell + outer][inner]));
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * cell + outer][inner]));
             __builtin_msa_st_b(reinterpret_cast<v16i8>(tmp), dst_ptr, 0);
             dst_ptr += 16;
           }
@@ -260,24 +271,29 @@ class PackingRegisterBlock<
           // Store even number of low vector halves.
           for (int cell = 0; cell < kCells - 1; cell += 2) {
             v2i64 tmp = __builtin_msa_ilvr_d(
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * cell + outer][inner]));
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * cell + outer][inner]));
             __builtin_msa_st_b(reinterpret_cast<v16i8>(tmp), dst_ptr, 0);
             dst_ptr += 16;
           }
           // Store last low half and first high half.
-          v2i64 tmp = reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * 0 + outer][inner]);
+          v2i64 tmp = reinterpret_cast<v2i64>(
+              src_lines_intertwined_4x[2 * 0 + outer][inner]);
           tmp = __builtin_msa_insve_d(
-              tmp,
-              0,
-              reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * (kCells - 1) + outer][inner]));
+              tmp, 0,
+              reinterpret_cast<v2i64>(
+                  src_lines_intertwined_4x[2 * (kCells - 1) + outer][inner]));
           __builtin_msa_st_b(reinterpret_cast<v16i8>(tmp), dst_ptr, 0);
           dst_ptr += 16;
           // Store even number of high vector halves.
           for (int cell = 1; cell < kCells; cell += 2) {
             v2i64 tmp = __builtin_msa_ilvl_d(
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
-                reinterpret_cast<v2i64>(src_lines_intertwined_4x[2 * cell + outer][inner]));
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * (cell + 1) + outer][inner]),
+                reinterpret_cast<v2i64>(
+                    src_lines_intertwined_4x[2 * cell + outer][inner]));
             __builtin_msa_st_b(reinterpret_cast<v16i8>(tmp), dst_ptr, 0);
             dst_ptr += 16;
           }
@@ -291,29 +307,34 @@ class PackingRegisterBlock<
         int i = 2 * outer + inner;
         for (int cell = 0; cell < kCells; cell++) {
           sums_of_2[cell][i] = reinterpret_cast<v8i16>(__builtin_msa_hadd_u_h(
-              reinterpret_cast<v16u8>(src_lines_intertwined_4x[2 * cell + outer][inner]),
-              reinterpret_cast<v16u8>(src_lines_intertwined_4x[2 * cell + outer][inner])));
+              reinterpret_cast<v16u8>(
+                  src_lines_intertwined_4x[2 * cell + outer][inner]),
+              reinterpret_cast<v16u8>(
+                  src_lines_intertwined_4x[2 * cell + outer][inner])));
         }
       }
     }
     v8i16 sums_of_4[kCells][2];
     for (int i = 0; i < 2; i++) {
       for (int cell = 0; cell < kCells; cell++) {
-        sums_of_4[cell][i] =
-            __builtin_msa_addv_h(sums_of_2[cell][2 * i], sums_of_2[cell][2 * i + 1]);
+        sums_of_4[cell][i] = __builtin_msa_addv_h(sums_of_2[cell][2 * i],
+                                                  sums_of_2[cell][2 * i + 1]);
       }
     }
     v8i16 sums_of_8[kCells];
     for (int cell = 0; cell < kCells; cell++) {
-      sums_of_8[cell] = __builtin_msa_addv_h(sums_of_4[cell][0], sums_of_4[cell][1]);
+      sums_of_8[cell] =
+          __builtin_msa_addv_h(sums_of_4[cell][0], sums_of_4[cell][1]);
     }
 
     v4i32 sums_of_16[kCells];
     const v8i16 zeroes = __builtin_msa_ldi_h(0);
     for (int cell = 0; cell < kCells; cell++) {
-      sums_of_16[cell] = reinterpret_cast<v4i32>(__builtin_msa_ilvr_h(zeroes, sums_of_8[cell]));
+      sums_of_16[cell] = reinterpret_cast<v4i32>(
+          __builtin_msa_ilvr_h(zeroes, sums_of_8[cell]));
       v8i16 tmp = __builtin_msa_ilvl_h(zeroes, sums_of_8[cell]);
-      sums_of_16[cell] = __builtin_msa_addv_w(sums_of_16[cell], reinterpret_cast<v4i32>(tmp));
+      sums_of_16[cell] =
+          __builtin_msa_addv_w(sums_of_16[cell], reinterpret_cast<v4i32>(tmp));
     }
     // Update the sums_of_each_slice vector
     for (int cell = 0; cell < kCells; cell++) {

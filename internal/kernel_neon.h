@@ -421,52 +421,52 @@ struct NEON_32_Kernel12x4Depth2Assuming12BitProducts : KernelBase {
         GEMMLOWP_LOOP_NEON_32_KERNEL_12X4_DEPTH2_ASSUMING_12BIT_PRODUCTS
         ":\n"
 
-// Overview of register layout:
-//
-// Registers q4--q16 are the local 16-bit accumulators.
-// However, each entry in the result matrix is represented
-// by *two* local 16-bit accumulators: one for even levels
-// of depth and one for odd levels of depth. These correspond
-// to the scalars at even and odd indices within each q-register.
-// Thus we effectively use 32 bits of register space for each
-// entry in the result matrix. The accumulators register layout
-// is the same as was described above for the global 32-bit
-// accumulators (3 cells of size 4x4 in diagonal-major order)
-// with the only difference that instead of 32bit values we have
-// pairs of 16bit values.
-//
-// A 2x4 cell of Rhs is stored in 8bit in d0.
-// A 12x2 block of 3 4x2 cells Lhs is stored in 8bit in d1--d3.
-//
-//                      +--------+--------+--------+--------+
-//                      |d0[0]   |d0[2]   |d0[4]   |d0[6]   |
-//                 Rhs  +--------+--------+--------+--------+
-//                      |d0[1]   |d0[3]   |d0[5]   |d0[7]   |
-//                      +--------+--------+--------+--------+
-//
-//                      |        |        |        |        |
-//
-//    Lhs               |        |        |        |        |
-//
-//  +-----+-----+ - - - +--------+--------+--------+--------+
-//  |d1[0]|d1[1]|       |q4[0,1] |q5[0,1] |q6[0,1] |q7[0,1] |
-//  |d1[2]|d1[3]|       |q7[2,3] |q4[2,3] |q5[2,3] |q6[2,3] |
-//  |d1[4]|d1[5]|       |q6[4,5] |q7[4,5] |q4[4,5] |q5[4,5] |
-//  |d1[6]|d1[7]|       |q5[6,7] |q6[6,7] |q7[6,7] |q4[6,7] |
-//  +-----+-----+ - - - +--------+--------+--------+--------+
-//  |d2[0]|d2[1]|       |q8[0,1] |q8[0,1] |q8[0,1] |q8[0,1] |
-//  |d2[2]|d2[3]|       |q9[2,3] |q9[2,3] |q9[2,3] |q9[2,3] |
-//  |d2[4]|d2[5]|       |q10[4,5]|q10[4,5]|q10[4,5]|q10[4,5]|
-//  |d2[6]|d2[7]|       |q11[6,7]|q11[6,7]|q11[6,7]|q11[6,7]|
-//  +-----+-----+ - - - +--------+--------+--------+--------+
-//  |d3[0]|d3[1]|       |q12[0,1]|q12[0,1]|q12[0,1]|q12[0,1]|
-//  |d3[2]|d3[3]|       |q13[2,3]|q13[2,3]|q13[2,3]|q13[2,3]|
-//  |d3[4]|d3[5]|       |q14[4,5]|q14[4,5]|q14[4,5]|q14[4,5]|
-//  |d3[6]|d3[7]|       |q15[6,7]|q15[6,7]|q15[6,7]|q15[6,7]|
-//  +-----+-----+ - - - +--------+--------+--------+--------+
-//
-//                            Local 16-bit accumulators
-//                         Note: 2 scalars per matrix entry
+    // Overview of register layout:
+    //
+    // Registers q4--q16 are the local 16-bit accumulators.
+    // However, each entry in the result matrix is represented
+    // by *two* local 16-bit accumulators: one for even levels
+    // of depth and one for odd levels of depth. These correspond
+    // to the scalars at even and odd indices within each q-register.
+    // Thus we effectively use 32 bits of register space for each
+    // entry in the result matrix. The accumulators register layout
+    // is the same as was described above for the global 32-bit
+    // accumulators (3 cells of size 4x4 in diagonal-major order)
+    // with the only difference that instead of 32bit values we have
+    // pairs of 16bit values.
+    //
+    // A 2x4 cell of Rhs is stored in 8bit in d0.
+    // A 12x2 block of 3 4x2 cells Lhs is stored in 8bit in d1--d3.
+    //
+    //                      +--------+--------+--------+--------+
+    //                      |d0[0]   |d0[2]   |d0[4]   |d0[6]   |
+    //                 Rhs  +--------+--------+--------+--------+
+    //                      |d0[1]   |d0[3]   |d0[5]   |d0[7]   |
+    //                      +--------+--------+--------+--------+
+    //
+    //                      |        |        |        |        |
+    //
+    //    Lhs               |        |        |        |        |
+    //
+    //  +-----+-----+ - - - +--------+--------+--------+--------+
+    //  |d1[0]|d1[1]|       |q4[0,1] |q5[0,1] |q6[0,1] |q7[0,1] |
+    //  |d1[2]|d1[3]|       |q7[2,3] |q4[2,3] |q5[2,3] |q6[2,3] |
+    //  |d1[4]|d1[5]|       |q6[4,5] |q7[4,5] |q4[4,5] |q5[4,5] |
+    //  |d1[6]|d1[7]|       |q5[6,7] |q6[6,7] |q7[6,7] |q4[6,7] |
+    //  +-----+-----+ - - - +--------+--------+--------+--------+
+    //  |d2[0]|d2[1]|       |q8[0,1] |q8[0,1] |q8[0,1] |q8[0,1] |
+    //  |d2[2]|d2[3]|       |q9[2,3] |q9[2,3] |q9[2,3] |q9[2,3] |
+    //  |d2[4]|d2[5]|       |q10[4,5]|q10[4,5]|q10[4,5]|q10[4,5]|
+    //  |d2[6]|d2[7]|       |q11[6,7]|q11[6,7]|q11[6,7]|q11[6,7]|
+    //  +-----+-----+ - - - +--------+--------+--------+--------+
+    //  |d3[0]|d3[1]|       |q12[0,1]|q12[0,1]|q12[0,1]|q12[0,1]|
+    //  |d3[2]|d3[3]|       |q13[2,3]|q13[2,3]|q13[2,3]|q13[2,3]|
+    //  |d3[4]|d3[5]|       |q14[4,5]|q14[4,5]|q14[4,5]|q14[4,5]|
+    //  |d3[6]|d3[7]|       |q15[6,7]|q15[6,7]|q15[6,7]|q15[6,7]|
+    //  +-----+-----+ - - - +--------+--------+--------+--------+
+    //
+    //                            Local 16-bit accumulators
+    //                         Note: 2 scalars per matrix entry
 
 #define GEMMLOWP_ACCUMULATE_2_LEVELS_OF_DEPTH \
   /* Load 3 Lhs cells of size 4x2 */          \
@@ -1260,7 +1260,6 @@ struct NEON_64bit_GEMM_Int8Operands_LhsNonzero : KernelBase {
 #undef GEMMLOWP_LABEL_STORE
   }
 };
-
 
 // Our main GEMM kernel.
 struct NEON_64_Kernel12x8Depth2 : KernelBase {

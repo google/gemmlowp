@@ -17,13 +17,12 @@
 #ifndef GEMMLOWP_INTERNAL_PLATFORM_H_
 #define GEMMLOWP_INTERNAL_PLATFORM_H_
 
-
 #ifdef _WIN32
 #include <windows.h>
 #else
-#include <unistd.h>
-#include <time.h>
 #include <stdlib.h>
+#include <time.h>
+#include <unistd.h>
 #endif
 #include <malloc.h>
 
@@ -42,7 +41,6 @@
 #endif
 #endif
 
-
 namespace gemmlowp {
 
 #ifdef _WIN32
@@ -50,9 +48,7 @@ inline void *aligned_alloc(size_t alignment, size_t size) {
   return _aligned_malloc(size, alignment);
 }
 
-inline void aligned_free(void *memptr) {
-  _aligned_free(memptr);
-}
+inline void aligned_free(void *memptr) { _aligned_free(memptr); }
 
 inline int GetHardwareConcurrency(int max_threads) {
   if (max_threads == 0) {
@@ -64,8 +60,9 @@ inline int GetHardwareConcurrency(int max_threads) {
 }
 
 inline double real_time_in_seconds() {
-  __int64 wintime; GetSystemTimeAsFileTime((FILETIME*)&wintime);
-  wintime -= 116444736000000000i64;	            //1jan1601 to 1jan1970
+  __int64 wintime;
+  GetSystemTimeAsFileTime((FILETIME *)&wintime);
+  wintime -= 116444736000000000i64;  // 1jan1601 to 1jan1970
   return wintime / 10000000i64 + wintime % 10000000i64 * 100 * 1e-9;
 }
 
@@ -91,9 +88,7 @@ inline int GetHardwareConcurrency(int max_threads) {
   return max_threads;
 }
 
-inline void aligned_free(void *memptr) {
-  free(memptr);
-}
+inline void aligned_free(void *memptr) { free(memptr); }
 
 inline double real_time_in_seconds() {
 #ifdef __APPLE__
@@ -108,5 +103,5 @@ inline double real_time_in_seconds() {
 }
 
 #endif
-} // namespace gemmlowp
+}  // namespace gemmlowp
 #endif  // GEMMLOWP_INTERNAL_PLATFORM_H_
