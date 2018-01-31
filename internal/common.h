@@ -127,7 +127,8 @@
 #endif
 
 // Convenience SSE4 tokens for 32-bit or 64-bit
-#if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_32)
+#if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_32) && \
+   !defined(GEMMLOWP_DISABLE_SSE4)
 #define GEMMLOWP_SSE4_32
 #endif
 
@@ -135,7 +136,8 @@
 #define GEMMLOWP_SSE3_32
 #endif
 
-#if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_64)
+#if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_64) && \
+   !defined(GEMMLOWP_DISABLE_SSE4)
 #define GEMMLOWP_SSE4_64
 #endif
 
