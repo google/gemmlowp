@@ -23,10 +23,32 @@
 
 namespace gemmlowp {
 
+// SSE intrinsics are not finely typed: there is a single __m128i vector
+// type that does not distinguish between "int32x4" and "int16x8" use
+// cases, unlike the NEON equivalents. Because we had initially focused
+// on int32x4, we did not pay attention and specialized these fixedpoint
+// templates directly for __m128i hardcoding the int32x4 semantics,
+// not leaving room for int16x8 semantics. Amending that by adding a separate
+// data type, int16x8_m128i, that wraps __m128i while being a separate
+// type.
+struct int16x8_m128i {
+  int16x8_m128i() {}
+  explicit int16x8_m128i(__m128i w) : v(w) {}
+  ~int16x8_m128i() {}
+
+  __m128i v;
+};
+
 template <>
 struct FixedPointRawTypeTraits<__m128i> {
   typedef std::int32_t ScalarRawType;
   static const int kLanes = 4;
+};
+
+template <>
+struct FixedPointRawTypeTraits<int16x8_m128i> {
+  typedef std::int16_t ScalarRawType;
+  static const int kLanes = 8;
 };
 
 template <>
@@ -35,8 +57,18 @@ inline __m128i BitAnd(__m128i a, __m128i b) {
 }
 
 template <>
+inline int16x8_m128i BitAnd(int16x8_m128i a, int16x8_m128i b) {
+  return int16x8_m128i(_mm_and_si128(a.v, b.v));
+}
+
+template <>
 inline __m128i BitOr(__m128i a, __m128i b) {
   return _mm_or_si128(a, b);
+}
+
+template <>
+inline int16x8_m128i BitOr(int16x8_m128i a, int16x8_m128i b) {
+  return int16x8_m128i(_mm_or_si128(a.v, b.v));
 }
 
 template <>
@@ -45,8 +77,18 @@ inline __m128i BitXor(__m128i a, __m128i b) {
 }
 
 template <>
+inline int16x8_m128i BitXor(int16x8_m128i a, int16x8_m128i b) {
+  return int16x8_m128i(_mm_xor_si128(a.v, b.v));
+}
+
+template <>
 inline __m128i BitNot(__m128i a) {
   return _mm_andnot_si128(a, _mm_set1_epi32(-1));
+}
+
+template <>
+inline int16x8_m128i BitNot(int16x8_m128i a) {
+  return int16x8_m128i(_mm_andnot_si128(a.v, _mm_set1_epi16(-1)));
 }
 
 template <>
@@ -55,8 +97,18 @@ inline __m128i Add(__m128i a, __m128i b) {
 }
 
 template <>
+inline int16x8_m128i Add(int16x8_m128i a, int16x8_m128i b) {
+  return int16x8_m128i(_mm_add_epi16(a.v, b.v));
+}
+
+template <>
 inline __m128i Mul(__m128i a, __m128i b) {
   return _mm_mullo_epi32(a, b);
+}
+
+template <>
+inline int16x8_m128i Mul(int16x8_m128i a, int16x8_m128i b) {
+  return int16x8_m128i(_mm_mullo_epi16(a.v, b.v));
 }
 
 template <>
@@ -65,8 +117,18 @@ inline __m128i Sub(__m128i a, __m128i b) {
 }
 
 template <>
+inline int16x8_m128i Sub(int16x8_m128i a, int16x8_m128i b) {
+  return int16x8_m128i(_mm_sub_epi16(a.v, b.v));
+}
+
+template <>
 inline __m128i Neg(__m128i a) {
   return _mm_sign_epi32(a, _mm_set1_epi32(-1));
+}
+
+template <>
+inline int16x8_m128i Neg(int16x8_m128i a) {
+  return int16x8_m128i(_mm_sign_epi16(a.v, _mm_set1_epi16(-1)));
 }
 
 template <>
@@ -75,16 +137,34 @@ inline __m128i ShiftLeft(__m128i a, int offset) {
 }
 
 template <>
+inline int16x8_m128i ShiftLeft(int16x8_m128i a, int offset) {
+  return int16x8_m128i(_mm_slli_epi16(a.v, offset));
+}
+
+template <>
 inline __m128i ShiftRight(__m128i a, int offset) {
   return _mm_srai_epi32(a, offset);
 }
 
 template <>
+inline int16x8_m128i ShiftRight(int16x8_m128i a, int offset) {
+  return int16x8_m128i(_mm_srai_epi16(a.v, offset));
+}
+
+template <>
 inline __m128i SelectUsingMask(__m128i if_mask, __m128i then_val,
                                __m128i else_val) {
-  return _mm_castps_si128(_mm_blendv_ps(_mm_castsi128_ps(else_val),
-                                        _mm_castsi128_ps(then_val),
-                                        _mm_castsi128_ps(if_mask)));
+  // borrowed from Intel's arm_neon_sse.h header.
+  return _mm_or_si128(_mm_and_si128(if_mask, then_val),
+                      _mm_andnot_si128(if_mask, else_val));
+}
+
+template <>
+inline int16x8_m128i SelectUsingMask(int16x8_m128i if_mask,
+                                     int16x8_m128i then_val,
+                                     int16x8_m128i else_val) {
+  // borrowed from Intel's arm_neon_sse.h header.
+  return int16x8_m128i(SelectUsingMask(if_mask.v, then_val.v, else_val.v));
 }
 
 template <>
@@ -93,7 +173,17 @@ inline __m128i MaskIfEqual(__m128i a, __m128i b) {
 }
 
 template <>
+inline int16x8_m128i MaskIfEqual(int16x8_m128i a, int16x8_m128i b) {
+  return int16x8_m128i(_mm_cmpeq_epi16(a.v, b.v));
+}
+
+template <>
 inline __m128i MaskIfNotEqual(__m128i a, __m128i b) {
+  return BitNot(MaskIfEqual(a, b));
+}
+
+template <>
+inline int16x8_m128i MaskIfNotEqual(int16x8_m128i a, int16x8_m128i b) {
   return BitNot(MaskIfEqual(a, b));
 }
 
@@ -103,8 +193,18 @@ inline __m128i MaskIfZero(__m128i a) {
 }
 
 template <>
+inline int16x8_m128i MaskIfZero(int16x8_m128i a) {
+  return MaskIfEqual(a, int16x8_m128i(_mm_set1_epi16(0)));
+}
+
+template <>
 inline __m128i MaskIfNonZero(__m128i a) {
   return MaskIfNotEqual(a, _mm_set1_epi32(0));
+}
+
+template <>
+inline int16x8_m128i MaskIfNonZero(int16x8_m128i a) {
+  return MaskIfNotEqual(a, int16x8_m128i(_mm_set1_epi16(0)));
 }
 
 template <>
@@ -113,8 +213,18 @@ inline __m128i MaskIfGreaterThan(__m128i a, __m128i b) {
 }
 
 template <>
+inline int16x8_m128i MaskIfGreaterThan(int16x8_m128i a, int16x8_m128i b) {
+  return int16x8_m128i(_mm_cmpgt_epi16(a.v, b.v));
+}
+
+template <>
 inline __m128i MaskIfLessThan(__m128i a, __m128i b) {
   return _mm_cmplt_epi32(a, b);
+}
+
+template <>
+inline int16x8_m128i MaskIfLessThan(int16x8_m128i a, int16x8_m128i b) {
+  return int16x8_m128i(_mm_cmplt_epi16(a.v, b.v));
 }
 
 template <>
@@ -123,7 +233,18 @@ inline __m128i MaskIfGreaterThanOrEqual(__m128i a, __m128i b) {
 }
 
 template <>
+inline int16x8_m128i MaskIfGreaterThanOrEqual(int16x8_m128i a,
+                                              int16x8_m128i b) {
+  return BitNot(MaskIfLessThan(a, b));
+}
+
+template <>
 inline __m128i MaskIfLessThanOrEqual(__m128i a, __m128i b) {
+  return BitNot(MaskIfGreaterThan(a, b));
+}
+
+template <>
+inline int16x8_m128i MaskIfLessThanOrEqual(int16x8_m128i a, int16x8_m128i b) {
   return BitNot(MaskIfGreaterThan(a, b));
 }
 
@@ -139,8 +260,18 @@ inline bool All(__m128i a) {
 }
 
 template <>
+inline bool All(int16x8_m128i a) {
+  return _mm_testc_si128(a.v, a.v);
+}
+
+template <>
 inline bool Any(__m128i a) {
-  return BitNot(_mm_testz_si128(a, a));
+  return !_mm_testz_si128(a, a);
+}
+
+template <>
+inline bool Any(int16x8_m128i a) {
+  return !_mm_testz_si128(a.v, a.v);
 }
 
 template <>
@@ -168,6 +299,18 @@ inline __m128i RoundingHalfSum(__m128i a, __m128i b) {
              sign_bit_mask);
   result = BitXor(rounded_half_sum, overflow);
   return result;
+}
+
+template <>
+inline int16x8_m128i RoundingHalfSum(int16x8_m128i a, int16x8_m128i b) {
+  // Idea: go to unsigned to use _mm_avg_epu16,
+  // borrowed from Intel's arm_neon_sse.h header.
+  __m128i constant_neg_32768 = _mm_set1_epi16(-32768);
+  __m128i a_unsigned = _mm_sub_epi16(a.v, constant_neg_32768);
+  __m128i b_unsigned = _mm_sub_epi16(b.v, constant_neg_32768);
+  __m128i avg_unsigned = _mm_avg_epu16(a_unsigned, b_unsigned);
+  __m128i avg = _mm_add_epi16(avg_unsigned, constant_neg_32768);
+  return int16x8_m128i(avg);
 }
 
 template <>
@@ -209,8 +352,31 @@ inline __m128i SaturatingRoundingDoublingHighMul(__m128i a, __m128i b) {
 }
 
 template <>
+inline int16x8_m128i SaturatingRoundingDoublingHighMul(int16x8_m128i a,
+                                                       int16x8_m128i b) {
+  // Idea: use _mm_mulhrs_epi16 then saturate with a bit-operation,
+  // borrowed from Intel's arm_neon_sse.h header.
+  __m128i result_unsaturated = _mm_mulhrs_epi16(a.v, b.v);
+  __m128i saturation_mask =
+      _mm_cmpeq_epi16(result_unsaturated, _mm_set1_epi16(0x8000));
+  __m128i result = _mm_xor_si128(result_unsaturated, saturation_mask);
+  return int16x8_m128i(result);
+}
+
+template <>
 inline __m128i Dup<__m128i>(std::int32_t x) {
   return _mm_set1_epi32(x);
+}
+
+template <>
+inline int16x8_m128i Dup<int16x8_m128i>(std::int16_t x) {
+  return int16x8_m128i(_mm_set1_epi16(x));
+}
+
+// So far this is only needed for int16.
+template <>
+inline int16x8_m128i SaturatingAdd(int16x8_m128i a, int16x8_m128i b) {
+  return int16x8_m128i(_mm_adds_epi16(a.v, b.v));
 }
 
 }  // end namespace gemmlowp
