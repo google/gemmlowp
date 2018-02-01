@@ -24,7 +24,8 @@
 
 namespace gemmlowp {
 
-template <bool MaxProductIsLessThan4096, bool LhsAlwaysNonzero>
+template <bool MaxProductIsLessThan4096,
+          bool LhsAlwaysNonzero>
 struct DefaultKernelImpl {};
 
 // Partial specialization implementing the logic that if we want to use
@@ -51,12 +52,12 @@ struct DefaultKernel
 
 }  // end namespace gemmlowp
 
-#define GEMMLOWP_SET_DEFAULT_KERNEL(MaxProductIsLessThan4096,          \
-                                    LhsAlwaysNonzero, Kernel)          \
-  namespace gemmlowp {                                                 \
-  template <>                                                          \
-  struct DefaultKernelImpl<MaxProductIsLessThan4096, LhsAlwaysNonzero> \
-      : Kernel {};                                                     \
+#define GEMMLOWP_SET_DEFAULT_KERNEL(MaxProductIsLessThan4096, \
+                                    LhsAlwaysNonzero, Kernel) \
+  namespace gemmlowp {                                        \
+  template <>                                                 \
+  struct DefaultKernelImpl<MaxProductIsLessThan4096,          \
+                           LhsAlwaysNonzero> : Kernel {};     \
   }
 
 #if defined GEMMLOWP_NEON_32
