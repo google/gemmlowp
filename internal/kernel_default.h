@@ -24,7 +24,8 @@
 
 namespace gemmlowp {
 
-template <bool MaxProductIsLessThan4096, bool LhsAlwaysNonzero>
+template <bool MaxProductIsLessThan4096,
+          bool LhsAlwaysNonzero>
 struct DefaultKernelImpl {};
 
 // Partial specialization implementing the logic that if we want to use
@@ -51,12 +52,12 @@ struct DefaultKernel
 
 }  // end namespace gemmlowp
 
-#define GEMMLOWP_SET_DEFAULT_KERNEL(MaxProductIsLessThan4096,          \
-                                    LhsAlwaysNonzero, Kernel)          \
-  namespace gemmlowp {                                                 \
-  template <>                                                          \
-  struct DefaultKernelImpl<MaxProductIsLessThan4096, LhsAlwaysNonzero> \
-      : Kernel {};                                                     \
+#define GEMMLOWP_SET_DEFAULT_KERNEL(MaxProductIsLessThan4096, \
+                                    LhsAlwaysNonzero, Kernel) \
+  namespace gemmlowp {                                        \
+  template <>                                                 \
+  struct DefaultKernelImpl<MaxProductIsLessThan4096,          \
+                           LhsAlwaysNonzero> : Kernel {};     \
   }
 
 #if defined GEMMLOWP_NEON_32
@@ -80,6 +81,9 @@ GEMMLOWP_SET_DEFAULT_KERNEL(false, false, SSE4_32_Kernel4x4Depth2)
 #elif defined GEMMLOWP_SSE4_64
 #include "kernel_sse.h"
 GEMMLOWP_SET_DEFAULT_KERNEL(false, false, SSE4_64_Kernel12x4Depth2)
+#elif defined GEMMLOWP_AVX2_64
+#include "kernel_avx.h"
+GEMMLOWP_SET_DEFAULT_KERNEL(false, false, AVX2_64_Kernel24x8Depth2)
 #else
 #include "kernel_reference.h"
 namespace gemmlowp {

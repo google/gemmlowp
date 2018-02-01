@@ -104,7 +104,7 @@
 // Limit MSA optimizations to little-endian CPUs for now.
 // TODO: Perhaps, eventually support MSA optimizations on big-endian CPUs?
 #if defined(GEMMLOWP_MIPS) && (__mips_isa_rev >= 5) && defined(__mips_msa) && \
-    defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
+  defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__)
 #define GEMMLOWP_MSA
 #endif
 
@@ -117,12 +117,14 @@
 #define GEMMLOWP_MSA_64
 #endif
 
-// Detect SSE.
-#ifdef __SSE4_1__
+// Detect AVX2
+#ifdef __AVX2__
+#define GEMMLOWP_AVX2
+// Detect SSE4.
+#elif __SSE4_1__
 #define GEMMLOWP_SSE4
-#endif
-
-#ifdef __SSE3__
+// Detect SSE3.
+#elif __SSE3__
 #define GEMMLOWP_SSE3
 #endif
 
@@ -143,6 +145,10 @@
 
 #if defined(GEMMLOWP_SSE3) && defined(GEMMLOWP_X86_64)
 #define GEMMLOWP_SSE3_64
+#endif
+
+#if defined(GEMMLOWP_AVX2) && defined(GEMMLOWP_X86_64)
+#define GEMMLOWP_AVX2_64
 #endif
 
 #if defined(__has_feature)
@@ -242,8 +248,12 @@ const float kDefaultL2RhsFactor = 0.75f;
 // size, so any size would work there. Different platforms may set this
 // to different values but must ensure that their own optimized packing paths
 // are consistent with this value.
-const int kRegisterSize = 16;
 
+#ifdef GEMMLOWP_AVX2
+  const int kRegisterSize = 32;
+#else
+  const int kRegisterSize = 16;
+#endif
 // Hints the CPU to prefetch the cache line containing ptr.
 inline void Prefetch(const void* ptr) {
 #if defined GEMMLOWP_ARM_64 && defined GEMMLOWP_ALLOW_INLINE_ASM
