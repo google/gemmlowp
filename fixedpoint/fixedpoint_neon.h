@@ -173,7 +173,7 @@ inline int32x4_t MaskIfNonZero(int32x4_t a) {
 
 template <>
 inline int16x8_t MaskIfNonZero(int16x8_t a) {
-  return vreinterpretq_s16_u32(vtstq_s16(a, a));
+  return vreinterpretq_s16_u16(vtstq_s16(a, a));
 }
 
 template <>
