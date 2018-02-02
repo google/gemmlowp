@@ -18,8 +18,6 @@
 #ifndef GEMMLOWP_PROFILING_PTHREAD_EVERYWHERE_H_
 #define GEMMLOWP_PROFILING_PTHREAD_EVERYWHERE_H_
 
-#include "pthread_everywhere.h"
-
 #ifndef _WIN32
 #define GEMMLOWP_USE_PTHREAD
 #endif
