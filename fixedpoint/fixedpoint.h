@@ -333,8 +333,6 @@ inline std::int16_t SaturatingRoundingDoublingHighMul(std::int16_t a,
 // Also known as a rounding arithmetic right shift.
 template <typename IntegerType>
 inline IntegerType RoundingDivideByPOT(IntegerType x, int exponent) {
-  using ScalarIntegerType =
-      typename FixedPointRawTypeTraits<IntegerType>::ScalarRawType;
   assert(exponent >= 0);
   assert(exponent <= 31);
   const IntegerType mask = Dup<IntegerType>((1ll << exponent) - 1);
@@ -666,7 +664,6 @@ FixedPoint<tRawType, tIntegerBitsDst> Rescale(
 template <typename FixedPointType>
 inline typename FixedPointType::ScalarRawType RescaleConstantInitializer(
     std::int32_t int32_value) {
-  typedef typename FixedPointType::RawType RawType;
   typedef typename FixedPointType::ScalarRawType ScalarRawType;
   static constexpr int ScalarTypeBits = 8 * sizeof(ScalarRawType);
   return static_cast<ScalarRawType>(

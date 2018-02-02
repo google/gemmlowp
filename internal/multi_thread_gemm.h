@@ -546,11 +546,6 @@ class MultiThreadGemmContext : public MultiThreadGemmContextBase {
   WorkersPool workers_pool_;
 };
 
-// Needed by chrome native builds
-#ifndef _SC_NPROCESSORS_CONF
-#define _SC_NPROCESSORS_CONF _SC_NPROCESSORS_ONLN
-#endif
-
 // Determines how many threads should be used for a given Gemm
 // operation.
 template <int KernelRows>

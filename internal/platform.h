@@ -45,6 +45,11 @@
 #endif
 #endif
 
+// Needed by chrome native builds
+#ifndef _SC_NPROCESSORS_CONF
+#define _SC_NPROCESSORS_CONF _SC_NPROCESSORS_ONLN
+#endif
+
 namespace gemmlowp {
 
 #ifdef _WIN32
