@@ -123,6 +123,21 @@ struct OutputStageQuantizeDownInt32ByFixedPoint {
 // there really wasn't anything Uint8-specific about it.
 using OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint = OutputStageQuantizeDownInt32ByFixedPoint;
 
+// Variant of OutputStageQuantizeDownInt32ByFixedPoint where the 'shift'
+// is not necessarily just a right shift, so we can represent multipliers
+// greater than 1. This takes an result_exponent parameter; when it's
+// <= 0, this is equivalent to OutputStageQuantizeDownInt32ByFixedPoint
+// with result_shift = -result_exponent.
+// In the general case, this consists in first left-shifting by
+// std::max(result_exponent, 0), before doing the same as
+// OutputStageQuantizeDownInt32ByFixedPoint with
+// result_shift = std::max(-result_exponent, 0).
+struct OutputStageScaleInt32ByFixedPointAndExponent {
+  std::int32_t result_fixedpoint_multiplier;
+  std::int32_t result_exponent;
+  std::int32_t result_offset_after_shift;
+};
+
 // This output stage takes int32 values that are expected to be already
 // on the final uint8 scale, but not necessarily in the [0..255] range.
 // It clamps them to the [0..255] range and returns them casted to uint8.

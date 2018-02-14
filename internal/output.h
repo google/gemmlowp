@@ -146,6 +146,39 @@ struct OutputStageEvalBufferImpl<
   const OutputStage& output_stage;
 };
 
+template <int Size>
+struct OutputStageEvalBufferImpl<OutputStageScaleInt32ByFixedPointAndExponent,
+                                 RegisterBuffer<std::int32_t, Size>> {
+  typedef RegisterBuffer<std::int32_t, Size> InputType;
+  typedef RegisterBuffer<std::int32_t, Size> OutputType;
+
+  typedef OutputStageScaleInt32ByFixedPointAndExponent OutputStage;
+
+  OutputStageEvalBufferImpl(const OutputStage& s) : output_stage(s) {
+    left_shift = std::max(0, output_stage.result_exponent);
+    right_shift = std::max(0, -output_stage.result_exponent);
+  }
+
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    using RegisterType = typename InputType::RegisterType;
+    const RegisterType result_offset_after_shift =
+        Dup<RegisterType>(output_stage.result_offset_after_shift);
+    for (int i = 0; i < InputType::kRegisterCount; i++) {
+      const RegisterType mulhigh_val = SaturatingRoundingDoublingHighMul(
+          ShiftLeft(input.reg[i], left_shift),
+          output_stage.result_fixedpoint_multiplier);
+      output.reg[i] = Add(RoundingDivideByPOT(mulhigh_val, right_shift),
+                          result_offset_after_shift);
+    }
+    return output;
+  }
+
+  const OutputStage& output_stage;
+  int left_shift;
+  int right_shift;
+};
+
 // Implementation of OutputStageSaturatingCastToUint8 for scalar data
 template <int Size>
 struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,

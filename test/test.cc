@@ -1467,7 +1467,6 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
       &result_quantized_down_by_fixedpoint_int32, lhs_offset, rhs_offset,
       quantize_down_by_fixedpoint_pipeline);
 
-  std::vector<std::int32_t> diffs_caused_by_fixedpoint;
   for (int r = 0; r < rows; r++) {
     for (int c = 0; c < cols; c++) {
       const std::int32_t actual =
@@ -1479,6 +1478,44 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
                                   raw, result_fixedpoint_multiplier),
                               result_fixedpoint_shift);
       Check(actual == expected);
+    }
+  }
+
+  // Test OutputStageScaleInt32ByFixedPointAndExponent
+  for (int exponent = -2; exponent <= 2; exponent++) {
+    OutputStageScaleInt32ByFixedPointAndExponent
+        scale_by_fixedpoint_and_exponent_stage;
+    scale_by_fixedpoint_and_exponent_stage.result_offset_after_shift =
+        static_cast<std::int32_t>(round(static_cast<double>(
+            result_offset * result_mult_int * std::pow(2.0, exponent))));
+    scale_by_fixedpoint_and_exponent_stage.result_fixedpoint_multiplier =
+        result_fixedpoint_multiplier;
+    scale_by_fixedpoint_and_exponent_stage.result_exponent = exponent;
+    auto scale_by_fixedpoint_and_exponent_pipeline =
+        std::make_tuple(scale_by_fixedpoint_and_exponent_stage);
+    Matrix<std::int32_t, ResultOrder>
+        result_scaled_by_fixedpoint_and_exponent_int32(rows, cols);
+    GemmWithOutputPipeline<std::uint8_t, std::int32_t,
+                           DefaultL8R8BitDepthParams>(
+        &context, lhs.const_map(), rhs.const_map(),
+        &result_scaled_by_fixedpoint_and_exponent_int32, lhs_offset, rhs_offset,
+        scale_by_fixedpoint_and_exponent_pipeline);
+
+    for (int r = 0; r < rows; r++) {
+      for (int c = 0; c < cols; c++) {
+        const std::int32_t actual =
+            result_scaled_by_fixedpoint_and_exponent_int32(r, c);
+        const std::int32_t raw = result_raw_int32(r, c);
+        int left_shift = std::max(0, exponent);
+        int right_shift = std::max(0, -exponent);
+        const std::int32_t expected =
+            scale_by_fixedpoint_and_exponent_stage.result_offset_after_shift +
+            RoundingDivideByPOT(
+                SaturatingRoundingDoublingHighMul((1 << left_shift) * raw,
+                                                  result_fixedpoint_multiplier),
+                right_shift);
+        Check(actual == expected);
+      }
     }
   }
 
@@ -1631,6 +1668,7 @@ void test() {
   // output stages.
   TestOutputStages<DefaultL8R8BitDepthParams>();
   TestOutputStages<L8R8WithLhsNonzeroBitDepthParams>();
+
   // Test per channel quantization.
   TestWithSmallDataPerChannelQuantization();
   TestWithLargeDataPerChannelQuantization();
