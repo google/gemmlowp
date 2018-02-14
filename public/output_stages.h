@@ -66,8 +66,9 @@ struct OutputStageQuantizeDownInt32ToUint8ScalePC {
 };
 
 // This output stage takes int32 values and returns still int32 values,
-// but "quantized down" to the uint8 scale; in other words, its output
-// is typically what one would then clamp to [0..255] and cast to uint8
+// but "quantized down" to a difference scale; for example, in a pipeline
+// that outputs uint8 values in [0..255], the output of this stage would be
+// int32 values ready to be clamped to [0..255] and casted to uint8
 // (see OutputStageSaturatingCastToUint8).
 //
 // This "quantization down" process depends on 3 parameters,
@@ -111,9 +112,29 @@ struct OutputStageQuantizeDownInt32ToUint8ScalePC {
 // expansions that implicitly rely on 0-padding. If 0 were not
 // a representable value, such operations would have to pad
 // using a nonzero value, introducing bias in the computation.
-struct OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint {
+struct OutputStageQuantizeDownInt32ByFixedPoint {
   std::int32_t result_fixedpoint_multiplier;
   std::int32_t result_shift;
+  std::int32_t result_offset_after_shift;
+};
+
+// OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint is the old deprecated
+// name of OutputStageQuantizeDownInt32ByFixedPoint, before we noticed that
+// there really wasn't anything Uint8-specific about it.
+using OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint = OutputStageQuantizeDownInt32ByFixedPoint;
+
+// Variant of OutputStageQuantizeDownInt32ByFixedPoint where the 'shift'
+// is not necessarily just a right shift, so we can represent multipliers
+// greater than 1. This takes an result_exponent parameter; when it's
+// <= 0, this is equivalent to OutputStageQuantizeDownInt32ByFixedPoint
+// with result_shift = -result_exponent.
+// In the general case, this consists in first left-shifting by
+// std::max(result_exponent, 0), before doing the same as
+// OutputStageQuantizeDownInt32ByFixedPoint with
+// result_shift = std::max(-result_exponent, 0).
+struct OutputStageScaleInt32ByFixedPointAndExponent {
+  std::int32_t result_fixedpoint_multiplier;
+  std::int32_t result_exponent;
   std::int32_t result_offset_after_shift;
 };
 
@@ -121,6 +142,11 @@ struct OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint {
 // on the final uint8 scale, but not necessarily in the [0..255] range.
 // It clamps them to the [0..255] range and returns them casted to uint8.
 struct OutputStageSaturatingCastToUint8 {};
+
+// This output stage takes int32 values that are expected to be already
+// on the final int16 scale, but not necessarily in the [-32768..32767] range.
+// It clamps them to the [-32768..32767] range and returns them casted to int16.
+struct OutputStageSaturatingCastToInt16 {};
 
 // This output stage depends on a "bias vector" that should contain int32
 // entries, and be either a row-vector of the same number of columns as the

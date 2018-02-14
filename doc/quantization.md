@@ -301,7 +301,7 @@ the particular quantization paradigm that we detailed above in this document.
 The specific output pipeline stage implementing the present quantization
 paradigm, i.e. implementing the precise computation detailed in the previous
 section (equation (5)), is
-`OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint`.
+`OutputStageQuantizeDownInt32ByFixedPoint`.
 
 Please refer to the comment explaining it in
 [public/output_stages.h](../public/output_stages.h).
@@ -313,7 +313,7 @@ The difference between the older legacy quantization paradigm described in
 document boils down to the difference between the legacy output stage
 implementing it, `OutputStageQuantizeDownInt32ToUint8Scale`, and the new output
 stage implementing the new paradigm,
-`OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint`.
+`OutputStageQuantizeDownInt32ByFixedPoint`.
 
 Please refer to the comments in
 [public/output_stages.h](../public/output_stages.h) for details about these two
@@ -323,7 +323,7 @@ Issues with the old output stage `OutputStageQuantizeDownInt32ToUint8Scale` are:
 
 1.  The int32 accumulators (inputs to the output stage) undergo a plain int32
     multiplication with a int32 multiplier, which may overflow. By contrast, in
-    the newer `OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint`, this
+    the newer `OutputStageQuantizeDownInt32ByFixedPoint`, this
     integer multiplication becomes a fixed-point multiplication and cannot
     overflow.
 

@@ -122,10 +122,10 @@ float benchmark_8bit(int rows, int depth, int cols) {
   MakeZero(&rhs);
   MakeZero(&result);
 
-  typedef std::tuple<OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint,
+  typedef std::tuple<OutputStageQuantizeDownInt32ByFixedPoint,
                      OutputStageSaturatingCastToUint8>
       Pipeline;
-  gemmlowp::OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint
+  gemmlowp::OutputStageQuantizeDownInt32ByFixedPoint
       quantize_down_stage;
   quantize_down_stage.result_offset_after_shift = 128;
   quantize_down_stage.result_fixedpoint_multiplier = 1234567890;

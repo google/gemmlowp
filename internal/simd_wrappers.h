@@ -491,9 +491,13 @@ void AddConstant(RegisterBlockType* block) {
 template <int N>
 using RegBufferInt32 = RegisterBuffer<std::int32_t, N>;
 template <int N>
+using RegBufferInt16 = RegisterBuffer<std::int16_t, N>;
+template <int N>
 using RegBufferUint8 = RegisterBuffer<std::uint8_t, N>;
 template <int R, int C>
 using RegBlockInt32 = RegisterBlock<std::int32_t, R, C>;
+template <int R, int C>
+using RegBlockInt16 = RegisterBlock<std::int16_t, R, C>;
 template <int R, int C>
 using RegBlockUint8 = RegisterBlock<std::uint8_t, R, C>;
 
