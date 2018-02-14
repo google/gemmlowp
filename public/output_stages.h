@@ -128,6 +128,11 @@ using OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint = OutputStageQuantize
 // It clamps them to the [0..255] range and returns them casted to uint8.
 struct OutputStageSaturatingCastToUint8 {};
 
+// This output stage takes int32 values that are expected to be already
+// on the final int16 scale, but not necessarily in the [-32768..32767] range.
+// It clamps them to the [-32768..32767] range and returns them casted to int16.
+struct OutputStageSaturatingCastToInt16 {};
+
 // This output stage depends on a "bias vector" that should contain int32
 // entries, and be either a row-vector of the same number of columns as the
 // result matrix, or a column-vector of the same number of rows as the

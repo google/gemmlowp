@@ -1277,6 +1277,26 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
     }
   }
 
+  // Test a variant of the familiar default pipeline consisting of quantize-down
+  // and clamp-and-cast-to-int16.
+  OutputStageSaturatingCastToInt16 saturating_cast_int16_stage;
+  auto quantize_down_and_saturating_cast_int16_pipeline =
+      std::make_tuple(quantize_down_stage, saturating_cast_int16_stage);
+  Matrix<std::int16_t, ResultOrder> result_quantized_down_saturated_int16(rows,
+                                                                          cols);
+  GemmWithOutputPipeline<std::uint8_t, std::int16_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(),
+      &result_quantized_down_saturated_int16, lhs_offset, rhs_offset,
+      quantize_down_and_saturating_cast_int16_pipeline);
+
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t quantized = result_quantized_down_int32(r, c);
+      std::int16_t expected = std::min(std::max(quantized, -32768), 32767);
+      Check(expected == result_quantized_down_saturated_int16(r, c));
+    }
+  }
+
   // Test a bias-addition with row-vector
   std::vector<std::int32_t> row_vector_data(cols);
   std::uniform_int_distribution<std::int32_t> uniform_minus_500_plus_500(-500,
@@ -1611,7 +1631,6 @@ void test() {
   // output stages.
   TestOutputStages<DefaultL8R8BitDepthParams>();
   TestOutputStages<L8R8WithLhsNonzeroBitDepthParams>();
-
   // Test per channel quantization.
   TestWithSmallDataPerChannelQuantization();
   TestWithLargeDataPerChannelQuantization();
