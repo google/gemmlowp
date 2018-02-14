@@ -66,8 +66,9 @@ struct OutputStageQuantizeDownInt32ToUint8ScalePC {
 };
 
 // This output stage takes int32 values and returns still int32 values,
-// but "quantized down" to the uint8 scale; in other words, its output
-// is typically what one would then clamp to [0..255] and cast to uint8
+// but "quantized down" to a difference scale; for example, in a pipeline
+// that outputs uint8 values in [0..255], the output of this stage would be
+// int32 values ready to be clamped to [0..255] and casted to uint8
 // (see OutputStageSaturatingCastToUint8).
 //
 // This "quantization down" process depends on 3 parameters,
@@ -111,11 +112,16 @@ struct OutputStageQuantizeDownInt32ToUint8ScalePC {
 // expansions that implicitly rely on 0-padding. If 0 were not
 // a representable value, such operations would have to pad
 // using a nonzero value, introducing bias in the computation.
-struct OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint {
+struct OutputStageQuantizeDownInt32ByFixedPoint {
   std::int32_t result_fixedpoint_multiplier;
   std::int32_t result_shift;
   std::int32_t result_offset_after_shift;
 };
+
+// OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint is the old deprecated
+// name of OutputStageQuantizeDownInt32ByFixedPoint, before we noticed that
+// there really wasn't anything Uint8-specific about it.
+using OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint = OutputStageQuantizeDownInt32ByFixedPoint;
 
 // This output stage takes int32 values that are expected to be already
 // on the final uint8 scale, but not necessarily in the [0..255] range.

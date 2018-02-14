@@ -1428,8 +1428,8 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
     result_fixedpoint_shift++;
   }
   Check(result_fixedpoint_shift >= 0);
-  // Now test OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint
-  OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint
+  // Now test OutputStageQuantizeDownInt32ByFixedPoint
+  OutputStageQuantizeDownInt32ByFixedPoint
       quantize_down_by_fixedpoint_stage;
   quantize_down_by_fixedpoint_stage.result_offset_after_shift =
       static_cast<std::int32_t>(
