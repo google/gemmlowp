@@ -3855,6 +3855,20 @@ using NEON_64bit_GEMM_Float32_WithScalar_intrinsics =
 #endif  // __arm__ || __aarch64__
 
 #ifdef __mips
+static inline v4i32 workaround_msa_maddv_w(v4i32 a, v4i32 b, v4i32 c) {
+  // Workaround for incorrect encoding of maddv.df in gcc (a exchanged with c).
+#if 0
+  return __builtin_msa_maddv_w(a, b, c);
+#else
+  asm volatile("maddv.w %w[a], %w[b], %w[c]\n"
+               // Outputs
+               : [a] "+f"(a)
+               // Inputs
+               : [b] "f"(b), [c] "f"(c));
+  return a;
+#endif
+}
+
 // Using 32x32=32 multiplications.
 // 20 MSA regs used:
 // - 12 accumulators
@@ -3909,7 +3923,7 @@ struct MSA_GEMM_12x4_Uint8Operands_Uint32Accumulators_intrinsics {
         v4i32 rhs = reinterpret_cast<v4i32>(__builtin_msa_fill_w(rhs_ptr[j]));
         // Multiply-add into accumulators.
         for (int i = 0; i < 3; i++) {
-          acc[i][j] = __builtin_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i]), rhs);
+          acc[i][j] = workaround_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i]), rhs);
         }
       }
 
@@ -3919,7 +3933,7 @@ struct MSA_GEMM_12x4_Uint8Operands_Uint32Accumulators_intrinsics {
         v4i32 rhs = reinterpret_cast<v4i32>(__builtin_msa_fill_w(rhs_ptr[j + 4]));
         // Multiply-add into accumulators.
         for (int i = 0; i < 3; i++) {
-          acc[i][j] = __builtin_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i + 3]), rhs);
+          acc[i][j] = workaround_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i + 3]), rhs);
         }
       }
 
@@ -4311,7 +4325,7 @@ struct MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_intrinsics {
         v4i32 rhs = reinterpret_cast<v4i32>(__builtin_msa_fill_w(rhs_ptr[j]));
         // Multiply-add into accumulators.
         for (int i = 0; i < 3; i++) {
-          acc[i][j] = __builtin_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i]), rhs);
+          acc[i][j] = workaround_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i]), rhs);
         }
       }
       for (int j = 4; j < 8; j++) {
@@ -4319,7 +4333,7 @@ struct MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_intrinsics {
         v4i32 rhs = reinterpret_cast<v4i32>(__builtin_msa_fill_w(rhs_ptr[j + 4]));
         // Multiply-add into accumulators.
         for (int i = 0; i < 3; i++) {
-          acc[i][j] = __builtin_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i]), rhs);
+          acc[i][j] = workaround_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i]), rhs);
         }
       }
 
@@ -4329,7 +4343,7 @@ struct MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_intrinsics {
         v4i32 rhs = reinterpret_cast<v4i32>(__builtin_msa_fill_w(rhs_ptr[j + 4]));
         // Multiply-add into accumulators.
         for (int i = 0; i < 3; i++) {
-          acc[i][j] = __builtin_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i + 3]), rhs);
+          acc[i][j] = workaround_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i + 3]), rhs);
         }
       }
       for (int j = 4; j < 8; j++) {
@@ -4337,7 +4351,7 @@ struct MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_intrinsics {
         v4i32 rhs = reinterpret_cast<v4i32>(__builtin_msa_fill_w(rhs_ptr[j + 8]));
         // Multiply-add into accumulators.
         for (int i = 0; i < 3; i++) {
-          acc[i][j] = __builtin_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i + 3]), rhs);
+          acc[i][j] = workaround_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i + 3]), rhs);
         }
       }
 
