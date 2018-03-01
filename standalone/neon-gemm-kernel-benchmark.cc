@@ -240,6 +240,33 @@ struct KernelFormat {
   static const int kCols = Rhs::Cell::kWidth * Rhs::kCells;
 };
 
+// KernelOperandRanges specifies the minimum and maximum values an operand can
+// take. It consists of two ranges: one for the LHS and one for the RHS. The
+// default values are the minimum and maximum values of the operand data type.
+template <typename Kernel, typename OperandType = typename Kernel::OperandType>
+struct KernelOperandRanges {
+  static OperandType LhsMin() {
+    return std::numeric_limits<OperandType>::lowest();
+  }
+  static OperandType LhsMax() {
+    return std::numeric_limits<OperandType>::max();
+  }
+  static OperandType RhsMin() {
+    return std::numeric_limits<OperandType>::lowest();
+  }
+  static OperandType RhsMax() {
+    return std::numeric_limits<OperandType>::max();
+  }
+};
+
+template <typename Kernel>
+struct KernelOperandRanges<Kernel, float> {
+  static float LhsMin() { return -100.f; }
+  static float LhsMax() { return 100.f; }
+  static float RhsMin() { return -100.f; }
+  static float RhsMax() { return 100.f; }
+};
+
 inline const char* CellOrderName(CellOrder o) {
   switch (o) {
     case CellOrder::DepthMajor:
@@ -4901,13 +4928,10 @@ class CacheLineAlignedBuffer {
 };
 
 template <typename DataType>
-void FillRandom(CacheLineAlignedBuffer<DataType>* buffer) {
+void FillRandom(CacheLineAlignedBuffer<DataType>* buffer, DataType min,
+                DataType max) {
   static std::mt19937 generator(0);
-  // 100 is smaller than any nonzero bound of the range of any data type.
-  const DataType kMaxVal = DataType(100);
-  const DataType kMinVal =
-      std::is_signed<DataType>::value ? -kMaxVal : DataType(0);
-  std::uniform_real_distribution<float> dist(kMinVal, kMaxVal);
+  std::uniform_real_distribution<float> dist(min, max);
   for (std::size_t i = 0; i < buffer->size(); i++) {
     buffer->data()[i] = DataType(dist(generator));
   }
@@ -4971,9 +4995,16 @@ void test_kernel(int depth, const char* kernel_name) {
   CacheLineAlignedBuffer<AccumulatorType> accum_reference(kLhsWidth *
                                                           kRhsWidth);
 
-  FillRandom(&lhs);
-  FillRandom(&rhs);
-  FillRandom(&accum_initial);
+  FillRandom(&lhs, KernelOperandRanges<Kernel>::LhsMin(),
+             KernelOperandRanges<Kernel>::LhsMax());
+  FillRandom(&rhs, KernelOperandRanges<Kernel>::RhsMin(),
+             KernelOperandRanges<Kernel>::RhsMax());
+  FillRandom(&accum_initial,
+             std::is_signed<AccumulatorType>::value
+                 ? AccumulatorType(-100)
+                 : AccumulatorType(0),
+              AccumulatorType(100));
+
   Copy(&accum, accum_initial);
   Copy(&accum_reference, accum_initial);
 
