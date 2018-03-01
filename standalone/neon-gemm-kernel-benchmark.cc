@@ -240,6 +240,51 @@ struct KernelFormat {
   static const int kCols = Rhs::Cell::kWidth * Rhs::kCells;
 };
 
+// KernelOperandRanges specifies the minimum and maximum values an operand can
+// take. It consists of two ranges: one for the LHS and one for the RHS. The
+// default values are the minimum and maximum values of the operand data type.
+template <typename Kernel, typename OperandType = typename Kernel::OperandType>
+struct KernelOperandRanges {
+  static OperandType LhsMin() {
+    return std::numeric_limits<OperandType>::lowest();
+  }
+  static OperandType LhsMax() {
+    return std::numeric_limits<OperandType>::max();
+  }
+  static OperandType RhsMin() {
+    return std::numeric_limits<OperandType>::lowest();
+  }
+  static OperandType RhsMax() {
+    return std::numeric_limits<OperandType>::max();
+  }
+};
+
+template <typename Kernel>
+struct KernelOperandRanges<Kernel, float> {
+  static float LhsMin() { return -100.f; }
+  static float LhsMax() { return 100.f; }
+  static float RhsMin() { return -100.f; }
+  static float RhsMax() { return 100.f; }
+};
+
+#define SET_7BIT_RANGES(kernel) \
+template <> \
+struct KernelOperandRanges<kernel, std::int8_t> { \
+  static std::int8_t LhsMin() { return -63; } \
+  static std::int8_t LhsMax() { return 63; } \
+  static std::int8_t RhsMin() { return -64; } \
+  static std::int8_t RhsMax() { return 63; } \
+};
+
+#define SET_425BIT_RANGES(kernel) \
+template <> \
+struct KernelOperandRanges<kernel, std::int8_t> { \
+  static std::int8_t LhsMin() { return -7; } \
+  static std::int8_t LhsMax() { return 7; } \
+  static std::int8_t RhsMin() { return -9; } \
+  static std::int8_t RhsMax() { return 9; } \
+};
+
 inline const char* CellOrderName(CellOrder o) {
   switch (o) {
     case CellOrder::DepthMajor:
@@ -2516,6 +2561,576 @@ struct NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits {
   }
 };
 
+// Fast kernel operating on int8 operands with 7-bit range.
+// It is assumed that one of the two operands only takes values in [-63, 63],
+// while the other take values in [-64, 63].
+// With this restriction, it is possible to multiply-accumulate operands into
+// a 16-bit integer eight times without overflow.
+struct NEON_64bit_GEMM_Int7Operands_AccumEightWithin16Bits {
+  typedef std::int8_t OperandType;
+  typedef std::int32_t AccumulatorType;
+  typedef KernelFormat<
+      KernelSideFormat<CellFormat<4, 16, CellOrder::WidthMajor>, 1>,
+      KernelSideFormat<CellFormat<2, 16, CellOrder::WidthMajor>, 1> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr,
+                  AccumulatorType* accum_ptr, int depth) {
+#define GEMMLOWP_LABEL_64_DEPTH_LOOP "1"
+#define GEMMLOWP_LABEL_64_DEPTH_AFTER_LOOP "2"
+#define GEMMLOWP_LABEL_16_DEPTH_LOOP "3"
+#define GEMMLOWP_LABEL_16_DEPTH_AFTER_LOOP "4"
+
+    AccumulatorType* dst_ptr = accum_ptr;
+    asm volatile(
+      // Overview of register layout:
+      //
+      // A 4x16 block of Lhs is stored in 8 bit in v0--v7.
+      // A 2x16 block of Rhs is stored in 8 bit in v8--v15.
+      //
+      // A 4x2 block of global accumulators is stored in v24-v31 (as 4x32 bit
+      // components which need to be horizontally-added at the end).
+      //
+      // A 4x2 block of local accumulators is stored in v16-v23 (as 8x16 bit
+      // components which are added to global accumulators every 64 depth
+      // iteration.
+      //
+      // The Lhs vectors are multiplied by the Rhs vectors with a widening
+      // multiply over the 8 first levels of depth, producing int16x8
+      // vectors of products for each position in the accumulator matrix.
+      //
+      // Like the trick used in the fast 8-bit kernel, the operands are
+      // restricted to 7-bit range [-2^6, 2^6) so their products are in range
+      // [-2^12, 2^12 -1). This enables adding eight such products without any
+      // risk of overflowing int16, equating to 64 levels of depth before
+      // horizontally adding these int16x8 accumulators into the final int32x4
+      // accumulators.
+      //
+      // Register layout including both local and global accumulators.
+      // Since we do not have enough registers to store all Lhs values, we
+      // reuse the same registers v0--v7 to load the rest of the Lhs values.
+      //
+      //                            +-----+-----+
+      //                            | v8  | v9  |
+      //                       Rhs  +-----+-----+
+      //                            | v10 | v11 |
+      //                            +-----+-----+
+      //                            | v12 | v13 |
+      //                            +-----+-----+
+      //                            | v14 | v15 |
+      //    Lhs                     +-----+-----+
+      //  +----+----+----+----+ - - +-----+-----+      +--------+--------+
+      //  | v0 | v4 | v0 | v4 |     | v16 | v20 |      | v24.4s | v28.4s |
+      //  | v1 | v5 | v1 | v5 |     | v17 | v21 |  ->  | v25.4s | v29.4s |
+      //  | v2 | v6 | v2 | v6 |     | v18 | v22 |      | v26.4s | v30.4s |
+      //  | v3 | v7 | v3 | v7 |     | v19 | v23 |      | v27.4s | v31.4s |
+      //  +----+----+----+----+ - - +-----+-----+      +--------+--------+
+      //
+      //                           Local Accumulator    Global Accumulator
+      //
+
+      // Clear accumulators.
+      "dup v16.4s, wzr\n"
+      "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
+      "dup v24.4s, wzr\n"
+      "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
+      "dup v17.4s, wzr\n"
+      "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
+      "dup v25.4s, wzr\n"
+      "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
+      "dup v18.4s, wzr\n"
+      "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
+      "dup v26.4s, wzr\n"
+      "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
+      "dup v19.4s, wzr\n"
+      "dup v27.4s, wzr\n"
+      "dup v20.4s, wzr\n"
+      "dup v28.4s, wzr\n"
+      "dup v21.4s, wzr\n"
+      "dup v29.4s, wzr\n"
+      "dup v22.4s, wzr\n"
+      "dup v30.4s, wzr\n"
+      "dup v23.4s, wzr\n"
+      "dup v31.4s, wzr\n"
+
+      "cmp %w[depth], #64\n"
+      "blt " GEMMLOWP_LABEL_64_DEPTH_AFTER_LOOP "f\n"
+
+      //"loop_%=:\n"
+      GEMMLOWP_LABEL_64_DEPTH_LOOP
+      ":\n"
+        "subs %w[depth], %w[depth], #64\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+        "sadalp v24.4s, v16.8h\n"
+        "smull v16.8h, v0.8b, v8.8b\n"
+        "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+        "sadalp v25.4s, v17.8h\n"
+        "smull v17.8h, v1.8b, v8.8b\n"
+        "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+        "sadalp v26.4s, v18.8h\n"
+        "smull v18.8h, v2.8b, v8.8b\n"
+        "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+        "sadalp v27.4s, v19.8h\n"
+        "smull v19.8h, v3.8b, v8.8b\n"
+        "ld1 {v10.16b}, [%[rhs_ptr]], #16\n"
+        "sadalp v28.4s, v20.8h\n"
+        "smull v20.8h, v0.8b, v9.8b\n"
+        "ld1 {v11.16b}, [%[rhs_ptr]], #16\n"
+        "sadalp v29.4s, v21.8h\n"
+        "smull v21.8h, v1.8b, v9.8b\n"
+        "ld1 {v12.16b}, [%[rhs_ptr]], #16\n"
+        "sadalp v30.4s, v22.8h\n"
+        "smull v22.8h, v2.8b, v9.8b\n"
+        "ld1 {v13.16b}, [%[rhs_ptr]], #16\n"
+        "sadalp v31.4s, v23.8h\n"
+        "smull v23.8h, v3.8b, v9.8b\n"
+
+        "cmp %w[depth], #64\n"
+        "smlal2 v16.8h, v0.16b, v8.16b\n"
+        "ld1 {v14.16b}, [%[rhs_ptr]], #16\n"
+        "smlal2 v17.8h, v1.16b, v8.16b\n"
+        "ld1 {v15.16b}, [%[rhs_ptr]], #16\n"
+        "smlal2 v18.8h, v2.16b, v8.16b\n"
+        "smlal2 v19.8h, v3.16b, v8.16b\n"
+
+        "smlal2 v20.8h, v0.16b, v9.16b\n"
+        "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
+        "smlal2 v21.8h, v1.16b, v9.16b\n"
+        "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
+        "smlal2 v22.8h, v2.16b, v9.16b\n"
+        "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
+        "smlal2 v23.8h, v3.16b, v9.16b\n"
+        "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
+
+        "smlal v16.8h, v4.8b, v10.8b\n"
+        "smlal v17.8h, v5.8b, v10.8b\n"
+        "smlal v18.8h, v6.8b, v10.8b\n"
+        "smlal v19.8h, v7.8b, v10.8b\n"
+        "smlal v20.8h, v4.8b, v11.8b\n"
+
+        "smlal v21.8h, v5.8b, v11.8b\n"
+        "smlal v22.8h, v6.8b, v11.8b\n"
+        "smlal v23.8h, v7.8b, v11.8b\n"
+
+        "smlal2 v16.8h, v4.16b, v10.16b\n"
+        "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
+        "smlal2 v17.8h, v5.16b, v10.16b\n"
+        "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
+        "smlal2 v18.8h, v6.16b, v10.16b\n"
+        "smlal2 v19.8h, v7.16b, v10.16b\n"
+
+        "smlal2 v20.8h, v4.16b, v11.16b\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+        "smlal2 v21.8h, v5.16b, v11.16b\n"
+        "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+        "smlal2 v22.8h, v6.16b, v11.16b\n"
+        "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+        "smlal2 v23.8h, v7.16b, v11.16b\n"
+        "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+
+        "smlal v16.8h, v0.8b, v12.8b\n"
+        "smlal v17.8h, v1.8b, v12.8b\n"
+        "smlal v18.8h, v2.8b, v12.8b\n"
+        "smlal v19.8h, v3.8b, v12.8b\n"
+        "smlal v20.8h, v0.8b, v13.8b\n"
+        "smlal v21.8h, v1.8b, v13.8b\n"
+        "smlal v22.8h, v2.8b, v13.8b\n"
+        "smlal v23.8h, v3.8b, v13.8b\n"
+
+        "smlal2 v16.8h, v0.16b, v12.16b\n"
+        "smlal2 v17.8h, v1.16b, v12.16b\n"
+        "smlal2 v18.8h, v2.16b, v12.16b\n"
+        "smlal2 v19.8h, v3.16b, v12.16b\n"
+
+        "smlal2 v20.8h, v0.16b, v13.16b\n"
+        "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
+        "smlal2 v21.8h, v1.16b, v13.16b\n"
+        "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
+        "smlal2 v22.8h, v2.16b, v13.16b\n"
+        "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
+        "smlal2 v23.8h, v3.16b, v13.16b\n"
+        "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
+
+        "smlal v16.8h, v4.8b, v14.8b\n"
+        "smlal v17.8h, v5.8b, v14.8b\n"
+        "smlal v18.8h, v6.8b, v14.8b\n"
+        "smlal v19.8h, v7.8b, v14.8b\n"
+
+        "smlal v20.8h, v4.8b, v15.8b\n"
+        "smlal v21.8h, v5.8b, v15.8b\n"
+        "smlal v22.8h, v6.8b, v15.8b\n"
+        "smlal v23.8h, v7.8b, v15.8b\n"
+
+        "smlal2 v16.8h, v4.16b, v14.16b\n"
+        "smlal2 v17.8h, v5.16b, v14.16b\n"
+        "smlal2 v18.8h, v6.16b, v14.16b\n"
+        "smlal2 v19.8h, v7.16b, v14.16b\n"
+
+        "smlal2 v20.8h, v4.16b, v15.16b\n"
+        "smlal2 v21.8h, v5.16b, v15.16b\n"
+        "smlal2 v22.8h, v6.16b, v15.16b\n"
+        "smlal2 v23.8h, v7.16b, v15.16b\n"
+
+        "bge " GEMMLOWP_LABEL_64_DEPTH_LOOP "b\n"
+
+      GEMMLOWP_LABEL_64_DEPTH_AFTER_LOOP
+      ":\n"
+
+      "cmp %w[depth], #16\n"
+      "blt " GEMMLOWP_LABEL_16_DEPTH_AFTER_LOOP "f\n"
+
+      //"loop_%=:\n"
+      GEMMLOWP_LABEL_16_DEPTH_LOOP
+      ":\n"
+        "sadalp v24.4s, v16.8h\n"
+        "smull v16.8h, v0.8b, v8.8b\n"
+        "subs %w[depth], %w[depth], #16\n"
+        "sadalp v25.4s, v17.8h\n"
+        "smull v17.8h, v1.8b, v8.8b\n"
+        "sadalp v26.4s, v18.8h\n"
+        "smull v18.8h, v2.8b, v8.8b\n"
+        "sadalp v27.4s, v19.8h\n"
+        "smull v19.8h, v3.8b, v8.8b\n"
+        "sadalp v28.4s, v20.8h\n"
+        "smull v20.8h, v0.8b, v9.8b\n"
+        "sadalp v29.4s, v21.8h\n"
+        "smull v21.8h, v1.8b, v9.8b\n"
+        "sadalp v30.4s, v22.8h\n"
+        "smull v22.8h, v2.8b, v9.8b\n"
+        "sadalp v31.4s, v23.8h\n"
+        "smull v23.8h, v3.8b, v9.8b\n"
+
+        "cmp %w[depth], #16\n"
+        "smlal2 v16.8h, v0.16b, v8.16b\n"
+        "smlal2 v17.8h, v1.16b, v8.16b\n"
+        "smlal2 v18.8h, v2.16b, v8.16b\n"
+        "smlal2 v19.8h, v3.16b, v8.16b\n"
+        "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
+
+        "smlal2 v20.8h, v0.16b, v9.16b\n"
+        "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
+        "smlal2 v21.8h, v1.16b, v9.16b\n"
+        "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
+        "smlal2 v22.8h, v2.16b, v9.16b\n"
+        "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
+        "smlal2 v23.8h, v3.16b, v9.16b\n"
+        "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
+        "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
+
+        "bge " GEMMLOWP_LABEL_16_DEPTH_LOOP "b\n"
+
+      GEMMLOWP_LABEL_16_DEPTH_AFTER_LOOP
+      ":\n"
+
+      "sadalp v24.4s, v16.8h\n"
+      "sadalp v25.4s, v17.8h\n"
+      "sadalp v26.4s, v18.8h\n"
+      "sadalp v27.4s, v19.8h\n"
+      "sadalp v28.4s, v20.8h\n"
+      "sadalp v29.4s, v21.8h\n"
+      "sadalp v30.4s, v22.8h\n"
+      "sadalp v31.4s, v23.8h\n"
+
+      // Reduce aggregators horizontally.
+      "addp v0.4s, v24.4s, v25.4s\n"
+      "addp v1.4s, v26.4s, v27.4s\n"
+      "addp v2.4s, v28.4s, v29.4s\n"
+      "addp v3.4s, v30.4s, v31.4s\n"
+
+      "addp v4.4s, v0.4s, v1.4s\n"
+      "addp v5.4s, v2.4s, v3.4s\n"
+
+      // Load accumulators from memory.
+      "mov x0, %[dst_ptr]\n"
+      "ld1 {v6.16b}, [x0], #16\n"
+      "ld1 {v7.16b}, [x0], #16\n"
+
+      // Add to the accumulators loaded from memory.
+      "add v6.4s, v6.4s, v4.4s\n"
+      "add v7.4s, v7.4s, v5.4s\n"
+
+      // Store accumulators back to memory.
+      "mov x0, %[dst_ptr]\n"
+      "st1 {v6.16b}, [x0], #16\n"
+      "st1 {v7.16b}, [x0], #16\n"
+
+      :
+      // Outputs.
+      [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+      [dst_ptr] "+r"(dst_ptr), [depth] "+r"(depth)
+      :
+      // Inputs.
+
+      :
+      // Clobbers.
+      // We use these NEON registers
+      "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11",
+      "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21",
+      "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",
+      "x0");
+  }
+};
+
+SET_7BIT_RANGES(NEON_64bit_GEMM_Int7Operands_AccumEightWithin16Bits);
+
+// Kernel operating on int8 operands with 4.25-bit range.
+// It is assumed that one of the two operands only takes values in [-7, 7],
+// while the other take values in [-9, 9].
+// With this restriction, it is possible to multiply-accumulate operands into
+// a 16-bit integer thirty-two times without overflow.
+struct NEON_64bit_GEMM_Int425Operands {
+  typedef std::int8_t OperandType;
+  typedef std::int32_t AccumulatorType;
+  typedef KernelFormat<
+      KernelSideFormat<CellFormat<4, 32, CellOrder::WidthMajor>, 1>,
+      KernelSideFormat<CellFormat<2, 32, CellOrder::WidthMajor>, 1> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr,
+                  AccumulatorType* accum_ptr, int depth) {
+#define GEMMLOWP_LABEL_512_DEPTH_LOOP "1"
+#define GEMMLOWP_LABEL_32_DEPTH_LOOP "2"
+#define GEMMLOWP_LABEL_32_DEPTH_AFTER_LOOP "3"
+
+    AccumulatorType* dst_ptr = accum_ptr;
+    int outer_depth = depth / 512 + 1;
+
+    asm volatile(
+      // Overview of register layout:
+      //
+      // A 4x32 block of Lhs is stored in 8 bit in v0--v7.
+      // A 2x32 block of Rhs is stored in 8 bit in v8--v11.
+      //
+      // A 4x2 block of global accumulators is stored in v24-v31 (as 4x32 bit
+      // components which need to be horizontally-added at the end).
+      //
+      // A 4x2 block of local accumulators is stored in v16-v23 (as 8x16 bit
+      // components which are horizontally-added to global accumulators every
+      // 512 depth iteration.
+      //
+      // The Lhs vectors are multiplied by the Rhs vectors with a multiply over
+      // the 16 first levels of depth, producing int8x16 vectors of products
+      // for each position in the accumulator matrix.
+      //
+      // Like the trick used in the fast 8-bit and 7-bit kernels, the operands
+      // are restricted to 4.25-bit range, [-7, 7] for one operand and [-9, 9]
+      // for the other operand. This enables adding two such products without
+      // any risk of overflowing int8, and thiry-two such products without
+      // overflowing int16. This equates to 512 levels of depth before
+      // horizontally adding these int16x8 accumulators into the final int32x4
+      // accumulators.
+      //
+      // Register layout (ignoring the v12--v15 temporary 8-bit accumulators).
+      // Since we do not have enough registers to store all Lhs values and Rhs
+      // values, we reuse the same registers v0--v7 to load subsequent Lhs
+      // values and v8-v11 to subsequent Rhs values.
+      //
+      //                            +-----+-----+
+      //                            | v8  | v9  |
+      //                       Rhs  +-----+-----+
+      //                            | v10 | v11 |
+      //                            +-----+-----+
+      //                            | v8  | v9  |
+      //                            +-----+-----+
+      //                            | v10 | v11 |
+      //    Lhs                     +-----+-----+
+      //  +----+----+----+----+ - - +-----+-----+      +--------+--------+
+      //  | v0 | v4 | v0 | v4 |     | v16 | v17 |      | v24.4s | v25.4s |
+      //  | v1 | v5 | v1 | v5 |     | v18 | v19 |  ->  | v26.4s | v27.4s |
+      //  | v2 | v6 | v2 | v6 |     | v20 | v21 |      | v28.4s | v29.4s |
+      //  | v3 | v7 | v3 | v7 |     | v22 | v23 |      | v30.4s | v31.4s |
+      //  +----+----+----+----+ - - +-----+-----+      +--------+--------+
+      //
+      //                           Local Accumulator    Global Accumulator
+      //
+
+      // Clear global accumulators.
+      "dup v24.4s, wzr\n"
+      "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
+      "dup v25.4s, wzr\n"
+      "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
+      "dup v26.4s, wzr\n"
+      "ld1 {v10.16b}, [%[rhs_ptr]], #16\n"
+      "dup v27.4s, wzr\n"
+      "ld1 {v11.16b}, [%[rhs_ptr]], #16\n"
+      "dup v28.4s, wzr\n"
+      "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
+      "dup v29.4s, wzr\n"
+      "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
+      "dup v30.4s, wzr\n"
+      "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
+      "dup v31.4s, wzr\n"
+      "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
+
+      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+      "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+      "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+      "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+
+      //"loop_%=:\n"
+      GEMMLOWP_LABEL_512_DEPTH_LOOP
+      ":\n"
+        // Clear local accumulators.
+        "dup v16.8h, wzr\n"
+        "dup v17.8h, wzr\n"
+        "dup v18.8h, wzr\n"
+        "mov x1, #512\n"
+        "dup v19.8h, wzr\n"
+        "dup v20.8h, wzr\n"
+        "dup v21.8h, wzr\n"
+        "dup v22.8h, wzr\n"
+        "dup v23.8h, wzr\n"
+
+        //"loop_%=:\n"
+        GEMMLOWP_LABEL_32_DEPTH_LOOP
+        ":\n"
+          "mul v12.16b, v0.16b, v8.16b\n"
+          "mul v13.16b, v0.16b, v10.16b\n"
+          "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
+          "mul v14.16b, v2.16b, v8.16b\n"
+          "mul v15.16b, v2.16b, v10.16b\n"
+
+          "mla v12.16b, v1.16b, v9.16b\n"
+          "mla v13.16b, v1.16b, v11.16b\n"
+          "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
+          "mla v14.16b, v3.16b, v9.16b\n"
+          "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
+          "mla v15.16b, v3.16b, v11.16b\n"
+          "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
+
+          "sadalp v16.8h, v12.16b\n"
+          "sadalp v17.8h, v13.16b\n"
+          "subs %w[depth], %w[depth], #32\n"
+          "sadalp v18.8h, v14.16b\n"
+          "sadalp v19.8h, v15.16b\n"
+          "subs x1, x1, #32\n"
+
+          "mul v12.16b, v4.16b, v8.16b\n"
+          "mul v13.16b, v4.16b, v10.16b\n"
+          "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+          "mul v14.16b, v6.16b, v8.16b\n"
+          "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
+          "mul v15.16b, v6.16b, v10.16b\n"
+
+          "mla v12.16b, v5.16b, v9.16b\n"
+          "mla v13.16b, v5.16b, v11.16b\n"
+          "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+          "mla v14.16b, v7.16b, v9.16b\n"
+          "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
+          "mla v15.16b, v7.16b, v11.16b\n"
+          "ld1 {v10.16b}, [%[rhs_ptr]], #16\n"
+
+          "sadalp v20.8h, v12.16b\n"
+          "ld1 {v11.16b}, [%[rhs_ptr]], #16\n"
+          "sadalp v21.8h, v13.16b\n"
+          "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+          "sadalp v22.8h, v14.16b\n"
+          "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+          "sadalp v23.8h, v15.16b\n"
+
+          "mul v12.16b, v0.16b, v8.16b\n"
+          "mul v13.16b, v0.16b, v10.16b\n"
+          "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
+          "mul v14.16b, v2.16b, v8.16b\n"
+          "mul v15.16b, v2.16b, v10.16b\n"
+
+          "mla v12.16b, v1.16b, v9.16b\n"
+          "mla v13.16b, v1.16b, v11.16b\n"
+          "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
+          "mla v14.16b, v3.16b, v9.16b\n"
+          "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
+          "mla v15.16b, v3.16b, v11.16b\n"
+          "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
+
+          "sadalp v16.8h, v12.16b\n"
+          "sadalp v17.8h, v13.16b\n"
+          "sadalp v18.8h, v14.16b\n"
+          "sadalp v19.8h, v15.16b\n"
+
+          "mul v12.16b, v4.16b, v8.16b\n"
+          "mul v13.16b, v4.16b, v10.16b\n"
+          "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+          "mul v14.16b, v6.16b, v8.16b\n"
+          "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
+          "mul v15.16b, v6.16b, v10.16b\n"
+
+          "mla v12.16b, v5.16b, v9.16b\n"
+          "mla v13.16b, v5.16b, v11.16b\n"
+          "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+          "mla v14.16b, v7.16b, v9.16b\n"
+          "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
+          "mla v15.16b, v7.16b, v11.16b\n"
+          "ld1 {v10.16b}, [%[rhs_ptr]], #16\n"
+
+          "sadalp v20.8h, v12.16b\n"
+          "ld1 {v11.16b}, [%[rhs_ptr]], #16\n"
+          "sadalp v21.8h, v13.16b\n"
+          "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+          "sadalp v22.8h, v14.16b\n"
+          "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+          "sadalp v23.8h, v15.16b\n"
+
+          "beq " GEMMLOWP_LABEL_32_DEPTH_AFTER_LOOP "f\n"
+
+          "cmp %w[depth], #0\n"
+          "bne " GEMMLOWP_LABEL_32_DEPTH_LOOP "b\n"
+
+        GEMMLOWP_LABEL_32_DEPTH_AFTER_LOOP
+        ":\n"
+
+        // Pairwise add 16-bit local accums to 32-bit global accums.
+        "sadalp v24.4s, v16.8h\n"
+        "sadalp v25.4s, v17.8h\n"
+        "sadalp v26.4s, v18.8h\n"
+        "sadalp v27.4s, v19.8h\n"
+        "sadalp v28.4s, v20.8h\n"
+        "sadalp v29.4s, v21.8h\n"
+        "sadalp v30.4s, v22.8h\n"
+        "sadalp v31.4s, v23.8h\n"
+
+        "bne " GEMMLOWP_LABEL_512_DEPTH_LOOP "b\n"
+
+      // Reduce aggregators horizontally.
+      "addp v0.4s, v24.4s, v26.4s\n"
+      "addp v1.4s, v28.4s, v30.4s\n"
+      "addp v2.4s, v25.4s, v27.4s\n"
+      "addp v3.4s, v29.4s, v31.4s\n"
+
+      "addp v4.4s, v0.4s, v1.4s\n"
+      "addp v5.4s, v2.4s, v3.4s\n"
+
+      // Load accumulators from memory.
+      "mov x0, %[dst_ptr]\n"
+      "ld1 {v6.16b}, [x0], #16\n"
+      "ld1 {v7.16b}, [x0], #16\n"
+
+      // Add to the accumulators loaded from memory.
+      "add v6.4s, v6.4s, v4.4s\n"
+      "add v7.4s, v7.4s, v5.4s\n"
+
+      // Store accumulators back to memory.
+      "mov x0, %[dst_ptr]\n"
+      "st1 {v6.16b}, [x0], #16\n"
+      "st1 {v7.16b}, [x0], #16\n"
+
+      :
+      // Outputs.
+      [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+      [dst_ptr] "+r"(dst_ptr), [depth] "+r"(depth),
+      [outer_depth] "+r"(outer_depth)
+      :
+      // Inputs.
+
+      :
+      // Clobbers.
+      // We use these NEON registers
+      "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11",
+      "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21",
+      "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",
+      "x0", "x1");
+  }
+};
+
+SET_425BIT_RANGES(NEON_64bit_GEMM_Int425Operands);
+
 #ifdef __ARM_FEATURE_DOTPROD
 // Kernels utilizing the Armv8.2 Dot Product extension.
 //
@@ -3852,6 +4467,190 @@ using NEON_32bit_GEMM_Float32_WithScalar_intrinsics =
 
 using NEON_64bit_GEMM_Float32_WithScalar_intrinsics =
     NEON_GEMM_Float32_WithScalar_intrinsics<2>;
+
+// C++ intrinsics-based variant of the deep, 7-bit, fast kernel
+struct NEON_64bit_GEMM_Int7Operands_AccumEightWithin16Bits_intrinsics {
+  typedef std::int8_t OperandType;
+  typedef std::int32_t AccumulatorType;
+  typedef KernelFormat<
+      KernelSideFormat<CellFormat<4, 16, CellOrder::WidthMajor>, 1>,
+      KernelSideFormat<CellFormat<2, 16, CellOrder::WidthMajor>, 1> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr,
+                  AccumulatorType* accum_ptr, int depth) {
+    int32x4_t acc[4][2];
+    for (int i = 0; i < 4; i++) {
+      for (int j = 0; j < 2; j++) {
+        acc[i][j] = vdupq_n_s32(0);
+      }
+    }
+
+    int d = 0;
+    for (; d <= depth - 64; d += 64) {
+      int16x8_t local_acc[4][2];
+      for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 2; j++) {
+          local_acc[i][j] = vdupq_n_s16(0);
+        }
+      }
+
+      // There are not enough registers to fit all lhs and rhs values for 64
+      // depth. Instead, load values for 32 depth at a time.
+      for (int k = 0; k < 2; k++) {
+        int8x16_t lhs[4][2];
+        for (int i = 0; i < 4; i++) {
+          lhs[i][0] = vld1q_s8(lhs_ptr + 16 * i + 128 * k);
+          lhs[i][1] = vld1q_s8(lhs_ptr + 64 + 16 * i + 128 * k);
+        }
+
+        int8x16_t rhs[4];
+        for (int i = 0; i < 4; i++) {
+          rhs[i] = vld1q_s8(rhs_ptr + 16 * i + 64 * k);
+        }
+
+        for (int i = 0; i < 4; i++) {
+          if (k == 0) {
+            local_acc[i][0] = vmull_s8(vget_low_s8(lhs[i][0]),
+                                       vget_low_s8(rhs[0]));
+            local_acc[i][0] = vmlal_s8(local_acc[i][0], vget_low_s8(lhs[i][1]),
+                                       vget_low_s8(rhs[2]));
+            local_acc[i][1] = vmull_s8(vget_low_s8(lhs[i][0]),
+                                       vget_low_s8(rhs[1]));
+            local_acc[i][1] = vmlal_s8(local_acc[i][1],
+                                       vget_low_s8(lhs[i][1]),
+                                       vget_low_s8(rhs[3]));
+          } else {
+            local_acc[i][0] = vmlal_s8(local_acc[i][0], vget_low_s8(lhs[i][0]),
+                                       vget_low_s8(rhs[0]));
+            local_acc[i][0] = vmlal_s8(local_acc[i][0], vget_low_s8(lhs[i][1]),
+                                       vget_low_s8(rhs[2]));
+            local_acc[i][1] = vmlal_s8(local_acc[i][1], vget_low_s8(lhs[i][0]),
+                                       vget_low_s8(rhs[1]));
+            local_acc[i][1] = vmlal_s8(local_acc[i][1], vget_low_s8(lhs[i][1]),
+                                       vget_low_s8(rhs[3]));
+          }
+
+          local_acc[i][0] = vmlal_s8(local_acc[i][0], vget_high_s8(lhs[i][0]),
+                                     vget_high_s8(rhs[0]));
+          local_acc[i][0] = vmlal_s8(local_acc[i][0], vget_high_s8(lhs[i][1]),
+                                     vget_high_s8(rhs[2]));
+          local_acc[i][1] = vmlal_s8(local_acc[i][1], vget_high_s8(lhs[i][0]),
+                                     vget_high_s8(rhs[1]));
+          local_acc[i][1] = vmlal_s8(local_acc[i][1], vget_high_s8(lhs[i][1]),
+                                     vget_high_s8(rhs[3]));
+        }
+      }
+
+      for (int i = 0; i < 4; i++) {
+        acc[i][0] = vpadalq_s16(acc[i][0], local_acc[i][0]);
+        acc[i][1] = vpadalq_s16(acc[i][1], local_acc[i][1]);
+      }
+
+      lhs_ptr += 64 * 4;
+      rhs_ptr += 64 * 2;
+    }
+    for (; d <= depth - 16; d += 16) {
+      int8x16_t lhs[4];
+      for (int i = 0; i < 4; i++) {
+        lhs[i] = vld1q_s8(lhs_ptr + 16 * i);
+      }
+      int8x16_t rhs[2];
+      for (int i = 0; i < 2; i++) {
+        rhs[i] = vld1q_s8(rhs_ptr + 16 * i);
+      }
+
+      for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 2; j++) {
+          int16x8_t local_acc =
+              vmull_s8(vget_low_s8(lhs[i]), vget_low_s8(rhs[j]));
+          local_acc =
+              vmlal_s8(local_acc, vget_high_s8(lhs[i]), vget_high_s8(rhs[j]));
+          acc[i][j] = vpadalq_s16(acc[i][j], local_acc);
+        }
+      }
+      lhs_ptr += 16 * 4;
+      rhs_ptr += 16 * 2;
+    }
+    for (int i = 0; i < 2; i++) {
+      int32x4_t acc_2x_0 = vpaddq_s32(acc[0][i], acc[1][i]);
+      int32x4_t acc_2x_1 = vpaddq_s32(acc[2][i], acc[3][i]);
+      int32x4_t acc_4x = vpaddq_s32(acc_2x_0, acc_2x_1);
+      int32x4_t dst_val = vld1q_s32(accum_ptr + 4 * i);
+      dst_val = vaddq_s32(dst_val, acc_4x);
+      vst1q_s32(accum_ptr + 4 * i, dst_val);
+    }
+  }
+};
+
+SET_7BIT_RANGES(NEON_64bit_GEMM_Int7Operands_AccumEightWithin16Bits_intrinsics);
+
+// C++ intrinsics-based variant of the deep, 4.25-bit, fast kernel.
+struct NEON_64bit_GEMM_Int425Operands_intrinsics {
+  typedef std::int8_t OperandType;
+  typedef std::int32_t AccumulatorType;
+  typedef KernelFormat<
+      KernelSideFormat<CellFormat<4, 32, CellOrder::WidthMajor>, 1>,
+      KernelSideFormat<CellFormat<2, 32, CellOrder::WidthMajor>, 1> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr,
+                  AccumulatorType* accum_ptr, int depth) {
+    int32x4_t acc[4][2];
+    for (int i = 0; i < 4; i++) {
+      for (int j = 0; j < 2; j++) {
+        acc[i][j] = vdupq_n_s32(0);
+      }
+    }
+
+    const int num_outer_depth_loop = depth / 512 + 1;
+    int d = 0;
+    for (int od = 0; od < num_outer_depth_loop; od++) {
+      int16x8_t local_acc[4][2];
+      for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 2; j++) {
+          local_acc[i][j] = vdupq_n_s16(0);
+        }
+      }
+      for (int k = 0; k < 16 && d <= depth - 32; k++, d += 32) {
+        int8x16_t lhs[8];
+        for (int i = 0; i < 8; i++) {
+          lhs[i] = vld1q_s8(lhs_ptr + 16 * i);
+        }
+        int8x16_t rhs[4];
+        for (int i = 0; i < 4; i++) {
+          rhs[i] = vld1q_s8(rhs_ptr + 16 * i);
+        }
+        for (int i = 0; i < 4; i++) {
+          for (int j = 0; j < 2; j++) {
+            int8x16_t temp_acc = vmulq_s8(lhs[i * 2], rhs[j * 2]);
+            temp_acc = vmlaq_s8(temp_acc, lhs[i * 2 + 1], rhs[j * 2 + 1]);
+            local_acc[i][j] = vpadalq_s8(local_acc[i][j], temp_acc);
+          }
+        }
+        lhs_ptr += 128;
+        rhs_ptr += 64;
+      }
+
+      for (int i = 0; i < 4; i++) {
+        for (int j = 0; j < 2; j++) {
+          acc[i][j] = vpadalq_s16(acc[i][j], local_acc[i][j]);
+        }
+      }
+    }
+
+    for (int i = 0; i < 2; i++) {
+      int32x4_t acc_2x_0 = vpaddq_s32(acc[0][i], acc[1][i]);
+      int32x4_t acc_2x_1 = vpaddq_s32(acc[2][i], acc[3][i]);
+      int32x4_t acc_4x = vpaddq_s32(acc_2x_0, acc_2x_1);
+
+      int32x4_t dst_val = vld1q_s32(accum_ptr + 4 * i);
+      dst_val = vaddq_s32(dst_val, acc_4x);
+      vst1q_s32(accum_ptr + 4 * i, dst_val);
+    }
+  }
+};
+
+SET_425BIT_RANGES(NEON_64bit_GEMM_Int425Operands_intrinsics);
+
 #endif  // __arm__ || __aarch64__
 
 #ifdef __mips
@@ -4901,13 +5700,10 @@ class CacheLineAlignedBuffer {
 };
 
 template <typename DataType>
-void FillRandom(CacheLineAlignedBuffer<DataType>* buffer) {
+void FillRandom(CacheLineAlignedBuffer<DataType>* buffer, DataType min,
+                DataType max) {
   static std::mt19937 generator(0);
-  // 100 is smaller than any nonzero bound of the range of any data type.
-  const DataType kMaxVal = DataType(100);
-  const DataType kMinVal =
-      std::is_signed<DataType>::value ? -kMaxVal : DataType(0);
-  std::uniform_real_distribution<float> dist(kMinVal, kMaxVal);
+  std::uniform_real_distribution<float> dist(min, max);
   for (std::size_t i = 0; i < buffer->size(); i++) {
     buffer->data()[i] = DataType(dist(generator));
   }
@@ -4971,9 +5767,16 @@ void test_kernel(int depth, const char* kernel_name) {
   CacheLineAlignedBuffer<AccumulatorType> accum_reference(kLhsWidth *
                                                           kRhsWidth);
 
-  FillRandom(&lhs);
-  FillRandom(&rhs);
-  FillRandom(&accum_initial);
+  FillRandom(&lhs, KernelOperandRanges<Kernel>::LhsMin(),
+             KernelOperandRanges<Kernel>::LhsMax());
+  FillRandom(&rhs, KernelOperandRanges<Kernel>::RhsMin(),
+             KernelOperandRanges<Kernel>::RhsMax());
+  FillRandom(&accum_initial,
+             std::is_signed<AccumulatorType>::value
+                 ? AccumulatorType(-100)
+                 : AccumulatorType(0),
+              AccumulatorType(100));
+
   Copy(&accum, accum_initial);
   Copy(&accum_reference, accum_initial);
 
@@ -5159,6 +5962,10 @@ int main() {
 #endif
 
 #ifdef __aarch64__
+  BENCHMARK(NEON_64bit_GEMM_Int425Operands);
+  BENCHMARK(NEON_64bit_GEMM_Int425Operands_intrinsics);
+  BENCHMARK(NEON_64bit_GEMM_Int7Operands_AccumEightWithin16Bits);
+  BENCHMARK(NEON_64bit_GEMM_Int7Operands_AccumEightWithin16Bits_intrinsics);
   BENCHMARK(NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits);
   BENCHMARK(NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits_intrinsics);
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators);
