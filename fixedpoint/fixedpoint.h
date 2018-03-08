@@ -109,11 +109,12 @@ tIntegerType Neg(tIntegerType a) {
   return -a;
 }
 
-// Integer arithmetic left-shift, equivalent to multiplying with a
-// power of two. Not saturating. Overflow is undefined behavior.
+// Integer arithmetic left-shift, equivalent to multiplying with a power of two.
+// Not saturating. Negative inputs do not necessarily invoke undefined
+// behaviour. Overflow is undefined behavior.
 template <typename tIntegerType>
 tIntegerType ShiftLeft(tIntegerType a, int offset) {
-  return a << offset;
+  return a * (static_cast<tIntegerType>(1) << offset);
 }
 
 // Integer arithmetic right-shift. Not rounding.
