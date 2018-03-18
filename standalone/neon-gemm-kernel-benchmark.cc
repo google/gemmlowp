@@ -5618,6 +5618,186 @@ struct MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_assembly2 {
         "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31");
   }
 };
+
+// WidthMajor variant of the above.
+// Using 16x16=32 multiplications.
+// 32 MSA regs used:
+// - 24 accumulators
+// - 3 lhs
+// - 5 rhs
+// ~47 instructions in the loop.
+struct MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_assembly3 {
+  typedef std::uint8_t OperandType;
+  typedef std::uint32_t AccumulatorType;
+  typedef KernelFormat<
+      KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 3>,
+      KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 2> >
+      Format;
+  static void Run(OperandType* lhs_ptr, OperandType* rhs_ptr,
+                  AccumulatorType* accum_ptr, int depth) {
+    asm volatile(
+        // Load accumulators
+        "ld.w   $w0,   (0*16)(%[accum_ptr])\n"
+        "ld.w   $w4,   (1*16)(%[accum_ptr])\n"
+        "ld.w   $w8,   (2*16)(%[accum_ptr])\n"
+        "ld.w   $w1,   (3*16)(%[accum_ptr])\n"
+        "ld.w   $w5,   (4*16)(%[accum_ptr])\n"
+        "ld.w   $w9,   (5*16)(%[accum_ptr])\n"
+        "ld.w   $w2,   (6*16)(%[accum_ptr])\n"
+        "ld.w   $w6,   (7*16)(%[accum_ptr])\n"
+        "ld.w   $w10,  (8*16)(%[accum_ptr])\n"
+        "ld.w   $w3,   (9*16)(%[accum_ptr])\n"
+        "ld.w   $w7,  (10*16)(%[accum_ptr])\n"
+        "ld.w   $w11, (11*16)(%[accum_ptr])\n"
+        "ld.w   $w12, (12*16)(%[accum_ptr])\n"
+        "ld.w   $w16, (13*16)(%[accum_ptr])\n"
+        "ld.w   $w20, (14*16)(%[accum_ptr])\n"
+        "ld.w   $w13, (15*16)(%[accum_ptr])\n"
+        "ld.w   $w17, (16*16)(%[accum_ptr])\n"
+        "ld.w   $w21, (17*16)(%[accum_ptr])\n"
+        "ld.w   $w14, (18*16)(%[accum_ptr])\n"
+        "ld.w   $w18, (19*16)(%[accum_ptr])\n"
+        "ld.w   $w22, (20*16)(%[accum_ptr])\n"
+        "ld.w   $w15, (21*16)(%[accum_ptr])\n"
+        "ld.w   $w19, (22*16)(%[accum_ptr])\n"
+        "ld.w   $w23, (23*16)(%[accum_ptr])\n"
+
+        GEMMLOWP_LABEL_LOOP ":\n"
+        // Overview of register layout:
+        //
+        // A half of the 2 2x4 cells of Rhs is stored in 16bit in w28-w31
+        // (each register contains 4 replicas of a pair of elements).
+        // A 12x2 block of 3 4x2 cells Lhs is stored in 16bit in w24-w26.
+        // A 12x8 block of accumulators is stored in 32bit in w0-w23.
+        //
+        //                    +------+------+------+------+
+        //               Rhs  |w28   |w29   |w30   |w31   |
+        //                    +------+------+------+------+
+        //
+        //                    |      |      |      |      |
+        //
+        //       Lhs          |      |      |      |      |
+        //
+        //      +---+ - - - - +------+------+------+------+
+        //      |w24|         |w0/12 |w1/13 |w2/14 |w3/15 |
+        //      |w24|         |w0/12 |w1/13 |w2/14 |w3/15 |
+        //      |w24|         |w0/12 |w1/13 |w2/14 |w3/15 |
+        //      |w24|         |w0/12 |w1/13 |w2/14 |w3/15 |
+        //      +---+ - - - - +------+------+------+------+
+        //      |w25|         |w4/16 |w5/17 |w6/18 |w7/19 |
+        //      |w25|         |w4/16 |w5/17 |w6/18 |w7/19 |
+        //      |w25|         |w4/16 |w5/17 |w6/18 |w7/19 |
+        //      |w25|         |w4/16 |w5/17 |w6/18 |w7/19 |
+        //      +---+ - - - - +------+------+------+------+
+        //      |w26|         |w8/20 |w9/21 |w10/22|w11/23|
+        //      |w26|         |w8/20 |w9/21 |w10/22|w11/23|
+        //      |w26|         |w8/20 |w9/21 |w10/22|w11/23|
+        //      |w26|         |w8/20 |w9/21 |w10/22|w11/23|
+        //      +---+ - - - - +------+------+------+------+
+        //
+        //                             Accumulators
+
+        // Load 3 x 8 bytes of lhs[] with 2 16-byte overlapped loads.
+        "ld.b   $w24, 0(%[lhs_ptr])\n"
+        "ld.b   $w25, 8(%[lhs_ptr])\n"
+
+        // Load 2 x 8 bytes of rhs[].
+        "ld.b   $w27, 0(%[rhs_ptr])\n"
+
+        // Zero-extend 8-bit elements of lhs[] to 16 bits.
+        "ldi.b  $w31, 0\n"
+        "ilvr.b $w24, $w31, $w24\n"
+        "ilvl.b $w26, $w31, $w25\n"
+        "ilvr.b $w25, $w31, $w25\n"
+
+        // First half of depths 0 and 1.
+        // Zero-extend 8-bit elements of rhs[] to 16 bits.
+        "ilvr.b    $w31, $w31, $w27\n"
+        // Make 4 replicas of every pair of rhs[] elements.
+        "splati.w  $w28, $w31[0]\n"
+        "splati.w  $w29, $w31[1]\n"
+        "splati.w  $w30, $w31[2]\n"
+        "splati.w  $w31, $w31[3]\n"
+        // Dot-product-(and)-add doubles multiplicand width.
+        "dpadd_u.w  $w0, $w24, $w28\n"
+        "dpadd_u.w  $w4, $w25, $w28\n"
+        "dpadd_u.w  $w8, $w26, $w28\n"
+        "dpadd_u.w  $w1, $w24, $w29\n"
+        "dpadd_u.w  $w5, $w25, $w29\n"
+        "dpadd_u.w  $w9, $w26, $w29\n"
+        "dpadd_u.w  $w2, $w24, $w30\n"
+        "dpadd_u.w  $w6, $w25, $w30\n"
+        "dpadd_u.w $w10, $w26, $w30\n"
+        "dpadd_u.w  $w3, $w24, $w31\n"
+        "dpadd_u.w  $w7, $w25, $w31\n"
+        "dpadd_u.w $w11, $w26, $w31\n"
+
+        // Second half of depths 0 and 1.
+        // Zero-extend 8-bit elements of rhs[] to 16 bits.
+        "ldi.b     $w31, 0\n"
+        "ilvl.b    $w31, $w31, $w27\n"
+        // Make 4 replicas of every pair of rhs[] elements.
+        "splati.w  $w28, $w31[0]\n"
+        "splati.w  $w29, $w31[1]\n"
+        "splati.w  $w30, $w31[2]\n"
+        "splati.w  $w31, $w31[3]\n"
+        // Dot-product-(and)-add doubles multiplicand width.
+        "dpadd_u.w $w12, $w24, $w28\n"
+        "dpadd_u.w $w16, $w25, $w28\n"
+        "dpadd_u.w $w20, $w26, $w28\n"
+        "dpadd_u.w $w13, $w24, $w29\n"
+        "dpadd_u.w $w17, $w25, $w29\n"
+        "dpadd_u.w $w21, $w26, $w29\n"
+        "dpadd_u.w $w14, $w24, $w30\n"
+        "dpadd_u.w $w18, $w25, $w30\n"
+        "dpadd_u.w $w22, $w26, $w30\n"
+        "dpadd_u.w $w15, $w24, $w31\n"
+        "dpadd_u.w $w19, $w25, $w31\n"
+        "dpadd_u.w $w23, $w26, $w31\n"
+
+        "addiu  %[depth], -2\n"
+        GEMMLOWP_MIPS_XADDIU " %[lhs_ptr], 24\n"
+        GEMMLOWP_MIPS_XADDIU " %[rhs_ptr], 16\n"
+        "bnez   %[depth]," GEMMLOWP_LABEL_LOOP "b\n"
+
+        // Store accumulators.
+        "st.w   $w0,   (0*16)(%[accum_ptr])\n"
+        "st.w   $w4,   (1*16)(%[accum_ptr])\n"
+        "st.w   $w8,   (2*16)(%[accum_ptr])\n"
+        "st.w   $w1,   (3*16)(%[accum_ptr])\n"
+        "st.w   $w5,   (4*16)(%[accum_ptr])\n"
+        "st.w   $w9,   (5*16)(%[accum_ptr])\n"
+        "st.w   $w2,   (6*16)(%[accum_ptr])\n"
+        "st.w   $w6,   (7*16)(%[accum_ptr])\n"
+        "st.w   $w10,  (8*16)(%[accum_ptr])\n"
+        "st.w   $w3,   (9*16)(%[accum_ptr])\n"
+        "st.w   $w7,  (10*16)(%[accum_ptr])\n"
+        "st.w   $w11, (11*16)(%[accum_ptr])\n"
+        "st.w   $w12, (12*16)(%[accum_ptr])\n"
+        "st.w   $w16, (13*16)(%[accum_ptr])\n"
+        "st.w   $w20, (14*16)(%[accum_ptr])\n"
+        "st.w   $w13, (15*16)(%[accum_ptr])\n"
+        "st.w   $w17, (16*16)(%[accum_ptr])\n"
+        "st.w   $w21, (17*16)(%[accum_ptr])\n"
+        "st.w   $w14, (18*16)(%[accum_ptr])\n"
+        "st.w   $w18, (19*16)(%[accum_ptr])\n"
+        "st.w   $w22, (20*16)(%[accum_ptr])\n"
+        "st.w   $w15, (21*16)(%[accum_ptr])\n"
+        "st.w   $w19, (22*16)(%[accum_ptr])\n"
+        "st.w   $w23, (23*16)(%[accum_ptr])\n"
+        :  // outputs
+        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+        [depth] "+r"(depth)
+        :  // inputs
+        [accum_ptr] "r"(accum_ptr)
+        :  // clobbers
+        "memory",
+        "$f0", "$f1", "$f2", "$f3", "$f4", "$f5", "$f6", "$f7",
+        "$f8", "$f9", "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
+        "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
+        "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31");
+  }
+};
 #endif  // __mips
 
 // BEGIN code copied from gemmlowp/internal/kernel_reference.h
@@ -5993,6 +6173,7 @@ int main() {
   BENCHMARK(MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_intrinsics);
   BENCHMARK(MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_assembly);
   BENCHMARK(MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_assembly2);
+  BENCHMARK(MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_assembly3);
 #endif
 
   return 0;
