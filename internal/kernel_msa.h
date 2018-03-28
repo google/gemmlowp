@@ -42,8 +42,9 @@ namespace gemmlowp {
 
 // Our main GEMM kernel.
 struct MSA_Kernel12x8Depth2 : KernelBase {
-  typedef KernelFormat<KernelSideFormat<CellFormat<4, 2>, 3>,
-                       KernelSideFormat<CellFormat<4, 2>, 2> >
+  typedef KernelFormat<
+      KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 3>,
+      KernelSideFormat<CellFormat<4, 2, CellOrder::WidthMajor>, 2> >
       Format;
 
   const char* Name() const override { return "MSA, 12x8, depth 2"; }
@@ -62,9 +63,6 @@ struct MSA_Kernel12x8Depth2 : KernelBase {
 
     assert(dst_row_stride == 1);
     asm volatile(
-        // Set a temp to all zeroes.
-        "ldi.b  $w31, 0\n"
-
         // Multiply dst_col_stride by 4 == sizeof(int32) to use
         // it as a byte offset below.
         GEMMLOWP_MIPS_XSLL
@@ -143,13 +141,13 @@ struct MSA_Kernel12x8Depth2 : KernelBase {
         ":\n"
         // Overview of register layout:
         //
-        // A half of the 2 2x4 cells of Rhs is stored in 16bit in w27-w30
+        // A half of the 2 2x4 cells of Rhs is stored in 16bit in w28-w31
         // (each register contains 4 replicas of a pair of elements).
         // A 12x2 block of 3 4x2 cells Lhs is stored in 16bit in w24-w26.
         // A 12x8 block of accumulators is stored in 32bit in w0-w23.
         //
         //                    +------+------+------+------+
-        //               Rhs  |w27   |w28   |w29   |w30   |
+        //               Rhs  |w28   |w29   |w30   |w31   |
         //                    +------+------+------+------+
         //
         //                    |      |      |      |      |
@@ -179,93 +177,59 @@ struct MSA_Kernel12x8Depth2 : KernelBase {
         "ld.b   $w24, 0(%[lhs_ptr])\n"
         "ld.b   $w25, 8(%[lhs_ptr])\n"
 
-        // Load 4 bytes of rhs[] for the first half of depth 0.
-        "lbu    $a0, 0(%[rhs_ptr])\n"
-        "lbu    $a1, 1(%[rhs_ptr])\n"
-        "lbu    $a2, 2(%[rhs_ptr])\n"
-        "lbu    $a3, 3(%[rhs_ptr])\n"
-        // Load 4 bytes of rhs[] for the first half of depth 1.
-        "lbu    $v0, 4(%[rhs_ptr])\n"
-        "lbu    $v1, 5(%[rhs_ptr])\n"
-        "lbu    $t8, 6(%[rhs_ptr])\n"
-        "lbu    $t9, 7(%[rhs_ptr])\n"
+        // Load 2 x 8 bytes of rhs[].
+        "ld.b   $w27, 0(%[rhs_ptr])\n"
 
         // Zero-extend 8-bit elements of lhs[] to 16 bits.
+        "ldi.b  $w31, 0\n"
         "ilvr.b $w24, $w31, $w24\n"
         "ilvl.b $w26, $w31, $w25\n"
         "ilvr.b $w25, $w31, $w25\n"
-        // Interleave depth 0 and depth 1 elements of lhs[] for dpadd_u.w.
-        "ilvl.d $w27, $w31, $w24\n"
-        "ilvl.d $w28, $w31, $w25\n"
-        "ilvl.d $w29, $w31, $w26\n"
-        "ilvr.h $w24, $w27, $w24\n"
-        "ilvr.h $w25, $w28, $w25\n"
-        "ilvr.h $w26, $w29, $w26\n"
-
-        // Combine and interleave depth 0 and depth 1 elements of rhs[] for
-        // dpadd_u.w (for the first half).
-        "ins    $a0, $v0, 16, 8\n"
-        "ins    $a1, $v1, 16, 8\n"
-        "ins    $a2, $t8, 16, 8\n"
-        "ins    $a3, $t9, 16, 8\n"
-        // Make 4 replicas of every pair of rhs[] elements.
-        "fill.w $w27, $a0\n"
-        "fill.w $w28, $a1\n"
-        "fill.w $w29, $a2\n"
-        "fill.w $w30, $a3\n"
-
-        // Load 4 bytes of rhs[] for the second half of depth 0.
-        "lbu    $a0, 8(%[rhs_ptr])\n"
-        "lbu    $a1, 9(%[rhs_ptr])\n"
-        "lbu    $a2, 10(%[rhs_ptr])\n"
-        "lbu    $a3, 11(%[rhs_ptr])\n"
-        // Load 4 bytes of rhs[] for the second half of depth 1.
-        "lbu    $v0, 12(%[rhs_ptr])\n"
-        "lbu    $v1, 13(%[rhs_ptr])\n"
-        "lbu    $t8, 14(%[rhs_ptr])\n"
-        "lbu    $t9, 15(%[rhs_ptr])\n"
 
         // First half of depths 0 and 1.
-        // Dot-product-(and)-add doubles multiplicand width.
-        "dpadd_u.w $w0, $w24, $w27\n"
-        "dpadd_u.w $w4, $w25, $w27\n"
-        "dpadd_u.w $w8, $w26, $w27\n"
-        "dpadd_u.w $w1, $w24, $w28\n"
-        "dpadd_u.w $w5, $w25, $w28\n"
-        "dpadd_u.w $w9, $w26, $w28\n"
-        "dpadd_u.w $w2, $w24, $w29\n"
-        "dpadd_u.w $w6, $w25, $w29\n"
-        "dpadd_u.w $w10, $w26, $w29\n"
-        "dpadd_u.w $w3, $w24, $w30\n"
-        "dpadd_u.w $w7, $w25, $w30\n"
-        "dpadd_u.w $w11, $w26, $w30\n"
-
-        // Combine and interleave depth 0 and depth 1 elements of rhs[] for
-        // dpadd_u.w (for the second half).
-        "ins    $a0, $v0, 16, 8\n"
-        "ins    $a1, $v1, 16, 8\n"
-        "ins    $a2, $t8, 16, 8\n"
-        "ins    $a3, $t9, 16, 8\n"
+        // Zero-extend 8-bit elements of rhs[] to 16 bits.
+        "ilvr.b    $w31, $w31, $w27\n"
         // Make 4 replicas of every pair of rhs[] elements.
-        "fill.w $w27, $a0\n"
-        "fill.w $w28, $a1\n"
-        "fill.w $w29, $a2\n"
-        "fill.w $w30, $a3\n"
+        "splati.w  $w28, $w31[0]\n"
+        "splati.w  $w29, $w31[1]\n"
+        "splati.w  $w30, $w31[2]\n"
+        "splati.w  $w31, $w31[3]\n"
+        // Dot-product-(and)-add doubles multiplicand width.
+        "dpadd_u.w  $w0, $w24, $w28\n"
+        "dpadd_u.w  $w4, $w25, $w28\n"
+        "dpadd_u.w  $w8, $w26, $w28\n"
+        "dpadd_u.w  $w1, $w24, $w29\n"
+        "dpadd_u.w  $w5, $w25, $w29\n"
+        "dpadd_u.w  $w9, $w26, $w29\n"
+        "dpadd_u.w  $w2, $w24, $w30\n"
+        "dpadd_u.w  $w6, $w25, $w30\n"
+        "dpadd_u.w $w10, $w26, $w30\n"
+        "dpadd_u.w  $w3, $w24, $w31\n"
+        "dpadd_u.w  $w7, $w25, $w31\n"
+        "dpadd_u.w $w11, $w26, $w31\n"
 
         // Second half of depths 0 and 1.
+        // Zero-extend 8-bit elements of rhs[] to 16 bits.
+        "ldi.b     $w31, 0\n"
+        "ilvl.b    $w31, $w31, $w27\n"
+        // Make 4 replicas of every pair of rhs[] elements.
+        "splati.w  $w28, $w31[0]\n"
+        "splati.w  $w29, $w31[1]\n"
+        "splati.w  $w30, $w31[2]\n"
+        "splati.w  $w31, $w31[3]\n"
         // Dot-product-(and)-add doubles multiplicand width.
-        "dpadd_u.w $w12, $w24, $w27\n"
-        "dpadd_u.w $w16, $w25, $w27\n"
-        "dpadd_u.w $w20, $w26, $w27\n"
-        "dpadd_u.w $w13, $w24, $w28\n"
-        "dpadd_u.w $w17, $w25, $w28\n"
-        "dpadd_u.w $w21, $w26, $w28\n"
-        "dpadd_u.w $w14, $w24, $w29\n"
-        "dpadd_u.w $w18, $w25, $w29\n"
-        "dpadd_u.w $w22, $w26, $w29\n"
-        "dpadd_u.w $w15, $w24, $w30\n"
-        "dpadd_u.w $w19, $w25, $w30\n"
-        "dpadd_u.w $w23, $w26, $w30\n"
+        "dpadd_u.w $w12, $w24, $w28\n"
+        "dpadd_u.w $w16, $w25, $w28\n"
+        "dpadd_u.w $w20, $w26, $w28\n"
+        "dpadd_u.w $w13, $w24, $w29\n"
+        "dpadd_u.w $w17, $w25, $w29\n"
+        "dpadd_u.w $w21, $w26, $w29\n"
+        "dpadd_u.w $w14, $w24, $w30\n"
+        "dpadd_u.w $w18, $w25, $w30\n"
+        "dpadd_u.w $w22, $w26, $w30\n"
+        "dpadd_u.w $w15, $w24, $w31\n"
+        "dpadd_u.w $w19, $w25, $w31\n"
+        "dpadd_u.w $w23, $w26, $w31\n"
 
         GEMMLOWP_MIPS_XADDIU " %[run_depth], -2\n" GEMMLOWP_MIPS_XADDIU
         " %[lhs_ptr], 24\n" GEMMLOWP_MIPS_XADDIU
@@ -315,11 +279,10 @@ struct MSA_Kernel12x8Depth2 : KernelBase {
         [dst_ptr] "r"(dst_ptr),
         [start_depth] "r"(start_depth)
         :  // clobbers
-        "memory", "v0", "v1", "a0", "a1", "a2", "a3", "t8", "t9", "$f0", "$f1",
-        "$f2", "$f3", "$f4", "$f5", "$f6", "$f7", "$f8", "$f9", "$f10", "$f11",
-        "$f12", "$f13", "$f14", "$f15", "$f16", "$f17", "$f18", "$f19", "$f20",
-        "$f21", "$f22", "$f23", "$f24", "$f25", "$f26", "$f27", "$f28", "$f29",
-        "$f30", "$f31");
+        "memory", "a0", "a1", "$f0", "$f1", "$f2", "$f3", "$f4", "$f5", "$f6",
+        "$f7", "$f8", "$f9", "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
+        "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23", "$f24",
+        "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31");
 
 #undef GEMMLOWP_LABEL_CLEAR_ACCUMULATORS
 #undef GEMMLOWP_LABEL_BEFORE_LOOP
