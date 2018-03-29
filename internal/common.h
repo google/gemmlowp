@@ -87,8 +87,6 @@
 
 //the following are user defined SIMD instruction defines for explicit SIMD enabling
 //compiler define for AVX2 -D GEMMLOWP_ENABLE_AVX2
-//compiler define for SSE4 -D GEMMLOWP_ENABLE_SSE4
-//compiler define for SSE3 -D GEMMLOWP_ENABLE_SSE3
 
 #ifdef GEMMLOWP_ALLOW_INLINE_ASM
 
@@ -127,10 +125,10 @@
 #if defined (__AVX2__) && defined (GEMMLOWP_ENABLE_AVX2)
 #define GEMMLOWP_AVX2
 // Detect SSE4.
-#elif defined (__SSE4_1__) && defined (GEMMLOWP_ENABLE_SSE4)
+#elif defined (__SSE4_1__)
 #define GEMMLOWP_SSE4
 // Detect SSE3.
-#elif defined (__SSE3__) && defined (GEMMLOWP_ENABLE_SSE3)
+#elif defined (__SSE3__)
 #define GEMMLOWP_SSE3
 #endif
 
