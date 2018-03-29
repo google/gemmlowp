@@ -25,13 +25,13 @@ namespace gemmlowp {
 template <>
 struct FixedPointRawTypeTraits<int32x4_t> {
   typedef std::int32_t ScalarRawType;
-  static const int kLanes = 4;
+  static constexpr int kLanes = 4;
 };
 
 template <>
 struct FixedPointRawTypeTraits<int16x8_t> {
   typedef std::int16_t ScalarRawType;
-  static const int kLanes = 8;
+  static constexpr int kLanes = 8;
 };
 
 template <>
