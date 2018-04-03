@@ -84,6 +84,7 @@
 // Some of our optimized paths use inline assembly and for
 // now we don't bother enabling some other optimized paths using intrinddics
 // where we can't use inline assembly paths.
+
 #ifdef GEMMLOWP_ALLOW_INLINE_ASM
 
 // Detect NEON. It's important to check for both tokens.
@@ -117,14 +118,15 @@
 #define GEMMLOWP_MSA_64
 #endif
 
+// Compiler define for AVX2 -D GEMMLOWP_ENABLE_AVX2
 // Detect AVX2
-#ifdef __AVX2__
+#if defined (__AVX2__) && defined (GEMMLOWP_ENABLE_AVX2)
 #define GEMMLOWP_AVX2
 // Detect SSE4.
-#elif __SSE4_1__
+#elif defined (__SSE4_1__)
 #define GEMMLOWP_SSE4
 // Detect SSE3.
-#elif __SSE3__
+#elif defined (__SSE3__)
 #define GEMMLOWP_SSE3
 #endif
 
