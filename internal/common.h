@@ -84,6 +84,7 @@
 // Some of our optimized paths use inline assembly and for
 // now we don't bother enabling some other optimized paths using intrinddics
 // where we can't use inline assembly paths.
+
 #ifdef GEMMLOWP_ALLOW_INLINE_ASM
 
 // Detect NEON. It's important to check for both tokens.
