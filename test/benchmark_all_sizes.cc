@@ -16,6 +16,10 @@ test/benchmark_all_sizes.cc -o /tmp/b -O3 --std=c++11 -fPIE -static \
 
 #include "../public/gemmlowp.h"
 
+#ifdef GEMMLOWP_PROFILING
+#include "../profiling/profiler.h"
+#endif
+
 #if defined GEMMLOWP_ANDROID && defined GEMMLOWP_ARM_32
 // Compilation workaround
 namespace std {
@@ -345,7 +349,18 @@ void run_benchmarks(std::map<Shape, float>* results) {
 
 int main() {
   std::map<Shape, float> results;
+
+#ifdef GEMMLOWP_PROFILING
+  gemmlowp::RegisterCurrentThreadForProfiling();
+  gemmlowp::StartProfiling();
+#endif
+
   run_benchmarks(&results);
+
+#ifdef GEMMLOWP_PROFILING
+  gemmlowp::FinishProfiling();
+#endif
+
   printf("Using %d thread(s)\n", kNumThreads);
   printf("depth,rows,cols,latency(s),Gop/s\n");
   for (const auto& result : results) {
