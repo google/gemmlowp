@@ -201,7 +201,7 @@ std::ostream& operator<<(std::ostream& s,
 //
 // This is how to obtain the fixed-point multiplier and right shift
 // parameters to pass to
-// OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint.
+// OutputStageQuantizeDownInt32ByFixedPoint.
 //
 // Note: all this code only needs to run offline to generate the quantized
 // neural network workload, not at runtime on the
@@ -347,7 +347,7 @@ int main() {
             << "use quantized arithmetic.\n"
             << std::endl;
 
-  gemmlowp::OutputStageQuantizeDownInt32ToUint8ScaleByFixedPoint
+  gemmlowp::OutputStageQuantizeDownInt32ByFixedPoint
       quantize_down_stage;
   quantize_down_stage.result_offset_after_shift = result_offset;
   quantize_down_stage.result_fixedpoint_multiplier = quantized_multiplier;

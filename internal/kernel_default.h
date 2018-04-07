@@ -80,6 +80,9 @@ GEMMLOWP_SET_DEFAULT_KERNEL(false, false, SSE4_32_Kernel4x4Depth2)
 #elif defined GEMMLOWP_SSE4_64
 #include "kernel_sse.h"
 GEMMLOWP_SET_DEFAULT_KERNEL(false, false, SSE4_64_Kernel12x4Depth2)
+#elif defined GEMMLOWP_AVX2_64
+#include "kernel_avx.h"
+GEMMLOWP_SET_DEFAULT_KERNEL(false, false, AVX2_64_Kernel24x8Depth2)
 #else
 #include "kernel_reference.h"
 namespace gemmlowp {

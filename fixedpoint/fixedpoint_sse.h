@@ -42,13 +42,13 @@ struct int16x8_m128i {
 template <>
 struct FixedPointRawTypeTraits<__m128i> {
   typedef std::int32_t ScalarRawType;
-  static const int kLanes = 4;
+  static constexpr int kLanes = 4;
 };
 
 template <>
 struct FixedPointRawTypeTraits<int16x8_m128i> {
   typedef std::int16_t ScalarRawType;
-  static const int kLanes = 8;
+  static constexpr int kLanes = 8;
 };
 
 template <>

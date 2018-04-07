@@ -19,6 +19,7 @@
 #include <algorithm>
 #include <cmath>
 #include <cstdio>
+#include <cinttypes>
 #include <random>
 #include <vector>
 #include "test.h"
@@ -79,8 +80,16 @@ v4i32 Load<v4i32>(const std::int32_t* src) {
   return __builtin_msa_ld_w(const_cast<std::int32_t*>(src), 0);
 }
 template <>
+v8i16 Load<v8i16>(const std::int16_t* src) {
+  return __builtin_msa_ld_h(const_cast<std::int16_t*>(src), 0);
+}
+template <>
 void Store<v4i32>(std::int32_t* dst, v4i32 v) {
   __builtin_msa_st_w(v, dst, 0);
+}
+template <>
+void Store<v8i16>(std::int16_t* dst, v8i16 v) {
+  __builtin_msa_st_h(v, dst, 0);
 }
 #endif
 
@@ -311,7 +320,7 @@ class TestFixedPoint {
         const std::int64_t diff = static_cast<std::int64_t>(actual_scalar[j]) -
                                   static_cast<std::int64_t>(reference[j]);
         if (std::abs(diff) > unary_op.Tolerance()) {
-          fprintf(stderr, "abs(diff) (%ld) > tolerance (%d)\n", diff,
+          fprintf(stderr, "abs(diff) (%" PRId64 ") > tolerance (%d)\n", diff,
                   unary_op.Tolerance());
         }
         Check(std::abs(diff) <= unary_op.Tolerance());
@@ -560,5 +569,6 @@ int main() {
 #endif
 #ifdef GEMMLOWP_MSA
   gemmlowp::TestFixedPoint<v4i32>().RunTests("MSA v4i32");
+  gemmlowp::TestFixedPoint<v8i16>().RunTests("MSA v8i16");
 #endif
 }

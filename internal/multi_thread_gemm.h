@@ -134,12 +134,11 @@ T WaitForVariableChange(volatile T* var, T initial_value, pthread_cond_t* cond,
 
   // Finally, do real passive waiting.
   pthread_mutex_lock(mutex);
-  T new_value = *var;
-  if (new_value == initial_value) {
+  T new_value;
+  while ((new_value = *var) == initial_value) {
     pthread_cond_wait(cond, mutex);
-    new_value = *var;
-    assert(new_value != initial_value);
   }
+  assert(new_value != initial_value);
   pthread_mutex_unlock(mutex);
   return new_value;
 }
@@ -545,11 +544,6 @@ class MultiThreadGemmContext : public MultiThreadGemmContextBase {
   // avoiding recreating threads on every Gemm.
   WorkersPool workers_pool_;
 };
-
-// Needed by chrome native builds
-#ifndef _SC_NPROCESSORS_CONF
-#define _SC_NPROCESSORS_CONF _SC_NPROCESSORS_ONLN
-#endif
 
 // Determines how many threads should be used for a given Gemm
 // operation.

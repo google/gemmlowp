@@ -24,9 +24,13 @@
 #include <time.h>
 #include <unistd.h>
 #endif
-#include <malloc.h>
+
+#ifdef __APPLE__
+#include <sys/time.h>
+#endif
 
 #if defined ANDROID || defined __ANDROID__
+#include <malloc.h>
 #include <android/api-level.h>
 // The 18 here should be 16, but has to be 18 for now due
 // to a Google-internal issue.
@@ -39,6 +43,11 @@
 #define GEMMLOWP_USE_MEMALIGN
 #endif
 #endif
+#endif
+
+// Needed by chrome native builds
+#ifndef _SC_NPROCESSORS_CONF
+#define _SC_NPROCESSORS_CONF _SC_NPROCESSORS_ONLN
 #endif
 
 namespace gemmlowp {
