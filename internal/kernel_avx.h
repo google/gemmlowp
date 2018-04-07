@@ -86,7 +86,6 @@ struct AVX2_64_Kernel24x8Depth2 : KernelBase
         //                              Accumulator
 
         asm volatile(
-
             // Set registers for destination
             "movq  %[dst_col_stride_q], %%r12\n\t" //stride is r12
             "shlq $2, %%r12\n\t"                   //set stride dword
@@ -135,8 +134,8 @@ struct AVX2_64_Kernel24x8Depth2 : KernelBase
             "vpaddd %%ymm2, %%ymm6, %%ymm6   \n\t" //add muladd lhs + rhs2 into ymm6
             "vpaddd %%ymm3, %%ymm7, %%ymm7   \n\t" //add muladd lhs + rhs3 into ymm7
 
-            //cache prefect lhs //rrw see if it works better?
-//            "prefetcht0 0x80(%[lhs_ptr]) \n\t" //prefetch cache lines
+            //cache prefect lhs //see if it works better?
+            //"prefetcht0 0x80(%[lhs_ptr]) \n\t" //prefetch cache lines
             "vpmovzxbw (%[rhs_ptr]), %%ymm1 \n\t" //mov rhs to ymm1
             "vpermq $0x44,%%ymm1, %%ymm1 \n\t"
 
@@ -170,8 +169,8 @@ struct AVX2_64_Kernel24x8Depth2 : KernelBase
             "vpaddd %%ymm2, %%ymm12, %%ymm12      \n\t" //add muladd lhs + rhs0 into ymm8
             "vpaddd %%ymm3, %%ymm13, %%ymm13      \n\t" //add muladd lhs + rhs1 into ymm9
 
-            //cache prefetch rhs //rrw see if it works better?
-//            "prefetcht0 0x80(%[rhs_ptr]) \n\t"
+            //cache prefetch rhs //see if it works better?
+            //"prefetcht0 0x80(%[rhs_ptr]) \n\t"
 
             // next LHS cell elements 2 and 3
             "vpshufd $0xaa,%%ymm1,%%ymm2        \n\t" //mov rhs 2 element to all ymm2
@@ -315,7 +314,6 @@ struct AVX2_64_Kernel24x8Depth2 : KernelBase
             "test %[start_depth], %[start_depth] \n\t"
             "jz storeDst%= \n\t"
 
-            //rrw "int3 \n\t"
             "vpaddd 0x00(%[dst_ptr]), %%ymm4, %%ymm4 \n\t"   //rhs0
             "vpaddd 0x20(%[dst_ptr]), %%ymm8, %%ymm8 \n\t"   //rhs0
             "vpaddd 0x40(%[dst_ptr]), %%ymm12, %%ymm12 \n\t" //rhs0

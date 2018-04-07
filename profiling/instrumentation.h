@@ -51,6 +51,8 @@ using ::uintptr_t;
 #include <set>
 #endif
 
+#include "./pthread_everywhere.h"
+
 namespace gemmlowp {
 
 inline void ReleaseBuildAssertion(bool condition, const char* msg) {

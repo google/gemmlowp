@@ -22,12 +22,19 @@
 namespace gemmlowp {
 
 using Int32x4 = __m128i;
+using Int16x8 = __m128i;
 using Uint8x16 = __m128i;
 
 template <int ScalarCount>
 struct RegisterType<std::int32_t, ScalarCount> {
   using Type =
       typename std::conditional<ScalarCount >= 4, Int32x4, std::int32_t>::type;
+};
+
+template <int ScalarCount>
+struct RegisterType<std::int16_t, ScalarCount> {
+  using Type =
+      typename std::conditional<ScalarCount >= 8, Int16x8, std::int16_t>::type;
 };
 
 template <int ScalarCount>
@@ -42,7 +49,15 @@ inline Int32x4 LoadInt32x4(const std::int32_t* src) {
   return _mm_loadu_si128(reinterpret_cast<const Int32x4*>(src));
 }
 
+inline Int32x4 LoadInt16x8(const std::int16_t* src) {
+  return _mm_loadu_si128(reinterpret_cast<const Int16x8*>(src));
+}
+
 inline void StoreInt32x4(std::int32_t* dst, Int32x4 value) {
+  _mm_storeu_si128(reinterpret_cast<__m128i*>(dst), value);
+}
+
+inline void StoreInt16x8(std::int16_t* dst, Int16x8 value) {
   _mm_storeu_si128(reinterpret_cast<__m128i*>(dst), value);
 }
 
@@ -111,6 +126,17 @@ struct LoadContiguousImpl<RegBlockInt32<8, 8>> {
     RegBlockInt32<8, 8> result;
     for (int i = 0; i < 16; i++) {
       result.buf.reg[i] = LoadInt32x4(src + 4 * i);
+    }
+    return result;
+  }
+};
+
+template <>
+struct LoadContiguousImpl<RegBlockInt16<8, 8>> {
+  static RegBlockInt16<8, 8> Run(const std::int16_t* src) {
+    RegBlockInt16<8, 8> result;
+    for (int i = 0; i < 8; i++) {
+      result.buf.reg[i] = LoadInt16x8(src + 8 * i);
     }
     return result;
   }

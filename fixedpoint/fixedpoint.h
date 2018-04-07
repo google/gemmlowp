@@ -47,13 +47,13 @@ struct FixedPointRawTypeTraits {};
 template <>
 struct FixedPointRawTypeTraits<std::int32_t> {
   typedef std::int32_t ScalarRawType;
-  static const int kLanes = 1;
+  static constexpr int kLanes = 1;
 };
 
 template <>
 struct FixedPointRawTypeTraits<std::int16_t> {
   typedef std::int16_t ScalarRawType;
-  static const int kLanes = 1;
+  static constexpr int kLanes = 1;
 };
 
 // Returns a SIMD value duplicating a scalar value across all lanes.
@@ -109,11 +109,12 @@ tIntegerType Neg(tIntegerType a) {
   return -a;
 }
 
-// Integer arithmetic left-shift, equivalent to multiplying with a
-// power of two. Not saturating. Overflow is undefined behavior.
+// Integer arithmetic left-shift, equivalent to multiplying with a power of two.
+// Not saturating. Negative inputs do not necessarily invoke undefined
+// behaviour. Overflow is undefined behavior.
 template <typename tIntegerType>
 tIntegerType ShiftLeft(tIntegerType a, int offset) {
-  return a << offset;
+  return a * (static_cast<tIntegerType>(1) << offset);
 }
 
 // Integer arithmetic right-shift. Not rounding.
@@ -137,7 +138,7 @@ tIntegerType SelectUsingMask(tIntegerType if_mask, tIntegerType then_val,
 // input scalar is non-zero.
 template <typename tIntegerType>
 tIntegerType MaskIfNonZero(tIntegerType a) {
-  static const tIntegerType zero = 0;
+  static constexpr tIntegerType zero = 0;
   return a ? BitNot(zero) : zero;
 }
 
@@ -333,8 +334,6 @@ inline std::int16_t SaturatingRoundingDoublingHighMul(std::int16_t a,
 // Also known as a rounding arithmetic right shift.
 template <typename IntegerType>
 inline IntegerType RoundingDivideByPOT(IntegerType x, int exponent) {
-  using ScalarIntegerType =
-      typename FixedPointRawTypeTraits<IntegerType>::ScalarRawType;
   assert(exponent >= 0);
   assert(exponent <= 31);
   const IntegerType mask = Dup<IntegerType>((1ll << exponent) - 1);
@@ -434,9 +433,9 @@ class FixedPoint {
   typedef FixedPointRawTypeTraits<RawType> RawTypeTraits;
   typedef typename RawTypeTraits::ScalarRawType ScalarRawType;
 
-  static const int kTotalBits = 8 * sizeof(ScalarRawType);
-  static const int kIntegerBits = tIntegerBits;
-  static const int kFractionalBits = kTotalBits - 1 - kIntegerBits;
+  static constexpr int kTotalBits = 8 * sizeof(ScalarRawType);
+  static constexpr int kIntegerBits = tIntegerBits;
+  static constexpr int kFractionalBits = kTotalBits - 1 - kIntegerBits;
   static_assert(kIntegerBits >= 0 && kIntegerBits < kTotalBits,
                 "bad IntegerBits");
 
@@ -476,7 +475,7 @@ class FixedPoint {
 
   template <int Exponent>
   static FixedPoint ConstantPOT() {
-    static const int kOffset = kFractionalBits + Exponent;
+    static constexpr int kOffset = kFractionalBits + Exponent;
     static_assert(
         kOffset < 31,
         "Constant not exactly representable in this fixed-point format");
@@ -647,7 +646,7 @@ double ToDouble(FixedPoint<tRawType, tIntegerBits> x) {
 template <int tIntegerBitsDst, typename tRawType, int tIntegerBitsSrc>
 FixedPoint<tRawType, tIntegerBitsDst> Rescale(
     FixedPoint<tRawType, tIntegerBitsSrc> x) {
-  static const int kExponent = tIntegerBitsSrc - tIntegerBitsDst;
+  static constexpr int kExponent = tIntegerBitsSrc - tIntegerBitsDst;
   FixedPoint<tRawType, tIntegerBitsDst> result;
   result.raw() = SaturatingRoundingMultiplyByPOT<kExponent>(x.raw());
   return result;
@@ -666,7 +665,6 @@ FixedPoint<tRawType, tIntegerBitsDst> Rescale(
 template <typename FixedPointType>
 inline typename FixedPointType::ScalarRawType RescaleConstantInitializer(
     std::int32_t int32_value) {
-  typedef typename FixedPointType::RawType RawType;
   typedef typename FixedPointType::ScalarRawType ScalarRawType;
   static constexpr int ScalarTypeBits = 8 * sizeof(ScalarRawType);
   return static_cast<ScalarRawType>(
@@ -728,9 +726,9 @@ FixedPoint<tRawType, 0> exp_on_negative_values(
     FixedPoint<tRawType, tIntegerBits> a) {
   typedef FixedPoint<tRawType, tIntegerBits> InputF;
   typedef FixedPoint<tRawType, 0> ResultF;
-  static const int kFractionalBits = InputF::kFractionalBits;
-  static const int kIntegerBits = InputF::kIntegerBits;
-  static const InputF kOneQuarter = InputF::template ConstantPOT<-2>();
+  static constexpr int kFractionalBits = InputF::kFractionalBits;
+  static constexpr int kIntegerBits = InputF::kIntegerBits;
+  const InputF kOneQuarter = InputF::template ConstantPOT<-2>();
   InputF mask = kOneQuarter - InputF::FromScalarRaw(1);
   InputF a_mod_quarter_minus_one_quarter = (a & mask) - kOneQuarter;
   ResultF result = exp_on_interval_between_negative_one_quarter_and_0_excl(
@@ -758,10 +756,10 @@ FixedPoint<tRawType, 0> exp_on_negative_values(
 
 #undef GEMMLOWP_EXP_BARREL_SHIFTER
 
+  static constexpr int clampB = kIntegerBits > 5 ? 36 - kIntegerBits : 0;
   if (kIntegerBits > 5) {
-    static const int b = kIntegerBits > 5 ? 36 - kIntegerBits : 0;
     const InputF clamp =
-        GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(InputF, -(1 << b), -32.0);
+        GEMMLOWP_CHECKED_FIXEDPOINT_CONSTANT(InputF, -(1 << clampB), -32.0);
     result = SelectUsingMask(MaskIfLessThan(a, clamp), ResultF::Zero(), result);
   }
 

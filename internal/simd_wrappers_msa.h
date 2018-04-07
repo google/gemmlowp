@@ -22,12 +22,19 @@
 namespace gemmlowp {
 
 using Int32x4 = v4i32;
+using Int16x8 = v8i16;
 using Uint8x16 = v16i8;
 
 template <int ScalarCount>
 struct RegisterType<std::int32_t, ScalarCount> {
   using Type =
       typename std::conditional<ScalarCount >= 4, Int32x4, std::int32_t>::type;
+};
+
+template <int ScalarCount>
+struct RegisterType<std::int16_t, ScalarCount> {
+  using Type =
+      typename std::conditional<ScalarCount >= 8, Int16x8, std::int16_t>::type;
 };
 
 template <int ScalarCount>
@@ -52,6 +59,22 @@ inline void StoreInt32x4(std::int32_t* dst, Int32x4 value) {
 
 inline void StoreInt32x4(Int32x4* dst, Int32x4 value) {
   __builtin_msa_st_w(value, dst, 0);
+}
+
+inline Int16x8 LoadInt16x8(const std::int16_t* src) {
+  return __builtin_msa_ld_h(const_cast<std::int16_t*>(src), 0);
+}
+
+inline Int16x8 LoadInt16x8(const Int16x8* src) {
+  return __builtin_msa_ld_h(const_cast<Int16x8*>(src), 0);
+}
+
+inline void StoreInt16x8(std::int16_t* dst, Int16x8 value) {
+  __builtin_msa_st_h(value, dst, 0);
+}
+
+inline void StoreInt16x8(Int16x8* dst, Int16x8 value) {
+  __builtin_msa_st_h(value, dst, 0);
 }
 
 inline Uint8x16 LoadUint8x16(const std::uint8_t* src) {
@@ -99,15 +122,29 @@ Int32x4 MulByRhsLane(Int32x4 a, Int32x4 b) {
   return __builtin_msa_mulv_w(a, __builtin_msa_splati_w(b, Lane));
 }
 
+static inline v4i32 workaround_msa_maddv_w(v4i32 a, v4i32 b, v4i32 c) {
+  // Workaround for incorrect encoding of maddv.df in gcc (a exchanged with c).
+#if 0
+  return __builtin_msa_maddv_w(a, b, c);
+#else
+  asm volatile("maddv.w %w[a], %w[b], %w[c]\n"
+               // Outputs
+               : [a] "+f"(a)
+               // Inputs
+               : [b] "f"(b), [c] "f"(c));
+  return a;
+#endif
+}
+
 inline void MulAdd(Int32x4 lhs, Int32x4 rhs, Int32x4* acc) {
   Int32x4 tmp = LoadInt32x4(acc);
-  tmp = __builtin_msa_maddv_w(tmp, lhs, rhs);
+  tmp = workaround_msa_maddv_w(tmp, lhs, rhs);
   StoreInt32x4(acc, tmp);
 }
 
 inline void MulAdd(Int32x4 lhs, std::int32_t rhs, Int32x4* acc) {
   Int32x4 tmp = LoadInt32x4(acc);
-  tmp = __builtin_msa_maddv_w(tmp, lhs, __builtin_msa_fill_w(rhs));
+  tmp = workaround_msa_maddv_w(tmp, lhs, __builtin_msa_fill_w(rhs));
   StoreInt32x4(acc, tmp);
 }
 
@@ -115,7 +152,7 @@ template <int Lane>
 inline void MulAddByRhsLane(Int32x4 lhs, Int32x4 rhs, Int32x4* acc) {
   static_assert(Lane >= 0 && Lane <= 3, "");
   Int32x4 tmp = LoadInt32x4(acc);
-  tmp = __builtin_msa_maddv_w(tmp, lhs, __builtin_msa_splati_w(rhs, Lane));
+  tmp = workaround_msa_maddv_w(tmp, lhs, __builtin_msa_splati_w(rhs, Lane));
   StoreInt32x4(acc, tmp);
 }
 
@@ -136,6 +173,17 @@ struct LoadContiguousImpl<RegBlockInt32<8, 8>> {
     RegBlockInt32<8, 8> result;
     for (int i = 0; i < 16; i++) {
       result.buf.reg[i] = LoadInt32x4(src + 4 * i);
+    }
+    return result;
+  }
+};
+
+template <>
+struct LoadContiguousImpl<RegBlockInt16<8, 8>> {
+  static RegBlockInt16<8, 8> Run(const std::int16_t* src) {
+    RegBlockInt16<8, 8> result;
+    for (int i = 0; i < 8; i++) {
+      result.buf.reg[i] = LoadInt16x8(src + 8 * i);
     }
     return result;
   }
