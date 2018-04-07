@@ -256,11 +256,6 @@ const float kDefaultL2RhsFactor = 0.75f;
   const int kRegisterSize = 16;
 #endif
 
-#ifdef GEMMLOWP_AVX2
-  const int kRegisterSize = 32;
-#else
-  const int kRegisterSize = 16;
-#endif
 // Hints the CPU to prefetch the cache line containing ptr.
 inline void Prefetch(const void* ptr) {
 #if defined GEMMLOWP_ARM_64 && defined GEMMLOWP_ALLOW_INLINE_ASM
