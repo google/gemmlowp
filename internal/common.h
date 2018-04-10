@@ -117,21 +117,21 @@
 #define GEMMLOWP_MSA_64
 #endif
 
-//compiler define for AVX2 -D GEMMLOWP_ENABLE_AVX2
+// compiler define for AVX2 -D GEMMLOWP_ENABLE_AVX2
 // Detect AVX2
-#if defined (__AVX2__) && defined (GEMMLOWP_ENABLE_AVX2)
+#if defined(__AVX2__) && defined(GEMMLOWP_ENABLE_AVX2)
 #define GEMMLOWP_AVX2
 // Detect SSE4.
-#elif defined (__SSE4_1__)
+#elif defined(__SSE4_1__)
 #define GEMMLOWP_SSE4
 // Detect SSE3.
-#elif defined (__SSE3__)
+#elif defined(__SSE3__)
 #define GEMMLOWP_SSE3
 #endif
 
 // Convenience SSE4 tokens for 32-bit or 64-bit
 #if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_32) && \
-   !defined(GEMMLOWP_DISABLE_SSE4)
+    !defined(GEMMLOWP_DISABLE_SSE4)
 #define GEMMLOWP_SSE4_32
 #endif
 
@@ -140,7 +140,7 @@
 #endif
 
 #if defined(GEMMLOWP_SSE4) && defined(GEMMLOWP_X86_64) && \
-   !defined(GEMMLOWP_DISABLE_SSE4)
+    !defined(GEMMLOWP_DISABLE_SSE4)
 #define GEMMLOWP_SSE4_64
 #endif
 
@@ -251,9 +251,9 @@ const float kDefaultL2RhsFactor = 0.75f;
 // are consistent with this value.
 
 #ifdef GEMMLOWP_AVX2
-  const int kRegisterSize = 32;
+const int kRegisterSize = 32;
 #else
-  const int kRegisterSize = 16;
+const int kRegisterSize = 16;
 #endif
 
 // Hints the CPU to prefetch the cache line containing ptr.

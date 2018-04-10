@@ -40,8 +40,8 @@
 #warning "Building without MSA support on MIPS, check your compiler setup!"
 #endif
 
-#if defined (__AVX2__) && !defined (GEMMLOWP_AVX2)
-#warning\
+#if defined(__AVX2__) && !defined(GEMMLOWP_AVX2)
+#warning \
     "Building without AVX2 support on AVX2 enabled machine, check your compiler setup!"
 #endif
 
