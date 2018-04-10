@@ -117,12 +117,15 @@
 #define GEMMLOWP_MSA_64
 #endif
 
-// Detect SSE.
-#ifdef __SSE4_1__
+//compiler define for AVX2 -D GEMMLOWP_ENABLE_AVX2
+// Detect AVX2
+#if defined (__AVX2__) && defined (GEMMLOWP_ENABLE_AVX2)
+#define GEMMLOWP_AVX2
+// Detect SSE4.
+#elif defined (__SSE4_1__)
 #define GEMMLOWP_SSE4
-#endif
-
-#ifdef __SSE3__
+// Detect SSE3.
+#elif defined (__SSE3__)
 #define GEMMLOWP_SSE3
 #endif
 
@@ -143,6 +146,10 @@
 
 #if defined(GEMMLOWP_SSE3) && defined(GEMMLOWP_X86_64)
 #define GEMMLOWP_SSE3_64
+#endif
+
+#if defined(GEMMLOWP_AVX2) && defined(GEMMLOWP_X86_64)
+#define GEMMLOWP_AVX2_64
 #endif
 
 #if defined(__has_feature)
@@ -242,7 +249,12 @@ const float kDefaultL2RhsFactor = 0.75f;
 // size, so any size would work there. Different platforms may set this
 // to different values but must ensure that their own optimized packing paths
 // are consistent with this value.
-const int kRegisterSize = 16;
+
+#ifdef GEMMLOWP_AVX2
+  const int kRegisterSize = 32;
+#else
+  const int kRegisterSize = 16;
+#endif
 
 // Hints the CPU to prefetch the cache line containing ptr.
 inline void Prefetch(const void* ptr) {
