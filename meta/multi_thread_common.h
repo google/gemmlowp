@@ -22,9 +22,15 @@ namespace meta {
 
 inline int ResolveMaxThreads(int max_threads) {
   if (max_threads == 0) {
+#ifdef _WIN32
+    SYSTEM_INFO sysinfo;
+    GetSystemInfo(&sysinfo);
+    return sysinfo.dwNumberOfProcessors;
+#else
     static const int hardware_threads_count =
         static_cast<int>(sysconf(_SC_NPROCESSORS_CONF));
     return hardware_threads_count;
+#endif
   }
   return max_threads;
 }
