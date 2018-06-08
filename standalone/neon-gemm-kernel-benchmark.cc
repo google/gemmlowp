@@ -2862,6 +2862,7 @@ struct NEON_64bit_GEMM_Int7Operands_AccumEightWithin16Bits {
 
       :
       // Clobbers.
+      "cc", "memory",
       // We use these NEON registers
       "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11",
       "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21",
@@ -3121,6 +3122,7 @@ struct NEON_64bit_GEMM_Int425Operands {
 
       :
       // Clobbers.
+      "cc", "memory",
       // We use these NEON registers
       "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11",
       "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21",
