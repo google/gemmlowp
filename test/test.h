@@ -92,12 +92,12 @@ class Matrix : public MatrixMap<tScalar, tOrder> {
   std::vector<Scalar> storage;
 };
 
-std::mt19937& RandomEngine() {
+inline std::mt19937& RandomEngine() {
   static std::mt19937 engine;
   return engine;
 }
 
-int Random() {
+inline int Random() {
   std::uniform_int_distribution<int> dist(0, std::numeric_limits<int>::max());
   return dist(RandomEngine());
 }
