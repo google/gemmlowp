@@ -122,7 +122,9 @@
 #if defined(__AVX2__) && defined(GEMMLOWP_ENABLE_AVX2)
 #define GEMMLOWP_AVX2
 // Detect SSE4.
-#elif defined(__SSE4_1__)
+// MSVC does not have __SSE4_1__ macro, but will enable SSE4
+// when AVX is turned on.
+#elif defined(__SSE4_1__) || (defined(_MSC_VER) && defined(__AVX__))
 #define GEMMLOWP_SSE4
 // Detect SSE3.
 #elif defined(__SSE3__)
