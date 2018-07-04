@@ -3,10 +3,12 @@ LIB_COPTS = []
 
 LIB_LINKOPTS = select({
     ":android": [],
+    ":windows": [],
     "//conditions:default": ["-lpthread"],
 })
 
 BIN_LINKOPTS = select({
     ":android": [],
+    ":windows": [],
     "//conditions:default": ["-lpthread"],
 })
