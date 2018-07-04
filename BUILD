@@ -8,6 +8,13 @@ licenses(["notice"])  # Apache 2.0
 exports_files(["LICENSE"])
 
 config_setting(
+    name = "windows",
+    values = {
+        "cpu": "x64_windows",
+    },
+)
+
+config_setting(
     name = "android",
     values = {
         "crosstool_top": "//external:android/crosstool",
