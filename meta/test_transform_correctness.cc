@@ -73,6 +73,7 @@ void prepare_data_biasadd(int count, std::uint8_t* data) {
 }
 
 void verify_requantize(const RequantizeParams& params) {
+  unsigned int incorrect = 0;
   for (int i = 0; i < params.kernel.count; ++i) {
     std::uint8_t actual = params.output[i];
     float expected = static_cast<float>(params.input[i]);
@@ -84,13 +85,21 @@ void verify_requantize(const RequantizeParams& params) {
     expected += params.kernel.output_range_offset;
     std::uint8_t expected_uint8 = static_cast<std::uint8_t>(expected);
 
-    if (actual != expected_uint8) {
-      std::cout << "Wrong: " << i << " : " << actual << " vs. "
-                << expected_uint8 << std::endl;
-      std::exit(1);
+    if (std::abs(actual - expected_uint8) > 1) {
+      std::cout << "Wrong: " << i << " : "
+                << static_cast<unsigned int>(actual) << " vs. "
+                << static_cast<unsigned int>(expected_uint8)
+                << std::endl;
+      incorrect++;
     }
   }
-  std::cout << "Requantize: OK" << std::endl;
+  if (!incorrect) {
+    std::cout << "Requantize: OK" << std::endl;
+  }
+  else {
+    std::cout << "Requantize: " << incorrect << " incorrect." << std::endl;
+    std::exit(1);
+  }
 }
 
 void verify_quantize(const QuantizeParams& params) {
@@ -144,6 +153,7 @@ void verify_minmax(const MinMaxParams& params) {
 }
 
 void verify_biasadd(const BiasAddParams& params) {
+  unsigned int incorrect = 0;
   for (int i = 0; i < params.kernel.rows * params.kernel.count; ++i) {
     std::int32_t actual = params.output[i];
     std::uint8_t input = params.input[i];
@@ -161,13 +171,22 @@ void verify_biasadd(const BiasAddParams& params) {
     sum *= params.kernel.one_over_output_range_scale;
     sum += params.kernel.output_range_offset;
     std::int32_t expected = static_cast<std::int32_t>(sum);
-    if (std::abs(actual - expected) > 1024) {
+
+    const float error = static_cast<float>(std::abs(actual - expected)) / sum;
+
+    if (error > EPSILON) {
       std::cout << "Wrong: " << i << " : " << actual << " vs. " << expected
                 << std::endl;
-      std::exit(1);
+      incorrect++;
     }
   }
-  std::cout << "BiasAdd: OK" << std::endl;
+  if (!incorrect) {
+    std::cout << "BiasAdd: OK" << std::endl;
+  }
+  else {
+    std::cout << "BiasAdd: " << incorrect << " errors." << std::endl;
+    std::exit(1);
+  }
 }
 
 int main() {

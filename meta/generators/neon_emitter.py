@@ -299,6 +299,12 @@ class NeonEmitter(object):
   def EmitMov(self, param1, param2):
     self.EmitOp2('mov', param1, param2)
 
+  def EmitBBack(self, label):
+    self.EmitOp1('b', '%db' % label)
+
+  def EmitBFront(self, label):
+    self.EmitOp1('b', '%df' % label)
+
   def EmitBeqBack(self, label):
     self.EmitOp1('beq', '%db' % label)
 
@@ -385,6 +391,10 @@ class NeonEmitter(object):
 
   def EmitVMulScalar(self, mul_type, destination, source_1, source_2):
     self.EmitOp3('vmul.%s' % mul_type, destination, source_1, source_2)
+
+  def EmitVMulAcc(self, mla_type, acc, source_1, source_2):
+    acc, source_1, source_2 = _MakeCompatible(acc, source_1, source_2)
+    self.EmitOp3('vfma.%s' % mla_type, acc, source_1, source_2)
 
   def EmitVMull(self, mul_type, destination, source_1, source_2):
     self.EmitOp3('vmull.%s' % mul_type, destination, source_1, source_2)
