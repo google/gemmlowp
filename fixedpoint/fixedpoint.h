@@ -212,6 +212,7 @@ bool Any(tIntegerType a) {
 template <typename IntegerType>
 IntegerType RoundingHalfSum(IntegerType a, IntegerType b) {
   static_assert(std::is_same<IntegerType, void>::value, "unimplemented");
+  (void)b;
   return a;
 }
 
@@ -236,6 +237,7 @@ inline std::int16_t RoundingHalfSum(std::int16_t a, std::int16_t b) {
 template <typename IntegerType>
 IntegerType SaturatingAdd(IntegerType a, IntegerType b) {
   static_assert(std::is_same<IntegerType, void>::value, "unimplemented");
+  (void)b;
   return a;
 }
 
@@ -299,6 +301,7 @@ IntegerType AddSaturatingIf16Bit(IntegerType a, IntegerType b) {
 template <typename IntegerType>
 IntegerType SaturatingRoundingDoublingHighMul(IntegerType a, IntegerType b) {
   static_assert(std::is_same<IntegerType, void>::value, "unimplemented");
+  (void)b;
   return a;
 }
 

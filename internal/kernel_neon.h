@@ -55,6 +55,7 @@ struct NEON_32_Kernel12x4Depth2 : KernelBase {
 #define GEMMLOWP_LABEL_AFTER_LOOP "4"
 
     assert(dst_row_stride == 1);
+    (void)dst_row_stride;
     asm volatile(
         // Overview of register layout:
         //
@@ -308,6 +309,7 @@ struct NEON_32_Kernel12x4Depth2Assuming12BitProducts : KernelBase {
     ScopedProfilingLabel label(
         "optimized kernel (NEON 12x4, assuming 12-bit products)");
     assert(dst_row_stride == 1);
+    (void)dst_row_stride;
 
 // See comments above for why we need local numerical labels in our asm.
 #define GEMMLOWP_LOOP_NEON_32_KERNEL_12X4_DEPTH2_ASSUMING_12BIT_PRODUCTS "1"
@@ -678,6 +680,7 @@ struct NEON_32bit_GEMM_Int8Operands_LhsNonzero : KernelBase {
            std::size_t dst_col_stride, const std::uint8_t* lhs_ptr,
            const std::uint8_t* rhs_ptr, std::size_t start_depth,
            std::size_t run_depth) const override {
+    (void)dst_row_stride;
 #define GEMMLOWP_LABEL_AFTER_LOOP "1"
 #define GEMMLOWP_LABEL_LOOP "2"
 #define GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES "3"
@@ -940,6 +943,7 @@ struct NEON_64bit_GEMM_Int8Operands_LhsNonzero : KernelBase {
            std::size_t dst_col_stride, const std::uint8_t* lhs_ptr,
            const std::uint8_t* rhs_ptr, std::size_t start_depth,
            std::size_t run_depth) const override {
+    (void)dst_row_stride;
 #define GEMMLOWP_LABEL_AFTER_LOOP_LAST16 "1"
 #define GEMMLOWP_LABEL_LOOP "2"
 #define GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES "3"
@@ -1274,6 +1278,7 @@ struct NEON_64_Kernel12x8Depth2 : KernelBase {
            std::size_t dst_col_stride, const std::uint8_t* lhs_ptr,
            const std::uint8_t* rhs_ptr, std::size_t start_depth,
            std::size_t run_depth) const override {
+    (void)dst_row_stride;
     ScopedProfilingLabel label("optimized kernel (NEON 12x8)");
 // See comments above for why we need local numerical labels in our asm.
 #define GEMMLOWP_LABEL_CLEAR_ACCUMULATORS "1"
