@@ -20,6 +20,7 @@
 #define GEMMLOWP_INTERNAL_MULTI_THREAD_GEMM_H_
 
 #include <vector>
+#include <memory>
 
 #include "single_thread_gemm.h"
 
@@ -538,11 +539,24 @@ class MultiThreadGemmContext : public MultiThreadGemmContextBase {
  public:
   WorkersPool* workers_pool() { return &workers_pool_; }
 
+  // Only used by openmp, must be called outside of omp loop
+  const std::vector<std::unique_ptr<Allocator>> &allocator_pool() {
+    if (allocator_pool_.empty()) {
+      for (int i = 0; i < max_num_threads_; ++i) {
+        allocator_pool_.push_back(std::unique_ptr<Allocator>(new Allocator));
+      }
+    }
+    return allocator_pool_;
+  }
+
  private:
   // The workers pool used by MultiThreadGemm. Making
   // this part of the context allows it to be persistent,
   // avoiding recreating threads on every Gemm.
   WorkersPool workers_pool_;
+
+  // Only used by openmp
+  std::vector<std::unique_ptr<Allocator>> allocator_pool_;
 };
 
 // Determines how many threads should be used for a given Gemm
@@ -642,7 +656,8 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
   const int task_count = thread_count;
 
   Allocator* allocator = context->allocator();
-  auto* workers_pool = context->workers_pool();
+  const std::vector<std::unique_ptr<Allocator>> &allocator_pool =
+      context->allocator_pool();
 
   BlockParams block_params;
   block_params.Init<KernelFormat>(
@@ -660,6 +675,27 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
     // Pack a large block of the RHS.
     PackRhs(&packed_rhs, rhs.block(0, c, depth, cs));
 
+#ifdef GEMMLOWP_USE_OPENMP
+#pragma omp parallel for num_threads(task_count)
+    for (int n = 0; n < task_count; ++n) {
+      int start_row = rows * n / task_count;
+      int next_start_row = std::min(
+        rows, RoundUp<KernelFormat::kRows>(rows * (n + 1) / task_count));
+
+      int block_rows = next_start_row - start_row;
+      auto lhs_block = lhs.block(start_row, 0, block_rows, depth);
+      typedef GemmWithPackedRhsTask<KernelFormat, InputScalar, OutputScalar,
+                                    BitDepthParams, LhsOrder, RhsOrder,
+                                    ResultOrder, LhsOffset, RhsOffset,
+                                    OutputPipelineType, GemmContextType>
+        TaskType;
+      TaskType task(context, kernel, lhs_block, packed_rhs, result,
+                    MatrixBlockBounds(start_row, c, block_rows, cs),
+                    lhs_offset, rhs_offset, block_params, output_pipeline);
+      task.local_allocator = allocator_pool[n].get();
+      task.Run();
+    }
+#else
     // Give work to each worker.
     std::vector<Task*> tasks;
     int next_start_row = 0;
@@ -681,7 +717,9 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
                        lhs_offset, rhs_offset, block_params, output_pipeline));
     }
     // Execute the work on the workers (and partially on this thread).
+    auto* workers_pool = context->workers_pool();
     workers_pool->Execute(tasks);
+#endif
   }
 
   allocator->Decommit();
