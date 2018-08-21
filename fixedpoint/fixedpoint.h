@@ -23,6 +23,8 @@
 #include <cstdint>
 #include <limits>
 
+#include "../internal/detect_platform.h"
+
 namespace gemmlowp {
 
 // Part 1: Low-level integer-arithmetic primitives.
