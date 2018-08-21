@@ -18,10 +18,10 @@
 #ifndef GEMMLOWP_INTERNAL_FIXEDPOINT_H_
 #define GEMMLOWP_INTERNAL_FIXEDPOINT_H_
 
+#include <algorithm>
 #include <cassert>
+#include <cstdint>
 #include <limits>
-
-#include "../internal/common.h"
 
 namespace gemmlowp {
 
@@ -247,7 +247,9 @@ inline std::int16_t SaturatingAdd(std::int16_t a, std::int16_t b) {
   std::int32_t a32 = a;
   std::int32_t b32 = b;
   std::int32_t sum = a32 + b32;
-  return static_cast<std::int16_t>(std::min(32767, std::max(-32768, sum)));
+  return static_cast<std::int16_t>(
+      std::min(static_cast<std::int32_t>(32767),
+               std::max(static_cast<std::int32_t>(-32768), sum)));
 }
 
 // Returns a+b, saturating if the integers are 16bit or narrower,
