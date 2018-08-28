@@ -14,6 +14,8 @@
 
 #include <atomic>  // NOLINT
 #include <vector>
+#include <iostream>
+#include <cstdlib>
 
 #include "../internal/multi_thread_gemm.h"
 #include "../profiling/pthread_everywhere.h"
@@ -28,7 +30,28 @@ class Thread {
         number_of_times_to_decrement_(number_of_times_to_decrement),
         made_the_last_decrement_(false),
         finished_(false) {
+#if defined GEMMLOWP_USE_PTHREAD
+    // Limit the stack size so as not to deplete memory when creating
+    // many threads.
+    pthread_attr_t attr;
+    int err = pthread_attr_init(&attr);
+    if (!err) {
+      size_t stack_size;
+      err = pthread_attr_getstacksize(&attr, &stack_size);
+      if (!err && stack_size > max_stack_size_) {
+        err = pthread_attr_setstacksize(&attr, max_stack_size_);
+      }
+      if (!err) {
+        err = pthread_create(&thread_, &attr, ThreadFunc, this);
+      }
+    }
+    if (err) {
+      std::cerr << "Failed to create a thread.\n";
+      std::abort();
+    }
+#else
     pthread_create(&thread_, nullptr, ThreadFunc, this);
+#endif
   }
 
   ~Thread() { Join(); }
@@ -55,6 +78,7 @@ class Thread {
     return nullptr;
   }
 
+  static const size_t max_stack_size_ = 256 * 1024;
   BlockingCounter* const blocking_counter_;
   const int number_of_times_to_decrement_;
   pthread_t thread_;
