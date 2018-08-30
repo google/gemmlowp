@@ -7,8 +7,5 @@ LIB_LINKOPTS = select({
     "//conditions:default": ["-lpthread"],
 })
 
-BIN_LINKOPTS = select({
-    ":android": [],
-    ":windows": [],
-    "//conditions:default": ["-lpthread"],
-})
+BIN_LINKOPTS = LIB_LINKOPTS
+

@@ -185,7 +185,7 @@ inline ThreadInfo& ThreadLocalThreadInfo() {
     }
   };
 
-  static int key_result = pthread_key_create(&key, DeleteThreadInfo);
+  pthread_key_create(&key, DeleteThreadInfo);
 
   ThreadInfo* threadInfo = static_cast<ThreadInfo*>(pthread_getspecific(key));
   if (!threadInfo) {
