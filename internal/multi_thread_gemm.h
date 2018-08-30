@@ -19,22 +19,42 @@
 #ifndef GEMMLOWP_INTERNAL_MULTI_THREAD_GEMM_H_
 #define GEMMLOWP_INTERNAL_MULTI_THREAD_GEMM_H_
 
+#include <atomic>  // NOLINT
+#include <chrono>  // NOLINT
+#include <thread>  // NOLINT
 #include <vector>
 
 #include "single_thread_gemm.h"
 
 namespace gemmlowp {
 
-// On X86 and ARM platforms we enable a busy-wait spinlock before waiting on a
-// pthread conditional variable. In order to implement that correctly we need
-// to put some explicit memory load/store barriers.
+// This value was empirically derived on an end-to-end application benchmark.
+// That this number of cycles means that we may be sleeping substantially longer
+// than a scheduler timeslice's duration is not necessarily surprising. The
+// idea is to pick up quickly new work after having finished the previous
+// workload. When it's new work within the same GEMM as the previous work, the
+// time interval that we might be busy-waiting is very small, so for that
+// purpose it would be more than enough to sleep for 1 million cycles.
+// That is all what we would observe on a GEMM benchmark. However, in a real
+// application, after having finished a GEMM, we might do unrelated work for
+// a little while, then start on a new GEMM. Think of a neural network
+// application performing inference, where many but not all layers are
+// implemented by a GEMM. In such cases, our worker threads might be idle for
+// longer periods of time before having work again. If we let them passively
+// wait, on a mobile device, the CPU scheduler might aggressively clock down
+// or even turn off the CPU cores that they were running on. That would result
+// in a long delay the next time these need to be turned back on for the next
+// GEMM. So we need to strike a balance that reflects typical time intervals
+// between consecutive GEMM invokations, not just intra-GEMM considerations.
+// Of course, we need to balance keeping CPUs spinning longer to resume work
+// faster, versus passively waiting to conserve power.
+const int kMaxBusyWaitNOPs = 4 * 1000 * 1000;
+
+// On X86 and ARM platforms we may use NOP instructions to know how long we
+// are busy-waiting.
 
 #if defined(GEMMLOWP_ALLOW_INLINE_ASM) && !defined(GEMMLOWP_NO_BUSYWAIT) && \
     (defined(GEMMLOWP_ARM) || defined(GEMMLOWP_X86))
-
-#define GEMMLOWP_USE_BUSYWAIT
-
-const int kMaxBusyWaitNOPs = 32 * 1000 * 1000;
 
 #define GEMMLOWP_NOP "nop\n"
 
@@ -43,46 +63,26 @@ const int kMaxBusyWaitNOPs = 32 * 1000 * 1000;
 #define GEMMLOWP_NOP16 GEMMLOWP_STRING_CONCAT_4(GEMMLOWP_NOP4)
 #define GEMMLOWP_NOP64 GEMMLOWP_STRING_CONCAT_4(GEMMLOWP_NOP16)
 
-inline int Do256NOPs() {
+inline int DoSomeNOPs() {
   asm volatile(GEMMLOWP_NOP64);
   return 64;
 }
 
 #undef GEMMLOWP_STRING_CONCAT_4
-#undef GEMMLOWP_NOP256
 #undef GEMMLOWP_NOP64
 #undef GEMMLOWP_NOP16
 #undef GEMMLOWP_NOP4
 #undef GEMMLOWP_NOP
 
-inline void WriteBarrier() {
-#if defined(_MSC_VER)
-  MemoryBarrier();
-#elif defined(GEMMLOWP_ARM_32)
-  asm volatile("" ::: "memory");
-#elif defined(GEMMLOWP_ARM_64)
-  asm volatile("dmb ishst" ::: "memory");
-#elif defined(GEMMLOWP_X86)
-  asm volatile("sfence" ::: "memory");
-#else
-#error "Unsupported architecture for WriteBarrier."
-#endif
-}
+#else  // May not use asm NOP.
 
-inline void ReadBarrier() {
-#if defined(_MSC_VER)
-  MemoryBarrier();
-#elif defined(GEMMLOWP_ARM_32)
-  asm volatile("" ::: "memory");
-#elif defined(GEMMLOWP_ARM_64)
-  asm volatile("dmb ishld" ::: "memory");
-#elif defined(GEMMLOWP_X86)
-  asm volatile("lfence" ::: "memory");
-#else
-#error "Unsupported architecture for ReadBarrier."
-#endif
+// If we can't use NOPs, let's use a non-inline function call as a basic
+// thing that has some vaguely known, nonzero cost.
+__attribute__((noinline))
+inline int DoSomeNOPs() {
+  // Pretend that calling an empty function takes as long as 16 NOPs...
+  return 16;
 }
-
 #endif
 
 // Waits until *var != initial_value.
@@ -108,37 +108,30 @@ inline void ReadBarrier() {
 // so as to avoid permanently spinning.
 //
 template <typename T>
-T WaitForVariableChange(volatile T* var, T initial_value, pthread_cond_t* cond,
-                        pthread_mutex_t* mutex) {
-#ifdef GEMMLOWP_USE_BUSYWAIT
-  // If we are on a platform that supports it, spin for some time.
-  {
-    int nops = 0;
-    // First, trivial case where the variable already changed value.
-    T new_value = *var;
+T WaitForVariableChange(std::atomic<T>* var, T initial_value,
+                        pthread_cond_t* cond, pthread_mutex_t* mutex) {
+  // First, trivial case where the variable already changed value.
+  T new_value = var->load(std::memory_order_acquire);
+  if (new_value != initial_value) {
+    return new_value;
+  }
+  // Then try busy-waiting.
+  int nops = 0;
+  while (nops < kMaxBusyWaitNOPs) {
+    nops += DoSomeNOPs();
+    new_value = var->load(std::memory_order_acquire);
     if (new_value != initial_value) {
-      ReadBarrier();
       return new_value;
     }
-    // Then try busy-waiting.
-    while (nops < kMaxBusyWaitNOPs) {
-      nops += Do256NOPs();
-      new_value = *var;
-      if (new_value != initial_value) {
-        ReadBarrier();
-        return new_value;
-      }
-    }
   }
-#endif
 
   // Finally, do real passive waiting.
   pthread_mutex_lock(mutex);
-  T new_value;
-  while ((new_value = *var) == initial_value) {
+  new_value = var->load(std::memory_order_acquire);
+  while (new_value == initial_value) {
     pthread_cond_wait(cond, mutex);
+    new_value = var->load(std::memory_order_acquire);
   }
-  assert(new_value != initial_value);
   pthread_mutex_unlock(mutex);
   return new_value;
 }
@@ -146,73 +139,74 @@ T WaitForVariableChange(volatile T* var, T initial_value, pthread_cond_t* cond,
 // A BlockingCounter lets one thread to wait for N events to occur.
 // This is how the master thread waits for all the worker threads
 // to have finished working.
+// The waiting is done using a naive spinlock waiting for the atomic
+// count_ to hit the value 0. This is acceptable because in our usage
+// pattern, BlockingCounter is used only to synchronize threads after
+// short-lived tasks (performing parts of the same GEMM). It is not used
+// for synchronizing longer waits (resuming work on the next GEMM).
 class BlockingCounter {
  public:
-  BlockingCounter() : count_(0), initial_count_(0) {
-    pthread_cond_init(&cond_, nullptr);
-    pthread_mutex_init(&mutex_, nullptr);
-  }
-
-  ~BlockingCounter() {
-    pthread_cond_destroy(&cond_);
-    pthread_mutex_destroy(&mutex_);
-  }
+  BlockingCounter() : count_(0) {}
 
   // Sets/resets the counter; initial_count is the number of
   // decrementing events that the Wait() call will be waiting for.
   void Reset(std::size_t initial_count) {
-    pthread_mutex_lock(&mutex_);
-    assert(count_ == 0);
-    initial_count_ = initial_count;
-    count_ = initial_count_;
-    pthread_mutex_unlock(&mutex_);
+    std::size_t old_count_value = count_.load(std::memory_order_relaxed);
+    assert(old_count_value == 0);
+    (void)old_count_value;
+    count_.store(initial_count, std::memory_order_release);
   }
 
   // Decrements the counter; if the counter hits zero, signals
-  // the thread that was waiting for that, and returns true.
+  // the threads that were waiting for that, and returns true.
   // Otherwise (if the decremented count is still nonzero),
   // returns false.
   bool DecrementCount() {
-    pthread_mutex_lock(&mutex_);
-    assert(count_ > 0);
-    count_--;
-#ifdef GEMMLOWP_USE_BUSYWAIT
-    WriteBarrier();
-#endif
-    if (count_ == 0) {
-      pthread_cond_signal(&cond_);
-    }
-    bool retval = count_ == 0;
-    pthread_mutex_unlock(&mutex_);
-    return retval;
+    std::size_t old_count_value =
+        count_.fetch_sub(1, std::memory_order_acq_rel);
+    assert(old_count_value > 0);
+    std::size_t count_value = old_count_value - 1;
+    return count_value == 0;
   }
 
   // Waits for the N other threads (N having been set by Reset())
   // to hit the BlockingCounter.
   void Wait() {
     ScopedProfilingLabel label("BlockingCounter::Wait");
-    while (count_) {
-#ifdef GEMMLOWP_USE_BUSYWAIT
-      ReadBarrier();
-#else
-      // This is likely unnecessary, but is kept to ensure regressions are not
-      // introduced.
-#ifndef _WIN32
-      asm volatile("" ::: "memory");
-#endif
-#endif
-      const std::size_t count_value = count_;
-      if (count_value) {
-        WaitForVariableChange(&count_, count_value, &cond_, &mutex_);
+    // Busy-wait until the count value is 0.
+    int nops = 0;
+    while (count_.load(std::memory_order_acquire)) {
+      nops += DoSomeNOPs();
+      if (nops > kMaxBusyWaitNOPs) {
+        nops = 0;
+        // If we are unlucky, the blocking thread (that calls DecrementCount)
+        // and the blocked thread (here, calling Wait) may be scheduled on
+        // the same CPU, so the busy-waiting of the present thread may prevent
+        // the blocking thread from resuming and unblocking.
+        // If we are even unluckier, the priorities of the present thread
+        // might be higher than that of the blocking thread, so just yielding
+        // wouldn't allow the blocking thread to resume. So we sleep for
+        // a substantial amount of time in that case. Notice that we only
+        // do so after having busy-waited for kMaxBusyWaitNOPs, which is
+        // typically several milliseconds, so sleeping 1 more millisecond
+        // isn't terrible at that point.
+        //
+        // How this is mitigated in practice:
+        // In practice, it is well known that the application should be
+        // conservative in choosing how many threads to tell gemmlowp to use,
+        // as it's hard to know how many CPU cores it will get to run on,
+        // on typical mobile devices.
+        // It seems impossible for gemmlowp to make this choice automatically,
+        // which is why gemmlowp's default is to use only 1 thread, and
+        // applications may override that if they know that they can count on
+        // using more than that.
+        std::this_thread::sleep_for(std::chrono::milliseconds(1));
       }
     }
   }
 
  private:
-  pthread_cond_t cond_;
-  pthread_mutex_t mutex_;
-  std::size_t count_;
-  std::size_t initial_count_;
+  std::atomic<std::size_t> count_;
 };
 
 // A workload for a worker.
@@ -252,11 +246,15 @@ class Worker {
   // Changes State; may be called from either the worker thread
   // or the master thread; however, not all state transitions are legal,
   // which is guarded by assertions.
-  void ChangeState(State new_state) {
+  //
+  // The Task argument is to be used only with new_state==HasWork.
+  // It specifies the Task being handed to this Worker.
+  void ChangeState(State new_state, Task* task = nullptr) {
     ScopedProfilingLabel label("Worker::ChangeState");
     pthread_mutex_lock(&state_mutex_);
-    assert(new_state != state_);
-    switch (state_) {
+    State old_state = state_.load(std::memory_order_relaxed);
+    assert(old_state != new_state);
+    switch (old_state) {
       case State::ThreadStartup:
         assert(new_state == State::Ready);
         break;
@@ -271,12 +269,28 @@ class Worker {
       default:
         abort();
     }
-    state_ = new_state;
-    pthread_cond_signal(&state_cond_);
-    if (state_ == State::Ready) {
+    switch (new_state) {
+      case State::Ready:
+        if (task_) {
+          // Doing work is part of reverting to 'ready' state.
+          task_->Run();
+          task_ = nullptr;
+        }
+        break;
+      case State::HasWork:
+        assert(!task_);
+        task->local_allocator = &local_allocator_;
+        task_ = task;
+        break;
+      default:
+        break;
+    }
+    state_.store(new_state, std::memory_order_relaxed);
+    pthread_cond_broadcast(&state_cond_);
+    pthread_mutex_unlock(&state_mutex_);
+    if (new_state == State::Ready) {
       counter_to_decrement_when_ready_->DecrementCount();
     }
-    pthread_mutex_unlock(&state_mutex_);
   }
 
   // Thread entry point.
@@ -298,9 +312,6 @@ class Worker {
       switch (state_to_act_upon) {
         case State::HasWork:
           // Got work to do! So do it, and then revert to 'Ready' state.
-          assert(task_);
-          task_->Run();
-          task_ = nullptr;
           ChangeState(State::Ready);
           break;
         case State::ExitAsSoonAsPossible:
@@ -317,17 +328,7 @@ class Worker {
   }
 
   // Called by the master thead to give this worker work to do.
-  // It is only legal to call this if the worker
-  void StartWork(Task* task) {
-    assert(!task_);
-    task->local_allocator = &local_allocator_;
-    task_ = task;
-#ifdef GEMMLOWP_USE_BUSYWAIT
-    WriteBarrier();
-#endif
-    assert(state_ == State::Ready);
-    ChangeState(State::HasWork);
-  }
+  void StartWork(Task* task) { ChangeState(State::HasWork, task); }
 
  private:
   // The underlying thread.
@@ -341,7 +342,10 @@ class Worker {
   pthread_mutex_t state_mutex_;
 
   // The state enum tells if we're currently working, waiting for work, etc.
-  State state_;
+  // Its concurrent accesses by the worker and main threads are guarded by
+  // state_mutex_, and can thus use memory_order_relaxed. This still needs
+  // to be a std::atomic because we use WaitForVariableChange.
+  std::atomic<State> state_;
 
   // Each thread had a local allocator so they can allocate temporary
   // buffers without blocking each other.
@@ -358,9 +362,7 @@ class Worker {
 // waits for all of them to finish.
 //
 // See MultiThreadGemmContextBase for how other WorkersPool implementations can
-// be used. Note that in those implementations, StartWorker can be free to
-// ignore the <index> value; that is, the caller of WorkersPool does not rely on
-// <index> to order tasks with equal <index>.
+// be used.
 class WorkersPool {
  public:
   WorkersPool() {}

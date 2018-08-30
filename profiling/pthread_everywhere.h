@@ -60,6 +60,9 @@ inline void pthread_cond_init(pthread_cond_t *cond, std::nullptr_t) {
   *cond = new std::condition_variable;
 }
 inline void pthread_cond_signal(pthread_cond_t *cond) { (*cond)->notify_one(); }
+inline void pthread_cond_broadcast(pthread_cond_t *cond) {
+  (*cond)->notify_all();
+}
 inline void pthread_cond_wait(pthread_cond_t *cond, pthread_mutex_t *mutex) {
   std::unique_lock<std::mutex> lock(**mutex, std::adopt_lock);
   (*cond)->wait(lock);

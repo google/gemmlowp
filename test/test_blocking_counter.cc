@@ -12,12 +12,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-#include "test.h"
-#include "../profiling/pthread_everywhere.h"
-
+#include <atomic>  // NOLINT
 #include <vector>
 
 #include "../internal/multi_thread_gemm.h"
+#include "../profiling/pthread_everywhere.h"
+#include "test.h"
 
 namespace gemmlowp {
 
@@ -26,16 +26,15 @@ class Thread {
   Thread(BlockingCounter* blocking_counter, int number_of_times_to_decrement)
       : blocking_counter_(blocking_counter),
         number_of_times_to_decrement_(number_of_times_to_decrement),
-        finished_(false),
-        made_the_last_decrement_(false) {
+        made_the_last_decrement_(false),
+        finished_(false) {
     pthread_create(&thread_, nullptr, ThreadFunc, this);
   }
 
   ~Thread() { Join(); }
 
-  bool Join() const {
-    if (!finished_) {
-      pthread_join(thread_, nullptr);
+  bool Join() {
+    while (!finished_.load()) {
     }
     return made_the_last_decrement_;
   }
@@ -48,7 +47,7 @@ class Thread {
       Check(!made_the_last_decrement_);
       made_the_last_decrement_ = blocking_counter_->DecrementCount();
     }
-    finished_ = true;
+    finished_.store(true);
   }
 
   static void* ThreadFunc(void* ptr) {
@@ -59,8 +58,14 @@ class Thread {
   BlockingCounter* const blocking_counter_;
   const int number_of_times_to_decrement_;
   pthread_t thread_;
-  bool finished_;
   bool made_the_last_decrement_;
+  // finished_ is used to manually implement Join() by busy-waiting.
+  // I wanted to use pthread_join / std::thread::join, but the behavior
+  // observed on Android was that pthread_join aborts when the thread has
+  // already joined before calling pthread_join, making that hard to use.
+  // It appeared simplest to just implement this simple spinlock, and that
+  // is good enough as this is just a test.
+  std::atomic<bool> finished_;
 };
 
 void test_blocking_counter(BlockingCounter* blocking_counter, int num_threads,
@@ -89,10 +94,10 @@ void test_blocking_counter() {
   // repeating the entire test sequence ensures that we test
   // non-monotonic changes.
   for (int repeat = 1; repeat <= 2; repeat++) {
-    for (int num_threads = 1; num_threads <= 16; num_threads++) {
+    for (int num_threads = 1; num_threads <= 5; num_threads++) {
       for (int num_decrements_per_thread = 1;
-           num_decrements_per_thread <= 64 * 1024;
-           num_decrements_per_thread *= 4) {
+           num_decrements_per_thread <= 4 * 1024;
+           num_decrements_per_thread *= 16) {
         test_blocking_counter(blocking_counter, num_threads,
                               num_decrements_per_thread,
                               num_threads * num_decrements_per_thread);
