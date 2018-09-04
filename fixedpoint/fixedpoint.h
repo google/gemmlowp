@@ -113,11 +113,12 @@ tIntegerType Neg(tIntegerType a) {
 }
 
 // Integer arithmetic left-shift, equivalent to multiplying with a power of two.
-// Not saturating. Negative values are OK. In case of overflow, no Undefined
-// Behavior, but the results are nonsense (in practice: truncated). The idea
+// Negative values are OK. In case of overflow, no Undefined
+// Behavior, but the results are implementation-defined (in practice,
+// they currently are saturated, but we make no commitment to that). The idea
 // is that the caller will want to implement the overflowing cases with
 // saturation with compare-and-mask, so we don't care about the results
-// in the overflow cast, we just want to avoid undefined behavior.
+// in the overflow case, we just want to avoid undefined behavior.
 //
 // tIntegerType may be int32 or any narrower signed type.
 template <typename tIntegerType>
