@@ -33,8 +33,7 @@ struct RegisterType<std::int32_t, ScalarCount> {
 
 template <int ScalarCount>
 struct RegisterType<std::int16_t, ScalarCount> {
-  using Type =
-      typename std::conditional<ScalarCount >= 8, Int16x8, std::int16_t>::type;
+  using Type = typename std::conditional<ScalarCount >= 8, Int16x8, std::int16_t>::type;
 };
 
 template <int ScalarCount>
@@ -69,13 +68,9 @@ inline Int16x8 LoadInt16x8(const Int16x8* src) {
   return __builtin_msa_ld_h(const_cast<Int16x8*>(src), 0);
 }
 
-inline void StoreInt16x8(std::int16_t* dst, Int16x8 value) {
-  __builtin_msa_st_h(value, dst, 0);
-}
+inline void StoreInt16x8(std::int16_t* dst, Int16x8 value) { __builtin_msa_st_h(value, dst, 0); }
 
-inline void StoreInt16x8(Int16x8* dst, Int16x8 value) {
-  __builtin_msa_st_h(value, dst, 0);
-}
+inline void StoreInt16x8(Int16x8* dst, Int16x8 value) { __builtin_msa_st_h(value, dst, 0); }
 
 inline Uint8x16 LoadUint8x16(const std::uint8_t* src) {
   return __builtin_msa_ld_b(const_cast<std::uint8_t*>(src), 0);

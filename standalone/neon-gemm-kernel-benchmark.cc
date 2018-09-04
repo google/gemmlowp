@@ -2582,82 +2582,82 @@ struct NEON_64bit_GEMM_Int7Operands_AccumEightWithin16Bits {
 
     AccumulatorType* dst_ptr = accum_ptr;
     asm volatile(
-      // Overview of register layout:
-      //
-      // A 4x16 block of Lhs is stored in 8 bit in v0--v7.
-      // A 2x16 block of Rhs is stored in 8 bit in v8--v15.
-      //
-      // A 4x2 block of global accumulators is stored in v24-v31 (as 4x32 bit
-      // components which need to be horizontally-added at the end).
-      //
-      // A 4x2 block of local accumulators is stored in v16-v23 (as 8x16 bit
-      // components which are added to global accumulators every 64 depth
-      // iteration.
-      //
-      // The Lhs vectors are multiplied by the Rhs vectors with a widening
-      // multiply over the 8 first levels of depth, producing int16x8
-      // vectors of products for each position in the accumulator matrix.
-      //
-      // Like the trick used in the fast 8-bit kernel, the operands are
-      // restricted to 7-bit range [-2^6, 2^6) so their products are in range
-      // [-2^12, 2^12 -1). This enables adding eight such products without any
-      // risk of overflowing int16, equating to 64 levels of depth before
-      // horizontally adding these int16x8 accumulators into the final int32x4
-      // accumulators.
-      //
-      // Register layout including both local and global accumulators.
-      // Since we do not have enough registers to store all Lhs values, we
-      // reuse the same registers v0--v7 to load the rest of the Lhs values.
-      //
-      //                            +-----+-----+
-      //                            | v8  | v9  |
-      //                       Rhs  +-----+-----+
-      //                            | v10 | v11 |
-      //                            +-----+-----+
-      //                            | v12 | v13 |
-      //                            +-----+-----+
-      //                            | v14 | v15 |
-      //    Lhs                     +-----+-----+
-      //  +----+----+----+----+ - - +-----+-----+      +--------+--------+
-      //  | v0 | v4 | v0 | v4 |     | v16 | v20 |      | v24.4s | v28.4s |
-      //  | v1 | v5 | v1 | v5 |     | v17 | v21 |  ->  | v25.4s | v29.4s |
-      //  | v2 | v6 | v2 | v6 |     | v18 | v22 |      | v26.4s | v30.4s |
-      //  | v3 | v7 | v3 | v7 |     | v19 | v23 |      | v27.4s | v31.4s |
-      //  +----+----+----+----+ - - +-----+-----+      +--------+--------+
-      //
-      //                           Local Accumulator    Global Accumulator
-      //
+        // Overview of register layout:
+        //
+        // A 4x16 block of Lhs is stored in 8 bit in v0--v7.
+        // A 2x16 block of Rhs is stored in 8 bit in v8--v15.
+        //
+        // A 4x2 block of global accumulators is stored in v24-v31 (as 4x32 bit
+        // components which need to be horizontally-added at the end).
+        //
+        // A 4x2 block of local accumulators is stored in v16-v23 (as 8x16 bit
+        // components which are added to global accumulators every 64 depth
+        // iteration.
+        //
+        // The Lhs vectors are multiplied by the Rhs vectors with a widening
+        // multiply over the 8 first levels of depth, producing int16x8
+        // vectors of products for each position in the accumulator matrix.
+        //
+        // Like the trick used in the fast 8-bit kernel, the operands are
+        // restricted to 7-bit range [-2^6, 2^6) so their products are in range
+        // [-2^12, 2^12 -1). This enables adding eight such products without any
+        // risk of overflowing int16, equating to 64 levels of depth before
+        // horizontally adding these int16x8 accumulators into the final int32x4
+        // accumulators.
+        //
+        // Register layout including both local and global accumulators.
+        // Since we do not have enough registers to store all Lhs values, we
+        // reuse the same registers v0--v7 to load the rest of the Lhs values.
+        //
+        //                            +-----+-----+
+        //                            | v8  | v9  |
+        //                       Rhs  +-----+-----+
+        //                            | v10 | v11 |
+        //                            +-----+-----+
+        //                            | v12 | v13 |
+        //                            +-----+-----+
+        //                            | v14 | v15 |
+        //    Lhs                     +-----+-----+
+        //  +----+----+----+----+ - - +-----+-----+      +--------+--------+
+        //  | v0 | v4 | v0 | v4 |     | v16 | v20 |      | v24.4s | v28.4s |
+        //  | v1 | v5 | v1 | v5 |     | v17 | v21 |  ->  | v25.4s | v29.4s |
+        //  | v2 | v6 | v2 | v6 |     | v18 | v22 |      | v26.4s | v30.4s |
+        //  | v3 | v7 | v3 | v7 |     | v19 | v23 |      | v27.4s | v31.4s |
+        //  +----+----+----+----+ - - +-----+-----+      +--------+--------+
+        //
+        //                           Local Accumulator    Global Accumulator
+        //
 
-      // Clear accumulators.
-      "dup v16.4s, wzr\n"
-      "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
-      "dup v24.4s, wzr\n"
-      "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
-      "dup v17.4s, wzr\n"
-      "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
-      "dup v25.4s, wzr\n"
-      "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
-      "dup v18.4s, wzr\n"
-      "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
-      "dup v26.4s, wzr\n"
-      "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
-      "dup v19.4s, wzr\n"
-      "dup v27.4s, wzr\n"
-      "dup v20.4s, wzr\n"
-      "dup v28.4s, wzr\n"
-      "dup v21.4s, wzr\n"
-      "dup v29.4s, wzr\n"
-      "dup v22.4s, wzr\n"
-      "dup v30.4s, wzr\n"
-      "dup v23.4s, wzr\n"
-      "dup v31.4s, wzr\n"
+        // Clear accumulators.
+        "dup v16.4s, wzr\n"
+        "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
+        "dup v24.4s, wzr\n"
+        "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
+        "dup v17.4s, wzr\n"
+        "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
+        "dup v25.4s, wzr\n"
+        "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
+        "dup v18.4s, wzr\n"
+        "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
+        "dup v26.4s, wzr\n"
+        "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
+        "dup v19.4s, wzr\n"
+        "dup v27.4s, wzr\n"
+        "dup v20.4s, wzr\n"
+        "dup v28.4s, wzr\n"
+        "dup v21.4s, wzr\n"
+        "dup v29.4s, wzr\n"
+        "dup v22.4s, wzr\n"
+        "dup v30.4s, wzr\n"
+        "dup v23.4s, wzr\n"
+        "dup v31.4s, wzr\n"
 
-      "cmp %w[depth], #64\n"
-      "blt " GEMMLOWP_LABEL_64_DEPTH_AFTER_LOOP "f\n"
+        "cmp %w[depth], #64\n"
+        "blt " GEMMLOWP_LABEL_64_DEPTH_AFTER_LOOP "f\n"
 
-      //"loop_%=:\n"
-      GEMMLOWP_LABEL_64_DEPTH_LOOP
-      ":\n"
+        //"loop_%=:\n"
+        GEMMLOWP_LABEL_64_DEPTH_LOOP
+        ":\n"
         "subs %w[depth], %w[depth], #64\n"
         "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
         "sadalp v24.4s, v16.8h\n"
@@ -2772,15 +2772,15 @@ struct NEON_64bit_GEMM_Int7Operands_AccumEightWithin16Bits {
 
         "bge " GEMMLOWP_LABEL_64_DEPTH_LOOP "b\n"
 
-      GEMMLOWP_LABEL_64_DEPTH_AFTER_LOOP
-      ":\n"
+        GEMMLOWP_LABEL_64_DEPTH_AFTER_LOOP
+        ":\n"
 
-      "cmp %w[depth], #16\n"
-      "blt " GEMMLOWP_LABEL_16_DEPTH_AFTER_LOOP "f\n"
+        "cmp %w[depth], #16\n"
+        "blt " GEMMLOWP_LABEL_16_DEPTH_AFTER_LOOP "f\n"
 
-      //"loop_%=:\n"
-      GEMMLOWP_LABEL_16_DEPTH_LOOP
-      ":\n"
+        //"loop_%=:\n"
+        GEMMLOWP_LABEL_16_DEPTH_LOOP
+        ":\n"
         "sadalp v24.4s, v16.8h\n"
         "smull v16.8h, v0.8b, v8.8b\n"
         "subs %w[depth], %w[depth], #16\n"
@@ -2818,56 +2818,56 @@ struct NEON_64bit_GEMM_Int7Operands_AccumEightWithin16Bits {
 
         "bge " GEMMLOWP_LABEL_16_DEPTH_LOOP "b\n"
 
-      GEMMLOWP_LABEL_16_DEPTH_AFTER_LOOP
-      ":\n"
+        GEMMLOWP_LABEL_16_DEPTH_AFTER_LOOP
+        ":\n"
 
-      "sadalp v24.4s, v16.8h\n"
-      "sadalp v25.4s, v17.8h\n"
-      "sadalp v26.4s, v18.8h\n"
-      "sadalp v27.4s, v19.8h\n"
-      "sadalp v28.4s, v20.8h\n"
-      "sadalp v29.4s, v21.8h\n"
-      "sadalp v30.4s, v22.8h\n"
-      "sadalp v31.4s, v23.8h\n"
+        "sadalp v24.4s, v16.8h\n"
+        "sadalp v25.4s, v17.8h\n"
+        "sadalp v26.4s, v18.8h\n"
+        "sadalp v27.4s, v19.8h\n"
+        "sadalp v28.4s, v20.8h\n"
+        "sadalp v29.4s, v21.8h\n"
+        "sadalp v30.4s, v22.8h\n"
+        "sadalp v31.4s, v23.8h\n"
 
-      // Reduce aggregators horizontally.
-      "addp v0.4s, v24.4s, v25.4s\n"
-      "addp v1.4s, v26.4s, v27.4s\n"
-      "addp v2.4s, v28.4s, v29.4s\n"
-      "addp v3.4s, v30.4s, v31.4s\n"
+        // Reduce aggregators horizontally.
+        "addp v0.4s, v24.4s, v25.4s\n"
+        "addp v1.4s, v26.4s, v27.4s\n"
+        "addp v2.4s, v28.4s, v29.4s\n"
+        "addp v3.4s, v30.4s, v31.4s\n"
 
-      "addp v4.4s, v0.4s, v1.4s\n"
-      "addp v5.4s, v2.4s, v3.4s\n"
+        "addp v4.4s, v0.4s, v1.4s\n"
+        "addp v5.4s, v2.4s, v3.4s\n"
 
-      // Load accumulators from memory.
-      "mov x0, %[dst_ptr]\n"
-      "ld1 {v6.16b}, [x0], #16\n"
-      "ld1 {v7.16b}, [x0], #16\n"
+        // Load accumulators from memory.
+        "mov x0, %[dst_ptr]\n"
+        "ld1 {v6.16b}, [x0], #16\n"
+        "ld1 {v7.16b}, [x0], #16\n"
 
-      // Add to the accumulators loaded from memory.
-      "add v6.4s, v6.4s, v4.4s\n"
-      "add v7.4s, v7.4s, v5.4s\n"
+        // Add to the accumulators loaded from memory.
+        "add v6.4s, v6.4s, v4.4s\n"
+        "add v7.4s, v7.4s, v5.4s\n"
 
-      // Store accumulators back to memory.
-      "mov x0, %[dst_ptr]\n"
-      "st1 {v6.16b}, [x0], #16\n"
-      "st1 {v7.16b}, [x0], #16\n"
+        // Store accumulators back to memory.
+        "mov x0, %[dst_ptr]\n"
+        "st1 {v6.16b}, [x0], #16\n"
+        "st1 {v7.16b}, [x0], #16\n"
 
-      :
-      // Outputs.
-      [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
-      [dst_ptr] "+r"(dst_ptr), [depth] "+r"(depth)
-      :
-      // Inputs.
+        :
+        // Outputs.
+        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+        [dst_ptr] "+r"(dst_ptr), [depth] "+r"(depth)
+        :
+        // Inputs.
 
-      :
-      // Clobbers.
-      "cc", "memory",
-      // We use these NEON registers
-      "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11",
-      "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21",
-      "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",
-      "x0");
+        :
+        // Clobbers.
+        "cc", "memory",
+        // We use these NEON registers
+        "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10",
+        "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20",
+        "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30",
+        "v31", "x0");
   }
 };
 
@@ -2895,80 +2895,80 @@ struct NEON_64bit_GEMM_Int425Operands {
     int outer_depth = depth / 512 + 1;
 
     asm volatile(
-      // Overview of register layout:
-      //
-      // A 4x32 block of Lhs is stored in 8 bit in v0--v7.
-      // A 2x32 block of Rhs is stored in 8 bit in v8--v11.
-      //
-      // A 4x2 block of global accumulators is stored in v24-v31 (as 4x32 bit
-      // components which need to be horizontally-added at the end).
-      //
-      // A 4x2 block of local accumulators is stored in v16-v23 (as 8x16 bit
-      // components which are horizontally-added to global accumulators every
-      // 512 depth iteration.
-      //
-      // The Lhs vectors are multiplied by the Rhs vectors with a multiply over
-      // the 16 first levels of depth, producing int8x16 vectors of products
-      // for each position in the accumulator matrix.
-      //
-      // Like the trick used in the fast 8-bit and 7-bit kernels, the operands
-      // are restricted to 4.25-bit range, [-7, 7] for one operand and [-9, 9]
-      // for the other operand. This enables adding two such products without
-      // any risk of overflowing int8, and thiry-two such products without
-      // overflowing int16. This equates to 512 levels of depth before
-      // horizontally adding these int16x8 accumulators into the final int32x4
-      // accumulators.
-      //
-      // Register layout (ignoring the v12--v15 temporary 8-bit accumulators).
-      // Since we do not have enough registers to store all Lhs values and Rhs
-      // values, we reuse the same registers v0--v7 to load subsequent Lhs
-      // values and v8-v11 to subsequent Rhs values.
-      //
-      //                            +-----+-----+
-      //                            | v8  | v9  |
-      //                       Rhs  +-----+-----+
-      //                            | v10 | v11 |
-      //                            +-----+-----+
-      //                            | v8  | v9  |
-      //                            +-----+-----+
-      //                            | v10 | v11 |
-      //    Lhs                     +-----+-----+
-      //  +----+----+----+----+ - - +-----+-----+      +--------+--------+
-      //  | v0 | v4 | v0 | v4 |     | v16 | v17 |      | v24.4s | v25.4s |
-      //  | v1 | v5 | v1 | v5 |     | v18 | v19 |  ->  | v26.4s | v27.4s |
-      //  | v2 | v6 | v2 | v6 |     | v20 | v21 |      | v28.4s | v29.4s |
-      //  | v3 | v7 | v3 | v7 |     | v22 | v23 |      | v30.4s | v31.4s |
-      //  +----+----+----+----+ - - +-----+-----+      +--------+--------+
-      //
-      //                           Local Accumulator    Global Accumulator
-      //
+        // Overview of register layout:
+        //
+        // A 4x32 block of Lhs is stored in 8 bit in v0--v7.
+        // A 2x32 block of Rhs is stored in 8 bit in v8--v11.
+        //
+        // A 4x2 block of global accumulators is stored in v24-v31 (as 4x32 bit
+        // components which need to be horizontally-added at the end).
+        //
+        // A 4x2 block of local accumulators is stored in v16-v23 (as 8x16 bit
+        // components which are horizontally-added to global accumulators every
+        // 512 depth iteration.
+        //
+        // The Lhs vectors are multiplied by the Rhs vectors with a multiply
+        // over the 16 first levels of depth, producing int8x16 vectors of
+        // products for each position in the accumulator matrix.
+        //
+        // Like the trick used in the fast 8-bit and 7-bit kernels, the operands
+        // are restricted to 4.25-bit range, [-7, 7] for one operand and [-9, 9]
+        // for the other operand. This enables adding two such products without
+        // any risk of overflowing int8, and thiry-two such products without
+        // overflowing int16. This equates to 512 levels of depth before
+        // horizontally adding these int16x8 accumulators into the final int32x4
+        // accumulators.
+        //
+        // Register layout (ignoring the v12--v15 temporary 8-bit accumulators).
+        // Since we do not have enough registers to store all Lhs values and Rhs
+        // values, we reuse the same registers v0--v7 to load subsequent Lhs
+        // values and v8-v11 to subsequent Rhs values.
+        //
+        //                            +-----+-----+
+        //                            | v8  | v9  |
+        //                       Rhs  +-----+-----+
+        //                            | v10 | v11 |
+        //                            +-----+-----+
+        //                            | v8  | v9  |
+        //                            +-----+-----+
+        //                            | v10 | v11 |
+        //    Lhs                     +-----+-----+
+        //  +----+----+----+----+ - - +-----+-----+      +--------+--------+
+        //  | v0 | v4 | v0 | v4 |     | v16 | v17 |      | v24.4s | v25.4s |
+        //  | v1 | v5 | v1 | v5 |     | v18 | v19 |  ->  | v26.4s | v27.4s |
+        //  | v2 | v6 | v2 | v6 |     | v20 | v21 |      | v28.4s | v29.4s |
+        //  | v3 | v7 | v3 | v7 |     | v22 | v23 |      | v30.4s | v31.4s |
+        //  +----+----+----+----+ - - +-----+-----+      +--------+--------+
+        //
+        //                           Local Accumulator    Global Accumulator
+        //
 
-      // Clear global accumulators.
-      "dup v24.4s, wzr\n"
-      "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
-      "dup v25.4s, wzr\n"
-      "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
-      "dup v26.4s, wzr\n"
-      "ld1 {v10.16b}, [%[rhs_ptr]], #16\n"
-      "dup v27.4s, wzr\n"
-      "ld1 {v11.16b}, [%[rhs_ptr]], #16\n"
-      "dup v28.4s, wzr\n"
-      "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
-      "dup v29.4s, wzr\n"
-      "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
-      "dup v30.4s, wzr\n"
-      "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
-      "dup v31.4s, wzr\n"
-      "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
+        // Clear global accumulators.
+        "dup v24.4s, wzr\n"
+        "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
+        "dup v25.4s, wzr\n"
+        "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
+        "dup v26.4s, wzr\n"
+        "ld1 {v10.16b}, [%[rhs_ptr]], #16\n"
+        "dup v27.4s, wzr\n"
+        "ld1 {v11.16b}, [%[rhs_ptr]], #16\n"
+        "dup v28.4s, wzr\n"
+        "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
+        "dup v29.4s, wzr\n"
+        "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
+        "dup v30.4s, wzr\n"
+        "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
+        "dup v31.4s, wzr\n"
+        "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
 
-      "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
-      "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
-      "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
-      "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+        "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+        "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+        "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
 
-      //"loop_%=:\n"
-      GEMMLOWP_LABEL_512_DEPTH_LOOP
-      ":\n"
+        //"loop_%=:\n"
+        GEMMLOWP_LABEL_512_DEPTH_LOOP
+        ":\n"
         // Clear local accumulators.
         "dup v16.8h, wzr\n"
         "dup v17.8h, wzr\n"
@@ -2983,96 +2983,97 @@ struct NEON_64bit_GEMM_Int425Operands {
         //"loop_%=:\n"
         GEMMLOWP_LABEL_32_DEPTH_LOOP
         ":\n"
-          "mul v12.16b, v0.16b, v8.16b\n"
-          "mul v13.16b, v0.16b, v10.16b\n"
-          "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
-          "mul v14.16b, v2.16b, v8.16b\n"
-          "mul v15.16b, v2.16b, v10.16b\n"
+        "mul v12.16b, v0.16b, v8.16b\n"
+        "mul v13.16b, v0.16b, v10.16b\n"
+        "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
+        "mul v14.16b, v2.16b, v8.16b\n"
+        "mul v15.16b, v2.16b, v10.16b\n"
 
-          "mla v12.16b, v1.16b, v9.16b\n"
-          "mla v13.16b, v1.16b, v11.16b\n"
-          "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
-          "mla v14.16b, v3.16b, v9.16b\n"
-          "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
-          "mla v15.16b, v3.16b, v11.16b\n"
-          "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
+        "mla v12.16b, v1.16b, v9.16b\n"
+        "mla v13.16b, v1.16b, v11.16b\n"
+        "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
+        "mla v14.16b, v3.16b, v9.16b\n"
+        "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
+        "mla v15.16b, v3.16b, v11.16b\n"
+        "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
 
-          "sadalp v16.8h, v12.16b\n"
-          "sadalp v17.8h, v13.16b\n"
-          "subs %w[depth], %w[depth], #32\n"
-          "sadalp v18.8h, v14.16b\n"
-          "sadalp v19.8h, v15.16b\n"
-          "subs x1, x1, #32\n"
+        "sadalp v16.8h, v12.16b\n"
+        "sadalp v17.8h, v13.16b\n"
+        "subs %w[depth], %w[depth], #32\n"
+        "sadalp v18.8h, v14.16b\n"
+        "sadalp v19.8h, v15.16b\n"
+        "subs x1, x1, #32\n"
 
-          "mul v12.16b, v4.16b, v8.16b\n"
-          "mul v13.16b, v4.16b, v10.16b\n"
-          "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
-          "mul v14.16b, v6.16b, v8.16b\n"
-          "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
-          "mul v15.16b, v6.16b, v10.16b\n"
+        "mul v12.16b, v4.16b, v8.16b\n"
+        "mul v13.16b, v4.16b, v10.16b\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+        "mul v14.16b, v6.16b, v8.16b\n"
+        "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
+        "mul v15.16b, v6.16b, v10.16b\n"
 
-          "mla v12.16b, v5.16b, v9.16b\n"
-          "mla v13.16b, v5.16b, v11.16b\n"
-          "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
-          "mla v14.16b, v7.16b, v9.16b\n"
-          "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
-          "mla v15.16b, v7.16b, v11.16b\n"
-          "ld1 {v10.16b}, [%[rhs_ptr]], #16\n"
+        "mla v12.16b, v5.16b, v9.16b\n"
+        "mla v13.16b, v5.16b, v11.16b\n"
+        "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+        "mla v14.16b, v7.16b, v9.16b\n"
+        "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
+        "mla v15.16b, v7.16b, v11.16b\n"
+        "ld1 {v10.16b}, [%[rhs_ptr]], #16\n"
 
-          "sadalp v20.8h, v12.16b\n"
-          "ld1 {v11.16b}, [%[rhs_ptr]], #16\n"
-          "sadalp v21.8h, v13.16b\n"
-          "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
-          "sadalp v22.8h, v14.16b\n"
-          "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
-          "sadalp v23.8h, v15.16b\n"
+        "sadalp v20.8h, v12.16b\n"
+        "ld1 {v11.16b}, [%[rhs_ptr]], #16\n"
+        "sadalp v21.8h, v13.16b\n"
+        "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+        "sadalp v22.8h, v14.16b\n"
+        "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+        "sadalp v23.8h, v15.16b\n"
 
-          "mul v12.16b, v0.16b, v8.16b\n"
-          "mul v13.16b, v0.16b, v10.16b\n"
-          "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
-          "mul v14.16b, v2.16b, v8.16b\n"
-          "mul v15.16b, v2.16b, v10.16b\n"
+        "mul v12.16b, v0.16b, v8.16b\n"
+        "mul v13.16b, v0.16b, v10.16b\n"
+        "ld1 {v0.16b}, [%[lhs_ptr]], #16\n"
+        "mul v14.16b, v2.16b, v8.16b\n"
+        "mul v15.16b, v2.16b, v10.16b\n"
 
-          "mla v12.16b, v1.16b, v9.16b\n"
-          "mla v13.16b, v1.16b, v11.16b\n"
-          "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
-          "mla v14.16b, v3.16b, v9.16b\n"
-          "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
-          "mla v15.16b, v3.16b, v11.16b\n"
-          "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
+        "mla v12.16b, v1.16b, v9.16b\n"
+        "mla v13.16b, v1.16b, v11.16b\n"
+        "ld1 {v1.16b}, [%[lhs_ptr]], #16\n"
+        "mla v14.16b, v3.16b, v9.16b\n"
+        "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
+        "mla v15.16b, v3.16b, v11.16b\n"
+        "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"
 
-          "sadalp v16.8h, v12.16b\n"
-          "sadalp v17.8h, v13.16b\n"
-          "sadalp v18.8h, v14.16b\n"
-          "sadalp v19.8h, v15.16b\n"
+        "sadalp v16.8h, v12.16b\n"
+        "sadalp v17.8h, v13.16b\n"
+        "sadalp v18.8h, v14.16b\n"
+        "sadalp v19.8h, v15.16b\n"
 
-          "mul v12.16b, v4.16b, v8.16b\n"
-          "mul v13.16b, v4.16b, v10.16b\n"
-          "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
-          "mul v14.16b, v6.16b, v8.16b\n"
-          "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
-          "mul v15.16b, v6.16b, v10.16b\n"
+        "mul v12.16b, v4.16b, v8.16b\n"
+        "mul v13.16b, v4.16b, v10.16b\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+        "mul v14.16b, v6.16b, v8.16b\n"
+        "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
+        "mul v15.16b, v6.16b, v10.16b\n"
 
-          "mla v12.16b, v5.16b, v9.16b\n"
-          "mla v13.16b, v5.16b, v11.16b\n"
-          "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
-          "mla v14.16b, v7.16b, v9.16b\n"
-          "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
-          "mla v15.16b, v7.16b, v11.16b\n"
-          "ld1 {v10.16b}, [%[rhs_ptr]], #16\n"
+        "mla v12.16b, v5.16b, v9.16b\n"
+        "mla v13.16b, v5.16b, v11.16b\n"
+        "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+        "mla v14.16b, v7.16b, v9.16b\n"
+        "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
+        "mla v15.16b, v7.16b, v11.16b\n"
+        "ld1 {v10.16b}, [%[rhs_ptr]], #16\n"
 
-          "sadalp v20.8h, v12.16b\n"
-          "ld1 {v11.16b}, [%[rhs_ptr]], #16\n"
-          "sadalp v21.8h, v13.16b\n"
-          "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
-          "sadalp v22.8h, v14.16b\n"
-          "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
-          "sadalp v23.8h, v15.16b\n"
+        "sadalp v20.8h, v12.16b\n"
+        "ld1 {v11.16b}, [%[rhs_ptr]], #16\n"
+        "sadalp v21.8h, v13.16b\n"
+        "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+        "sadalp v22.8h, v14.16b\n"
+        "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+        "sadalp v23.8h, v15.16b\n"
 
-          "beq " GEMMLOWP_LABEL_32_DEPTH_AFTER_LOOP "f\n"
+        "beq " GEMMLOWP_LABEL_32_DEPTH_AFTER_LOOP
+        "f\n"
 
-          "cmp %w[depth], #0\n"
-          "bne " GEMMLOWP_LABEL_32_DEPTH_LOOP "b\n"
+        "cmp %w[depth], #0\n"
+        "bne " GEMMLOWP_LABEL_32_DEPTH_LOOP "b\n"
 
         GEMMLOWP_LABEL_32_DEPTH_AFTER_LOOP
         ":\n"
@@ -3087,47 +3088,48 @@ struct NEON_64bit_GEMM_Int425Operands {
         "sadalp v30.4s, v22.8h\n"
         "sadalp v31.4s, v23.8h\n"
 
-        "bne " GEMMLOWP_LABEL_512_DEPTH_LOOP "b\n"
+        "bne " GEMMLOWP_LABEL_512_DEPTH_LOOP
+        "b\n"
 
-      // Reduce aggregators horizontally.
-      "addp v0.4s, v24.4s, v26.4s\n"
-      "addp v1.4s, v28.4s, v30.4s\n"
-      "addp v2.4s, v25.4s, v27.4s\n"
-      "addp v3.4s, v29.4s, v31.4s\n"
+        // Reduce aggregators horizontally.
+        "addp v0.4s, v24.4s, v26.4s\n"
+        "addp v1.4s, v28.4s, v30.4s\n"
+        "addp v2.4s, v25.4s, v27.4s\n"
+        "addp v3.4s, v29.4s, v31.4s\n"
 
-      "addp v4.4s, v0.4s, v1.4s\n"
-      "addp v5.4s, v2.4s, v3.4s\n"
+        "addp v4.4s, v0.4s, v1.4s\n"
+        "addp v5.4s, v2.4s, v3.4s\n"
 
-      // Load accumulators from memory.
-      "mov x0, %[dst_ptr]\n"
-      "ld1 {v6.16b}, [x0], #16\n"
-      "ld1 {v7.16b}, [x0], #16\n"
+        // Load accumulators from memory.
+        "mov x0, %[dst_ptr]\n"
+        "ld1 {v6.16b}, [x0], #16\n"
+        "ld1 {v7.16b}, [x0], #16\n"
 
-      // Add to the accumulators loaded from memory.
-      "add v6.4s, v6.4s, v4.4s\n"
-      "add v7.4s, v7.4s, v5.4s\n"
+        // Add to the accumulators loaded from memory.
+        "add v6.4s, v6.4s, v4.4s\n"
+        "add v7.4s, v7.4s, v5.4s\n"
 
-      // Store accumulators back to memory.
-      "mov x0, %[dst_ptr]\n"
-      "st1 {v6.16b}, [x0], #16\n"
-      "st1 {v7.16b}, [x0], #16\n"
+        // Store accumulators back to memory.
+        "mov x0, %[dst_ptr]\n"
+        "st1 {v6.16b}, [x0], #16\n"
+        "st1 {v7.16b}, [x0], #16\n"
 
-      :
-      // Outputs.
-      [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
-      [dst_ptr] "+r"(dst_ptr), [depth] "+r"(depth),
-      [outer_depth] "+r"(outer_depth)
-      :
-      // Inputs.
+        :
+        // Outputs.
+        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+        [dst_ptr] "+r"(dst_ptr), [depth] "+r"(depth),
+        [outer_depth] "+r"(outer_depth)
+        :
+        // Inputs.
 
-      :
-      // Clobbers.
-      "cc", "memory",
-      // We use these NEON registers
-      "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10", "v11",
-      "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21",
-      "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31",
-      "x0", "x1");
+        :
+        // Clobbers.
+        "cc", "memory",
+        // We use these NEON registers
+        "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "v10",
+        "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20",
+        "v21", "v22", "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30",
+        "v31", "x0", "x1");
   }
 };
 
@@ -4724,7 +4726,8 @@ struct MSA_GEMM_12x4_Uint8Operands_Uint32Accumulators_intrinsics {
         v4i32 rhs = reinterpret_cast<v4i32>(__builtin_msa_fill_w(rhs_ptr[j]));
         // Multiply-add into accumulators.
         for (int i = 0; i < 3; i++) {
-          acc[i][j] = workaround_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i]), rhs);
+          acc[i][j] = workaround_msa_maddv_w(
+              acc[i][j], reinterpret_cast<v4i32>(lhs[i]), rhs);
         }
       }
 
@@ -4734,7 +4737,8 @@ struct MSA_GEMM_12x4_Uint8Operands_Uint32Accumulators_intrinsics {
         v4i32 rhs = reinterpret_cast<v4i32>(__builtin_msa_fill_w(rhs_ptr[j + 4]));
         // Multiply-add into accumulators.
         for (int i = 0; i < 3; i++) {
-          acc[i][j] = workaround_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i + 3]), rhs);
+          acc[i][j] = workaround_msa_maddv_w(
+              acc[i][j], reinterpret_cast<v4i32>(lhs[i + 3]), rhs);
         }
       }
 
@@ -5126,7 +5130,8 @@ struct MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_intrinsics {
         v4i32 rhs = reinterpret_cast<v4i32>(__builtin_msa_fill_w(rhs_ptr[j]));
         // Multiply-add into accumulators.
         for (int i = 0; i < 3; i++) {
-          acc[i][j] = workaround_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i]), rhs);
+          acc[i][j] = workaround_msa_maddv_w(
+              acc[i][j], reinterpret_cast<v4i32>(lhs[i]), rhs);
         }
       }
       for (int j = 4; j < 8; j++) {
@@ -5134,7 +5139,8 @@ struct MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_intrinsics {
         v4i32 rhs = reinterpret_cast<v4i32>(__builtin_msa_fill_w(rhs_ptr[j + 4]));
         // Multiply-add into accumulators.
         for (int i = 0; i < 3; i++) {
-          acc[i][j] = workaround_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i]), rhs);
+          acc[i][j] = workaround_msa_maddv_w(
+              acc[i][j], reinterpret_cast<v4i32>(lhs[i]), rhs);
         }
       }
 
@@ -5144,7 +5150,8 @@ struct MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_intrinsics {
         v4i32 rhs = reinterpret_cast<v4i32>(__builtin_msa_fill_w(rhs_ptr[j + 4]));
         // Multiply-add into accumulators.
         for (int i = 0; i < 3; i++) {
-          acc[i][j] = workaround_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i + 3]), rhs);
+          acc[i][j] = workaround_msa_maddv_w(
+              acc[i][j], reinterpret_cast<v4i32>(lhs[i + 3]), rhs);
         }
       }
       for (int j = 4; j < 8; j++) {
@@ -5152,7 +5159,8 @@ struct MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_intrinsics {
         v4i32 rhs = reinterpret_cast<v4i32>(__builtin_msa_fill_w(rhs_ptr[j + 8]));
         // Multiply-add into accumulators.
         for (int i = 0; i < 3; i++) {
-          acc[i][j] = workaround_msa_maddv_w(acc[i][j], reinterpret_cast<v4i32>(lhs[i + 3]), rhs);
+          acc[i][j] = workaround_msa_maddv_w(
+              acc[i][j], reinterpret_cast<v4i32>(lhs[i + 3]), rhs);
         }
       }
 
@@ -5664,7 +5672,8 @@ struct MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_assembly3 {
         "ld.w   $w19, (22*16)(%[accum_ptr])\n"
         "ld.w   $w23, (23*16)(%[accum_ptr])\n"
 
-        GEMMLOWP_LABEL_LOOP ":\n"
+        GEMMLOWP_LABEL_LOOP
+        ":\n"
         // Overview of register layout:
         //
         // A half of the 2 2x4 cells of Rhs is stored in 16bit in w28-w31
@@ -5757,10 +5766,11 @@ struct MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_assembly3 {
         "dpadd_u.w $w19, $w25, $w31\n"
         "dpadd_u.w $w23, $w26, $w31\n"
 
-        "addiu  %[depth], -2\n"
-        GEMMLOWP_MIPS_XADDIU " %[lhs_ptr], 24\n"
-        GEMMLOWP_MIPS_XADDIU " %[rhs_ptr], 16\n"
-        "bnez   %[depth]," GEMMLOWP_LABEL_LOOP "b\n"
+        "addiu  %[depth], -2\n" GEMMLOWP_MIPS_XADDIU
+        " %[lhs_ptr], 24\n" GEMMLOWP_MIPS_XADDIU
+        " %[rhs_ptr], 16\n"
+        "bnez   %[depth]," GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Store accumulators.
         "st.w   $w0,   (0*16)(%[accum_ptr])\n"
@@ -5793,11 +5803,10 @@ struct MSA_GEMM_12x8_Uint8Operands_Uint32Accumulators_assembly3 {
         :  // inputs
         [accum_ptr] "r"(accum_ptr)
         :  // clobbers
-        "memory",
-        "$f0", "$f1", "$f2", "$f3", "$f4", "$f5", "$f6", "$f7",
-        "$f8", "$f9", "$f10", "$f11", "$f12", "$f13", "$f14", "$f15",
-        "$f16", "$f17", "$f18", "$f19", "$f20", "$f21", "$f22", "$f23",
-        "$f24", "$f25", "$f26", "$f27", "$f28", "$f29", "$f30", "$f31");
+        "memory", "$f0", "$f1", "$f2", "$f3", "$f4", "$f5", "$f6", "$f7", "$f8",
+        "$f9", "$f10", "$f11", "$f12", "$f13", "$f14", "$f15", "$f16", "$f17",
+        "$f18", "$f19", "$f20", "$f21", "$f22", "$f23", "$f24", "$f25", "$f26",
+        "$f27", "$f28", "$f29", "$f30", "$f31");
   }
 };
 #endif  // __mips

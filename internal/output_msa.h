@@ -166,8 +166,8 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToInt16,
   OutputType Eval(InputType input) const {
     OutputType output;
     // Signed saturate each 32-bit element to 16 bits.
-    v8i16 tmp = reinterpret_cast<v8i16>(__builtin_msa_sat_s_w(
-        input.reg[0], 15));
+    v8i16 tmp =
+        reinterpret_cast<v8i16>(__builtin_msa_sat_s_w(input.reg[0], 15));
     output.reg[0] = __builtin_msa_copy_s_h(tmp, 0);
     output.reg[1] = __builtin_msa_copy_s_h(tmp, 2);
     output.reg[2] = __builtin_msa_copy_s_h(tmp, 4);
@@ -176,12 +176,12 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToInt16,
   }
 };
 
-#define GEMMLOWP_MIPS_SAT_I16_8(out, in0, in1)                         \
-  {                                                                    \
-    v4i32 tmp0 = __builtin_msa_sat_s_w(in0, 15);                       \
-    v4i32 tmp1 = __builtin_msa_sat_s_w(in1, 15);                       \
-    out = __builtin_msa_pckev_h(                                       \
-        reinterpret_cast<v8i16>(tmp1), reinterpret_cast<v8i16>(tmp0)); \
+#define GEMMLOWP_MIPS_SAT_I16_8(out, in0, in1)                  \
+  {                                                             \
+    v4i32 tmp0 = __builtin_msa_sat_s_w(in0, 15);                \
+    v4i32 tmp1 = __builtin_msa_sat_s_w(in1, 15);                \
+    out = __builtin_msa_pckev_h(reinterpret_cast<v8i16>(tmp1),  \
+                                reinterpret_cast<v8i16>(tmp0)); \
   }
 
 template <>
@@ -474,50 +474,50 @@ struct StoreFinalOutputImpl<RegBlockInt16<8, 8>, DstType> {
       }
     } else {
       // top-left 4x4
-      v4i32 t0 = reinterpret_cast<v4i32>(__builtin_msa_ilvr_h(src.buf.reg[1],
-          src.buf.reg[0]));
-      v4i32 t1 = reinterpret_cast<v4i32>(__builtin_msa_ilvr_h(src.buf.reg[3],
-          src.buf.reg[2]));
+      v4i32 t0 = reinterpret_cast<v4i32>(
+          __builtin_msa_ilvr_h(src.buf.reg[1], src.buf.reg[0]));
+      v4i32 t1 = reinterpret_cast<v4i32>(
+          __builtin_msa_ilvr_h(src.buf.reg[3], src.buf.reg[2]));
       v2i64 u0 = reinterpret_cast<v2i64>(__builtin_msa_ilvr_w(t1, t0));
       v2i64 u1 = reinterpret_cast<v2i64>(__builtin_msa_ilvl_w(t1, t0));
       // top-right 4x4
-      v4i32 t2 = reinterpret_cast<v4i32>(__builtin_msa_ilvr_h(src.buf.reg[5],
-          src.buf.reg[4]));
-      v4i32 t3 = reinterpret_cast<v4i32>(__builtin_msa_ilvr_h(src.buf.reg[7],
-          src.buf.reg[6]));
+      v4i32 t2 = reinterpret_cast<v4i32>(
+          __builtin_msa_ilvr_h(src.buf.reg[5], src.buf.reg[4]));
+      v4i32 t3 = reinterpret_cast<v4i32>(
+          __builtin_msa_ilvr_h(src.buf.reg[7], src.buf.reg[6]));
       v2i64 u2 = reinterpret_cast<v2i64>(__builtin_msa_ilvr_w(t3, t2));
       v2i64 u3 = reinterpret_cast<v2i64>(__builtin_msa_ilvl_w(t3, t2));
       // bottom-left 4x4
-      v4i32 t4 = reinterpret_cast<v4i32>(__builtin_msa_ilvl_h(src.buf.reg[1],
-          src.buf.reg[0]));
-      v4i32 t5 = reinterpret_cast<v4i32>(__builtin_msa_ilvl_h(src.buf.reg[3],
-          src.buf.reg[2]));
+      v4i32 t4 = reinterpret_cast<v4i32>(
+          __builtin_msa_ilvl_h(src.buf.reg[1], src.buf.reg[0]));
+      v4i32 t5 = reinterpret_cast<v4i32>(
+          __builtin_msa_ilvl_h(src.buf.reg[3], src.buf.reg[2]));
       v2i64 u4 = reinterpret_cast<v2i64>(__builtin_msa_ilvr_w(t5, t4));
       v2i64 u5 = reinterpret_cast<v2i64>(__builtin_msa_ilvl_w(t5, t4));
       // bottom-right 4x4
-      v4i32 t6 = reinterpret_cast<v4i32>(__builtin_msa_ilvl_h(src.buf.reg[5],
-          src.buf.reg[4]));
-      v4i32 t7 = reinterpret_cast<v4i32>(__builtin_msa_ilvl_h(src.buf.reg[7],
-          src.buf.reg[6]));
+      v4i32 t6 = reinterpret_cast<v4i32>(
+          __builtin_msa_ilvl_h(src.buf.reg[5], src.buf.reg[4]));
+      v4i32 t7 = reinterpret_cast<v4i32>(
+          __builtin_msa_ilvl_h(src.buf.reg[7], src.buf.reg[6]));
       v2i64 u6 = reinterpret_cast<v2i64>(__builtin_msa_ilvr_w(t7, t6));
       v2i64 u7 = reinterpret_cast<v2i64>(__builtin_msa_ilvl_w(t7, t6));
 
-      StoreInt16x8(dst->data(row + 0, col), reinterpret_cast<v8i16>(
-          __builtin_msa_ilvr_d(u2, u0)));
-      StoreInt16x8(dst->data(row + 1, col), reinterpret_cast<v8i16>(
-          __builtin_msa_ilvl_d(u2, u0)));
-      StoreInt16x8(dst->data(row + 2, col), reinterpret_cast<v8i16>(
-          __builtin_msa_ilvr_d(u3, u1)));
-      StoreInt16x8(dst->data(row + 3, col), reinterpret_cast<v8i16>(
-          __builtin_msa_ilvl_d(u3, u1)));
-      StoreInt16x8(dst->data(row + 4, col), reinterpret_cast<v8i16>(
-          __builtin_msa_ilvr_d(u6, u4)));
-      StoreInt16x8(dst->data(row + 5, col), reinterpret_cast<v8i16>(
-          __builtin_msa_ilvl_d(u6, u4)));
-      StoreInt16x8(dst->data(row + 6, col), reinterpret_cast<v8i16>(
-          __builtin_msa_ilvr_d(u7, u5)));
-      StoreInt16x8(dst->data(row + 7, col), reinterpret_cast<v8i16>(
-          __builtin_msa_ilvl_d(u7, u5)));
+      StoreInt16x8(dst->data(row + 0, col),
+                   reinterpret_cast<v8i16>(__builtin_msa_ilvr_d(u2, u0)));
+      StoreInt16x8(dst->data(row + 1, col),
+                   reinterpret_cast<v8i16>(__builtin_msa_ilvl_d(u2, u0)));
+      StoreInt16x8(dst->data(row + 2, col),
+                   reinterpret_cast<v8i16>(__builtin_msa_ilvr_d(u3, u1)));
+      StoreInt16x8(dst->data(row + 3, col),
+                   reinterpret_cast<v8i16>(__builtin_msa_ilvl_d(u3, u1)));
+      StoreInt16x8(dst->data(row + 4, col),
+                   reinterpret_cast<v8i16>(__builtin_msa_ilvr_d(u6, u4)));
+      StoreInt16x8(dst->data(row + 5, col),
+                   reinterpret_cast<v8i16>(__builtin_msa_ilvl_d(u6, u4)));
+      StoreInt16x8(dst->data(row + 6, col),
+                   reinterpret_cast<v8i16>(__builtin_msa_ilvr_d(u7, u5)));
+      StoreInt16x8(dst->data(row + 7, col),
+                   reinterpret_cast<v8i16>(__builtin_msa_ilvl_d(u7, u5)));
     }
   }
 };

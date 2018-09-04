@@ -18,8 +18,8 @@
 #define GEMMLOWP_INTERNAL_PLATFORM_H_
 
 #ifdef _WIN32
-#include <windows.h>
 #include <malloc.h>
+#include <windows.h>
 #else
 #include <stdlib.h>
 #include <time.h>
