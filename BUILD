@@ -142,6 +142,7 @@ cc_library(
     hdrs = [
         "profiling/instrumentation.h",
         "profiling/profiler.h",
+        "profiling/pthread_everywhere.h",
     ],
     visibility = ["//visibility:public"],
 )
