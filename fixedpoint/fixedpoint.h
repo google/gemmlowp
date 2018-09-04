@@ -113,11 +113,23 @@ tIntegerType Neg(tIntegerType a) {
 }
 
 // Integer arithmetic left-shift, equivalent to multiplying with a power of two.
-// Not saturating. Negative inputs do not necessarily invoke undefined
-// behaviour. Overflow is undefined behavior.
+// Not saturating. Negative values are OK. In case of overflow, no Undefined
+// Behavior, but the results are nonsense (in practice: truncated). The idea
+// is that the caller will want to implement the overflowing cases with
+// saturation with compare-and-mask, so we don't care about the results
+// in the overflow cast, we just want to avoid undefined behavior.
+//
+// tIntegerType may be int32 or any narrower signed type.
 template <typename tIntegerType>
 tIntegerType ShiftLeft(tIntegerType a, int offset) {
-  return a * (static_cast<tIntegerType>(1) << offset);
+  const std::int64_t wide_a = static_cast<std::int64_t>(a);
+  const std::int64_t wide_shifted = wide_a * (1 << offset);
+  const auto min = std::numeric_limits<tIntegerType>::min();
+  const auto max = std::numeric_limits<tIntegerType>::max();
+  return wide_shifted < min
+             ? min
+             : wide_shifted > max ? max
+                                  : static_cast<tIntegerType>(wide_shifted);
 }
 
 // Integer arithmetic right-shift. Not rounding.
