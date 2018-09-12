@@ -115,6 +115,7 @@ struct ProfilingStack {
   Mutex* lock;
 
   ProfilingStack() { memset(this, 0, sizeof(ProfilingStack)); }
+  ~ProfilingStack() { delete lock; }
 
   void Push(const char* label) {
     ScopedLock sl(lock);
@@ -171,8 +172,6 @@ struct ThreadInfo {
     ScopedLock sl(GlobalMutexes::Profiler());
     ThreadInfo* self = static_cast<ThreadInfo*>(ptr);
     ThreadsUnderProfiling().erase(self);
-    pthread_key_delete(self->key);
-    delete self->stack.lock;
   }
 };
 
