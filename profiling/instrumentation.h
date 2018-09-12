@@ -185,7 +185,11 @@ inline ThreadInfo& ThreadLocalThreadInfo() {
     }
   };
 
-  pthread_key_create(&key, DeleteThreadInfo);
+  // key_result is unused. The purpose of this 'static' local object is
+  // to have its initializer (the pthread_key_create call) performed exactly
+  // once, in a way that is guaranteed (since C++11) to be reentrant.
+  static const int key_result = pthread_key_create(&key, DeleteThreadInfo);
+  (void)key_result;
 
   ThreadInfo* threadInfo = static_cast<ThreadInfo*>(pthread_getspecific(key));
   if (!threadInfo) {
