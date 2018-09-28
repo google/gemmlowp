@@ -1,3 +1,6 @@
+// This file is a fork of third_party/gemmlowp/standalone/ whence the copyright
+// notice.
+
 // Copyright 2016 The Gemmlowp Authors. All Rights Reserved.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -641,7 +644,6 @@ struct NEON_32bit_GEMM_Int8Operands_AccumTwoWithin16Bits {
                   AccumulatorType* accum_ptr, int depth) {
     std::size_t start_depth = 123;
     std::size_t run_depth = depth;
-    std::size_t dst_col_stride = 4;
     AccumulatorType* dst_ptr = accum_ptr;
     asm volatile(
 
@@ -2561,6 +2563,243 @@ struct NEON_64bit_GEMM_Int8Operands_AccumTwoWithin16Bits {
   }
 };
 
+struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_dotproduct_narrow {
+  typedef std::uint8_t OperandType;
+  typedef std::uint32_t AccumulatorType;
+  typedef KernelFormat<
+      KernelSideFormat<CellFormat<4, 16, CellOrder::WidthMajor>, 1>,
+      KernelSideFormat<CellFormat<4, 16, CellOrder::WidthMajor>, 1> >
+      Format;
+  static void Run(const OperandType* lhs_ptr, const OperandType* rhs_ptr,
+                  AccumulatorType* accum_ptr, int depth) {
+    std::size_t start_depth = 123;
+    std::size_t run_depth = depth;
+    std::size_t dst_col_stride = 4;
+    AccumulatorType* dst_ptr = accum_ptr;
+    asm volatile(
+        // Overview of register layout:
+        //
+        // A 4x16 block of Rhs is stored in 8 bit in v0--v3.
+        // A 4x16 block of Lhs is stored in 8 bit in v4--v7.
+        //
+        // A 4x4 block of accumulators is stored in v16-v31 (as 4x32 bit
+        // components which need to be horizontally-added at the end)
+        //
+        // Register layout:
+        //
+        //                               +--------+--------+--------+--------+
+        //                               |v0.b[0] |v1.b[0] |v2.b[0] |v3.b[0] |
+        //                          Rhs  +--------+--------+--------+--------+
+        //                               |  ...   |  ...   |  ...   |  ...   |
+        //                               +--------+--------+--------+--------|
+        //                               |v0.b[15]|v1.b[15]|v2.b[15]|v3.b[15]|
+        //                               +--------+--------+--------+--------+
+        //
+        //                               |        |        |        |        |
+        //
+        //    Lhs                        |        |        |        |        |
+        //
+        //  +-------+-----+--------+ - - +--------+--------+--------+--------+
+        //  |v4.b[0]| ... |v4.b[15]|     | v16.4s | v17.4s | v18.4s | v19.4s |
+        //  |v5.b[0]| ... |v5.b[15]|     | v20.4s | v21.4s | v22.4s | v23.4s |
+        //  |v6.b[0]| ... |v6.b[15]|     | v24.4s | v25.4s | v26.4s | v27.4s |
+        //  |v7.b[0]| ... |v7.b[15]|     | v28.4s | v29.4s | v30.4s | v31.4s |
+        //  +-------+--------------+ - - +--------+--------+--------+--------+
+        //
+        //                                                Accumulator
+        //
+
+        // Clear accumulators
+        "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
+        "dup v16.4s, wzr\n"
+        "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
+        "dup v17.4s, wzr\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+        "dup v18.4s, wzr\n"
+        "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+        "dup v19.4s, wzr\n"
+        "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+        "dup v20.4s, wzr\n"
+        "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+        "dup v21.4s, wzr\n"
+        "ld1 {v2.16b}, [%[rhs_ptr]], #16\n"
+        "dup v22.4s, wzr\n"
+        "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
+        "dup v23.4s, wzr\n"
+        "subs %w[run_depth], %w[run_depth], #16\n"
+        "dup v24.4s, wzr\n"
+        "mov x0, %[dst_ptr]\n"
+        "dup v25.4s, wzr\n"
+        "dup v26.4s, wzr\n"
+        "dup v27.4s, wzr\n"
+        "dup v28.4s, wzr\n"
+        "dup v29.4s, wzr\n"
+        "dup v30.4s, wzr\n"
+        "dup v31.4s, wzr\n"
+
+        "beq 1f\n"
+
+        "cmp %w[run_depth], #32\n"
+        "blt 2f\n"
+
+        "3:\n"
+        "ld1 {v12.16b}, [%[lhs_ptr]], #16\n"
+        ".word 0x6e809490  // udot v16.4s, v4.16b, v0.16b\n"
+        ".word 0x6e819491  // udot v17.4s, v4.16b, v1.16b\n"
+        "ld1 {v13.16b}, [%[lhs_ptr]], #16\n"
+        ".word 0x6e829492  // udot v18.4s, v4.16b, v2.16b\n"
+        ".word 0x6e839493  // udot v19.4s, v4.16b, v3.16b\n"
+        "ld1 {v8.16b}, [%[rhs_ptr]], #16\n"
+        ".word 0x6e8094b4  // udot v20.4s, v5.16b, v0.16b\n"
+        ".word 0x6e8194b5  // udot v21.4s, v5.16b, v1.16b\n"
+        "ld1 {v9.16b}, [%[rhs_ptr]], #16\n"
+        ".word 0x6e8294b6  // udot v22.4s, v5.16b, v2.16b\n"
+        ".word 0x6e8394b7  // udot v23.4s, v5.16b, v3.16b\n"
+        "ld1 {v10.16b}, [%[rhs_ptr]], #16\n"
+        ".word 0x6e8094d8  // udot v24.4s, v6.16b, v0.16b\n"
+        ".word 0x6e8194d9  // udot v25.4s, v6.16b, v1.16b\n"
+        "ld1 {v11.16b}, [%[rhs_ptr]], #16\n"
+        ".word 0x6e8294da  // udot v26.4s, v6.16b, v2.16b\n"
+        "prfm pldl1keep, [%[rhs_ptr], #128]\n"
+        ".word 0x6e8394db  // udot v27.4s, v6.16b, v3.16b\n"
+        "ld1 {v14.16b}, [%[lhs_ptr]], #16\n"
+        ".word 0x6e8094fc  // udot v28.4s, v7.16b, v0.16b\n"
+        ".word 0x6e8194fd  // udot v29.4s, v7.16b, v1.16b\n"
+        "ld1 {v15.16b}, [%[lhs_ptr]], #16\n"
+        ".word 0x6e8294fe  // udot v30.4s, v7.16b, v2.16b\n"
+        "prfm pldl1keep, [%[lhs_ptr], #128]\n"
+        ".word 0x6e8394ff  // udot v31.4s, v7.16b, v3.16b\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+        ".word 0x6e889590  // udot v16.4s, v12.16b, v8.16b\n"
+        ".word 0x6e899591  // udot v17.4s, v12.16b, v9.16b\n"
+        "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+        ".word 0x6e8a9592  // udot v18.4s, v12.16b, v10.16b\n"
+        ".word 0x6e8b9593  // udot v19.4s, v12.16b, v11.16b\n"
+        "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+        ".word 0x6e8895b4  // udot v20.4s, v13.16b, v8.16b\n"
+        ".word 0x6e8995b5  // udot v21.4s, v13.16b, v9.16b\n"
+        "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
+        "sub %[run_depth], %[run_depth], #32\n"
+        ".word 0x6e8a95b6  // udot v22.4s, v13.16b, v10.16b\n"
+        ".word 0x6e8b95b7  // udot v23.4s, v13.16b, v11.16b\n"
+        "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
+        ".word 0x6e8895d8  // udot v24.4s, v14.16b, v8.16b\n"
+        ".word 0x6e8995d9  // udot v25.4s, v14.16b, v9.16b\n"
+        "ld1 {v2.16b}, [%[rhs_ptr]], #16\n"
+        ".word 0x6e8a95da  // udot v26.4s, v14.16b, v10.16b\n"
+        ".word 0x6e8b95db  // udot v27.4s, v14.16b, v11.16b\n"
+        "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
+        ".word 0x6e8895fc  // udot v28.4s, v15.16b, v8.16b\n"
+        "prfm pldl1keep, [%[rhs_ptr], #128]\n"
+        ".word 0x6e8995fd  // udot v29.4s, v15.16b, v9.16b\n"
+        "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+        "cmp %w[run_depth], #32\n"
+        ".word 0x6e8a95fe  // udot v30.4s, v15.16b, v10.16b\n"
+        "prfm pldl1keep, [%[lhs_ptr], #128]\n"
+        ".word 0x6e8b95ff  // udot v31.4s, v15.16b, v11.16b\n"
+
+        "bge 3b\n"
+
+        "cmp %w[run_depth], #0\n"
+        "beq 1f\n"
+
+        "2:\n"
+
+        "subs %w[run_depth], %w[run_depth], #16\n"
+
+        ".word 0x6e809490  // udot v16.4s, v4.16b, v0.16b\n"
+        ".word 0x6e819491  // udot v17.4s, v4.16b, v1.16b\n"
+        ".word 0x6e829492  // udot v18.4s, v4.16b, v2.16b\n"
+        ".word 0x6e839493  // udot v19.4s, v4.16b, v3.16b\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"
+        ".word 0x6e8094b4  // udot v20.4s, v5.16b, v0.16b\n"
+        ".word 0x6e8194b5  // udot v21.4s, v5.16b, v1.16b\n"
+        ".word 0x6e8294b6  // udot v22.4s, v5.16b, v2.16b\n"
+        ".word 0x6e8394b7  // udot v23.4s, v5.16b, v3.16b\n"
+        "ld1 {v5.16b}, [%[lhs_ptr]], #16\n"
+        ".word 0x6e8094d8  // udot v24.4s, v6.16b, v0.16b\n"
+        ".word 0x6e8194d9  // udot v25.4s, v6.16b, v1.16b\n"
+        ".word 0x6e8294da  // udot v26.4s, v6.16b, v2.16b\n"
+        ".word 0x6e8394db  // udot v27.4s, v6.16b, v3.16b\n"
+        "ld1 {v6.16b}, [%[lhs_ptr]], #16\n"
+        ".word 0x6e8094fc  // udot v28.4s, v7.16b, v0.16b\n"
+        "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
+        ".word 0x6e8194fd  // udot v29.4s, v7.16b, v1.16b\n"
+        "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"
+        ".word 0x6e8294fe  // udot v30.4s, v7.16b, v2.16b\n"
+        "ld1 {v2.16b}, [%[rhs_ptr]], #16\n"
+        ".word 0x6e8394ff  // udot v31.4s, v7.16b, v3.16b\n"
+        "ld1 {v3.16b}, [%[rhs_ptr]], #16\n"
+        "ld1 {v7.16b}, [%[lhs_ptr]], #16\n"
+
+        "bne 2b\n"
+
+        "1:\n"
+
+        ".word 0x6e809490  // udot v16.4s, v4.16b, v0.16b\n"
+        ".word 0x6e819491  // udot v17.4s, v4.16b, v1.16b\n"
+        ".word 0x6e829492  // udot v18.4s, v4.16b, v2.16b\n"
+        ".word 0x6e839493  // udot v19.4s, v4.16b, v3.16b\n"
+        ".word 0x6e8094b4  // udot v20.4s, v5.16b, v0.16b\n"
+        ".word 0x6e8194b5  // udot v21.4s, v5.16b, v1.16b\n"
+        ".word 0x6e8294b6  // udot v22.4s, v5.16b, v2.16b\n"
+        ".word 0x6e8394b7  // udot v23.4s, v5.16b, v3.16b\n"
+        ".word 0x6e8094d8  // udot v24.4s, v6.16b, v0.16b\n"
+        ".word 0x6e8194d9  // udot v25.4s, v6.16b, v1.16b\n"
+        ".word 0x6e8294da  // udot v26.4s, v6.16b, v2.16b\n"
+        ".word 0x6e8394db  // udot v27.4s, v6.16b, v3.16b\n"
+        ".word 0x6e8094fc  // udot v28.4s, v7.16b, v0.16b\n"
+        ".word 0x6e8194fd  // udot v29.4s, v7.16b, v1.16b\n"
+        ".word 0x6e8294fe  // udot v30.4s, v7.16b, v2.16b\n"
+        ".word 0x6e8394ff  // udot v31.4s, v7.16b, v3.16b\n"
+
+        // Load accumulators from memory
+        "ld1 {v8.16b}, [x0], #16\n"
+        "ld1 {v9.16b}, [x0], #16\n"
+        "ld1 {v10.16b}, [x0], #16\n"
+        "ld1 {v11.16b}, [x0], #16\n"
+        "mov x0, %[dst_ptr]\n"
+
+        // Reduce aggregators horizontally
+        "addp v0.4s, v16.4s, v20.4s\n"
+        "addp v1.4s, v17.4s, v21.4s\n"
+        "addp v2.4s, v18.4s, v22.4s\n"
+        "addp v3.4s, v19.4s, v23.4s\n"
+        "addp v4.4s, v24.4s, v28.4s\n"
+        "addp v5.4s, v25.4s, v29.4s\n"
+        "addp v6.4s, v26.4s, v30.4s\n"
+        "addp v7.4s, v27.4s, v31.4s\n"
+
+        "addp v12.4s, v0.4s, v4.4s\n"
+        "addp v13.4s, v1.4s, v5.4s\n"
+        "addp v14.4s, v2.4s, v6.4s\n"
+        "addp v15.4s, v3.4s, v7.4s\n"
+
+        // Add to the accumulators loaded from memory
+        "add v8.4s, v8.4s, v12.4s\n"
+        "add v9.4s, v9.4s, v13.4s\n"
+        "add v10.4s, v10.4s, v14.4s\n"
+        "add v11.4s, v11.4s, v15.4s\n"
+
+        // Store accumulators back to memory
+        "st1 {v8.16b}, [x0], #16\n"
+        "st1 {v9.16b}, [x0], #16\n"
+        "st1 {v10.16b}, [x0], #16\n"
+        "st1 {v11.16b}, [x0], #16\n"
+        :  // outputs
+        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+        [dst_ptr] "+r"(dst_ptr), [run_depth] "+r"(run_depth),
+        [dst_col_stride] "+r"(dst_col_stride)
+        :  // inputs
+        [start_depth] "r"(start_depth)
+        :  // clobbers
+        "cc", "memory", "x0", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7",
+        "v8", "v9", "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17",
+        "v18", "v19", "v20", "v21", "v22", "v23", "v24", "v25", "v26", "v27",
+        "v28", "v29", "v30", "v31");
+  }
+};
+
 // Fast kernel operating on int8 operands with 7-bit range.
 // It is assumed that one of the two operands only takes values in [-63, 63],
 // while the other take values in [-64, 63].
@@ -3201,41 +3440,41 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_dotproduct {
 
         // Start the MACs at the head of the loop - 1st cell from each side
         // already loaded.
-        "udot v8.4s, v2.16b, v0.b[0]\n"
-        "udot v9.4s, v2.16b, v0.b[1]\n"
+        ".word 0x6f80e048  // udot v8.4s, v2.16b, v0.4b[0]\n"
+        ".word 0x6fa0e049  // udot v9.4s, v2.16b, v0.4b[1]\n"
         "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"  // Load second Rhs cell.
-        "udot v10.4s, v2.16b, v0.b[2]\n"
-        "udot v11.4s, v2.16b, v0.b[3]\n"
+        ".word 0x6f80e84a  // udot v10.4s, v2.16b, v0.4b[2]\n"
+        ".word 0x6fa0e84b  // udot v11.4s, v2.16b, v0.4b[3]\n"
         "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"  // Load second Lhs cell.
-        "udot v12.4s, v2.16b, v1.b[0]\n"
-        "udot v13.4s, v2.16b, v1.b[1]\n"
+        ".word 0x6f81e04c  // udot v12.4s, v2.16b, v1.4b[0]\n"
+        ".word 0x6fa1e04d  // udot v13.4s, v2.16b, v1.4b[1]\n"
         "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"  // Load third Lhs cell.
-        "udot v14.4s, v2.16b, v1.b[2]\n"
-        "udot v15.4s, v2.16b, v1.b[3]\n"
+        ".word 0x6f81e84e  // udot v14.4s, v2.16b, v1.4b[2]\n"
+        ".word 0x6fa1e84f  // udot v15.4s, v2.16b, v1.4b[3]\n"
         "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"  // Done with first Lhs cell - load
         // for the next iteration early.
-        "udot v16.4s, v3.16b, v0.b[0]\n"
-        "udot v17.4s, v3.16b, v0.b[1]\n"
-        "udot v18.4s, v3.16b, v0.b[2]\n"
-        "udot v19.4s, v3.16b, v0.b[3]\n"
-        "udot v20.4s, v3.16b, v1.b[0]\n"
-        "udot v21.4s, v3.16b, v1.b[1]\n"
-        "udot v22.4s, v3.16b, v1.b[2]\n"
-        "udot v23.4s, v3.16b, v1.b[3]\n"
-        "udot v24.4s, v4.16b, v0.b[0]\n"
-        "udot v25.4s, v4.16b, v0.b[1]\n"
-        "udot v26.4s, v4.16b, v0.b[2]\n"
-        "udot v27.4s, v4.16b, v0.b[3]\n"
+        ".word 0x6f80e070  // udot v16.4s, v3.16b, v0.4b[0]\n"
+        ".word 0x6fa0e071  // udot v17.4s, v3.16b, v0.4b[1]\n"
+        ".word 0x6f80e872  // udot v18.4s, v3.16b, v0.4b[2]\n"
+        ".word 0x6fa0e873  // udot v19.4s, v3.16b, v0.4b[3]\n"
+        ".word 0x6f81e074  // udot v20.4s, v3.16b, v1.4b[0]\n"
+        ".word 0x6fa1e075  // udot v21.4s, v3.16b, v1.4b[1]\n"
+        ".word 0x6f81e876  // udot v22.4s, v3.16b, v1.4b[2]\n"
+        ".word 0x6fa1e877  // udot v23.4s, v3.16b, v1.4b[3]\n"
+        ".word 0x6f80e098  // udot v24.4s, v4.16b, v0.4b[0]\n"
+        ".word 0x6fa0e099  // udot v25.4s, v4.16b, v0.4b[1]\n"
+        ".word 0x6f80e89a  // udot v26.4s, v4.16b, v0.4b[2]\n"
+        ".word 0x6fa0e89b  // udot v27.4s, v4.16b, v0.4b[3]\n"
         "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"  // Done with the first Rhs cell -
         // load for the next iteration early.
-        "udot v28.4s, v4.16b, v1.b[0]\n"
-        "udot v29.4s, v4.16b, v1.b[1]\n"
+        ".word 0x6f81e09c  // udot v28.4s, v4.16b, v1.4b[0]\n"
+        ".word 0x6fa1e09d  // udot v29.4s, v4.16b, v1.4b[1]\n"
 
         // Loop.  Decrement loop index (depth) by 4 as udot processes 4
         // depth values.
         "subs %w[depth], %w[depth], #4\n"
-        "udot v30.4s, v4.16b, v1.b[2]\n"
-        "udot v31.4s, v4.16b, v1.b[3]\n"
+        ".word 0x6f81e89e  // udot v30.4s, v4.16b, v1.4b[2]\n"
+        ".word 0x6fa1e89f  // udot v31.4s, v4.16b, v1.4b[3]\n"
 
         "bne " GEMMLOWP_LABEL_LOOP
         "b\n"
@@ -3331,54 +3570,67 @@ struct NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_dotproduct_A55r1 {
         GEMMLOWP_LABEL_LOOP
         ":\n"
 
-        "udot v8.4s, v2.16b, v0.b[0]\n"
-        "ldr d1, [%[rhs_ptr], #16]\n"         // Bottom half of v1
-        "udot v9.4s, v2.16b, v0.b[1]\n"
-        "ins v0.d[1], x18\n"                  // Finish loading v0
-        "udot v16.4s, v3.16b, v0.b[0]\n"      // out of sequence - used to reduce load/use pressure.
-        "ldr x18, [%[rhs_ptr], #24]\n"        // Top half of v1 to X register
-        "udot v17.4s, v3.16b, v0.b[1]\n"      // out of sequence - used to reduce load/use pressure.
-        "add %[rhs_ptr], %[rhs_ptr], #32\n"   // RHS loads complete - increment pointer.
-        "udot v10.4s, v2.16b, v0.b[2]\n"
-        "ldr d4, [%[lhs_ptr], #32]\n"         // Bottom half of v4
-        "udot v11.4s, v2.16b, v0.b[3]\n"
-        "ins v1.d[1], x18\n"                  // Finish loading v1
-        "udot v12.4s, v2.16b, v1.b[0]\n"
-        "ldr x18, [%[lhs_ptr], #40]\n"        // Top half of v4 to X register
-        "udot v13.4s, v2.16b, v1.b[1]\n"
-        "add %[lhs_ptr], %[lhs_ptr], #48\n"   // LHS loads complete - increment pointer.
-        "udot v14.4s, v2.16b, v1.b[2]\n"
+        ".word 0x6f80e048  // udot v8.4s, v2.16b, v0.4b[0]\n"
+        "ldr d1, [%[rhs_ptr], #16]\n"  // Bottom half of v1
+        ".word 0x6fa0e049  // udot v9.4s, v2.16b, v0.4b[1]\n"
+        "ins v0.d[1], x18\n"  // Finish loading v0
+        ".word 0x6f80e070  // udot v16.4s, v3.16b, v0.4b[0]\n"  // out of
+                                                                // sequence -
+                                                                // used to
+                                                                // reduce
+                                                                // load/use
+                                                                // pressure.
+        "ldr x18, [%[rhs_ptr], #24]\n"  // Top half of v1 to X register
+        ".word 0x6fa0e071  // udot v17.4s, v3.16b, v0.4b[1]\n"  // out of
+                                                                // sequence -
+                                                                // used to
+                                                                // reduce
+                                                                // load/use
+                                                                // pressure.
+        "add %[rhs_ptr], %[rhs_ptr], #32\n"  // RHS loads complete - increment
+                                             // pointer.
+        ".word 0x6f80e84a  // udot v10.4s, v2.16b, v0.4b[2]\n"
+        "ldr d4, [%[lhs_ptr], #32]\n"  // Bottom half of v4
+        ".word 0x6fa0e84b  // udot v11.4s, v2.16b, v0.4b[3]\n"
+        "ins v1.d[1], x18\n"  // Finish loading v1
+        ".word 0x6f81e04c  // udot v12.4s, v2.16b, v1.4b[0]\n"
+        "ldr x18, [%[lhs_ptr], #40]\n"  // Top half of v4 to X register
+        ".word 0x6fa1e04d  // udot v13.4s, v2.16b, v1.4b[1]\n"
+        "add %[lhs_ptr], %[lhs_ptr], #48\n"  // LHS loads complete - increment
+                                             // pointer.
+        ".word 0x6f81e84e  // udot v14.4s, v2.16b, v1.4b[2]\n"
 
-        "udot v15.4s, v2.16b, v1.b[3]\n"
-        "ldr d2, [%[lhs_ptr]]\n"              // Bottom half of v2 (for next time)
-        "udot v18.4s, v3.16b, v0.b[2]\n"
-        "ins v4.d[1], x18\n"                  // Finish loading v4
-        "udot v19.4s, v3.16b, v0.b[3]\n"
-        "ldr x18, [%[lhs_ptr], #8]\n"         // Top half of next v2 to X register
-        "udot v20.4s, v3.16b, v1.b[0]\n"
+        ".word 0x6fa1e84f  // udot v15.4s, v2.16b, v1.4b[3]\n"
+        "ldr d2, [%[lhs_ptr]]\n"  // Bottom half of v2 (for next time)
+        ".word 0x6f80e872  // udot v18.4s, v3.16b, v0.4b[2]\n"
+        "ins v4.d[1], x18\n"  // Finish loading v4
+        ".word 0x6fa0e873  // udot v19.4s, v3.16b, v0.4b[3]\n"
+        "ldr x18, [%[lhs_ptr], #8]\n"  // Top half of next v2 to X register
+        ".word 0x6f81e074  // udot v20.4s, v3.16b, v1.4b[0]\n"
         "subs %w[depth], %w[depth], #4\n"
-        "udot v21.4s, v3.16b, v1.b[1]\n"
+        ".word 0x6fa1e075  // udot v21.4s, v3.16b, v1.4b[1]\n"
 
-        "udot v22.4s, v3.16b, v1.b[2]\n"
+        ".word 0x6f81e876  // udot v22.4s, v3.16b, v1.4b[2]\n"
 
-        "udot v23.4s, v3.16b, v1.b[3]\n"
-        "ldr d3, [%[lhs_ptr], #16]\n"         // Bottom half of v3 (for next time)
-        "udot v24.4s, v4.16b, v0.b[0]\n"
-        "ins v2.d[1], x18\n"                  // Finish loading next v2
-        "udot v25.4s, v4.16b, v0.b[1]\n"
-        "ldr x18, [%[lhs_ptr], #24]\n"        // Top half of next v3 to X register
-        "udot v26.4s, v4.16b, v0.b[2]\n"
+        ".word 0x6fa1e877  // udot v23.4s, v3.16b, v1.4b[3]\n"
+        "ldr d3, [%[lhs_ptr], #16]\n"  // Bottom half of v3 (for next time)
+        ".word 0x6f80e098  // udot v24.4s, v4.16b, v0.4b[0]\n"
+        "ins v2.d[1], x18\n"  // Finish loading next v2
+        ".word 0x6fa0e099  // udot v25.4s, v4.16b, v0.4b[1]\n"
+        "ldr x18, [%[lhs_ptr], #24]\n"  // Top half of next v3 to X register
+        ".word 0x6f80e89a  // udot v26.4s, v4.16b, v0.4b[2]\n"
 
-        "udot v27.4s, v4.16b, v0.b[3]\n"
-        "ldr d0, [%[rhs_ptr]]\n"              // Bottom half of v0 (for next time)
-        "udot v28.4s, v4.16b, v1.b[0]\n"
-        "ins v3.d[1], x18\n"                  // Finish loading next v3
-        "udot v29.4s, v4.16b, v1.b[1]\n"
-        "ldr x18, [%[rhs_ptr], #8]\n"         // Top half of next v0 to X register
-        "udot v30.4s, v4.16b, v1.b[2]\n"
+        ".word 0x6fa0e89b  // udot v27.4s, v4.16b, v0.4b[3]\n"
+        "ldr d0, [%[rhs_ptr]]\n"  // Bottom half of v0 (for next time)
+        ".word 0x6f81e09c  // udot v28.4s, v4.16b, v1.4b[0]\n"
+        "ins v3.d[1], x18\n"  // Finish loading next v3
+        ".word 0x6fa1e09d  // udot v29.4s, v4.16b, v1.4b[1]\n"
+        "ldr x18, [%[rhs_ptr], #8]\n"  // Top half of next v0 to X register
+        ".word 0x6f81e89e  // udot v30.4s, v4.16b, v1.4b[2]\n"
 
-        "udot v31.4s, v4.16b, v1.b[3]\n"
-        "bne " GEMMLOWP_LABEL_LOOP "b\n"
+        ".word 0x6fa1e89f  // udot v31.4s, v4.16b, v1.4b[3]\n"
+        "bne " GEMMLOWP_LABEL_LOOP
+        "b\n"
 
         // Store accumulators
         "mov x0, %[accum_ptr]\n"
@@ -6165,6 +6417,7 @@ int main() {
 #ifdef __ARM_FEATURE_DOTPROD
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_dotproduct);
   BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_dotproduct_A55r1);
+  BENCHMARK(NEON_64bit_GEMM_Uint8Operands_Uint32Accumulators_dotproduct_narrow);
 #endif
   BENCHMARK(NEON_64bit_GEMM_Int32_WithScalar);
   BENCHMARK(NEON_64bit_GEMM_Float32_WithVectorDuplicatingScalar);
