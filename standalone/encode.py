@@ -12,16 +12,20 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 # ==============================================================================
+
 """
 Encodes ARM asm code for certain instructions into the corresponding machine
-code encoding, as a .word directive in the asm code, preserving the asm code in
-a comment. Example diff:
--        "udot v16.4s, v4.16b, v0.16b\n"
-+        ".word 0x6e809490  // udot v16.4s, v4.16b, v0.16b\n"
-The intended use case is to make asm code easier to compile on toolchains that
-do not support certain new instructions.
+code encoding, as a .word directive in the asm code, preserving the original
+code in a comment.
 
 Reads from stdin, writes to stdout.
+
+Example diff:
+-        "udot v16.4s, v4.16b, v0.16b\n"
++        ".word 0x6e809490  // udot v16.4s, v4.16b, v0.16b\n"
+
+The intended use case is to make asm code easier to compile on toolchains that
+do not support certain new instructions.
 """
 
 import sys
@@ -77,8 +81,34 @@ def encode(line):
   return 0, line
 
 
+def read_existing_encoding(line):
+  m = re.search(r'\.word\ (0x[0-9a-f]+)', line)
+  if m:
+    return int(m.group(1), 16)
+  return 0
+
+
+lineno = 0
+found_existing_encodings = False
+found_error = False
 for line in sys.stdin:
+  lineno = lineno + 1
+  existing_encoding = read_existing_encoding(line)
   mcode, match = encode(line)
   if mcode:
-    line = line.replace(match, '.word 0x%x  // %s' % (mcode, match))
+    if existing_encoding:
+      found_existing_encodings = True
+      if mcode != existing_encoding:
+        sys.stderr.write(
+            "Error at line %d: existing encoding 0x%x differs from encoding 0x%x for instruction '%s':\n\n%s\n\n"
+            % (lineno, existing_encoding, mcode, match, line))
+        found_error = True
+    else:
+      line = line.replace(match, '.word 0x%x  // %s' % (mcode, match))
   sys.stdout.write(line)
+if found_error:
+  sys.exit(1)
+if found_existing_encodings:
+  sys.stderr.write(
+      'Note: some instructions that this program is able to encode, were already encoded. These encodings have been checked.\n'
+  )
