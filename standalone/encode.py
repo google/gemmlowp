@@ -93,9 +93,9 @@ found_existing_encodings = False
 found_error = False
 for line in sys.stdin:
   lineno = lineno + 1
-  existing_encoding = read_existing_encoding(line)
   mcode, match = encode(line)
   if mcode:
+    existing_encoding = read_existing_encoding(line)
     if existing_encoding:
       found_existing_encodings = True
       if mcode != existing_encoding:
