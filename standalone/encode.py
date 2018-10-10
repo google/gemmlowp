@@ -1,3 +1,29 @@
+# Copyright 2018 The gemmlowp Authors. All Rights Reserved.
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+# ==============================================================================
+"""
+Encodes ARM asm code for certain instructions into the corresponding machine
+code encoding, as a .word directive in the asm code, preserving the asm code in
+a comment. Example diff:
+-        "udot v16.4s, v4.16b, v0.16b\n"
++        ".word 0x6e809490  // udot v16.4s, v4.16b, v0.16b\n"
+The intended use case is to make asm code easier to compile on toolchains that
+do not support certain new instructions.
+
+Reads from stdin, writes to stdout.
+"""
+
 import sys
 import re
 
@@ -44,12 +70,10 @@ def encode_udot_element(line):
 
 
 def encode(line):
-  mcode, match = encode_udot_vector(line)
-  if mcode:
-    return mcode, match
-  mcode, match = encode_udot_element(line)
-  if mcode:
-    return mcode, match
+  for encode_func in [encode_udot_vector, encode_udot_element]:
+    mcode, match = encode_func(line)
+    if mcode:
+      return mcode, match
   return 0, line
 
 
