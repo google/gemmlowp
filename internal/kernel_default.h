@@ -68,9 +68,13 @@ GEMMLOWP_SET_DEFAULT_KERNEL(false, true,
                             NEON_32bit_GEMM_Int8Operands_LhsNonzero)
 #elif defined GEMMLOWP_NEON_64
 #include "kernel_neon.h"
+#if defined GEMMLOWP_DOTPROD_KERNEL
+GEMMLOWP_SET_DEFAULT_KERNEL(false, false, NEON_64_Kernel12x8Depth4_dotprod)
+#else
 GEMMLOWP_SET_DEFAULT_KERNEL(false, false, NEON_64_Kernel12x8Depth2)
 GEMMLOWP_SET_DEFAULT_KERNEL(false, true,
                             NEON_64bit_GEMM_Int8Operands_LhsNonzero)
+#endif
 #elif defined(GEMMLOWP_MSA)
 #include "kernel_msa.h"
 GEMMLOWP_SET_DEFAULT_KERNEL(false, false, MSA_Kernel12x8Depth2)

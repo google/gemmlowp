@@ -1616,6 +1616,274 @@ struct NEON_64_Kernel12x8Depth2 : KernelBase {
   }
 };
 
+#ifdef GEMMLOWP_DOTPROD_KERNEL
+#ifndef __ARM_FEATURE_DOTPROD
+#error This kernel requires ARM dot-product instructions. Enable them by \
+  adding '+dotprod' to a compiler flag, e.g. -march=armv8.2-a+dotprod . \
+  Note that Clang up to version 7 fails to define the corresponding \
+  preprocessor token __ARM_FEATURE_DOTPROD, so you will still have to define \
+  it manually.
+#endif
+// Kernels utilizing the Armv8.2 Dot Product extension.
+//
+// The dot product instructions work by taking 4 consecutive 8-bit depth
+// values from each operand, multiplying the 4 pairs together and
+// accumulating all the results into the corresponding 32-bit accumulator
+// lane.  As such, the operation is identical to a 32-bit instruction (like
+// FMLA used in SGEMM), except that 4 depth values are processed at a time
+// instead of 1.
+
+// Thus, this first kernel is a carbon copy of
+// "NEON_64bit_GEMM_Float32_WithScalar_A57" (which should provide good
+// performance for most processors) below with the opcode (fmla -> udot) and
+// types (float32 -> uint8/uint32) changed.
+//
+// A signed version of this kernel could be produced by replacing "udot"
+// with "sdot" - performance should be identical to this udot kernel.
+struct NEON_64_Kernel12x8Depth4_dotprod : KernelBase {
+  typedef KernelFormat<KernelSideFormat<CellFormat<4, 4, CellOrder::WidthMajor>, 3>,
+                       KernelSideFormat<CellFormat<4, 4, CellOrder::WidthMajor>, 2> >
+      Format;
+
+  const char* Name() const override { return "NEON, 12x8, depth 4, dotprod"; }
+
+  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride, std::size_t dst_col_stride,
+           const std::uint8_t* lhs_ptr, const std::uint8_t* rhs_ptr, std::size_t start_depth,
+           std::size_t depth) const override {
+    (void)dst_row_stride;
+    ScopedProfilingLabel label("optimized kernel (NEON 12x8, depth 4, dotprod)");
+// See comments above for why we need local numerical labels in our asm.
+#define GEMMLOWP_LABEL_CLEAR_ACCUMULATORS "1"
+#define GEMMLOWP_LABEL_BEFORE_LOOP "2"
+#define GEMMLOWP_LABEL_LOOP "3"
+#define GEMMLOWP_LABEL_AFTER_LOOP "4"
+
+    assert(dst_row_stride == 1);
+    asm volatile(
+        // Multiply dst_col_stride by 4 == sizeof(int32) to use
+        // it as a byte offset below.
+        "lsl %[dst_col_stride], %[dst_col_stride], #2\n"
+
+        "cmp %[start_depth], #0\n"
+        "beq " GEMMLOWP_LABEL_CLEAR_ACCUMULATORS "f\n"
+
+        // Load accumulators
+        "mov x1, %[dst_ptr]\n"
+        "mov x0, x1\n"
+        "ld1 {v8.16b}, [x0], #16\n"
+        "ld1 {v16.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "ld1 {v24.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "ld1 {v9.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "ld1 {v17.16b}, [x0], #16\n"
+        "ld1 {v25.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "ld1 {v10.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "ld1 {v18.16b}, [x0], #16\n"
+        "ld1 {v26.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "ld1 {v11.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "ld1 {v19.16b}, [x0], #16\n"
+        "ld1 {v27.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "ld1 {v12.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "ld1 {v20.16b}, [x0], #16\n"
+        "ld1 {v28.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "ld1 {v13.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "ld1 {v21.16b}, [x0], #16\n"
+        "ld1 {v29.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "ld1 {v14.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "ld1 {v22.16b}, [x0], #16\n"
+        "ld1 {v30.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "ld1 {v15.16b}, [x0], #16\n"
+        "ld1 {v23.16b}, [x0], #16\n"
+        "ld1 {v31.16b}, [x0]\n"
+
+        "b " GEMMLOWP_LABEL_BEFORE_LOOP "f\n"
+
+        GEMMLOWP_LABEL_CLEAR_ACCUMULATORS ":\n"
+
+        // Clear accumulator registers (see layout below)
+        "dup v8.4s, wzr\n"
+        "dup v9.4s, wzr\n"
+        "dup v10.4s, wzr\n"
+        "dup v11.4s, wzr\n"
+        "dup v12.4s, wzr\n"
+        "dup v13.4s, wzr\n"
+        "dup v14.4s, wzr\n"
+        "dup v15.4s, wzr\n"
+        "dup v16.4s, wzr\n"
+        "dup v17.4s, wzr\n"
+        "dup v18.4s, wzr\n"
+        "dup v19.4s, wzr\n"
+        "dup v20.4s, wzr\n"
+        "dup v21.4s, wzr\n"
+        "dup v22.4s, wzr\n"
+        "dup v23.4s, wzr\n"
+        "dup v24.4s, wzr\n"
+        "dup v25.4s, wzr\n"
+        "dup v26.4s, wzr\n"
+        "dup v27.4s, wzr\n"
+        "dup v28.4s, wzr\n"
+        "dup v29.4s, wzr\n"
+        "dup v30.4s, wzr\n"
+        "dup v31.4s, wzr\n"
+
+        GEMMLOWP_LABEL_BEFORE_LOOP ":\n"
+
+        "subs %w[depth], %w[depth], #4\n"
+
+        // The start of the loop assumes first Rhs cell is already loaded, so
+        // do it here for first iteration.
+        "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"
+
+        // And the same for the first Lhs cell.
+        "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"
+
+        "beq " GEMMLOWP_LABEL_AFTER_LOOP "f\n"
+
+        GEMMLOWP_LABEL_LOOP ":\n"
+
+        // Start the MACs at the head of the loop - 1st cell from each side
+        // already loaded.
+        ".word 0x6f80e048  // udot v8.4s, v2.16b, v0.4b[0]\n"
+        ".word 0x6fa0e049  // udot v9.4s, v2.16b, v0.4b[1]\n"
+        "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"  // Load second Rhs cell.
+        ".word 0x6f80e84a  // udot v10.4s, v2.16b, v0.4b[2]\n"
+        ".word 0x6fa0e84b  // udot v11.4s, v2.16b, v0.4b[3]\n"
+        "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"  // Load second Lhs cell.
+        ".word 0x6f81e04c  // udot v12.4s, v2.16b, v1.4b[0]\n"
+        ".word 0x6fa1e04d  // udot v13.4s, v2.16b, v1.4b[1]\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"  // Load third Lhs cell.
+        ".word 0x6f81e84e  // udot v14.4s, v2.16b, v1.4b[2]\n"
+        ".word 0x6fa1e84f  // udot v15.4s, v2.16b, v1.4b[3]\n"
+        "ld1 {v2.16b}, [%[lhs_ptr]], #16\n"  // Done with first Lhs cell - load
+        // for the next iteration early.
+        ".word 0x6f80e070  // udot v16.4s, v3.16b, v0.4b[0]\n"
+        ".word 0x6fa0e071  // udot v17.4s, v3.16b, v0.4b[1]\n"
+        ".word 0x6f80e872  // udot v18.4s, v3.16b, v0.4b[2]\n"
+        ".word 0x6fa0e873  // udot v19.4s, v3.16b, v0.4b[3]\n"
+        ".word 0x6f81e074  // udot v20.4s, v3.16b, v1.4b[0]\n"
+        ".word 0x6fa1e075  // udot v21.4s, v3.16b, v1.4b[1]\n"
+        ".word 0x6f81e876  // udot v22.4s, v3.16b, v1.4b[2]\n"
+        ".word 0x6fa1e877  // udot v23.4s, v3.16b, v1.4b[3]\n"
+        ".word 0x6f80e098  // udot v24.4s, v4.16b, v0.4b[0]\n"
+        ".word 0x6fa0e099  // udot v25.4s, v4.16b, v0.4b[1]\n"
+        ".word 0x6f80e89a  // udot v26.4s, v4.16b, v0.4b[2]\n"
+        ".word 0x6fa0e89b  // udot v27.4s, v4.16b, v0.4b[3]\n"
+        "ld1 {v0.16b}, [%[rhs_ptr]], #16\n"  // Done with the first Rhs cell -
+        // load for the next iteration early.
+        ".word 0x6f81e09c  // udot v28.4s, v4.16b, v1.4b[0]\n"
+        ".word 0x6fa1e09d  // udot v29.4s, v4.16b, v1.4b[1]\n"
+
+        // Loop.  Decrement loop index (depth) by 4 as udot processes 4
+        // depth values.
+        "subs %w[depth], %w[depth], #4\n"
+        ".word 0x6f81e89e  // udot v30.4s, v4.16b, v1.4b[2]\n"
+        ".word 0x6fa1e89f  // udot v31.4s, v4.16b, v1.4b[3]\n"
+
+        "bne " GEMMLOWP_LABEL_LOOP "b\n"
+
+        GEMMLOWP_LABEL_AFTER_LOOP ":\n"
+
+        // Final iteration. v0 and v2 were already loaded, don't load
+        // them again, don't read past the end of buffers.
+        ".word 0x6f80e048  // udot v8.4s, v2.16b, v0.4b[0]\n"
+        ".word 0x6fa0e049  // udot v9.4s, v2.16b, v0.4b[1]\n"
+        "ld1 {v1.16b}, [%[rhs_ptr]], #16\n"  // Load second Rhs cell.
+        ".word 0x6f80e84a  // udot v10.4s, v2.16b, v0.4b[2]\n"
+        ".word 0x6fa0e84b  // udot v11.4s, v2.16b, v0.4b[3]\n"
+        "ld1 {v3.16b}, [%[lhs_ptr]], #16\n"  // Load second Lhs cell.
+        ".word 0x6f81e04c  // udot v12.4s, v2.16b, v1.4b[0]\n"
+        ".word 0x6fa1e04d  // udot v13.4s, v2.16b, v1.4b[1]\n"
+        "ld1 {v4.16b}, [%[lhs_ptr]], #16\n"  // Load third Lhs cell.
+        ".word 0x6f81e84e  // udot v14.4s, v2.16b, v1.4b[2]\n"
+        ".word 0x6fa1e84f  // udot v15.4s, v2.16b, v1.4b[3]\n"
+        ".word 0x6f80e070  // udot v16.4s, v3.16b, v0.4b[0]\n"
+        ".word 0x6fa0e071  // udot v17.4s, v3.16b, v0.4b[1]\n"
+        ".word 0x6f80e872  // udot v18.4s, v3.16b, v0.4b[2]\n"
+        ".word 0x6fa0e873  // udot v19.4s, v3.16b, v0.4b[3]\n"
+        ".word 0x6f81e074  // udot v20.4s, v3.16b, v1.4b[0]\n"
+        ".word 0x6fa1e075  // udot v21.4s, v3.16b, v1.4b[1]\n"
+        ".word 0x6f81e876  // udot v22.4s, v3.16b, v1.4b[2]\n"
+        ".word 0x6fa1e877  // udot v23.4s, v3.16b, v1.4b[3]\n"
+        ".word 0x6f80e098  // udot v24.4s, v4.16b, v0.4b[0]\n"
+        ".word 0x6fa0e099  // udot v25.4s, v4.16b, v0.4b[1]\n"
+        ".word 0x6f80e89a  // udot v26.4s, v4.16b, v0.4b[2]\n"
+        ".word 0x6fa0e89b  // udot v27.4s, v4.16b, v0.4b[3]\n"
+        ".word 0x6f81e09c  // udot v28.4s, v4.16b, v1.4b[0]\n"
+        ".word 0x6fa1e09d  // udot v29.4s, v4.16b, v1.4b[1]\n"
+
+        // Loop.  Decrement loop index (depth) by 4 as udot processes 4
+        // depth values.
+        "subs %w[depth], %w[depth], #4\n"
+        ".word 0x6f81e89e  // udot v30.4s, v4.16b, v1.4b[2]\n"
+        ".word 0x6fa1e89f  // udot v31.4s, v4.16b, v1.4b[3]\n"
+
+        // Store accumulators
+        "mov x1, %[dst_ptr]\n"
+        "mov x0, x1\n"
+        "st1 {v8.16b}, [x0], #16\n"
+        "st1 {v16.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "st1 {v24.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "st1 {v9.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "st1 {v17.16b}, [x0], #16\n"
+        "st1 {v25.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "st1 {v10.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "st1 {v18.16b}, [x0], #16\n"
+        "st1 {v26.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "st1 {v11.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "st1 {v19.16b}, [x0], #16\n"
+        "st1 {v27.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "st1 {v12.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "st1 {v20.16b}, [x0], #16\n"
+        "st1 {v28.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "st1 {v13.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "st1 {v21.16b}, [x0], #16\n"
+        "st1 {v29.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "st1 {v14.16b}, [x0], #16\n"
+        "add x1, x1, %[dst_col_stride]\n"
+        "st1 {v22.16b}, [x0], #16\n"
+        "st1 {v30.16b}, [x0]\n"
+        "mov x0, x1\n"
+        "st1 {v15.16b}, [x0], #16\n"
+        "st1 {v23.16b}, [x0], #16\n"
+        "st1 {v31.16b}, [x0]\n"
+        :  // outputs
+        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+        [depth] "+r"(depth)
+        :  // inputs
+        [dst_ptr] "r"(dst_ptr), [dst_col_stride] "r"(dst_col_stride), [start_depth] "r"(start_depth)
+        :  // clobbers
+        "cc", "memory", "x0", "x1", "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9",
+        "v10", "v11", "v12", "v13", "v14", "v15", "v16", "v17", "v18", "v19", "v20", "v21", "v22",
+        "v23", "v24", "v25", "v26", "v27", "v28", "v29", "v30", "v31");
+  }
+};
+#endif  // GEMMLOWP_DOTPROD_KERNEL
+
 #endif  // GEMMLOWP_NEON_64
 
 }  // namespace gemmlowp
