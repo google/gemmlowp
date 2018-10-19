@@ -38,18 +38,14 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
     // Signed saturate each 32-bit element to 9 bits
     // (this takes full care of non-negative elements).
     v4i32 tmp = __builtin_msa_sat_s_w(input.reg[0], 8);
+    // Zero out negative elements.
+    tmp = __builtin_msa_maxi_s_w(tmp, 0);
     // Pack every 32-bit element into 16 bits.
     tmp = reinterpret_cast<v4i32>(__builtin_msa_pckev_h(
         reinterpret_cast<v8i16>(tmp), reinterpret_cast<v8i16>(tmp)));
-    // Detect negative elements with arithmetic shift right (we
-    // get a 16-bit mask of all zeroes or all ones for every element).
-    v8i16 signs = __builtin_msa_srai_h(reinterpret_cast<v8i16>(tmp), 15);
-    // Zero out negative elements.
-    signs = reinterpret_cast<v8i16>(__builtin_msa_bseli_b(
-        reinterpret_cast<v16u8>(signs), reinterpret_cast<v16u8>(tmp), 0));
     // Pack every element into 8 bits.
     tmp = reinterpret_cast<v4i32>(__builtin_msa_pckev_b(
-        reinterpret_cast<v16i8>(signs), reinterpret_cast<v16i8>(signs)));
+        reinterpret_cast<v16i8>(tmp), reinterpret_cast<v16i8>(tmp)));
     // Return 4 uint8_t elements as uint32_t.
     output.reg[0] = __builtin_msa_copy_s_w(tmp, 0);
     return output;
@@ -76,15 +72,12 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
     // combining all 8 elements into one vector.
     tmp_lo = reinterpret_cast<v4i32>(__builtin_msa_pckev_h(
         reinterpret_cast<v8i16>(tmp_hi), reinterpret_cast<v8i16>(tmp_lo)));
-    // Detect negative elements with arithmetic shift right (we
-    // get a 16-bit mask of all zeroes or all ones for every element).
-    v8i16 signs = __builtin_msa_srai_h(reinterpret_cast<v8i16>(tmp_lo), 15);
     // Zero out negative elements.
-    signs = reinterpret_cast<v8i16>(__builtin_msa_bseli_b(
-        reinterpret_cast<v16u8>(signs), reinterpret_cast<v16u8>(tmp_lo), 0));
+    tmp_lo = reinterpret_cast<v4i32>(__builtin_msa_maxi_s_h(
+        reinterpret_cast<v8i16>(tmp_lo), 0));
     // Pack every element into 8 bits.
     tmp_lo = reinterpret_cast<v4i32>(__builtin_msa_pckev_b(
-        reinterpret_cast<v16i8>(signs), reinterpret_cast<v16i8>(signs)));
+        reinterpret_cast<v16i8>(tmp_lo), reinterpret_cast<v16i8>(tmp_lo)));
     // Return 8 uint8_t elements as 2 uint32_t's.
     output.reg[0] = __builtin_msa_copy_s_w(tmp_lo, 0);
     output.reg[1] = __builtin_msa_copy_s_w(tmp_lo, 1);
@@ -102,15 +95,13 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
         reinterpret_cast<v8i16>(tmp1), reinterpret_cast<v8i16>(tmp0)));      \
     tmp2 = reinterpret_cast<v4i32>(__builtin_msa_pckev_h(                    \
         reinterpret_cast<v8i16>(tmp3), reinterpret_cast<v8i16>(tmp2)));      \
-    v8i16 signs0 = __builtin_msa_srai_h(reinterpret_cast<v8i16>(tmp0), 15);  \
-    v8i16 signs1 = __builtin_msa_srai_h(reinterpret_cast<v8i16>(tmp2), 15);  \
-    signs0 = reinterpret_cast<v8i16>(__builtin_msa_bseli_b(                  \
-        reinterpret_cast<v16u8>(signs0), reinterpret_cast<v16u8>(tmp0), 0)); \
-    signs1 = reinterpret_cast<v8i16>(__builtin_msa_bseli_b(                  \
-        reinterpret_cast<v16u8>(signs1), reinterpret_cast<v16u8>(tmp2), 0)); \
-    signs0 = reinterpret_cast<v8i16>(__builtin_msa_pckev_b(                  \
-        reinterpret_cast<v16i8>(signs1), reinterpret_cast<v16i8>(signs0)));  \
-    out = reinterpret_cast<v16i8>(signs0);                                   \
+    tmp0 = reinterpret_cast<v4i32>(__builtin_msa_maxi_s_h(                   \
+        reinterpret_cast<v8i16>(tmp0), 0));                                  \
+    tmp2 = reinterpret_cast<v4i32>(__builtin_msa_maxi_s_h(                   \
+        reinterpret_cast<v8i16>(tmp2), 0));                                  \
+    tmp0 = reinterpret_cast<v4i32>(__builtin_msa_pckev_b(                    \
+        reinterpret_cast<v16i8>(tmp2), reinterpret_cast<v16i8>(tmp0)));      \
+    out = reinterpret_cast<v16i8>(tmp0);                                     \
   }
 
 template <>

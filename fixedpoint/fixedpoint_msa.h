@@ -346,7 +346,6 @@ inline v8i16 Dup<v8i16>(std::int16_t x) {
 template <>
 inline v8i16 SaturatingAdd(v8i16 a, v8i16 b) {
   return __builtin_msa_adds_s_h(a, b);
-  return a;
 }
 
 }  // end namespace gemmlowp
