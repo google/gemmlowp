@@ -326,6 +326,38 @@ struct ImplSaturatingRoundingMultiplyByPOT<Exponent, v8i16, 1> {
   }
 };
 
+template <int Exponent>
+struct ImplSaturatingRoundingMultiplyByPOT<Exponent, v4i32, -1> {
+  static v4i32 eval(v4i32 x) {
+    static_assert(-31 <= Exponent && Exponent <= -1, "");
+    // Isolate the sign bits.
+    v4i32 sign = __builtin_msa_srli_w(x, 31);
+    // Decrement the negative elements by 1 (with saturation).
+    x = __builtin_msa_subs_s_w(x, sign);
+    // Arithmetic shift right with rounding.
+    // The srari instruction rounds all midpoint values towards +infinity.
+    // It will correctly round negative midpoint values as we just
+    // decremented the negative values by 1.
+    return __builtin_msa_srari_w(x, -Exponent);
+  }
+};
+
+template <int Exponent>
+struct ImplSaturatingRoundingMultiplyByPOT<Exponent, v8i16, -1> {
+  static v8i16 eval(v8i16 x) {
+    static_assert(-15 <= Exponent && Exponent <= -1, "");
+    // Isolate the sign bits.
+    v8i16 sign = __builtin_msa_srli_h(x, 15);
+    // Decrement the negative elements by 1 (with saturation).
+    x = __builtin_msa_subs_s_h(x, sign);
+    // Arithmetic shift right with rounding.
+    // The srari instruction rounds all midpoint values towards +infinity.
+    // It will correctly round negative midpoint values as we just
+    // decremented the negative values by 1.
+    return __builtin_msa_srari_h(x, -Exponent);
+  }
+};
+
 template <>
 inline v4i32 RoundingDivideByPOT(v4i32 x, int exponent) {
   v4i32 e = __builtin_msa_fill_w(exponent);
@@ -359,10 +391,6 @@ inline v8i16 RoundingDivideByPOT(v8i16 x, int exponent) {
   // decremented the negative values by 1.
   return __builtin_msa_srar_h(x, e);
 }
-
-// TODO: possibly implement:
-// template <int Exponent> struct ImplSaturatingRoundingMultiplyByPOT<Exponent, v4i32, -1>
-// template <int Exponent> struct ImplSaturatingRoundingMultiplyByPOT<Exponent, v8i16, -1>
 
 template <>
 inline v4i32 Dup<v4i32>(std::int32_t x) {
