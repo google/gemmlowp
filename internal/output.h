@@ -452,7 +452,7 @@ struct OutputPipelineExecutor {
   OutputPipelineExecutor(const OutputPipelineType& output_pipeline)
       : output_pipeline_eval_impl_(output_pipeline) {}
 
-  // RunOutputPipeline is the entry point into the output pipeline evaluation
+  // Execute is the entry point into the output pipeline evaluation
   // code. It should be the only thing that unpack code calls. It takes the
   // result
   // of the unpack stage and stores it into the destination matrix.
