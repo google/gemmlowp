@@ -26,6 +26,7 @@ do not support certain new instructions.
 
 import sys
 import re
+import argparse
 
 
 def encode_udot_sdot_vector(line):
@@ -88,9 +89,18 @@ def read_existing_encoding(line):
   return 0
 
 
+parser = argparse.ArgumentParser(description='Encode some A64 instructions.')
+parser.add_argument(
+    '-f',
+    '--fix',
+    help='fix existing wrong encodings in-place and continue',
+    action='store_true')
+args = parser.parse_args()
+
 lineno = 0
 found_existing_encodings = False
 found_error = False
+found_fixes = False
 for line in sys.stdin:
   lineno = lineno + 1
   mcode, match = encode(line)
@@ -99,16 +109,26 @@ for line in sys.stdin:
     if existing_encoding:
       found_existing_encodings = True
       if mcode != existing_encoding:
-        sys.stderr.write(
-            "Error at line %d: existing encoding 0x%x differs from encoding 0x%x for instruction '%s':\n\n%s\n\n"
-            % (lineno, existing_encoding, mcode, match, line))
-        found_error = True
+        if args.fix:
+          line = line.replace('.word 0x%x  // %s' % (existing_encoding, match),
+                              '.word 0x%x  // %s' % (mcode, match))
+          found_fixes = True
+        else:
+          sys.stderr.write(
+              "Error at line %d: existing encoding 0x%x differs from encoding 0x%x for instruction '%s':\n\n%s\n\n"
+              % (lineno, existing_encoding, mcode, match, line))
+          found_error = True
     else:
       line = line.replace(match, '.word 0x%x  // %s' % (mcode, match))
   sys.stdout.write(line)
 if found_error:
   sys.exit(1)
 if found_existing_encodings:
-  sys.stderr.write(
-      'Note: some instructions that this program is able to encode, were already encoded. These encodings have been checked.\n'
-  )
+  if found_fixes:
+    sys.stderr.write(
+        'Note: some instructions that this program is able to encode, were already encoded and their existing encodings didn\'t match the specified asm instructions. Since --fix was passed, these were fixed in-place.\n'
+    )
+  else:
+    sys.stderr.write(
+        'Note: some instructions that this program is able to encode, were already encoded. These encodings have been checked.\n'
+    )
