@@ -78,7 +78,7 @@ inline int DoSomeNOPs() {
 
 // If we can't use NOPs, let's use a non-inline function call as a basic
 // thing that has some vaguely known, nonzero cost.
-__attribute__((noinline))
+GEMMLOWP_NOINLINE
 inline int DoSomeNOPs() {
   // Pretend that calling an empty function takes as long as 16 NOPs...
   return 16;
