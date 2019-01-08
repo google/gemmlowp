@@ -14,7 +14,7 @@ The high-level overview of how this specifies a low-precision matrix
 multiplication is explained in [low-precision.md](low-precision.md). The
 rationale for a specific quantization paradigm is given in
 [quantization.md](quantization.md). That specific quantization paradigm is
-implemented at two different stages of the computation: as pre-processing ont
+implemented at two different stages of the computation: as pre-processing on
 the operands and as post-processing on the result:
 
 *   Pre-processing on the LHS, RHS operands, in the form of adding constant
