@@ -13,7 +13,7 @@ quantization paradigm affects the calculations that gemmlowp itself needs to
 perform, specifically, it affects how one goes from internal 32bit accumulator
 to final 8bit outputs.
 
-The part of gemmlowp transforming internal internal 32bit accumulator to final
+The part of gemmlowp transforming internal 32bit accumulator to final
 8bit outputs is the "output pipeline" described in [output.md](output.md).
 
 gemmlowp's `GemmWithOutputPipeline` entry point allows specifying an arbitrary
