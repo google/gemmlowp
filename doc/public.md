@@ -56,7 +56,7 @@ being automatically deduced from function parameters:
 
 *   `InputScalar`: The scalar type of the LHS and RHS operands. At the moment,
     this must be `std::uint8_t`.
-*   `OutputScalar`: The scalar type of the LHS and RHS operands. At the moment,
+*   `OutputScalar`: The scalar type of the result. At the moment,
     this must be `std::uint8_t`.
 *   `BitDepthParams`: Defines the bit format of the input and output matrices
     and the required accuracy of the computation. At the moment, the only
