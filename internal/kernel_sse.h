@@ -43,6 +43,7 @@ struct SSE4_32_Kernel4x4Depth2 : KernelBase {
            std::size_t run_depth) const override {
     ScopedProfilingLabel label("optimized kernel");
     assert(dst_row_stride == 1);
+    (void)dst_row_stride;
     std::int32_t run_depth_cells = run_depth / Format::kDepth;
     /* Main loop */
 
@@ -217,6 +218,7 @@ struct SSE4_64_Kernel12x4Depth2 : KernelBase {
            std::size_t run_depth) const override {
     ScopedProfilingLabel label("optimized kernel");
     assert(dst_row_stride == 1);
+    (void)dst_row_stride;
     const std::int64_t run_depth_cells = run_depth / Format::kDepth;
     const std::int64_t dst_col_stride_q = dst_col_stride;
 
