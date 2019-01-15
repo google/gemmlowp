@@ -40,11 +40,15 @@ NEONKernel12x4Depth2 kernel, which specifies its format as
 
 The meaning of these terms is explained in the lengthy comment at the top of
 internal/kernel.h. Here, they mean that this kernel handles at each iteration
-(along the depth dimension): - 3 'cells' of size 4x2 each of the lhs, so a total
-lhs block of size 12x2 - 1 'cell' of size 2x4 of the rhs. In other words, this
-kernel handles 12 rows of the lhs and 4 columns of the rhs, and handles two
-levels of depth at once. The 'cells' and `CellFormat` detail the layout of these
-12x2 and 2x4 blocks.
+(along the depth dimension):
+
+- 3 'cells' of size 4x2 each of the lhs, so a total lhs block of size 12x2
+
+- 1 'cell' of size 2x4 of the rhs.
+
+In other words, this kernel handles 12 rows of the lhs and 4 columns of the
+rhs, and handles two levels of depth at once. The 'cells' and `CellFormat`
+detail the layout of these 12x2 and 2x4 blocks.
 
 This kernel then loads these 12x2 and 2x4 blocks and computes the corresponding
 12x4 GEMM; for ease of reference let us paste the critical comment and code
