@@ -78,6 +78,7 @@ GEMMLOWP_SET_DEFAULT_KERNEL(false, true,
 #elif defined(GEMMLOWP_MSA)
 #include "kernel_msa.h"
 GEMMLOWP_SET_DEFAULT_KERNEL(false, false, MSA_Kernel12x8Depth2)
+GEMMLOWP_SET_DEFAULT_KERNEL(false, true, MSA_GEMM_Int8Operands_LhsNonzero)
 #elif defined GEMMLOWP_SSE4_32
 #include "kernel_sse.h"
 GEMMLOWP_SET_DEFAULT_KERNEL(false, false, SSE4_32_Kernel4x4Depth2)
