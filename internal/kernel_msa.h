@@ -271,6 +271,303 @@ struct MSA_Kernel12x8Depth2 : KernelBase {
   }
 };
 
+// Fast kernel operating on int8 operands.
+// It is assumed that one of the two int8 operands only takes values
+// in [-127, 127], while the other may freely range in [-128, 127].
+// The issue with both operands taking the value -128 is that:
+// -128*-128 + -128*-128 == -32768 overflows int16.
+// Every other expression a*b + c*d, for any int8 a,b,c,d, fits in int16
+// range. That is the basic idea of this kernel.
+struct MSA_GEMM_Int8Operands_LhsNonzero : KernelBase {
+  typedef KernelFormat<
+      KernelSideFormatInt8<CellFormat<4, 16, CellOrder::WidthMajor>, 1>,
+      KernelSideFormatInt8<CellFormat<4, 16, CellOrder::WidthMajor>, 1> >
+      Format;
+
+  const char* Name() const override {
+    return "MSA, 4x4, depth 16, accumulating two within signed int16";
+  }
+
+  // TODO(benoitjacob): reorder function arguments so dst comes last
+  void Run(std::int32_t* dst_ptr, std::size_t dst_row_stride,
+           std::size_t dst_col_stride, const std::uint8_t* lhs_ptr,
+           const std::uint8_t* rhs_ptr, std::size_t start_depth,
+           std::size_t run_depth) const override {
+    (void)dst_row_stride;
+#define GEMMLOWP_LABEL_AFTER_LOOP_LAST16 "1"
+#define GEMMLOWP_LABEL_LOOP "2"
+#define GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES "3"
+#define GEMMLOWP_LABEL_STORE "4"
+    asm volatile(
+        GEMMLOWP_MIPS_XADDIU " %[run_depth], -16\n"
+        // Load lhs[] and rhs[], zero out internal accumulators.
+        "ld.b       $w16, 0(%[lhs_ptr])\n"
+        "ldi.b      $w0, 0\n"
+        "ld.b       $w20, 0(%[rhs_ptr])\n"
+        "ldi.b      $w1, 0\n"
+        "ld.b       $w17, 16(%[lhs_ptr])\n"
+        "ldi.b      $w2, 0\n"
+        "ld.b       $w21, 16(%[rhs_ptr])\n"
+        "ldi.b      $w3, 0\n"
+        "ld.b       $w18, 32(%[lhs_ptr])\n"
+        "ldi.b      $w4, 0\n"
+        "ld.b       $w19, 48(%[lhs_ptr])\n"
+        "ldi.b      $w5, 0\n"
+        "ld.b       $w22, 32(%[rhs_ptr])\n"
+        "ldi.b      $w6, 0\n"
+        "ld.b       $w23, 48(%[rhs_ptr])\n"
+        "ldi.b      $w7, 0\n"
+        "ldi.b      $w8, 0\n"
+        "ldi.b      $w9, 0\n"
+        "ldi.b      $w10, 0\n"
+        "ldi.b      $w11, 0\n"
+        "ldi.b      $w12, 0\n"
+        "ldi.b      $w13, 0\n"
+        "ldi.b      $w14, 0\n"
+        "ldi.b      $w15, 0\n"
+        "ldi.h      $w31, 1\n"
+        // If the loop depth is only 16, then we can skip the general loop
+        // and go straight to the final part of the code.
+        "beqz %[run_depth], " GEMMLOWP_LABEL_AFTER_LOOP_LAST16 "f\n"
+
+        GEMMLOWP_LABEL_LOOP ":\n"
+        // Overview of register layout:
+        //
+        // A 4x16 block of Rhs is stored in 8 bit in w16-w19.
+        // A 4x16 block of Lhs is stored in 8 bit in w20-w23.
+        //
+        // A 4x4 block of accumulators is stored in w0-w15 (as 4x32 bit
+        // components which need to be horizontally added at the end).
+        //
+        // Dot products of Lhs and Rhs are 16-bit values, which can't
+        // immediately be accumulated in 32-bit accumulators by that
+        // same instruction that calculates them.
+        // For example, "dotp_s.h $w25, $w16, $w20" produces 8 16-bit
+        // sums in w25 (note, the 16 sums have already been reduced to 8
+        // by the horizontal addition of the dotp instruction).
+        // They are then sign-extended to 32 bits, horizontally added
+        // (again) to form 4 32-bit sums and then they are finally added
+        // to the 32-bit accumulators, all by "dpadd_s.w $w0, $w25, $w31".
+        //
+        //                    +-----+-----+-----+-----+
+        //               Rhs  | w20 | w21 | w22 | w23 |
+        //                    +-----+-----+-----+-----+
+        //
+        //                    |     |     |     |     |
+        //
+        //       Lhs          |     |     |     |     |
+        //
+        //      +---+ - - - - +-----+-----+-----+-----+
+        //      |w16|         | w0  | w4  | w8  | w12 |
+        //      |w17|         | w1  | w5  | w9  | w13 |
+        //      |w18|         | w2  | w6  | w10 | w14 |
+        //      |w19|         | w3  | w7  | w11 | w15 |
+        //      +---+ - - - - +-----+-----+-----+-----+
+        //
+        //                           Accumulators
+
+        // Calculate the results for 16 depths and load
+        // lhs[] and rhs[] for the next iteration.
+        GEMMLOWP_MIPS_XADDIU " %[lhs_ptr], 64\n"
+        GEMMLOWP_MIPS_XADDIU " %[rhs_ptr], 64\n"
+        GEMMLOWP_MIPS_XADDIU " %[run_depth], -16\n"
+
+        // Dot product: multiply-add pairs of adjacent int8 elements.
+        // Each dot product takes 16*2 int8 values in and produces 8 int16 sums.
+        "dotp_s.h   $w25, $w16, $w20\n"
+        "dotp_s.h   $w26, $w17, $w20\n"
+        "dotp_s.h   $w27, $w16, $w21\n"
+        "dotp_s.h   $w28, $w17, $w21\n"
+        "dotp_s.h   $w29, $w18, $w20\n"
+        // Horizontal add of pairs of adjacent int16 sums into internal int32
+        // accumulators.
+        "dpadd_s.w  $w0, $w25, $w31\n"
+        "dpadd_s.w  $w1, $w26, $w31\n"
+        "dpadd_s.w  $w4, $w27, $w31\n"
+        "dpadd_s.w  $w5, $w28, $w31\n"
+        "dpadd_s.w  $w2, $w29, $w31\n"
+
+        // Dot product: multiply-add pairs of adjacent int8 elements.
+        // Each dot product takes 16*2 int8 values in and produces 8 int16 sums.
+        "dotp_s.h   $w24, $w16, $w22\n"
+        "dotp_s.h   $w25, $w19, $w20\n"
+        "dotp_s.h   $w26, $w16, $w23\n"
+        "dotp_s.h   $w27, $w17, $w22\n"
+        "ld.b       $w20, 0(%[rhs_ptr])\n"
+        "dotp_s.h   $w28, $w17, $w23\n"
+        "ld.b       $w16, 0(%[lhs_ptr])\n"
+        "dotp_s.h   $w29, $w18, $w21\n"
+        "ld.b       $w17, 16(%[lhs_ptr])\n"
+        // Horizontal add of pairs of adjacent int16 sums into internal int32
+        // accumulators.
+        "dpadd_s.w  $w8, $w24, $w31\n"
+        "dpadd_s.w  $w3, $w25, $w31\n"
+        "dpadd_s.w  $w12, $w26, $w31\n"
+        "dpadd_s.w  $w9, $w27, $w31\n"
+        "dpadd_s.w  $w13, $w28, $w31\n"
+        "dpadd_s.w  $w6, $w29, $w31\n"
+
+        // Dot product: multiply-add pairs of adjacent int8 elements.
+        // Each dot product takes 16*2 int8 values in and produces 8 int16 sums.
+        "dotp_s.h   $w25, $w19, $w21\n"
+        "dotp_s.h   $w26, $w18, $w22\n"
+        "dotp_s.h   $w27, $w18, $w23\n"
+        "ld.b       $w21, 16(%[rhs_ptr])\n"
+        "dotp_s.h   $w28, $w19, $w22\n"
+        "ld.b       $w18, 32(%[lhs_ptr])\n"
+        "dotp_s.h   $w29, $w19, $w23\n"
+        "ld.b       $w22, 32(%[rhs_ptr])\n"
+        // Horizontal add of pairs of adjacent int16 sums into internal int32
+        // accumulators.
+        "dpadd_s.w  $w7, $w25, $w31\n"
+        "ld.b       $w19, 48(%[lhs_ptr])\n"
+        "dpadd_s.w  $w10, $w26, $w31\n"
+        "ld.b       $w23, 48(%[rhs_ptr])\n"
+        "dpadd_s.w  $w14, $w27, $w31\n"
+        "dpadd_s.w  $w11, $w28, $w31\n"
+        "dpadd_s.w  $w15, $w29, $w31\n"
+
+        "bnez %[run_depth], " GEMMLOWP_LABEL_LOOP "b\n"
+
+        GEMMLOWP_LABEL_AFTER_LOOP_LAST16 ":\n"
+        // Calculate the results for the last 16 depths.
+
+        // Dot product: multiply-add pairs of adjacent int8 elements.
+        // Each dot product takes 16*2 int8 values in and produces 8 int16 sums.
+        "dotp_s.h   $w25, $w16, $w20\n"
+        "dotp_s.h   $w26, $w17, $w20\n"
+        "dotp_s.h   $w27, $w16, $w21\n"
+        "dotp_s.h   $w28, $w17, $w21\n"
+        "dotp_s.h   $w29, $w18, $w20\n"
+        // Horizontal add of pairs of adjacent int16 sums into internal int32
+        // accumulators.
+        "dpadd_s.w  $w0, $w25, $w31\n"
+        "dpadd_s.w  $w1, $w26, $w31\n"
+        "dpadd_s.w  $w4, $w27, $w31\n"
+        "dpadd_s.w  $w5, $w28, $w31\n"
+        "dpadd_s.w  $w2, $w29, $w31\n"
+
+        // Dot product: multiply-add pairs of adjacent int8 elements.
+        // Each dot product takes 16*2 int8 values in and produces 8 int16 sums.
+        "dotp_s.h   $w24, $w16, $w22\n"
+        "dotp_s.h   $w25, $w19, $w20\n"
+        "dotp_s.h   $w26, $w16, $w23\n"
+        "dotp_s.h   $w27, $w17, $w22\n"
+        "dotp_s.h   $w28, $w17, $w23\n"
+        "dotp_s.h   $w29, $w18, $w21\n"
+        // Horizontal add of pairs of adjacent int16 sums into internal int32
+        // accumulators.
+        "dpadd_s.w  $w8, $w24, $w31\n"
+        "dpadd_s.w  $w3, $w25, $w31\n"
+        "dpadd_s.w  $w12, $w26, $w31\n"
+        "dpadd_s.w  $w9, $w27, $w31\n"
+        "dpadd_s.w  $w13, $w28, $w31\n"
+        "dpadd_s.w  $w6, $w29, $w31\n"
+
+        // Dot product: multiply-add pairs of adjacent int8 elements.
+        // Each dot product takes 16*2 int8 values in and produces 8 int16 sums.
+        "dotp_s.h   $w25, $w19, $w21\n"
+        "dotp_s.h   $w26, $w18, $w22\n"
+        "dotp_s.h   $w27, $w18, $w23\n"
+        "dotp_s.h   $w28, $w19, $w22\n"
+        "dotp_s.h   $w29, $w19, $w23\n"
+        // Horizontal add of pairs of adjacent int16 sums into internal int32
+        // accumulators.
+        "dpadd_s.w  $w7, $w25, $w31\n"
+        "dpadd_s.w  $w10, $w26, $w31\n"
+        "dpadd_s.w  $w14, $w27, $w31\n"
+        "dpadd_s.w  $w11, $w28, $w31\n"
+        "dpadd_s.w  $w15, $w29, $w31\n"
+
+        // Horizontal-add internal accumulators.
+        "hadd_s.d   $w0, $w0, $w0\n"
+        "hadd_s.d   $w1, $w1, $w1\n"
+        "hadd_s.d   $w2, $w2, $w2\n"
+        "hadd_s.d   $w3, $w3, $w3\n"
+        "hadd_s.d   $w4, $w4, $w4\n"
+        "hadd_s.d   $w5, $w5, $w5\n"
+        "hadd_s.d   $w6, $w6, $w6\n"
+        "hadd_s.d   $w7, $w7, $w7\n"
+        "hadd_s.d   $w8, $w8, $w8\n"
+        "hadd_s.d   $w9, $w9, $w9\n"
+        "hadd_s.d   $w10, $w10, $w10\n"
+        "hadd_s.d   $w11, $w11, $w11\n"
+        "hadd_s.d   $w12, $w12, $w12\n"
+        "hadd_s.d   $w13, $w13, $w13\n"
+        "hadd_s.d   $w14, $w14, $w14\n"
+        "hadd_s.d   $w15, $w15, $w15\n"
+        "pckev.w    $w0, $w1, $w0\n"
+        "pckev.w    $w2, $w3, $w2\n"
+        "pckev.w    $w4, $w5, $w4\n"
+        "pckev.w    $w6, $w7, $w6\n"
+        "pckev.w    $w8, $w9, $w8\n"
+        "pckev.w    $w10, $w11, $w10\n"
+        "pckev.w    $w12, $w13, $w12\n"
+        "pckev.w    $w14, $w15, $w14\n"
+        "hadd_s.d   $w0, $w0, $w0\n"
+        "hadd_s.d   $w2, $w2, $w2\n"
+        "hadd_s.d   $w4, $w4, $w4\n"
+        "hadd_s.d   $w6, $w6, $w6\n"
+        "hadd_s.d   $w8, $w8, $w8\n"
+        "hadd_s.d   $w10, $w10, $w10\n"
+        "hadd_s.d   $w12, $w12, $w12\n"
+        "hadd_s.d   $w14, $w14, $w14\n"
+        // 4 more pckev instructions follow in both paths below.
+
+        // Check if start_depth==0 to decide whether we will load
+        // existing accumulators from memory.
+        "bnez %[start_depth], " GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES "f\n"
+
+        "pckev.w    $w0, $w2, $w0\n"
+        "pckev.w    $w1, $w6, $w4\n"
+        "pckev.w    $w2, $w10, $w8\n"
+        "pckev.w    $w3, $w14, $w12\n"
+
+        "b " GEMMLOWP_LABEL_STORE "f\n"
+
+        GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES ":\n"
+        // Load accumulators from memory.
+        "ld.w       $w16, 0(%[dst_ptr0])\n"
+        "pckev.w    $w0, $w2, $w0\n"
+        "ld.w       $w17, 0(%[dst_ptr1])\n"
+        "pckev.w    $w1, $w6, $w4\n"
+        "ld.w       $w18, 0(%[dst_ptr2])\n"
+        "pckev.w    $w2, $w10, $w8\n"
+        "ld.w       $w19, 0(%[dst_ptr3])\n"
+        "pckev.w    $w3, $w14, $w12\n"
+
+        // Add them to internal accumulators.
+        "addv.w     $w0, $w0, $w16\n"
+        "addv.w     $w1, $w1, $w17\n"
+        "addv.w     $w2, $w2, $w18\n"
+        "addv.w     $w3, $w3, $w19\n"
+
+        GEMMLOWP_LABEL_STORE ":\n"
+        // Store accumulators.
+        "st.w       $w0, 0(%[dst_ptr0])\n"
+        "st.w       $w1, 0(%[dst_ptr1])\n"
+        "st.w       $w2, 0(%[dst_ptr2])\n"
+        "st.w       $w3, 0(%[dst_ptr3])\n"
+        :  // outputs
+        [lhs_ptr] "+r"(lhs_ptr), [rhs_ptr] "+r"(rhs_ptr),
+        [run_depth] "+r"(run_depth)
+        :  // inputs
+        [dst_ptr0] "r"(dst_ptr), [dst_ptr1] "r"(dst_ptr + dst_col_stride),
+        [dst_ptr2] "r"(dst_ptr + dst_col_stride * 2),
+        [dst_ptr3] "r"(dst_ptr + dst_col_stride * 3),
+        [start_depth] "r"(start_depth)
+        :  // clobbers
+        "memory", "$f0", "$f1", "$f2", "$f3", "$f4", "$f5", "$f6", "$f7", "$f8",
+        "$f9", "$f10", "$f11", "$f12", "$f13", "$f14", "$f15", "$f16", "$f17",
+        "$f18", "$f19", "$f20", "$f21", "$f22", "$f23", "$f24", "$f25", "$f26",
+        "$f27", "$f28", "$f29", "$f30", "$f31");
+#undef GEMMLOWP_LABEL_LOOP
+#undef GEMMLOWP_LABEL_AFTER_LOOP_LAST16
+#undef GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES
+#undef GEMMLOWP_LABEL_STORE
+  }
+};
+
 #undef GEMMLOWP_MIPS_XADDU
 #undef GEMMLOWP_MIPS_XADDIU
 #undef GEMMLOWP_MIPS_XSLL
