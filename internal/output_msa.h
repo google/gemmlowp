@@ -687,6 +687,391 @@ struct StoreFinalOutputImpl<RegBlockUint8<4, 4>, DstType> {
   }
 };
 
+// There's no way to express in C++ the desired machine code for
+// StoreFinalOutputImpl<RegBlockUint8<8, 4>, DstType> and
+// StoreFinalOutputImpl<RegBlockUint8<8, 8>, DstType>.
+// Hence, if we can, we use inline assembly, which takes advantage
+// of little-endian byte order and specifics of different CPU revisions.
+// Note, clang currently can't derive MSA register names from floating-
+// point register names and vice versa in inline assembly.
+#if defined(__BYTE_ORDER__) && (__BYTE_ORDER__ == __ORDER_LITTLE_ENDIAN__) && \
+    !defined(__clang__)
+
+// Instructions for pointer-sized operands.
+#ifdef GEMMLOWP_MIPS_64
+#define GEMMLOWP_MIPS_XADDU "daddu"
+#define GEMMLOWP_MIPS_XLSA "dlsa"
+#else
+#define GEMMLOWP_MIPS_XADDU "addu"
+#define GEMMLOWP_MIPS_XLSA "lsa"
+#endif
+
+// Stores 4 8-byte half-vectors with a stride.
+inline void MipsMsaStore4x8(const RegBlockUint8<8, 4>& src,
+                            std::uint8_t* dst_ptr, int stride) {
+#if (__mips_isa_rev >= 6)
+  // Assembly temporaries that will be handily referred to by their names.
+  std::uint8_t *dst_ptr1, *dst_ptr2, *dst_ptr3;
+  v16i8 vtmp0, vtmp1;
+  asm volatile(
+    GEMMLOWP_MIPS_XADDU " %[dst_ptr1], %[dst_ptr0], %[stride]\n"
+    "ilvl.d               %w[vtmp0], %w[src0], %w[src0]\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr2], %[stride], %[dst_ptr0], 1\n"
+    "ilvl.d               %w[vtmp1], %w[src1], %w[src1]\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr3], %[stride], %[dst_ptr1], 1\n"
+    "sdc1                 %[src0], 0(%[dst_ptr0])\n"
+    "sdc1                 %[vtmp0], 0(%[dst_ptr1])\n"
+    "sdc1                 %[src1], 0(%[dst_ptr2])\n"
+    "sdc1                 %[vtmp1], 0(%[dst_ptr3])\n"
+    :
+    // Outputs.
+    [dst_ptr0] "+r"(dst_ptr), [dst_ptr1] "=&r"(dst_ptr1),
+    [dst_ptr2] "=&r"(dst_ptr2), [dst_ptr3] "=&r"(dst_ptr3),
+    [vtmp0] "=&f"(vtmp0), [vtmp1] "=&f"(vtmp1)
+    :
+    // Inputs.
+    [src0] "f"(src.buf.reg[0]), [src1] "f"(src.buf.reg[1]),
+    [stride] "r"(stride)
+    :
+    // Clobbers.
+    "memory");
+#else
+  // Assembly temporaries that will be handily referred to by their names.
+  std::uint8_t *dst_ptr1, *dst_ptr2, *dst_ptr3;
+  int tmp0, tmp1, tmp2, tmp3;
+  asm volatile(
+    GEMMLOWP_MIPS_XADDU " %[dst_ptr1], %[dst_ptr0], %[stride]\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr2], %[stride], %[dst_ptr0], 1\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr3], %[stride], %[dst_ptr1], 1\n"
+    "copy_s.w             %[tmp0], %w[src0][0]\n"
+    "copy_s.w             %[tmp1], %w[src0][1]\n"
+    "copy_s.w             %[tmp2], %w[src0][2]\n"
+    "copy_s.w             %[tmp3], %w[src0][3]\n"
+    "swr                  %[tmp0], 0(%[dst_ptr0])\n"
+    "swl                  %[tmp0], 3(%[dst_ptr0])\n"
+    "swr                  %[tmp1], 4(%[dst_ptr0])\n"
+    "swl                  %[tmp1], 7(%[dst_ptr0])\n"
+    "swr                  %[tmp2], 0(%[dst_ptr1])\n"
+    "swl                  %[tmp2], 3(%[dst_ptr1])\n"
+    "swr                  %[tmp3], 4(%[dst_ptr1])\n"
+    "swl                  %[tmp3], 7(%[dst_ptr1])\n"
+    "copy_s.w             %[tmp0], %w[src1][0]\n"
+    "copy_s.w             %[tmp1], %w[src1][1]\n"
+    "copy_s.w             %[tmp2], %w[src1][2]\n"
+    "copy_s.w             %[tmp3], %w[src1][3]\n"
+    "swr                  %[tmp0], 0(%[dst_ptr2])\n"
+    "swl                  %[tmp0], 3(%[dst_ptr2])\n"
+    "swr                  %[tmp1], 4(%[dst_ptr2])\n"
+    "swl                  %[tmp1], 7(%[dst_ptr2])\n"
+    "swr                  %[tmp2], 0(%[dst_ptr3])\n"
+    "swl                  %[tmp2], 3(%[dst_ptr3])\n"
+    "swr                  %[tmp3], 4(%[dst_ptr3])\n"
+    "swl                  %[tmp3], 7(%[dst_ptr3])\n"
+    :
+    // Outputs.
+    [dst_ptr0] "+r"(dst_ptr), [dst_ptr1] "=&r"(dst_ptr1),
+    [dst_ptr2] "=&r"(dst_ptr2), [dst_ptr3] "=&r"(dst_ptr3), [tmp0] "=&r"(tmp0),
+    [tmp1] "=&r"(tmp1), [tmp2] "=&r"(tmp2), [tmp3] "=&r"(tmp3)
+    :
+    // Inputs.
+    [src0] "f"(src.buf.reg[0]), [src1] "f"(src.buf.reg[1]),
+    [stride] "r"(stride)
+    :
+    // Clobbers.
+    "memory");
+#endif
+}
+
+// Stores 8 4-byte quarter-vectors with a stride.
+inline void MipsMsaStore8x4(const RegBlockUint8<4, 8>& src,
+                            std::uint8_t* dst_ptr, int stride) {
+#if (__mips_isa_rev >= 6)
+  // Assembly temporaries that will be handily referred to by their names.
+  std::uint8_t *dst_ptr1, *dst_ptr2, *dst_ptr3, *dst_ptr4, *dst_ptr5,
+      *dst_ptr6, *dst_ptr7;
+  int tmp1, tmp2, tmp3;
+  asm volatile(
+    GEMMLOWP_MIPS_XADDU " %[dst_ptr1], %[dst_ptr0], %[stride]\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr2], %[stride], %[dst_ptr0], 1\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr4], %[stride], %[dst_ptr0], 2\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr3], %[stride], %[dst_ptr1], 1\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr5], %[stride], %[dst_ptr1], 2\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr6], %[stride], %[dst_ptr2], 2\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr7], %[stride], %[dst_ptr3], 2\n"
+    "copy_s.w             %[tmp1], %w[src0][1]\n"
+    "copy_s.w             %[tmp2], %w[src0][2]\n"
+    "copy_s.w             %[tmp3], %w[src0][3]\n"
+    "swc1                 %[src0], 0(%[dst_ptr0])\n"
+    "sw                   %[tmp1], 0(%[dst_ptr1])\n"
+    "sw                   %[tmp2], 0(%[dst_ptr2])\n"
+    "sw                   %[tmp3], 0(%[dst_ptr3])\n"
+    "copy_s.w             %[tmp1], %w[src1][1]\n"
+    "copy_s.w             %[tmp2], %w[src1][2]\n"
+    "copy_s.w             %[tmp3], %w[src1][3]\n"
+    "swc1                 %[src1], 0(%[dst_ptr4])\n"
+    "sw                   %[tmp1], 0(%[dst_ptr5])\n"
+    "sw                   %[tmp2], 0(%[dst_ptr6])\n"
+    "sw                   %[tmp3], 0(%[dst_ptr7])\n"
+    :
+    // Outputs.
+    [dst_ptr0] "+r"(dst_ptr), [dst_ptr1] "=&r"(dst_ptr1),
+    [dst_ptr2] "=&r"(dst_ptr2), [dst_ptr3] "=&r"(dst_ptr3),
+    [dst_ptr4] "=&r"(dst_ptr4), [dst_ptr5] "=&r"(dst_ptr5),
+    [dst_ptr6] "=&r"(dst_ptr6), [dst_ptr7] "=&r"(dst_ptr7),
+    [tmp1] "=&r"(tmp1), [tmp2] "=&r"(tmp2), [tmp3] "=&r"(tmp3)
+    :
+    // Inputs.
+    [src0] "f"(src.buf.reg[0]), [src1] "f"(src.buf.reg[1]),
+    [stride] "r"(stride)
+    :
+    // Clobbers.
+    "memory");
+#else
+  // Assembly temporaries that will be handily referred to by their names.
+  std::uint8_t *dst_ptr1, *dst_ptr2, *dst_ptr3, *dst_ptr4, *dst_ptr5,
+      *dst_ptr6, *dst_ptr7;
+  int tmp0, tmp1, tmp2, tmp3;
+  asm volatile(
+    GEMMLOWP_MIPS_XADDU " %[dst_ptr1], %[dst_ptr0], %[stride]\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr2], %[stride], %[dst_ptr0], 1\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr4], %[stride], %[dst_ptr0], 2\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr3], %[stride], %[dst_ptr1], 1\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr5], %[stride], %[dst_ptr1], 2\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr6], %[stride], %[dst_ptr2], 2\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr7], %[stride], %[dst_ptr3], 2\n"
+    "copy_s.w             %[tmp0], %w[src0][0]\n"
+    "copy_s.w             %[tmp1], %w[src0][1]\n"
+    "copy_s.w             %[tmp2], %w[src0][2]\n"
+    "copy_s.w             %[tmp3], %w[src0][3]\n"
+    "swr                  %[tmp0], 0(%[dst_ptr0])\n"
+    "swl                  %[tmp0], 3(%[dst_ptr0])\n"
+    "swr                  %[tmp1], 0(%[dst_ptr1])\n"
+    "swl                  %[tmp1], 3(%[dst_ptr1])\n"
+    "swr                  %[tmp2], 0(%[dst_ptr2])\n"
+    "swl                  %[tmp2], 3(%[dst_ptr2])\n"
+    "swr                  %[tmp3], 0(%[dst_ptr3])\n"
+    "swl                  %[tmp3], 3(%[dst_ptr3])\n"
+    "copy_s.w             %[tmp0], %w[src1][0]\n"
+    "copy_s.w             %[tmp1], %w[src1][1]\n"
+    "copy_s.w             %[tmp2], %w[src1][2]\n"
+    "copy_s.w             %[tmp3], %w[src1][3]\n"
+    "swr                  %[tmp0], 0(%[dst_ptr4])\n"
+    "swl                  %[tmp0], 3(%[dst_ptr4])\n"
+    "swr                  %[tmp1], 0(%[dst_ptr5])\n"
+    "swl                  %[tmp1], 3(%[dst_ptr5])\n"
+    "swr                  %[tmp2], 0(%[dst_ptr6])\n"
+    "swl                  %[tmp2], 3(%[dst_ptr6])\n"
+    "swr                  %[tmp3], 0(%[dst_ptr7])\n"
+    "swl                  %[tmp3], 3(%[dst_ptr7])\n"
+    :
+    // Outputs.
+    [dst_ptr0] "+r"(dst_ptr), [dst_ptr1] "=&r"(dst_ptr1),
+    [dst_ptr2] "=&r"(dst_ptr2), [dst_ptr3] "=&r"(dst_ptr3),
+    [dst_ptr4] "=&r"(dst_ptr4), [dst_ptr5] "=&r"(dst_ptr5),
+    [dst_ptr6] "=&r"(dst_ptr6), [dst_ptr7] "=&r"(dst_ptr7),
+    [tmp0] "=&r"(tmp0), [tmp1] "=&r"(tmp1), [tmp2] "=&r"(tmp2),
+    [tmp3] "=&r"(tmp3)
+    :
+    // Inputs.
+    [src0] "f"(src.buf.reg[0]), [src1] "f"(src.buf.reg[1]),
+    [stride] "r"(stride)
+    :
+    // Clobbers.
+    "memory");
+#endif
+}
+
+// Stores 8 8-byte half-vectors with a stride.
+inline void MipsMsaStore8x8(const RegBlockUint8<8, 8>& src,
+                            std::uint8_t* dst_ptr, int stride) {
+#if (__mips_isa_rev >= 6)
+  // Assembly temporaries that will be handily referred to by their names.
+  std::uint8_t *dst_ptr1, *dst_ptr2, *dst_ptr3, *dst_ptr4, *dst_ptr5,
+      *dst_ptr6, *dst_ptr7;
+  v16i8 vtmp0, vtmp1, vtmp2, vtmp3;
+  asm volatile(
+    "ilvl.d               %w[vtmp0], %w[src0], %w[src0]\n"
+    GEMMLOWP_MIPS_XADDU " %[dst_ptr1], %[dst_ptr0], %[stride]\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr2], %[stride], %[dst_ptr0], 1\n"
+    "ilvl.d               %w[vtmp1], %w[src1], %w[src1]\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr4], %[stride], %[dst_ptr0], 2\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr3], %[stride], %[dst_ptr1], 1\n"
+    "ilvl.d               %w[vtmp2], %w[src2], %w[src2]\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr5], %[stride], %[dst_ptr1], 2\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr6], %[stride], %[dst_ptr2], 2\n"
+    "ilvl.d               %w[vtmp3], %w[src3], %w[src3]\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr7], %[stride], %[dst_ptr3], 2\n"
+    "sdc1                 %[src0], 0(%[dst_ptr0])\n"
+    "sdc1                 %[vtmp0], 0(%[dst_ptr1])\n"
+    "sdc1                 %[src1], 0(%[dst_ptr2])\n"
+    "sdc1                 %[vtmp1], 0(%[dst_ptr3])\n"
+    "sdc1                 %[src2], 0(%[dst_ptr4])\n"
+    "sdc1                 %[vtmp2], 0(%[dst_ptr5])\n"
+    "sdc1                 %[src3], 0(%[dst_ptr6])\n"
+    "sdc1                 %[vtmp3], 0(%[dst_ptr7])\n"
+    :
+    // Outputs.
+    [dst_ptr0] "+r"(dst_ptr), [dst_ptr1] "=&r"(dst_ptr1),
+    [dst_ptr2] "=&r"(dst_ptr2), [dst_ptr3] "=&r"(dst_ptr3),
+    [dst_ptr4] "=&r"(dst_ptr4), [dst_ptr5] "=&r"(dst_ptr5),
+    [dst_ptr6] "=&r"(dst_ptr6), [dst_ptr7] "=&r"(dst_ptr7),
+    [vtmp0] "=&f"(vtmp0), [vtmp1] "=&f"(vtmp1), [vtmp2] "=&f"(vtmp2),
+    [vtmp3] "=&f"(vtmp3)
+    :
+    // Inputs.
+    [src0] "f"(src.buf.reg[0]), [src1] "f"(src.buf.reg[1]),
+    [src2] "f"(src.buf.reg[2]), [src3] "f"(src.buf.reg[3]),
+    [stride] "r"(stride)
+    :
+    // Clobbers.
+    "memory");
+#else
+  // Assembly temporaries that will be handily referred to by their names.
+  std::uint8_t *dst_ptr1, *dst_ptr2, *dst_ptr3, *dst_ptr4, *dst_ptr5,
+      *dst_ptr6, *dst_ptr7;
+  int tmp0, tmp1, tmp2, tmp3;
+  asm volatile(
+    GEMMLOWP_MIPS_XADDU " %[dst_ptr1], %[dst_ptr0], %[stride]\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr2], %[stride], %[dst_ptr0], 1\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr4], %[stride], %[dst_ptr0], 2\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr3], %[stride], %[dst_ptr1], 1\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr5], %[stride], %[dst_ptr1], 2\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr6], %[stride], %[dst_ptr2], 2\n"
+    GEMMLOWP_MIPS_XLSA  " %[dst_ptr7], %[stride], %[dst_ptr3], 2\n"
+    "copy_s.w             %[tmp0], %w[src0][0]\n"
+    "copy_s.w             %[tmp1], %w[src0][1]\n"
+    "copy_s.w             %[tmp2], %w[src0][2]\n"
+    "copy_s.w             %[tmp3], %w[src0][3]\n"
+    "swr                  %[tmp0], 0(%[dst_ptr0])\n"
+    "swl                  %[tmp0], 3(%[dst_ptr0])\n"
+    "swr                  %[tmp1], 4(%[dst_ptr0])\n"
+    "swl                  %[tmp1], 7(%[dst_ptr0])\n"
+    "swr                  %[tmp2], 0(%[dst_ptr1])\n"
+    "swl                  %[tmp2], 3(%[dst_ptr1])\n"
+    "swr                  %[tmp3], 4(%[dst_ptr1])\n"
+    "swl                  %[tmp3], 7(%[dst_ptr1])\n"
+    "copy_s.w             %[tmp0], %w[src1][0]\n"
+    "copy_s.w             %[tmp1], %w[src1][1]\n"
+    "copy_s.w             %[tmp2], %w[src1][2]\n"
+    "copy_s.w             %[tmp3], %w[src1][3]\n"
+    "swr                  %[tmp0], 0(%[dst_ptr2])\n"
+    "swl                  %[tmp0], 3(%[dst_ptr2])\n"
+    "swr                  %[tmp1], 4(%[dst_ptr2])\n"
+    "swl                  %[tmp1], 7(%[dst_ptr2])\n"
+    "swr                  %[tmp2], 0(%[dst_ptr3])\n"
+    "swl                  %[tmp2], 3(%[dst_ptr3])\n"
+    "swr                  %[tmp3], 4(%[dst_ptr3])\n"
+    "swl                  %[tmp3], 7(%[dst_ptr3])\n"
+    "copy_s.w             %[tmp0], %w[src2][0]\n"
+    "copy_s.w             %[tmp1], %w[src2][1]\n"
+    "copy_s.w             %[tmp2], %w[src2][2]\n"
+    "copy_s.w             %[tmp3], %w[src2][3]\n"
+    "swr                  %[tmp0], 0(%[dst_ptr4])\n"
+    "swl                  %[tmp0], 3(%[dst_ptr4])\n"
+    "swr                  %[tmp1], 4(%[dst_ptr4])\n"
+    "swl                  %[tmp1], 7(%[dst_ptr4])\n"
+    "swr                  %[tmp2], 0(%[dst_ptr5])\n"
+    "swl                  %[tmp2], 3(%[dst_ptr5])\n"
+    "swr                  %[tmp3], 4(%[dst_ptr5])\n"
+    "swl                  %[tmp3], 7(%[dst_ptr5])\n"
+    "copy_s.w             %[tmp0], %w[src3][0]\n"
+    "copy_s.w             %[tmp1], %w[src3][1]\n"
+    "copy_s.w             %[tmp2], %w[src3][2]\n"
+    "copy_s.w             %[tmp3], %w[src3][3]\n"
+    "swr                  %[tmp0], 0(%[dst_ptr6])\n"
+    "swl                  %[tmp0], 3(%[dst_ptr6])\n"
+    "swr                  %[tmp1], 4(%[dst_ptr6])\n"
+    "swl                  %[tmp1], 7(%[dst_ptr6])\n"
+    "swr                  %[tmp2], 0(%[dst_ptr7])\n"
+    "swl                  %[tmp2], 3(%[dst_ptr7])\n"
+    "swr                  %[tmp3], 4(%[dst_ptr7])\n"
+    "swl                  %[tmp3], 7(%[dst_ptr7])\n"
+    :
+    // Outputs.
+    [dst_ptr0] "+r"(dst_ptr), [dst_ptr1] "=&r"(dst_ptr1),
+    [dst_ptr2] "=&r"(dst_ptr2), [dst_ptr3] "=&r"(dst_ptr3),
+    [dst_ptr4] "=&r"(dst_ptr4), [dst_ptr5] "=&r"(dst_ptr5),
+    [dst_ptr6] "=&r"(dst_ptr6), [dst_ptr7] "=&r"(dst_ptr7),
+    [tmp0] "=&r"(tmp0), [tmp1] "=&r"(tmp1), [tmp2] "=&r"(tmp2),
+    [tmp3] "=&r"(tmp3)
+    :
+    // Inputs.
+    [src0] "f"(src.buf.reg[0]), [src1] "f"(src.buf.reg[1]),
+    [src2] "f"(src.buf.reg[2]), [src3] "f"(src.buf.reg[3]),
+    [stride] "r"(stride)
+    :
+    // Clobbers.
+    "memory");
+#endif
+}
+
+#undef GEMMLOWP_MIPS_XADDU
+#undef GEMMLOWP_MIPS_XLSA
+
+// Transposes a column-major 8x4 block for storage into a row-major matrix.
+inline RegBlockUint8<4, 8> Transpose(const RegBlockUint8<8, 4>& src) {
+  v16i8 tmp0 = __builtin_msa_ilvr_b(src.buf.reg[1], src.buf.reg[0]);
+  v16i8 tmp1 = __builtin_msa_ilvl_b(src.buf.reg[1], src.buf.reg[0]);
+  RegBlockUint8<4, 8> result;
+  result.buf.reg[0] = __builtin_msa_ilvr_b(tmp1, tmp0);
+  result.buf.reg[1] = __builtin_msa_ilvl_b(tmp1, tmp0);
+  return result;
+}
+
+inline RegBlockUint8<8, 8> Transpose(const RegBlockUint8<8, 8>& src) {
+  v16i8 tmp0[4];
+  tmp0[0] = __builtin_msa_ilvr_b(src.buf.reg[1], src.buf.reg[0]);
+  tmp0[1] = __builtin_msa_ilvl_b(src.buf.reg[1], src.buf.reg[0]);
+  tmp0[2] = __builtin_msa_ilvr_b(src.buf.reg[3], src.buf.reg[2]);
+  tmp0[3] = __builtin_msa_ilvl_b(src.buf.reg[3], src.buf.reg[2]);
+  v16i8 tmp1[4];
+  tmp1[0] = __builtin_msa_ilvr_b(tmp0[1], tmp0[0]);
+  tmp1[1] = __builtin_msa_ilvl_b(tmp0[1], tmp0[0]);
+  tmp1[2] = __builtin_msa_ilvr_b(tmp0[3], tmp0[2]);
+  tmp1[3] = __builtin_msa_ilvl_b(tmp0[3], tmp0[2]);
+  RegBlockUint8<8, 8> result;
+  result.buf.reg[0] = reinterpret_cast<v16i8>(__builtin_msa_ilvr_w(
+      reinterpret_cast<v4i32>(tmp1[2]), reinterpret_cast<v4i32>(tmp1[0])));
+  result.buf.reg[1] = reinterpret_cast<v16i8>(__builtin_msa_ilvl_w(
+      reinterpret_cast<v4i32>(tmp1[2]), reinterpret_cast<v4i32>(tmp1[0])));
+  result.buf.reg[2] = reinterpret_cast<v16i8>(__builtin_msa_ilvr_w(
+      reinterpret_cast<v4i32>(tmp1[3]), reinterpret_cast<v4i32>(tmp1[1])));
+  result.buf.reg[3] = reinterpret_cast<v16i8>(__builtin_msa_ilvl_w(
+      reinterpret_cast<v4i32>(tmp1[3]), reinterpret_cast<v4i32>(tmp1[1])));
+  return result;
+}
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockUint8<8, 4>, DstType> {
+  static void Run(const RegBlockUint8<8, 4>& src, DstType* dst, int row,
+                  int col) {
+    if (DstType::kOrder == MapOrder::ColMajor) {
+      std::uint8_t* dst_ptr = dst->data(row, col);
+      int col_stride = dst->cols_stride();
+      MipsMsaStore4x8(src, dst_ptr, col_stride);
+    } else {
+      const auto& block = Transpose(src);
+      std::uint8_t* dst_ptr = dst->data(row, col);
+      int row_stride = dst->rows_stride();
+      MipsMsaStore8x4(block, dst_ptr, row_stride);
+    }
+  }
+};
+
+template <typename DstType>
+struct StoreFinalOutputImpl<RegBlockUint8<8, 8>, DstType> {
+  static void Run(const RegBlockUint8<8, 8>& src, DstType* dst, int row,
+                  int col) {
+    const auto& block =
+        (DstType::kOrder == MapOrder::ColMajor) ? src : Transpose(src);
+    std::uint8_t* dst_ptr = dst->data(row, col);
+    int stride = dst->stride();
+    MipsMsaStore8x8(block, dst_ptr, stride);
+  }
+};
+
+#else
+
 template <typename DstType>
 struct StoreFinalOutputImpl<RegBlockUint8<8, 4>, DstType> {
   static void Run(const RegBlockUint8<8, 4>& src, DstType* dst, int row,
@@ -718,6 +1103,8 @@ struct StoreFinalOutputImpl<RegBlockUint8<8, 8>, DstType> {
     }
   }
 };
+
+#endif  // Endianness, compiler.
 
 }  // namespace gemmlowp
 
