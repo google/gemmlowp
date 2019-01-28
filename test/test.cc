@@ -1297,6 +1297,27 @@ void TestOutputStages(int rows, int depth, int cols, int result_offset,
     }
   }
 
+#ifdef GEMMLOWP_MSA
+  // Test a pipeline consisting of quantize-down and truncating-cast-to-uint8.
+  OutputStageTruncatingCastToUint8 truncating_cast_stage;
+  auto quantize_down_and_truncating_cast_pipeline =
+      std::make_tuple(quantize_down_stage, truncating_cast_stage);
+  Matrix<std::uint8_t, ResultOrder> result_quantized_down_truncated_uint8(
+      rows, cols);
+  GemmWithOutputPipeline<std::uint8_t, std::uint8_t, DefaultL8R8BitDepthParams>(
+      &context, lhs.const_map(), rhs.const_map(),
+      &result_quantized_down_truncated_uint8, lhs_offset, rhs_offset,
+      quantize_down_and_truncating_cast_pipeline);
+
+  for (int r = 0; r < rows; r++) {
+    for (int c = 0; c < cols; c++) {
+      std::int32_t quantized = result_quantized_down_int32(r, c);
+      std::uint8_t expected = quantized & 255;
+      Check(expected == result_quantized_down_truncated_uint8(r, c));
+    }
+  }
+#endif
+
   // Test a bias-addition with row-vector
   std::vector<std::int32_t> row_vector_data(cols);
   std::uniform_int_distribution<std::int32_t> uniform_minus_500_plus_500(-500,
