@@ -232,6 +232,117 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToInt16,
 
 #undef GEMMLOWP_MIPS_SAT_I16_8
 
+template <>
+struct OutputStageEvalBufferImpl<OutputStageTruncatingCastToUint8,
+                                 RegBufferInt32<4>> {
+  typedef RegBufferInt32<4> InputType;
+  typedef RegBufferUint8<4> OutputType;
+
+  typedef OutputStageTruncatingCastToUint8 OutputStage;
+
+  OutputStageEvalBufferImpl(const OutputStage&) {}
+
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    // Pack every 32-bit element into 16 bits.
+    v4i32 tmp = reinterpret_cast<v4i32>(__builtin_msa_pckev_h(
+        reinterpret_cast<v8i16>(input.reg[0]),
+        reinterpret_cast<v8i16>(input.reg[0])));
+    // Pack every element into 8 bits.
+    tmp = reinterpret_cast<v4i32>(__builtin_msa_pckev_b(
+        reinterpret_cast<v16i8>(tmp), reinterpret_cast<v16i8>(tmp)));
+    // Return 4 uint8_t elements as uint32_t.
+    output.reg[0] = __builtin_msa_copy_s_w(tmp, 0);
+    return output;
+  }
+};
+
+template <>
+struct OutputStageEvalBufferImpl<OutputStageTruncatingCastToUint8,
+                                 RegBufferInt32<8>> {
+  typedef RegBufferInt32<8> InputType;
+  typedef RegBufferUint8<8> OutputType;
+
+  typedef OutputStageTruncatingCastToUint8 OutputStage;
+
+  OutputStageEvalBufferImpl(const OutputStage&) {}
+
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    // Pack every 32-bit element into 16 bits.
+    v4i32 tmp = reinterpret_cast<v4i32>(__builtin_msa_pckev_h(
+        reinterpret_cast<v8i16>(input.reg[1]),
+        reinterpret_cast<v8i16>(input.reg[0])));
+    // Pack every element into 8 bits.
+    tmp = reinterpret_cast<v4i32>(__builtin_msa_pckev_b(
+        reinterpret_cast<v16i8>(tmp), reinterpret_cast<v16i8>(tmp)));
+    // Return 8 uint8_t elements as 2 uint32_t's.
+    output.reg[0] = __builtin_msa_copy_s_w(tmp, 0);
+    output.reg[1] = __builtin_msa_copy_s_w(tmp, 1);
+    return output;
+  }
+};
+
+template <>
+struct OutputStageEvalBufferImpl<OutputStageTruncatingCastToUint8,
+                                 RegBufferInt32<16>> {
+  typedef RegBufferInt32<16> InputType;
+  typedef RegBufferUint8<16> OutputType;
+
+  typedef OutputStageTruncatingCastToUint8 OutputStage;
+
+  OutputStageEvalBufferImpl(const OutputStage&) {}
+
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    // Pack every 32-bit element into 16 bits.
+    v8i16 tmp0 = __builtin_msa_pckev_h(
+        reinterpret_cast<v8i16>(input.reg[1]),
+        reinterpret_cast<v8i16>(input.reg[0]));
+    v8i16 tmp1 = __builtin_msa_pckev_h(
+        reinterpret_cast<v8i16>(input.reg[3]),
+        reinterpret_cast<v8i16>(input.reg[2]));
+    // Pack every element into 8 bits.
+    output.reg[0] = __builtin_msa_pckev_b(
+        reinterpret_cast<v16i8>(tmp1), reinterpret_cast<v16i8>(tmp0));
+    return output;
+  }
+};
+
+template <>
+struct OutputStageEvalBufferImpl<OutputStageTruncatingCastToUint8,
+                                 RegBufferInt32<32>> {
+  typedef RegBufferInt32<32> InputType;
+  typedef RegBufferUint8<32> OutputType;
+
+  typedef OutputStageTruncatingCastToUint8 OutputStage;
+
+  OutputStageEvalBufferImpl(const OutputStage&) {}
+
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    // Pack every 32-bit element into 16 bits.
+    v8i16 tmp0 = __builtin_msa_pckev_h(
+        reinterpret_cast<v8i16>(input.reg[1]),
+        reinterpret_cast<v8i16>(input.reg[0]));
+    v8i16 tmp1 = __builtin_msa_pckev_h(
+        reinterpret_cast<v8i16>(input.reg[3]),
+        reinterpret_cast<v8i16>(input.reg[2]));
+    v8i16 tmp2 = __builtin_msa_pckev_h(
+        reinterpret_cast<v8i16>(input.reg[5]),
+        reinterpret_cast<v8i16>(input.reg[4]));
+    v8i16 tmp3 = __builtin_msa_pckev_h(
+        reinterpret_cast<v8i16>(input.reg[7]),
+        reinterpret_cast<v8i16>(input.reg[6]));
+    // Pack every element into 8 bits.
+    output.reg[0] = __builtin_msa_pckev_b(
+        reinterpret_cast<v16i8>(tmp1), reinterpret_cast<v16i8>(tmp0));
+    output.reg[1] = __builtin_msa_pckev_b(
+        reinterpret_cast<v16i8>(tmp3), reinterpret_cast<v16i8>(tmp2));
+    return output;
+  }
+};
+
 template <typename DstType>
 struct StoreFinalOutputImpl<RegBlockInt32<4, 1>, DstType> {
   static void Run(const RegBlockInt32<4, 1>& src, DstType* dst, int row,

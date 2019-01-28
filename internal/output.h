@@ -225,6 +225,28 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToInt16,
   }
 };
 
+// Implementation of OutputStageTruncatingCastToUint8 for scalar data
+template <int Size>
+struct OutputStageEvalBufferImpl<OutputStageTruncatingCastToUint8,
+                                 RegisterBuffer<std::int32_t, Size>> {
+  typedef RegisterBuffer<std::int32_t, Size> InputType;
+  typedef RegisterBuffer<std::uint8_t, Size> OutputType;
+  static_assert(InputType::kRegisterLanes == 1,
+                "This path is only for scalar values");
+
+  typedef OutputStageTruncatingCastToUint8 OutputStage;
+
+  OutputStageEvalBufferImpl(const OutputStage&) {}
+
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    for (int i = 0; i < InputType::kRegisterCount; i++) {
+      output.reg[i] = input.reg[i];
+    }
+    return output;
+  }
+};
+
 template <int Rows, int Cols, typename VectorType>
 struct OutputStageEvalImpl<OutputStageBiasAddition<VectorType>,
                            RegisterBlock<std::int32_t, Rows, Cols>> {

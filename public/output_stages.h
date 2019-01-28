@@ -144,6 +144,13 @@ struct OutputStageScaleInt32ByFixedPointAndExponent {
 struct OutputStageSaturatingCastToUint8 {};
 
 // This output stage takes int32 values that are expected to be already
+// in the [0..255] range and returns them casted to uint8.
+// This stage can save time if used instead of the
+// OutputStageSaturatingCastToUint8 stage immediately after the
+// OutputStageClamp stage.
+struct OutputStageTruncatingCastToUint8 {};
+
+// This output stage takes int32 values that are expected to be already
 // on the final int16 scale, but not necessarily in the [-32768..32767] range.
 // It clamps them to the [-32768..32767] range and returns them casted to int16.
 struct OutputStageSaturatingCastToInt16 {};
