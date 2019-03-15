@@ -24,13 +24,14 @@ template <int tMinValue, int tMaxValue>
 struct OperandRange {
   static const int kMinValue = tMinValue;
   static const int kMaxValue = tMaxValue;
-  static_assert(0 <= kMinValue, "");
   static_assert(kMinValue < kMaxValue, "");
-  static_assert(kMaxValue <= 255, "");
 };
 
 using Uint8Range = OperandRange<0, 255>;
 using Uint8RangeExcludingZero = OperandRange<1, 255>;
+
+using Int8Range = OperandRange<-128, 127>;
+using Int8RangeExcludingLow = OperandRange<-127, 127>;
 
 template <typename tLhsRange, typename tRhsRange>
 struct BitDepthParams {
@@ -46,6 +47,11 @@ using DefaultL8R8BitDepthParams = BitDepthParams<Uint8Range, Uint8Range>;
 // NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits
 using L8R8WithLhsNonzeroBitDepthParams =
     BitDepthParams<Uint8RangeExcludingZero, Uint8Range>;
+
+// Signed Variant: This allows using faster kernels using signed arithmetic, see
+// NEON_64bit_GEMM_Int8Operands_Int32Accumulators_AccumTwoWithin16Bits
+using SignedL8R8WithLhsNonzeroBitDepthParams =
+    BitDepthParams<Int8RangeExcludingLow, Int8Range>;
 
 // Deprecated: when gemmlowp used to allow requantizing 8bit
 // inputs to less-than-8-bit depths, the public setting allowing

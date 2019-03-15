@@ -196,6 +196,153 @@ typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type BroadcastAdd(
 }
 
 template <typename Lhs, typename Rhs>
+struct BroadcastShiftLeftImpl {
+  using ResultBlockType =
+      typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type;
+  static ResultBlockType Run(const Lhs& lhs, const Rhs& rhs) {
+    ResultBlockType result;
+    static constexpr int Rows = ResultBlockType::kRows;
+    static constexpr int Cols = ResultBlockType::kCols;
+    static constexpr int LhsRows = Lhs::kRows;
+    static constexpr int LhsCols = Lhs::kCols;
+    static constexpr int RhsRows = Rhs::kRows;
+    static constexpr int RhsCols = Rhs::kCols;
+
+    static_assert(LhsRows == Rows || LhsRows == 1, "");
+    static_assert(RhsRows == Rows || RhsRows == 1, "");
+    static_assert(LhsCols == Cols || LhsCols == 1, "");
+    static_assert(RhsCols == Cols || RhsCols == 1, "");
+    static_assert(ResultBlockType::kRegisterLanes == 1,
+                  "This path is only for scalar values");
+    static_assert(Lhs::kRegisterLanes == 1,
+                  "This path is only for scalar values");
+    static_assert(Rhs::kRegisterLanes == 1,
+                  "This path is only for scalar values");
+
+    for (int c = 0; c < Cols; c++) {
+      const int lhs_c = LhsCols == Cols ? c : 0;
+      const int rhs_c = RhsCols == Cols ? c : 0;
+      for (int r = 0; r < Rows; r++) {
+        const int lhs_r = LhsRows == Rows ? r : 0;
+        const int rhs_r = RhsRows == Rows ? r : 0;
+        result.buf.reg[r + c * Rows] =
+            ShiftLeft(lhs.buf.reg[lhs_r + lhs_c * LhsRows],
+                      rhs.buf.reg[rhs_r + rhs_c * RhsRows]);
+      }
+    }
+    return result;
+  }
+};
+
+template <typename Lhs, typename Rhs>
+typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type BroadcastShiftLeft(
+    const Lhs& lhs, const Rhs& rhs) {
+  using Flip = FlipLhsRhs<Lhs, Rhs>;
+  return BroadcastShiftLeftImpl<
+      typename Flip::FlippedLhsType,
+      typename Flip::FlippedRhsType>::Run(Flip::FlippedLhs(lhs, rhs),
+                                          Flip::FlippedRhs(lhs, rhs));
+}
+
+template <typename Lhs, typename Rhs>
+struct BroadcastSaturatingRoundingDoublingHighMulImpl {
+  using ResultBlockType =
+      typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type;
+  static ResultBlockType Run(const Lhs& lhs, const Rhs& rhs) {
+    ResultBlockType result;
+    static constexpr int Rows = ResultBlockType::kRows;
+    static constexpr int Cols = ResultBlockType::kCols;
+    static constexpr int LhsRows = Lhs::kRows;
+    static constexpr int LhsCols = Lhs::kCols;
+    static constexpr int RhsRows = Rhs::kRows;
+    static constexpr int RhsCols = Rhs::kCols;
+
+    static_assert(LhsRows == Rows || LhsRows == 1, "");
+    static_assert(RhsRows == Rows || RhsRows == 1, "");
+    static_assert(LhsCols == Cols || LhsCols == 1, "");
+    static_assert(RhsCols == Cols || RhsCols == 1, "");
+    static_assert(ResultBlockType::kRegisterLanes == 1,
+                  "This path is only for scalar values");
+    static_assert(Lhs::kRegisterLanes == 1,
+                  "This path is only for scalar values");
+    static_assert(Rhs::kRegisterLanes == 1,
+                  "This path is only for scalar values");
+
+    for (int c = 0; c < Cols; c++) {
+      const int lhs_c = LhsCols == Cols ? c : 0;
+      const int rhs_c = RhsCols == Cols ? c : 0;
+      for (int r = 0; r < Rows; r++) {
+        const int lhs_r = LhsRows == Rows ? r : 0;
+        const int rhs_r = RhsRows == Rows ? r : 0;
+        result.buf.reg[r + c * Rows] = SaturatingRoundingDoublingHighMul(
+            lhs.buf.reg[lhs_r + lhs_c * LhsRows],
+            rhs.buf.reg[rhs_r + rhs_c * RhsRows]);
+      }
+    }
+    return result;
+  }
+};
+
+template <typename Lhs, typename Rhs>
+typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type
+BroadcastSaturatingRoundingDoublingHighMul(const Lhs& lhs, const Rhs& rhs) {
+  using Flip = FlipLhsRhs<Lhs, Rhs>;
+  return BroadcastSaturatingRoundingDoublingHighMulImpl<
+      typename Flip::FlippedLhsType,
+      typename Flip::FlippedRhsType>::Run(Flip::FlippedLhs(lhs, rhs),
+                                          Flip::FlippedRhs(lhs, rhs));
+}
+
+template <typename Lhs, typename Rhs>
+struct BroadcastRoundingDivideByPOTImpl {
+  using ResultBlockType =
+      typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type;
+  static ResultBlockType Run(const Lhs& lhs, const Rhs& rhs) {
+    ResultBlockType result;
+    static constexpr int Rows = ResultBlockType::kRows;
+    static constexpr int Cols = ResultBlockType::kCols;
+    static constexpr int LhsRows = Lhs::kRows;
+    static constexpr int LhsCols = Lhs::kCols;
+    static constexpr int RhsRows = Rhs::kRows;
+    static constexpr int RhsCols = Rhs::kCols;
+
+    static_assert(LhsRows == Rows || LhsRows == 1, "");
+    static_assert(RhsRows == Rows || RhsRows == 1, "");
+    static_assert(LhsCols == Cols || LhsCols == 1, "");
+    static_assert(RhsCols == Cols || RhsCols == 1, "");
+    static_assert(ResultBlockType::kRegisterLanes == 1,
+                  "This path is only for scalar values");
+    static_assert(Lhs::kRegisterLanes == 1,
+                  "This path is only for scalar values");
+    static_assert(Rhs::kRegisterLanes == 1,
+                  "This path is only for scalar values");
+
+    for (int c = 0; c < Cols; c++) {
+      const int lhs_c = LhsCols == Cols ? c : 0;
+      const int rhs_c = RhsCols == Cols ? c : 0;
+      for (int r = 0; r < Rows; r++) {
+        const int lhs_r = LhsRows == Rows ? r : 0;
+        const int rhs_r = RhsRows == Rows ? r : 0;
+        result.buf.reg[r + c * Rows] =
+            RoundingDivideByPOT(lhs.buf.reg[lhs_r + lhs_c * LhsRows],
+                                rhs.buf.reg[rhs_r + rhs_c * RhsRows]);
+      }
+    }
+    return result;
+  }
+};
+
+template <typename Lhs, typename Rhs>
+typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type
+BroadcastRoundingDivideByPOT(const Lhs& lhs, const Rhs& rhs) {
+  using Flip = FlipLhsRhs<Lhs, Rhs>;
+  return BroadcastRoundingDivideByPOTImpl<
+      typename Flip::FlippedLhsType,
+      typename Flip::FlippedRhsType>::Run(Flip::FlippedLhs(lhs, rhs),
+                                          Flip::FlippedRhs(lhs, rhs));
+}
+
+template <typename Lhs, typename Rhs>
 struct BroadcastMulImpl {
   using ResultBlockType =
       typename BroadcastBinaryOpRegisterBlock<Lhs, Rhs>::Type;
@@ -498,12 +645,16 @@ template <int N>
 using RegBufferInt16 = RegisterBuffer<std::int16_t, N>;
 template <int N>
 using RegBufferUint8 = RegisterBuffer<std::uint8_t, N>;
+template <int N>
+using RegBufferInt8 = RegisterBuffer<std::int8_t, N>;
 template <int R, int C>
 using RegBlockInt32 = RegisterBlock<std::int32_t, R, C>;
 template <int R, int C>
 using RegBlockInt16 = RegisterBlock<std::int16_t, R, C>;
 template <int R, int C>
 using RegBlockUint8 = RegisterBlock<std::uint8_t, R, C>;
+template <int R, int C>
+using RegBlockInt8 = RegisterBlock<std::int8_t, R, C>;
 
 }  // end namespace gemmlowp
 

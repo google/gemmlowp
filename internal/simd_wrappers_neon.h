@@ -25,6 +25,7 @@ using Int32x4 = int32x4_t;
 using Int16x4 = int16x4_t;
 using Int16x8 = int16x8_t;
 using Uint8x8 = uint8x8_t;
+using Int8x8 = int8x8_t;
 
 template <int ScalarCount>
 struct RegisterType<std::int32_t, ScalarCount> {
@@ -46,6 +47,14 @@ struct RegisterType<std::uint8_t, ScalarCount> {
       ScalarCount >= 8, Uint8x8,
       typename std::conditional<ScalarCount >= 4, std::uint32_t,
                                 std::uint8_t>::type>::type;
+};
+
+template <int ScalarCount>
+struct RegisterType<std::int8_t, ScalarCount> {
+  using Type = typename std::conditional<
+      ScalarCount >= 8, Int8x8,
+      typename std::conditional<ScalarCount >= 4, std::int32_t,
+                                std::int8_t>::type>::type;
 };
 
 inline Int32x4 LoadInt32x4(const std::int32_t* src) { return vld1q_s32(src); }
@@ -91,6 +100,10 @@ inline Int32x4 Mul(Int32x4 a, std::int32_t b) { return vmulq_n_s32(a, b); }
 inline Int32x4 Min(Int32x4 a, Int32x4 b) { return vminq_s32(a, b); }
 
 inline Int32x4 Max(Int32x4 a, Int32x4 b) { return vmaxq_s32(a, b); }
+
+inline Int32x4 Max(Int32x4 a, std::int32_t b) {
+  return vmaxq_s32(a, vdupq_n_s32(b));
+}
 
 inline Int32x4 SaturatingRoundingDoublingHighMul(Int32x4 a, std::int32_t b) {
   return vqrdmulhq_n_s32(a, b);
@@ -164,12 +177,369 @@ struct LoadContiguousImpl<RegBlockUint8<8, 8>> {
 };
 
 template <>
+struct LoadContiguousImpl<RegBlockInt8<8, 8>> {
+  static RegBlockInt8<8, 8> Run(const std::int8_t* src) {
+    RegBlockInt8<8, 8> result;
+    for (int i = 0; i < 8; i++) {
+      result.buf.reg[i] = vld1_s8(src + 8 * i);
+    }
+    return result;
+  }
+};
+
+template <>
 struct LoadContiguousImpl<RegBlockInt32<8, 8>> {
   static RegBlockInt32<8, 8> Run(const std::int32_t* src) {
     RegBlockInt32<8, 8> result;
     for (int i = 0; i < 16; i++) {
       result.buf.reg[i] = vld1q_s32(src + 4 * i);
     }
+    return result;
+  }
+};
+
+// 4x1 := 4x1 + 1x1
+template <>
+struct BroadcastShiftLeftImpl<RegBlockInt32<4, 1>, RegBlockInt32<1, 1>> {
+  static RegBlockInt32<4, 1> Run(const RegBlockInt32<4, 1>& lhs,
+                                 const RegBlockInt32<1, 1>& rhs) {
+    RegBlockInt32<4, 1> result;
+    result.buf.reg[0] = ShiftLeft(lhs.buf.reg[0], Dup<Int32x4>(rhs.buf.reg[0]));
+    return result;
+  }
+};
+
+// 1x4 := 1x4 + 1x1
+template <>
+struct BroadcastShiftLeftImpl<RegBlockInt32<1, 4>, RegBlockInt32<1, 1>> {
+  static RegBlockInt32<1, 4> Run(const RegBlockInt32<1, 4>& lhs,
+                                 const RegBlockInt32<1, 1>& rhs) {
+    RegBlockInt32<1, 4> result;
+    result.buf.reg[0] = ShiftLeft(lhs.buf.reg[0], Dup<Int32x4>(rhs.buf.reg[0]));
+    return result;
+  }
+};
+
+// 4x1 := 4x1 + 4x1
+template <>
+struct BroadcastShiftLeftImpl<RegBlockInt32<4, 1>, RegBlockInt32<4, 1>> {
+  static RegBlockInt32<4, 1> Run(const RegBlockInt32<4, 1>& lhs,
+                                 const RegBlockInt32<4, 1>& rhs) {
+    RegBlockInt32<4, 1> result;
+    result.buf.reg[0] = ShiftLeft(lhs.buf.reg[0], rhs.buf.reg[0]);
+    return result;
+  }
+};
+
+// 1x4 := 1x4 + 1x4
+template <>
+struct BroadcastShiftLeftImpl<RegBlockInt32<1, 4>, RegBlockInt32<1, 4>> {
+  static RegBlockInt32<1, 4> Run(const RegBlockInt32<1, 4>& lhs,
+                                 const RegBlockInt32<1, 4>& rhs) {
+    RegBlockInt32<1, 4> result;
+    result.buf.reg[0] = ShiftLeft(lhs.buf.reg[0], rhs.buf.reg[0]);
+    return result;
+  }
+};
+
+// 4x4 := 4x4 + 1x4
+template <>
+struct BroadcastShiftLeftImpl<RegBlockInt32<4, 4>, RegBlockInt32<1, 4>> {
+  static RegBlockInt32<4, 4> Run(const RegBlockInt32<4, 4>& lhs,
+                                 const RegBlockInt32<1, 4>& rhs) {
+    RegBlockInt32<4, 4> result;
+    result.buf.reg[0] = ShiftLeft(lhs.buf.reg[0], DupLane<0>(rhs.buf.reg[0]));
+    result.buf.reg[1] = ShiftLeft(lhs.buf.reg[1], DupLane<1>(rhs.buf.reg[0]));
+    result.buf.reg[2] = ShiftLeft(lhs.buf.reg[2], DupLane<2>(rhs.buf.reg[0]));
+    result.buf.reg[3] = ShiftLeft(lhs.buf.reg[3], DupLane<3>(rhs.buf.reg[0]));
+    return result;
+  }
+};
+
+// 4x4 := 4x4 + 4x1
+template <>
+struct BroadcastShiftLeftImpl<RegBlockInt32<4, 4>, RegBlockInt32<4, 1>> {
+  static RegBlockInt32<4, 4> Run(const RegBlockInt32<4, 4>& lhs,
+                                 const RegBlockInt32<4, 1>& rhs) {
+    RegBlockInt32<4, 4> result;
+    result.buf.reg[0] = ShiftLeft(lhs.buf.reg[0], rhs.buf.reg[0]);
+    result.buf.reg[1] = ShiftLeft(lhs.buf.reg[1], rhs.buf.reg[0]);
+    result.buf.reg[2] = ShiftLeft(lhs.buf.reg[2], rhs.buf.reg[0]);
+    result.buf.reg[3] = ShiftLeft(lhs.buf.reg[3], rhs.buf.reg[0]);
+    return result;
+  }
+};
+
+// 8x1 := 8x1 + 1x1
+template <>
+struct BroadcastShiftLeftImpl<RegBlockInt32<8, 1>, RegBlockInt32<1, 1>> {
+  static RegBlockInt32<8, 1> Run(const RegBlockInt32<8, 1>& lhs,
+                                 const RegBlockInt32<1, 1>& rhs) {
+    RegBlockInt32<8, 1> result;
+    const Int32x4 p = Dup<Int32x4>(rhs.buf.reg[0]);
+    for (int i = 0; i < 2; i++) {
+      result.buf.reg[i] = ShiftLeft(lhs.buf.reg[i], p);
+    }
+    return result;
+  }
+};
+
+// 8x1 := 8x1 + 8x1
+template <>
+struct BroadcastShiftLeftImpl<RegBlockInt32<8, 1>, RegBlockInt32<8, 1>> {
+  static RegBlockInt32<8, 1> Run(const RegBlockInt32<8, 1>& lhs,
+                                 const RegBlockInt32<8, 1>& rhs) {
+    RegBlockInt32<8, 1> result;
+    for (int i = 0; i < 2; i++) {
+      result.buf.reg[i] = ShiftLeft(lhs.buf.reg[i], rhs.buf.reg[i]);
+    }
+    return result;
+  }
+};
+
+// 8x4 := 8x4 + 1x4
+template <>
+struct BroadcastShiftLeftImpl<RegBlockInt32<8, 4>, RegBlockInt32<1, 4>> {
+  static RegBlockInt32<8, 4> Run(const RegBlockInt32<8, 4>& lhs,
+                                 const RegBlockInt32<1, 4>& rhs) {
+    RegBlockInt32<8, 4> result;
+    result.buf.reg[0] = ShiftLeft(lhs.buf.reg[0], DupLane<0>(rhs.buf.reg[0]));
+    result.buf.reg[1] = ShiftLeft(lhs.buf.reg[1], DupLane<0>(rhs.buf.reg[0]));
+    result.buf.reg[2] = ShiftLeft(lhs.buf.reg[2], DupLane<1>(rhs.buf.reg[0]));
+    result.buf.reg[3] = ShiftLeft(lhs.buf.reg[3], DupLane<1>(rhs.buf.reg[0]));
+    result.buf.reg[4] = ShiftLeft(lhs.buf.reg[4], DupLane<2>(rhs.buf.reg[0]));
+    result.buf.reg[5] = ShiftLeft(lhs.buf.reg[5], DupLane<2>(rhs.buf.reg[0]));
+    result.buf.reg[6] = ShiftLeft(lhs.buf.reg[6], DupLane<3>(rhs.buf.reg[0]));
+    result.buf.reg[7] = ShiftLeft(lhs.buf.reg[7], DupLane<3>(rhs.buf.reg[0]));
+    return result;
+  }
+};
+
+// 8x4 := 8x4 + 8x1
+template <>
+struct BroadcastShiftLeftImpl<RegBlockInt32<8, 4>, RegBlockInt32<8, 1>> {
+  static RegBlockInt32<8, 4> Run(const RegBlockInt32<8, 4>& lhs,
+                                 const RegBlockInt32<8, 1>& rhs) {
+    RegBlockInt32<8, 4> result;
+    result.buf.reg[0] = ShiftLeft(lhs.buf.reg[0], rhs.buf.reg[0]);
+    result.buf.reg[1] = ShiftLeft(lhs.buf.reg[1], rhs.buf.reg[1]);
+    result.buf.reg[2] = ShiftLeft(lhs.buf.reg[2], rhs.buf.reg[0]);
+    result.buf.reg[3] = ShiftLeft(lhs.buf.reg[3], rhs.buf.reg[1]);
+    result.buf.reg[4] = ShiftLeft(lhs.buf.reg[4], rhs.buf.reg[0]);
+    result.buf.reg[5] = ShiftLeft(lhs.buf.reg[5], rhs.buf.reg[1]);
+    result.buf.reg[6] = ShiftLeft(lhs.buf.reg[6], rhs.buf.reg[0]);
+    result.buf.reg[7] = ShiftLeft(lhs.buf.reg[7], rhs.buf.reg[1]);
+    return result;
+  }
+};
+
+// 1x8 := 1x8 + 1x8
+template <>
+struct BroadcastShiftLeftImpl<RegBlockInt32<1, 8>, RegBlockInt32<1, 8>> {
+  static RegBlockInt32<1, 8> Run(const RegBlockInt32<1, 8>& lhs,
+                                 const RegBlockInt32<1, 8>& rhs) {
+    RegBlockInt32<1, 8> result;
+    result.buf.reg[0] = ShiftLeft(lhs.buf.reg[0], rhs.buf.reg[0]);
+    result.buf.reg[1] = ShiftLeft(lhs.buf.reg[1], rhs.buf.reg[1]);
+    return result;
+  }
+};
+
+// 1x8 := 1x8 + 1x1
+template <>
+struct BroadcastShiftLeftImpl<RegBlockInt32<1, 8>, RegBlockInt32<1, 1>> {
+  static RegBlockInt32<1, 8> Run(const RegBlockInt32<1, 8>& lhs,
+                                 const RegBlockInt32<1, 1>& rhs) {
+    RegBlockInt32<1, 8> result;
+    result.buf.reg[0] = ShiftLeft(lhs.buf.reg[0], Dup<Int32x4>(rhs.buf.reg[0]));
+    result.buf.reg[1] = ShiftLeft(lhs.buf.reg[1], Dup<Int32x4>(rhs.buf.reg[0]));
+    return result;
+  }
+};
+
+// 4x1 := 4x1 + 1x1
+template <>
+struct BroadcastRoundingDivideByPOTImpl<RegBlockInt32<4, 1>,
+                                        RegBlockInt32<1, 1>> {
+  static RegBlockInt32<4, 1> Run(const RegBlockInt32<4, 1>& lhs,
+                                 const RegBlockInt32<1, 1>& rhs) {
+    RegBlockInt32<4, 1> result;
+    result.buf.reg[0] =
+        RoundingDivideByPOT(lhs.buf.reg[0], Dup<Int32x4>(rhs.buf.reg[0]));
+    return result;
+  }
+};
+
+// 1x4 := 1x4 + 1x1
+template <>
+struct BroadcastRoundingDivideByPOTImpl<RegBlockInt32<1, 4>,
+                                        RegBlockInt32<1, 1>> {
+  static RegBlockInt32<1, 4> Run(const RegBlockInt32<1, 4>& lhs,
+                                 const RegBlockInt32<1, 1>& rhs) {
+    RegBlockInt32<1, 4> result;
+    result.buf.reg[0] =
+        RoundingDivideByPOT(lhs.buf.reg[0], Dup<Int32x4>(rhs.buf.reg[0]));
+    return result;
+  }
+};
+
+// 4x1 := 4x1 + 4x1
+template <>
+struct BroadcastRoundingDivideByPOTImpl<RegBlockInt32<4, 1>,
+                                        RegBlockInt32<4, 1>> {
+  static RegBlockInt32<4, 1> Run(const RegBlockInt32<4, 1>& lhs,
+                                 const RegBlockInt32<4, 1>& rhs) {
+    RegBlockInt32<4, 1> result;
+    result.buf.reg[0] = RoundingDivideByPOT(lhs.buf.reg[0], rhs.buf.reg[0]);
+    return result;
+  }
+};
+
+// 1x4 := 1x4 + 1x4
+template <>
+struct BroadcastRoundingDivideByPOTImpl<RegBlockInt32<1, 4>,
+                                        RegBlockInt32<1, 4>> {
+  static RegBlockInt32<1, 4> Run(const RegBlockInt32<1, 4>& lhs,
+                                 const RegBlockInt32<1, 4>& rhs) {
+    RegBlockInt32<1, 4> result;
+    result.buf.reg[0] = RoundingDivideByPOT(lhs.buf.reg[0], rhs.buf.reg[0]);
+    return result;
+  }
+};
+
+// 4x4 := 4x4 + 1x4
+template <>
+struct BroadcastRoundingDivideByPOTImpl<RegBlockInt32<4, 4>,
+                                        RegBlockInt32<1, 4>> {
+  static RegBlockInt32<4, 4> Run(const RegBlockInt32<4, 4>& lhs,
+                                 const RegBlockInt32<1, 4>& rhs) {
+    RegBlockInt32<4, 4> result;
+    result.buf.reg[0] =
+        RoundingDivideByPOT(lhs.buf.reg[0], DupLane<0>(rhs.buf.reg[0]));
+    result.buf.reg[1] =
+        RoundingDivideByPOT(lhs.buf.reg[1], DupLane<1>(rhs.buf.reg[0]));
+    result.buf.reg[2] =
+        RoundingDivideByPOT(lhs.buf.reg[2], DupLane<2>(rhs.buf.reg[0]));
+    result.buf.reg[3] =
+        RoundingDivideByPOT(lhs.buf.reg[3], DupLane<3>(rhs.buf.reg[0]));
+    return result;
+  }
+};
+
+// 4x4 := 4x4 + 4x1
+template <>
+struct BroadcastRoundingDivideByPOTImpl<RegBlockInt32<4, 4>,
+                                        RegBlockInt32<4, 1>> {
+  static RegBlockInt32<4, 4> Run(const RegBlockInt32<4, 4>& lhs,
+                                 const RegBlockInt32<4, 1>& rhs) {
+    RegBlockInt32<4, 4> result;
+    result.buf.reg[0] = RoundingDivideByPOT(lhs.buf.reg[0], rhs.buf.reg[0]);
+    result.buf.reg[1] = RoundingDivideByPOT(lhs.buf.reg[1], rhs.buf.reg[0]);
+    result.buf.reg[2] = RoundingDivideByPOT(lhs.buf.reg[2], rhs.buf.reg[0]);
+    result.buf.reg[3] = RoundingDivideByPOT(lhs.buf.reg[3], rhs.buf.reg[0]);
+    return result;
+  }
+};
+
+// 8x1 := 8x1 + 1x1
+template <>
+struct BroadcastRoundingDivideByPOTImpl<RegBlockInt32<8, 1>,
+                                        RegBlockInt32<1, 1>> {
+  static RegBlockInt32<8, 1> Run(const RegBlockInt32<8, 1>& lhs,
+                                 const RegBlockInt32<1, 1>& rhs) {
+    RegBlockInt32<8, 1> result;
+    const Int32x4 p = Dup<Int32x4>(rhs.buf.reg[0]);
+    for (int i = 0; i < 2; i++) {
+      result.buf.reg[i] = RoundingDivideByPOT(lhs.buf.reg[i], p);
+    }
+    return result;
+  }
+};
+
+// 8x1 := 8x1 + 8x1
+template <>
+struct BroadcastRoundingDivideByPOTImpl<RegBlockInt32<8, 1>,
+                                        RegBlockInt32<8, 1>> {
+  static RegBlockInt32<8, 1> Run(const RegBlockInt32<8, 1>& lhs,
+                                 const RegBlockInt32<8, 1>& rhs) {
+    RegBlockInt32<8, 1> result;
+    for (int i = 0; i < 2; i++) {
+      result.buf.reg[i] = RoundingDivideByPOT(lhs.buf.reg[i], rhs.buf.reg[i]);
+    }
+    return result;
+  }
+};
+
+// 8x4 := 8x4 + 1x4
+template <>
+struct BroadcastRoundingDivideByPOTImpl<RegBlockInt32<8, 4>,
+                                        RegBlockInt32<1, 4>> {
+  static RegBlockInt32<8, 4> Run(const RegBlockInt32<8, 4>& lhs,
+                                 const RegBlockInt32<1, 4>& rhs) {
+    RegBlockInt32<8, 4> result;
+    result.buf.reg[0] =
+        RoundingDivideByPOT(lhs.buf.reg[0], DupLane<0>(rhs.buf.reg[0]));
+    result.buf.reg[1] =
+        RoundingDivideByPOT(lhs.buf.reg[1], DupLane<0>(rhs.buf.reg[0]));
+    result.buf.reg[2] =
+        RoundingDivideByPOT(lhs.buf.reg[2], DupLane<1>(rhs.buf.reg[0]));
+    result.buf.reg[3] =
+        RoundingDivideByPOT(lhs.buf.reg[3], DupLane<1>(rhs.buf.reg[0]));
+    result.buf.reg[4] =
+        RoundingDivideByPOT(lhs.buf.reg[4], DupLane<2>(rhs.buf.reg[0]));
+    result.buf.reg[5] =
+        RoundingDivideByPOT(lhs.buf.reg[5], DupLane<2>(rhs.buf.reg[0]));
+    result.buf.reg[6] =
+        RoundingDivideByPOT(lhs.buf.reg[6], DupLane<3>(rhs.buf.reg[0]));
+    result.buf.reg[7] =
+        RoundingDivideByPOT(lhs.buf.reg[7], DupLane<3>(rhs.buf.reg[0]));
+    return result;
+  }
+};
+
+// 8x4 := 8x4 + 8x1
+template <>
+struct BroadcastRoundingDivideByPOTImpl<RegBlockInt32<8, 4>,
+                                        RegBlockInt32<8, 1>> {
+  static RegBlockInt32<8, 4> Run(const RegBlockInt32<8, 4>& lhs,
+                                 const RegBlockInt32<8, 1>& rhs) {
+    RegBlockInt32<8, 4> result;
+    result.buf.reg[0] = RoundingDivideByPOT(lhs.buf.reg[0], rhs.buf.reg[0]);
+    result.buf.reg[1] = RoundingDivideByPOT(lhs.buf.reg[1], rhs.buf.reg[1]);
+    result.buf.reg[2] = RoundingDivideByPOT(lhs.buf.reg[2], rhs.buf.reg[0]);
+    result.buf.reg[3] = RoundingDivideByPOT(lhs.buf.reg[3], rhs.buf.reg[1]);
+    result.buf.reg[4] = RoundingDivideByPOT(lhs.buf.reg[4], rhs.buf.reg[0]);
+    result.buf.reg[5] = RoundingDivideByPOT(lhs.buf.reg[5], rhs.buf.reg[1]);
+    result.buf.reg[6] = RoundingDivideByPOT(lhs.buf.reg[6], rhs.buf.reg[0]);
+    result.buf.reg[7] = RoundingDivideByPOT(lhs.buf.reg[7], rhs.buf.reg[1]);
+    return result;
+  }
+};
+
+// 1x8 := 1x8 + 1x8
+template <>
+struct BroadcastRoundingDivideByPOTImpl<RegBlockInt32<1, 8>,
+                                        RegBlockInt32<1, 8>> {
+  static RegBlockInt32<1, 8> Run(const RegBlockInt32<1, 8>& lhs,
+                                 const RegBlockInt32<1, 8>& rhs) {
+    RegBlockInt32<1, 8> result;
+    result.buf.reg[0] = RoundingDivideByPOT(lhs.buf.reg[0], rhs.buf.reg[0]);
+    result.buf.reg[1] = RoundingDivideByPOT(lhs.buf.reg[1], rhs.buf.reg[1]);
+    return result;
+  }
+};
+
+// 1x8 := 1x8 + 1x1
+template <>
+struct BroadcastRoundingDivideByPOTImpl<RegBlockInt32<1, 8>,
+                                        RegBlockInt32<1, 1>> {
+  static RegBlockInt32<1, 8> Run(const RegBlockInt32<1, 8>& lhs,
+                                 const RegBlockInt32<1, 1>& rhs) {
+    RegBlockInt32<1, 8> result;
+    result.buf.reg[0] =
+        RoundingDivideByPOT(lhs.buf.reg[0], Dup<Int32x4>(rhs.buf.reg[0]));
+    result.buf.reg[1] =
+        RoundingDivideByPOT(lhs.buf.reg[1], Dup<Int32x4>(rhs.buf.reg[0]));
     return result;
   }
 };

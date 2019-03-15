@@ -115,6 +115,16 @@ inline int16x8_t ShiftLeft(int16x8_t a, int offset) {
 }
 
 template <>
+inline int32x4_t ShiftLeft(int32x4_t a, int32x4_t offset) {
+  return vshlq_s32(a, offset);
+}
+
+template <>
+inline int16x8_t ShiftLeft(int16x8_t a, int16x8_t offset) {
+  return vshlq_s32(a, offset);
+}
+
+template <>
 inline int32x4_t ShiftRight(int32x4_t a, int offset) {
   return vshlq_s32(a, vdupq_n_s32(-offset));
 }
@@ -277,6 +287,22 @@ inline int32x4_t RoundingDivideByPOT(int32x4_t x, int exponent) {
 template <>
 inline int16x8_t RoundingDivideByPOT(int16x8_t x, int exponent) {
   const int16x8_t shift_vec = vdupq_n_s16(-exponent);
+  const int16x8_t fixup = vshrq_n_s16(vandq_s16(x, shift_vec), 15);
+  const int16x8_t fixed_up_x = vqaddq_s16(x, fixup);
+  return vrshlq_s16(fixed_up_x, shift_vec);
+}
+
+template <>
+inline int32x4_t RoundingDivideByPOT(int32x4_t x, int32x4_t exponent) {
+  const int32x4_t shift_vec = vnegq_s32(exponent);
+  const int32x4_t fixup = vshrq_n_s32(vandq_s32(x, shift_vec), 31);
+  const int32x4_t fixed_up_x = vqaddq_s32(x, fixup);
+  return vrshlq_s32(fixed_up_x, shift_vec);
+}
+
+template <>
+inline int16x8_t RoundingDivideByPOT(int16x8_t x, int16x8_t exponent) {
+  const int16x8_t shift_vec = vnegq_s16(exponent);
   const int16x8_t fixup = vshrq_n_s16(vandq_s16(x, shift_vec), 15);
   const int16x8_t fixed_up_x = vqaddq_s16(x, fixup);
   return vrshlq_s16(fixed_up_x, shift_vec);

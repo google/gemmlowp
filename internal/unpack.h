@@ -98,12 +98,14 @@ void UnpackResultBlock(const SrcMapType& src,
                        const LhsOffset& lhs_offset, const RhsOffset& rhs_offset,
                        int depth, int src_row, int src_col, int src_global_row,
                        int src_global_col, int dst_row, int dst_col) {
+  using KernelLhsInputScalar = typename KernelFormat::Lhs::InputScalar;
   using KernelLhsScalar = typename KernelFormat::Lhs::Scalar;
+  using KernelRhsInputScalar = typename KernelFormat::Rhs::InputScalar;
   using KernelRhsScalar = typename KernelFormat::Rhs::Scalar;
   static constexpr int KernelLhsZeroPointInput =
-      ZeroPointInputValue<KernelLhsScalar>::kValue;
+      ZeroPointInputValue<KernelLhsInputScalar, KernelLhsScalar>::kValue;
   static constexpr int KernelRhsZeroPointInput =
-      ZeroPointInputValue<KernelRhsScalar>::kValue;
+      ZeroPointInputValue<KernelRhsInputScalar, KernelRhsScalar>::kValue;
   auto acc = Load<RegisterBlockType>(src, src_row, src_col);
   const auto& lhs_sums_of_each_slice_block =
       LoadForBroadcasting<RegisterBlockType>(lhs_sums_of_each_slice, src_row);

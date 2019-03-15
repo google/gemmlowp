@@ -26,6 +26,9 @@ namespace gemmlowp {
 typedef SideMap<const std::uint8_t, SideMapOrder::WidthMajor>
     WidthMajorUint8SideMap;
 
+typedef SideMap<const std::int8_t, SideMapOrder::WidthMajor>
+    WidthMajorInt8SideMap;
+
 template <int Cells>
 using DepthMajorSideFormatNCells4x2 = KernelSideFormat<CellFormat<4, 2>, Cells>;
 
@@ -292,6 +295,67 @@ class PackingRegisterBlock<WidthMajorUint8SideMap,
     for (int i = 0; i < Width; i++) {
       const int8x8_t lo = vreinterpret_s8_u8(vget_low_u8(src_lines[i]));
       const int8x8_t hi = vreinterpret_s8_u8(vget_high_u8(src_lines[i]));
+      sums2[i] = vaddl_s8(lo, hi);
+    }
+    int16x8_t sums4[Width / 2];
+    for (int i = 0; i < Width / 2; i++) {
+      sums4[i] = vpaddq_s16(sums2[2 * i], sums2[2 * i + 1]);
+    }
+    if (Width == 4) {
+      int32x4_t sum = vld1q_s32(sums_ptr);
+      int16x8_t sums8 = vpaddq_s16(sums4[0], sums4[1]);
+      sum = vpadalq_s16(sum, sums8);
+      vst1q_s32(sums_ptr, sum);
+    } else {
+      assert(Width == 2);
+      int32x2_t sum = vld1_s32(sums_ptr);
+      int16x4_t sums8 =
+          vpadd_s16(vget_low_s16(sums4[0]), vget_high_s16(sums4[0]));
+      sum = vpadal_s16(sum, sums8);
+      vst1_s32(sums_ptr, sum);
+    }
+    dst->seek_forward_n_cells(1);
+  }
+};
+
+template <int Width>
+using Int8InputsFastKernelFormat =
+    KernelSideFormatInt8Inputs<CellFormat<Width, 16, CellOrder::WidthMajor>, 1>;
+
+// Same as above, but for int8 inputs, avoiding the uint8 -> int8 conversion.
+template <int Width>
+class PackingRegisterBlock<WidthMajorInt8SideMap,
+                           PackedSideBlock<Int8InputsFastKernelFormat<Width>>>
+    : public PackingRegisterBlockBase<
+          WidthMajorInt8SideMap,
+          PackedSideBlock<Int8InputsFastKernelFormat<Width>>> {
+ public:
+  static_assert(Width == 2 || Width == 4, "");
+  typedef Int8InputsFastKernelFormat<Width> KernelSideFormat;
+  typedef typename KernelSideFormat::Cell CellFormat;
+  static const int kCells = KernelSideFormat::kCells;
+  static const int kCellWidth = CellFormat::kWidth;
+  static const int kKernelWidth = CellFormat::kWidth * kCells;
+  static const int kCellDepth = CellFormat::kDepth;
+  static const int kCellSize = CellFormat::kSize;
+
+  void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
+    std::int32_t* sums_ptr = dst->sums_of_each_slice() + start_width;
+    std::int8_t* dst_ptr = reinterpret_cast<std::int8_t*>(dst->current_data());
+    const std::int8_t* const src_ptr = this->complete_src_.data();
+    const int stride = this->complete_src_.stride();
+    // Load source WidthMajor data
+    int8x16_t src_lines[Width];
+    for (int i = 0; i < Width; i++) {
+      src_lines[i] = vld1q_s8(src_ptr + i * stride);
+    }
+    for (int i = 0; i < Width; i++) {
+      vst1q_s8(dst_ptr + 16 * i, src_lines[i]);
+    }
+    int16x8_t sums2[Width];
+    for (int i = 0; i < Width; i++) {
+      const int8x8_t lo = vget_low_u8(src_lines[i]);
+      const int8x8_t hi = vget_high_u8(src_lines[i]);
       sums2[i] = vaddl_s8(lo, hi);
     }
     int16x8_t sums4[Width / 2];

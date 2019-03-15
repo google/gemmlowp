@@ -924,6 +924,17 @@ struct NEON_32bit_GEMM_Int8Operands_LhsNonzero : KernelBase {
   }
 };
 
+// Same as NEON_32bit_GEMM_Int8Operands_LhsNonzero, but uses a side format that
+// requires that user inputs were originally int8. This avoids the uint8->int8
+// conversion in the pack step.
+struct NEON_32bit_GEMM_Int8Operands_LhsNonzero_Int8Inputs
+    : NEON_32bit_GEMM_Int8Operands_LhsNonzero {
+  typedef KernelFormat<
+      KernelSideFormatInt8Inputs<CellFormat<4, 16, CellOrder::WidthMajor>, 1>,
+      KernelSideFormatInt8Inputs<CellFormat<2, 16, CellOrder::WidthMajor>, 1> >
+      Format;
+};
+
 #endif  // GEMMLOWP_NEON_32
 
 // The kernels here are specifically arm 64bit assembly, not arm 32bit.
@@ -1263,6 +1274,17 @@ struct NEON_64bit_GEMM_Int8Operands_LhsNonzero : KernelBase {
 #undef GEMMLOWP_LABEL_ACCUMULATE_EXISTING_DST_VALUES
 #undef GEMMLOWP_LABEL_STORE
   }
+};
+
+// Same as NEON_32bit_GEMM_Int8Operands_LhsNonzero, but uses a side format that
+// requires that user inputs were originally int8. This avoids the uint8->int8
+// conversion in the pack step.
+struct NEON_64bit_GEMM_Int8Operands_LhsNonzero_Int8Inputs
+    : NEON_64bit_GEMM_Int8Operands_LhsNonzero {
+  typedef KernelFormat<
+      KernelSideFormatInt8Inputs<CellFormat<4, 16, CellOrder::WidthMajor>, 1>,
+      KernelSideFormatInt8Inputs<CellFormat<4, 16, CellOrder::WidthMajor>, 1> >
+      Format;
 };
 
 // Our main GEMM kernel.

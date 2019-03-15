@@ -138,10 +138,35 @@ struct OutputStageScaleInt32ByFixedPointAndExponent {
   std::int32_t result_offset_after_shift;
 };
 
+// Variant of OutputStageQuantizeDownInt32ByFixedPoint where the 'shift'
+// is not necessarily just a right shift, so we can represent multipliers
+// greater than 1. This takes an result_exponent parameter; when it's
+// <= 0, this is equivalent to OutputStageQuantizeDownInt32ByFixedPoint
+// with result_shift = -result_exponent.
+// In the general case, this consists in first left-shifting by
+// std::max(result_exponent, 0), before doing the same as
+// OutputStageQuantizeDownInt32ByFixedPoint with
+// result_shift = std::max(-result_exponent, 0).
+//
+// Difference from OutputStageScaleInt32ByFixedPointAndExponent here is that
+// each row or column of the output (depending on tShape) has its own
+// result_fixedpoint_multiplier and result_exponent numbers.
+template <VectorShape tShape>
+struct OutputStageScaleInt32ByFixedPointAndExponentPC {
+  VectorMap<const std::int32_t, tShape> result_fixedpoint_multiplier;
+  VectorMap<const std::int32_t, tShape> result_exponent;
+  std::int32_t result_offset_after_shift;
+};
+
 // This output stage takes int32 values that are expected to be already
 // on the final uint8 scale, but not necessarily in the [0..255] range.
 // It clamps them to the [0..255] range and returns them casted to uint8.
 struct OutputStageSaturatingCastToUint8 {};
+
+// This output stage takes int32 values that are expected to be already
+// on the final int8 scale, but not necessarily in the [-128..127] range.
+// It clamps them to the [-128..127] range and returns them casted to int8.
+struct OutputStageSaturatingCastToInt8 {};
 
 // This output stage takes int32 values that are expected to be already
 // in the [0..255] range and returns them casted to uint8.
