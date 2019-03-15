@@ -145,12 +145,24 @@ struct KernelSideFormat {
   static const int kCells = tCells;
   static const int kWidth = kCells * Cell::kWidth;
   static const int kDepth = Cell::kDepth;
-  typedef std::uint8_t Scalar;
+  typedef std::uint8_t Scalar;       // The scalar type of the Format.
+  typedef std::uint8_t InputScalar;  // The scalar type of the original input.
 };
 
+// KernelSideFormat for int8 fast kernel trick. The original input is uint8, but
+// packs converts it to int8.
 template <typename tCellFormat, int tCells>
 struct KernelSideFormatInt8 : KernelSideFormat<tCellFormat, tCells> {
   typedef std::int8_t Scalar;
+  typedef std::uint8_t InputScalar;
+};
+
+// KernelSideFormat for int8 inputs, enabling int8 fast kernel trick without
+// pack conversion.
+template <typename tCellFormat, int tCells>
+struct KernelSideFormatInt8Inputs : KernelSideFormat<tCellFormat, tCells> {
+  typedef std::int8_t Scalar;
+  typedef std::int8_t InputScalar;
 };
 
 // KernelFormat describes fully the input data layout that a kernel expects.
@@ -216,17 +228,22 @@ struct KernelBase {
   virtual ~KernelBase() {}
 };
 
-template <typename KernelScalarType>
+template <typename InputKernelScalarType, typename KernelScalarType>
 struct ZeroPointInputValue {};
 
 template <>
-struct ZeroPointInputValue<std::uint8_t> {
+struct ZeroPointInputValue<std::uint8_t, std::uint8_t> {
   static constexpr std::uint8_t kValue = 0;
 };
 
 template <>
-struct ZeroPointInputValue<std::int8_t> {
+struct ZeroPointInputValue<std::uint8_t, std::int8_t> {
   static constexpr std::uint8_t kValue = 128;
+};
+
+template <>
+struct ZeroPointInputValue<std::int8_t, std::int8_t> {
+  static constexpr std::uint8_t kValue = 0;
 };
 
 }  // namespace gemmlowp

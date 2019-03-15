@@ -72,6 +72,10 @@ class PackedSideBlock {
     pos_ += n * KernelSideFormat::Cell::kSize;
   }
 
+  // TODO(suharshs): The datatype can now be int8 as well. We could introduce a
+  // new int8 current_data impl as well. This change would propagate to all pack
+  // impls and the Kernel::Run API, which all assume uint8. For now we leave
+  // this as-is pending future refactor.
   const std::uint8_t* current_data() const {
     return allocator_->GetPointer<std::uint8_t>(data_handle_) + pos_;
   }
@@ -208,6 +212,7 @@ class PackingRegisterBlockBase {
  public:
   typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
   typedef typename KernelSideFormat::Cell CellFormat;
+  typedef typename KernelSideFormat::InputScalar KernelInputScalar;
   typedef typename KernelSideFormat::Scalar KernelScalar;
   static const int kCells = KernelSideFormat::kCells;
   static const int kCellWidth = CellFormat::kWidth;
@@ -216,7 +221,7 @@ class PackingRegisterBlockBase {
   static const int kCellSize = CellFormat::kSize;
   static const SideMapOrder kSrcOrder = SrcMapType::kOrder;
   static const int kZeroPointInputValue =
-      ZeroPointInputValue<KernelScalar>::kValue;
+      ZeroPointInputValue<KernelInputScalar, KernelScalar>::kValue;
 
   PackingRegisterBlockBase() : complete_src_(nullptr, 0, 0, 0) {}
 
@@ -233,7 +238,7 @@ class PackingRegisterBlockBase {
   std::uint8_t buf_[kKernelWidth * kRegisterSize];
 
  public:
-  // Selects a block if in-place source data that's already a complete block
+  // Selects a block if in-place source data that's already a complete block.
   void UseCompleteSrcInPlace(const SrcMapType& src) { complete_src_ = src; }
   // Copies an incomplete block of source data into a local temporary
   // complete block by zero-extending it.
@@ -249,7 +254,10 @@ class PackingRegisterBlockBase {
         memcpy(buf_ + d * kKernelWidth, src.data(0, d), src.width());
       }
     }
-    complete_src_ = SrcMapType(buf_, kKernelWidth, kRegisterSize);
+
+    // Since the KernelInputScalar type may not be uint8, we need to cast buf_.
+    complete_src_ = SrcMapType(reinterpret_cast<KernelInputScalar*>(buf_),
+                               kKernelWidth, kRegisterSize);
   }
   // Packs a complete block into the destination. This is the most
   // critical part and the part that we most typically want to
@@ -340,7 +348,7 @@ class PackSideBlockImpl {
     }
   }
 
-  // Prefetches the data that will be read by PackL1
+  // Prefetches the data that will be read by PackL1.
   void PrefetchL1(int start_width, int width, int start_depth, int depth) {
     if (SrcMapType::kOrder == SideMapOrder::WidthMajor) {
       for (int d = 0; d < depth; d += kDefaultCacheLineSize) {
@@ -394,7 +402,7 @@ class PackSideBlockImpl {
   const SrcMapType& src_map_;
 };
 
-// Packs a block of the input LHS matrix, into a PackedSideBlock
+// Packs a block of the input LHS matrix, into a PackedSideBlock.
 template <typename PackedSideBlock, typename MatrixMapType>
 void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
   ScopedProfilingLabel label("pack LHS");
@@ -409,7 +417,7 @@ void PackLhs(PackedSideBlock* dst, const MatrixMapType& src) {
   impl.PackL2();
 }
 
-// Packs a block of the input RHS matrix, into a PackedSideBlock
+// Packs a block of the input RHS matrix, into a PackedSideBlock.
 template <typename PackedSideBlock, typename MatrixMapType>
 void PackRhs(PackedSideBlock* dst, const MatrixMapType& src) {
   ScopedProfilingLabel label("pack RHS");

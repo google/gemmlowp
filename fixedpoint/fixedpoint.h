@@ -121,8 +121,8 @@ tIntegerType Neg(tIntegerType a) {
 // in the overflow case, we just want to avoid undefined behavior.
 //
 // tIntegerType may be int32 or any narrower signed type.
-template <typename tIntegerType>
-tIntegerType ShiftLeft(tIntegerType a, int offset) {
+template <typename tIntegerType, typename OffsetType>
+tIntegerType ShiftLeft(tIntegerType a, OffsetType offset) {
   const std::int64_t wide_a = static_cast<std::int64_t>(a);
   const std::int64_t wide_shifted = wide_a * (1 << offset);
   const auto min = std::numeric_limits<tIntegerType>::min();
@@ -353,8 +353,8 @@ inline std::int16_t SaturatingRoundingDoublingHighMul(std::int16_t a,
 
 // Correctly-rounded-to-nearest division by a power-of-two.
 // Also known as a rounding arithmetic right shift.
-template <typename IntegerType>
-inline IntegerType RoundingDivideByPOT(IntegerType x, int exponent) {
+template <typename IntegerType, typename ExponentType>
+inline IntegerType RoundingDivideByPOT(IntegerType x, ExponentType exponent) {
   assert(exponent >= 0);
   assert(exponent <= 31);
   const IntegerType mask = Dup<IntegerType>((1ll << exponent) - 1);

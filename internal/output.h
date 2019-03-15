@@ -22,6 +22,7 @@
 #include <cmath>
 #include <tuple>
 #include <type_traits>
+#include <typeinfo>
 
 #include "../fixedpoint/fixedpoint.h"
 #include "../public/output_stages.h"
@@ -179,7 +180,47 @@ struct OutputStageEvalBufferImpl<OutputStageScaleInt32ByFixedPointAndExponent,
   int right_shift;
 };
 
-// Implementation of OutputStageSaturatingCastToUint8 for scalar data
+template <int Rows, int Cols, VectorShape Shape>
+struct OutputStageEvalImpl<
+    OutputStageScaleInt32ByFixedPointAndExponentPC<Shape>,
+    RegisterBlock<std::int32_t, Rows, Cols>> {
+  typedef RegisterBlock<std::int32_t, Rows, Cols> InputType;
+  typedef RegisterBlock<std::int32_t, Rows, Cols> OutputType;
+
+  typedef OutputStageScaleInt32ByFixedPointAndExponentPC<Shape> OutputStage;
+
+  OutputStageEvalImpl(const OutputStage& s) : output_stage(s) {}
+
+  OutputType Eval(InputType input, int row, int col) const {
+    OutputType output;
+    const int pos = Shape == VectorShape::Row ? col : row;
+    using RegisterType = typename InputType::RegisterType;
+    const RegisterType result_offset_after_shift =
+        Dup<RegisterType>(output_stage.result_offset_after_shift);
+    auto left_shift =
+        LoadForBroadcasting<InputType>(output_stage.result_exponent, pos);
+    auto right_shift =
+        LoadForBroadcasting<InputType>(output_stage.result_exponent, pos);
+    const auto result_fixedpoint_multiplier = LoadForBroadcasting<InputType>(
+        output_stage.result_fixedpoint_multiplier, pos);
+    for (int i = 0; i < decltype(left_shift)::kRegisterCount; i++) {
+      left_shift.buf.reg[i] = Max(left_shift.buf.reg[i], 0);
+      right_shift.buf.reg[i] = Max(-right_shift.buf.reg[i], 0);
+    }
+    const auto mulhigh_val = BroadcastSaturatingRoundingDoublingHighMul(
+        BroadcastShiftLeft(input, left_shift), result_fixedpoint_multiplier);
+    const auto rdpot_val =
+        BroadcastRoundingDivideByPOT(mulhigh_val, right_shift);
+    for (int i = 0; i < InputType::kRegisterCount; i++) {
+      output.buf.reg[i] = Add(rdpot_val.buf.reg[i], result_offset_after_shift);
+    }
+    return output;
+  }
+
+  const OutputStage& output_stage;
+};
+
+// Implementation of OutputStageSaturatingCastToUint8 for scalar data.
 template <int Size>
 struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
                                  RegisterBuffer<std::int32_t, Size>> {
@@ -202,7 +243,30 @@ struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToUint8,
   }
 };
 
-// Implementation of OutputStageSaturatingCastToInt16 for scalar data
+// Implementation of OutputStageSaturatingCastToInt8 for scalar data.
+template <int Size>
+struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToInt8,
+                                 RegisterBuffer<std::int32_t, Size>> {
+  typedef RegisterBuffer<std::int32_t, Size> InputType;
+  typedef RegisterBuffer<std::int8_t, Size> OutputType;
+  static_assert(InputType::kRegisterLanes == 1,
+                "This path is only for scalar values");
+
+  typedef OutputStageSaturatingCastToInt8 OutputStage;
+
+  OutputStageEvalBufferImpl(const OutputStage&) {}
+
+  OutputType Eval(InputType input) const {
+    OutputType output;
+    for (int i = 0; i < InputType::kRegisterCount; i++) {
+      std::int32_t data = input.reg[i];
+      output.reg[i] = data > 127 ? 127 : data < -128 ? -128 : data;
+    }
+    return output;
+  }
+};
+
+// Implementation of OutputStageSaturatingCastToInt16 for scalar data.
 template <int Size>
 struct OutputStageEvalBufferImpl<OutputStageSaturatingCastToInt16,
                                  RegisterBuffer<std::int32_t, Size>> {

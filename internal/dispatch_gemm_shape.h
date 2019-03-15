@@ -85,6 +85,22 @@ struct TransposeImpl<OutputStageQuantizeDownInt32ToUint8ScalePC<Shape>> {
   }
 };
 
+template <VectorShape Shape>
+struct TransposeImpl<OutputStageScaleInt32ByFixedPointAndExponentPC<Shape>> {
+  typedef OutputStageScaleInt32ByFixedPointAndExponentPC<Shape> SrcType;
+  static const VectorShape TransposedShape = TransposeVectorShape<Shape>::Value;
+  typedef OutputStageScaleInt32ByFixedPointAndExponentPC<TransposedShape>
+      DstType;
+  static DstType Run(const SrcType& src) {
+    DstType dst;
+    dst.result_fixedpoint_multiplier =
+        Transpose(src.result_fixedpoint_multiplier);
+    dst.result_exponent = Transpose(src.result_exponent);
+    dst.result_offset_after_shift = src.result_offset_after_shift;
+    return dst;
+  }
+};
+
 template <typename VectorMapType>
 struct TransposeImpl<OutputStageBiasAddition<VectorMapType>> {
   typedef OutputStageBiasAddition<VectorMapType> SrcType;
