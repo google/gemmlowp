@@ -296,7 +296,6 @@ class Worker {
   // Thread entry point.
   void ThreadFunc() {
     ScopedProfilingLabel label("Worker::ThreadFunc");
-    RegisterCurrentThreadForProfiling();
 
     ChangeState(State::Ready);
 

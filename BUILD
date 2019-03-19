@@ -94,6 +94,7 @@ filegroup(
         "fixedpoint/*.h",
     ]) + [
         "internal/common.h",
+        "internal/detect_platform.h",
     ],
     visibility = ["//visibility:private"],
 )
