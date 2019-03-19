@@ -121,7 +121,7 @@ inline int32x4_t ShiftLeft(int32x4_t a, int32x4_t offset) {
 
 template <>
 inline int16x8_t ShiftLeft(int16x8_t a, int16x8_t offset) {
-  return vshlq_s32(a, offset);
+  return vshlq_s16(a, offset);
 }
 
 template <>
