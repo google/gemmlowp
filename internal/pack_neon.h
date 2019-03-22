@@ -354,8 +354,8 @@ class PackingRegisterBlock<WidthMajorInt8SideMap,
     }
     int16x8_t sums2[Width];
     for (int i = 0; i < Width; i++) {
-      const int8x8_t lo = vget_low_u8(src_lines[i]);
-      const int8x8_t hi = vget_high_u8(src_lines[i]);
+      const int8x8_t lo = vget_low_s8(src_lines[i]);
+      const int8x8_t hi = vget_high_s8(src_lines[i]);
       sums2[i] = vaddl_s8(lo, hi);
     }
     int16x8_t sums4[Width / 2];
