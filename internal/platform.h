@@ -72,8 +72,8 @@ inline int GetHardwareConcurrency(int max_threads) {
 inline double real_time_in_seconds() {
   __int64 wintime;
   GetSystemTimeAsFileTime((FILETIME *)&wintime);
-  wintime -= 116444736000000000i64;  // 1jan1601 to 1jan1970
-  return wintime / 10000000i64 + wintime % 10000000i64 * 100 * 1e-9;
+  wintime -= 116444736000000000LL;  // 1jan1601 to 1jan1970
+  return wintime / 10000000LL + wintime % 10000000LL * 100 * 1e-9;
 }
 
 #else
