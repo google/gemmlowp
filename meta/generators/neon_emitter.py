@@ -190,7 +190,7 @@ class NeonEmitter(object):
     print(self.indent + what)
 
   def PushOp(self, op):
-    if op in list(self.ops.keys()):
+    if op in self.ops.keys():
       self.ops[op] += 1
     else:
       self.ops[op] = 1
