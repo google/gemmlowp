@@ -141,14 +141,14 @@ def _FloatType(type_name):
 
 
 def _WideType(type_name):
-  if type_name in _WIDE_TYPES.keys():
+  if type_name in list(_WIDE_TYPES.keys()):
     return _WIDE_TYPES[type_name]
   else:
     raise ArgumentError('No wide type for: %s' % type_name)
 
 
 def _NarrowType(type_name):
-  if type_name in _NARROW_TYPES.keys():
+  if type_name in list(_NARROW_TYPES.keys()):
     return _NARROW_TYPES[type_name]
   else:
     raise ArgumentError('No narrow type for: %s' % type_name)
@@ -181,7 +181,7 @@ def _Cast(bits, reg):
 
 
 def _TypeBits(type_name):
-  if type_name in _TYPE_BITS.keys():
+  if type_name in list(_TYPE_BITS.keys()):
     return _TYPE_BITS[type_name]
   else:
     raise ArgumentError('Unknown type: %s' % type_name)
@@ -379,10 +379,10 @@ class _NeonRegisters64Bit(object):
     raise RegisterAllocationError('Not enough general registers.')
 
   def MappedParameters(self):
-    return [x for x in self.parameters.items()]
+    return [x for x in list(self.parameters.items())]
 
   def MappedOutputParameters(self):
-    return [x for x in self.output_parameters.items()]
+    return [x for x in list(self.output_parameters.items())]
 
   def Clobbers(self):
     return (
@@ -423,10 +423,10 @@ class NeonEmitter64(object):
     self.indent = self.indent[:-delta]
 
   def EmitIndented(self, what):
-    print self.indent + what
+    print(self.indent + what)
 
   def PushOp(self, op):
-    if op in self.ops.keys():
+    if op in list(self.ops.keys()):
       self.ops[op] += 1
     else:
       self.ops[op] = 1
@@ -435,13 +435,13 @@ class NeonEmitter64(object):
     self.ops.clear()
 
   def EmitNewline(self):
-    print ''
+    print('')
 
   def EmitPreprocessor1(self, op, param):
-    print '#%s %s' % (op, param)
+    print('#%s %s' % (op, param))
 
   def EmitPreprocessor(self, op):
-    print '#%s' % op
+    print('#%s' % op)
 
   def EmitInclude(self, include):
     self.EmitPreprocessor1('include', include)
