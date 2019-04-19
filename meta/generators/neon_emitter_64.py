@@ -423,7 +423,7 @@ class NeonEmitter64(object):
     self.indent = self.indent[:-delta]
 
   def EmitIndented(self, what):
-    print self.indent + what
+    print(self.indent + what)
 
   def PushOp(self, op):
     if op in self.ops.keys():
@@ -435,13 +435,13 @@ class NeonEmitter64(object):
     self.ops.clear()
 
   def EmitNewline(self):
-    print ''
+    print('')
 
   def EmitPreprocessor1(self, op, param):
-    print '#%s %s' % (op, param)
+    print('#%s %s' % (op, param))
 
   def EmitPreprocessor(self, op):
-    print '#%s' % op
+    print('#%s' % op)
 
   def EmitInclude(self, include):
     self.EmitPreprocessor1('include', include)

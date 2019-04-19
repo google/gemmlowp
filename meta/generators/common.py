@@ -12,6 +12,7 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 """."""
+import collections
 
 _HEADER_COPYRIGHT = (
     '''// Copyright 2016 The Gemmlowp Authors. All Rights Reserved.
@@ -71,7 +72,7 @@ class StreamGenerator(object):
     self.emitter = emitter
 
   def SpecializeStream(self, in_type, lanes_count, pack_size, leftovers):
-    if callable(getattr(self, 'EmitPack', None)):
+    if isinstance(getattr(self, 'EmitPack', None), collections.Callable):
       template_params = [in_type, lanes_count, pack_size, leftovers, self.name]
       self.emitter.EmitMemberFunctionBegin(
           'Stream', [], template_params, 'Pack',
