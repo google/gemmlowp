@@ -52,16 +52,16 @@ class CCEmitter(object):
     self.indent = self.indent[:-2]
 
   def EmitIndented(self, what):
-    print self.indent + what
+    print(self.indent + what)
 
   def EmitNewline(self):
-    print ''
+    print('')
 
   def EmitPreprocessor1(self, op, param):
-    print '#%s %s' % (op, param)
+    print('#%s %s' % (op, param))
 
   def EmitPreprocessor(self, op):
-    print '#%s' % op
+    print('#%s' % op)
 
   def EmitInclude(self, include):
     self.EmitPreprocessor1('include', include)
