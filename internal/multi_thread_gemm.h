@@ -372,25 +372,38 @@ class WorkersPool {
     }
   }
 
-  void Execute(const std::vector<Task*>& tasks) {
-    assert(tasks.size() >= 1);
+  // Just executes the tasks. Does not destroy them. Similar to
+  // ruy::ThreadPool::Execute.
+  void Execute(int tasks_count, Task** tasks_ptrs) {
+    assert(tasks_count >= 1);
     // One of the tasks will be run on the current thread.
-    std::size_t workers_count = tasks.size() - 1;
+    std::size_t workers_count = tasks_count - 1;
     CreateWorkers(workers_count);
     assert(workers_count <= workers_.size());
     counter_to_decrement_when_ready_.Reset(workers_count);
     int n = 0;
-    std::for_each(tasks.begin(), --tasks.end(),
-                  [this, &n](Task* task) { workers_[n++]->StartWork(task); });
+    for (int i = 0; i < tasks_count - 1; i++) {
+      workers_[i]->StartWork(tasks_ptrs[i]);
+    }
     // Execute the remaining workload immediately on the current thread.
-    Task* task = tasks.back();
+    Task* task = tasks_ptrs[tasks_count - 1];
     task->local_allocator = &main_thread_task_allocator_;
     task->Run();
     // Wait for the workers submitted above to finish.
     counter_to_decrement_when_ready_.Wait();
+  }
+
+  // Legacy: executes the tasks and destroys them
+  void LegacyExecuteAndDestroyTasks(const std::vector<Task*>& tasks) {
+    Execute(tasks.size(), const_cast<Task**>(tasks.data()));
     // Cleanup tasks (best to do this from the same thread that allocated
     // the memory).
     std::for_each(tasks.begin(), tasks.end(), [](Task* task) { delete task; });
+  }
+
+  // Legacy old name of LegacyExecuteAndDestroyTasks
+  void Execute(const std::vector<Task*>& tasks) {
+    LegacyExecuteAndDestroyTasks(tasks);
   }
 
  private:
