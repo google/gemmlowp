@@ -374,7 +374,8 @@ class WorkersPool {
 
   // Just executes the tasks. Does not destroy them. Similar to
   // ruy::ThreadPool::Execute.
-  void Execute(int tasks_count, Task** tasks_ptrs) {
+  template <typename TaskType>
+  void Execute(int tasks_count, TaskType* tasks) {
     assert(tasks_count >= 1);
     // One of the tasks will be run on the current thread.
     std::size_t workers_count = tasks_count - 1;
@@ -382,10 +383,10 @@ class WorkersPool {
     assert(workers_count <= workers_.size());
     counter_to_decrement_when_ready_.Reset(workers_count);
     for (int i = 0; i < tasks_count - 1; i++) {
-      workers_[i]->StartWork(tasks_ptrs[i]);
+      workers_[i]->StartWork(&tasks[i]);
     }
     // Execute the remaining workload immediately on the current thread.
-    Task* task = tasks_ptrs[tasks_count - 1];
+    Task* task = &tasks[tasks_count - 1];
     task->local_allocator = &main_thread_task_allocator_;
     task->Run();
     // Wait for the workers submitted above to finish.
@@ -394,7 +395,22 @@ class WorkersPool {
 
   // Legacy: executes the tasks and destroys them
   void LegacyExecuteAndDestroyTasks(const std::vector<Task*>& tasks) {
-    Execute(tasks.size(), const_cast<Task**>(tasks.data()));
+    std::size_t tasks_count = tasks.size();
+    assert(tasks_count >= 1);
+    // One of the tasks will be run on the current thread.
+    std::size_t workers_count = tasks_count - 1;
+    CreateWorkers(workers_count);
+    assert(workers_count <= workers_.size());
+    counter_to_decrement_when_ready_.Reset(workers_count);
+    for (int i = 0; i < tasks_count - 1; i++) {
+      workers_[i]->StartWork(tasks[i]);
+    }
+    // Execute the remaining workload immediately on the current thread.
+    Task* task = tasks[tasks_count - 1];
+    task->local_allocator = &main_thread_task_allocator_;
+    task->Run();
+    // Wait for the workers submitted above to finish.
+    counter_to_decrement_when_ready_.Wait();
     // Cleanup tasks (best to do this from the same thread that allocated
     // the memory).
     std::for_each(tasks.begin(), tasks.end(), [](Task* task) { delete task; });
@@ -674,7 +690,12 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
     PackRhs(&packed_rhs, rhs.block(0, c, depth, cs));
 
     // Give work to each worker.
-    std::vector<Task*> tasks;
+    typedef GemmWithPackedRhsTask<KernelFormat, InputScalar, OutputScalar,
+                                  BitDepthParams, LhsOrder, RhsOrder,
+                                  ResultOrder, LhsOffset, RhsOffset,
+                                  OutputPipelineType, GemmContextType>
+        TaskType;
+    std::vector<TaskType> tasks;
     int next_start_row = 0;
     for (int n = 0; n < task_count; ++n) {
       int start_row = next_start_row;
@@ -683,18 +704,12 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
 
       int block_rows = next_start_row - start_row;
       auto lhs_block = lhs.block(start_row, 0, block_rows, depth);
-      typedef GemmWithPackedRhsTask<KernelFormat, InputScalar, OutputScalar,
-                                    BitDepthParams, LhsOrder, RhsOrder,
-                                    ResultOrder, LhsOffset, RhsOffset,
-                                    OutputPipelineType, GemmContextType>
-          TaskType;
-      tasks.push_back(
-          new TaskType(context, kernel, lhs_block, packed_rhs, result,
-                       MatrixBlockBounds(start_row, c, block_rows, cs),
-                       lhs_offset, rhs_offset, block_params, output_pipeline));
+      tasks.emplace_back(context, kernel, lhs_block, packed_rhs, result,
+                         MatrixBlockBounds(start_row, c, block_rows, cs),
+                         lhs_offset, rhs_offset, block_params, output_pipeline);
     }
     // Execute the work on the workers (and partially on this thread).
-    workers_pool->Execute(tasks);
+    workers_pool->Execute(tasks.size(), tasks.data());
   }
 
   allocator->Decommit();
