@@ -690,12 +690,7 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
     PackRhs(&packed_rhs, rhs.block(0, c, depth, cs));
 
     // Give work to each worker.
-    typedef GemmWithPackedRhsTask<KernelFormat, InputScalar, OutputScalar,
-                                  BitDepthParams, LhsOrder, RhsOrder,
-                                  ResultOrder, LhsOffset, RhsOffset,
-                                  OutputPipelineType, GemmContextType>
-        TaskType;
-    std::vector<TaskType> tasks;
+    std::vector<Task*> tasks;
     int next_start_row = 0;
     for (int n = 0; n < task_count; ++n) {
       int start_row = next_start_row;
@@ -704,12 +699,18 @@ void MultiThreadGemm(GemmContextType* context, const KernelBase& kernel,
 
       int block_rows = next_start_row - start_row;
       auto lhs_block = lhs.block(start_row, 0, block_rows, depth);
-      tasks.emplace_back(context, kernel, lhs_block, packed_rhs, result,
-                         MatrixBlockBounds(start_row, c, block_rows, cs),
-                         lhs_offset, rhs_offset, block_params, output_pipeline);
+      typedef GemmWithPackedRhsTask<KernelFormat, InputScalar, OutputScalar,
+                                    BitDepthParams, LhsOrder, RhsOrder,
+                                    ResultOrder, LhsOffset, RhsOffset,
+                                    OutputPipelineType, GemmContextType>
+          TaskType;
+      tasks.push_back(
+          new TaskType(context, kernel, lhs_block, packed_rhs, result,
+                       MatrixBlockBounds(start_row, c, block_rows, cs),
+                       lhs_offset, rhs_offset, block_params, output_pipeline));
     }
     // Execute the work on the workers (and partially on this thread).
-    workers_pool->Execute(tasks.size(), tasks.data());
+    workers_pool->Execute(tasks);
   }
 
   allocator->Decommit();
