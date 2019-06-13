@@ -108,7 +108,7 @@ struct ScopedLock {
 // contains pointers to literal strings that were manually entered
 // in the instrumented code (see ScopedProfilingLabel).
 struct ProfilingStack {
-  static const std::size_t kMaxSize = 14;
+  static const std::size_t kMaxSize = 30;
   typedef const char* LabelsArrayType[kMaxSize];
   LabelsArrayType labels;
   std::size_t size;
