@@ -17,7 +17,7 @@
 #ifndef GEMMLOWP_INTERNAL_FIXEDPOINT_AVX_H_
 #define GEMMLOWP_INTERNAL_FIXEDPOINT_AVX_H_
 
-#include <smmintrin.h>
+#include <immintrin.h>
 #include "fixedpoint.h"
 #include "fixedpoint_sse.h"
 
