@@ -535,6 +535,27 @@ struct StoreFinalOutputImpl<RegBlockUint8<8, 8>, DstType> {
   }
 };
 
+// Specialization for MatrixMap, for performance.
+template <typename tScalar, MapOrder tOrder>
+struct StoreFinalOutputImpl<RegBlockUint8<8, 8>, MatrixMap<tScalar, tOrder>> {
+  static void Run(const RegBlockUint8<8, 8>& src,
+                  MatrixMap<tScalar, tOrder>* dst, int row, int col) {
+    std::uint8_t buf[64];
+    StoreUint8x16(buf, src.buf.reg[0]);
+    StoreUint8x16(buf + 16, src.buf.reg[1]);
+    StoreUint8x16(buf + 32, src.buf.reg[2]);
+    StoreUint8x16(buf + 48, src.buf.reg[3]);
+    // Make a local copy so that the compiler can prove that data_ does not
+    // alias &data_ or &stride_.
+    MatrixMap<tScalar, tOrder> local = *dst;
+    for (int c = 0; c < 8; c++) {
+      for (int r = 0; r < 8; r++) {
+        *local.data(row + r, col + c) = buf[r + 8 * c];
+      }
+    }
+  }
+};
+
 }  // namespace gemmlowp
 
 #endif  // GEMMLOWP_INTERNAL_OUTPUT_SSE_H_
