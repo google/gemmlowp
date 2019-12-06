@@ -770,7 +770,7 @@ FixedPoint<tRawType, 0> exp_on_negative_values(
   // Constants below are Q0 representations of negative exp fractionals:
   GEMMLOWP_EXP_BARREL_SHIFTER(-2, 1672461947);  // exp(-1/4)
   GEMMLOWP_EXP_BARREL_SHIFTER(-1, 1302514674);  // exp(-1/2)
-  GEMMLOWP_EXP_BARREL_SHIFTER(+1, 790015084);   // exp(-1)
+  GEMMLOWP_EXP_BARREL_SHIFTER(+0, 790015084);   // exp(-1)
   GEMMLOWP_EXP_BARREL_SHIFTER(+1, 290630308);   // exp(-2)
   GEMMLOWP_EXP_BARREL_SHIFTER(+2, 39332535);    // exp(-4)
   GEMMLOWP_EXP_BARREL_SHIFTER(+3, 720401);      // exp(-8)
