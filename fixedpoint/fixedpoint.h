@@ -95,12 +95,13 @@ tIntegerType Add(tIntegerType a, tIntegerType b) {
   return a + b;
 }
 
-// Integer subtraction. Not saturating. Overflow is undefined behavior.
+// Integer multiplication. Not saturating. Overflow is undefined behavior.
 template <typename tIntegerType>
 tIntegerType Mul(tIntegerType a, tIntegerType b) {
   return a * b;
 }
 
+// Integer subtraction. Not saturating. Overflow is undefined behavior.
 template <typename tIntegerType>
 tIntegerType Sub(tIntegerType a, tIntegerType b) {
   return a - b;
