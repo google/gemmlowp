@@ -269,6 +269,16 @@ inline std::int16_t SaturatingAdd(std::int16_t a, std::int16_t b) {
                std::max(static_cast<std::int32_t>(-32768), sum)));
 }
 
+template <>
+inline std::int8_t SaturatingAdd(std::int8_t a, std::int8_t b) {
+  std::int16_t a16 = a;
+  std::int16_t b16 = b;
+  std::int16_t sum = a16 + b16;
+  return static_cast<std::int8_t>(std::min(
+      static_cast<int16_t>(std::numeric_limits<int8_t>::max()),
+      std::max(static_cast<int16_t>(std::numeric_limits<int8_t>::min()), sum)));
+}
+
 // Returns a+b, saturating if the integers are 16bit or narrower,
 // otherwise just a plain addition.
 template <typename IntegerType, bool Is16Bit>
