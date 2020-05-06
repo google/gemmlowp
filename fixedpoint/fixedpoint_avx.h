@@ -23,10 +23,30 @@
 
 namespace gemmlowp {
 
+struct int16x16_m256i {
+  __m256i v;
+};
+
+// Keep int16x16_m256i trivially constructible/destructible and provide
+// easily optimized helper function.
+inline int16x16_m256i to_int16x16_m256i(__m256i w) {
+  int16x16_m256i r;
+  r.v = w;
+  return r;
+}
+
 template <>
 struct FixedPointRawTypeTraits<__m256i> {
   typedef std::int32_t ScalarRawType;
+  // TODO: This can actually support up to 8 lanes, so we should either
+  // change to 8 or create int32x8_m256i struct to handle that case.
   static const int kLanes = 4;
+};
+
+template <>
+struct FixedPointRawTypeTraits<int16x16_m256i> {
+  typedef std::int16_t ScalarRawType;
+  static const int kLanes = 16;
 };
 
 template <>
@@ -35,8 +55,18 @@ inline __m256i BitAnd(__m256i a, __m256i b) {
 }
 
 template <>
+inline int16x16_m256i BitAnd(int16x16_m256i a, int16x16_m256i b) {
+  return to_int16x16_m256i(_mm256_and_si256(a.v, b.v));
+}
+
+template <>
 inline __m256i BitOr(__m256i a, __m256i b) {
   return _mm256_or_si256(a, b);
+}
+
+template <>
+inline int16x16_m256i BitOr(int16x16_m256i a, int16x16_m256i b) {
+  return to_int16x16_m256i(_mm256_or_si256(a.v, b.v));
 }
 
 template <>
@@ -45,8 +75,18 @@ inline __m256i BitXor(__m256i a, __m256i b) {
 }
 
 template <>
+inline int16x16_m256i BitXor(int16x16_m256i a, int16x16_m256i b) {
+  return to_int16x16_m256i(_mm256_xor_si256(a.v, b.v));
+}
+
+template <>
 inline __m256i BitNot(__m256i a) {
   return _mm256_andnot_si256(a, _mm256_set1_epi32(-1));
+}
+
+template <>
+inline int16x16_m256i BitNot(int16x16_m256i a) {
+  return to_int16x16_m256i(_mm256_andnot_si256(a.v, _mm256_set1_epi16(-1)));
 }
 
 template <>
@@ -55,8 +95,18 @@ inline __m256i Add(__m256i a, __m256i b) {
 }
 
 template <>
+inline int16x16_m256i Add(int16x16_m256i a, int16x16_m256i b) {
+  return to_int16x16_m256i(_mm256_add_epi16(a.v, b.v));
+}
+
+template <>
 inline __m256i Mul(__m256i a, __m256i b) {
   return _mm256_mullo_epi32(a, b);
+}
+
+template <>
+inline int16x16_m256i Mul(int16x16_m256i a, int16x16_m256i b) {
+  return to_int16x16_m256i(_mm256_mullo_epi16(a.v, b.v));
 }
 
 template <>
@@ -65,8 +115,18 @@ inline __m256i Sub(__m256i a, __m256i b) {
 }
 
 template <>
+inline int16x16_m256i Sub(int16x16_m256i a, int16x16_m256i b) {
+  return to_int16x16_m256i(_mm256_sub_epi16(a.v, b.v));
+}
+
+template <>
 inline __m256i Neg(__m256i a) {
   return _mm256_sign_epi32(a, _mm256_set1_epi32(-1));
+}
+
+template <>
+inline int16x16_m256i Neg(int16x16_m256i a) {
+  return to_int16x16_m256i(_mm256_sign_epi16(a.v, _mm256_set1_epi16(-1)));
 }
 
 template <>
@@ -75,8 +135,18 @@ inline __m256i ShiftLeft(__m256i a, int offset) {
 }
 
 template <>
+inline int16x16_m256i ShiftLeft(int16x16_m256i a, int offset) {
+  return to_int16x16_m256i(_mm256_slli_epi16(a.v, offset));
+}
+
+template <>
 inline __m256i ShiftRight(__m256i a, int offset) {
   return _mm256_srai_epi32(a, offset);
+}
+
+template <>
+inline int16x16_m256i ShiftRight(int16x16_m256i a, int offset) {
+  return to_int16x16_m256i(_mm256_srai_epi16(a.v, offset));
 }
 
 template <>
@@ -88,12 +158,32 @@ inline __m256i SelectUsingMask(__m256i if_mask, __m256i then_val,
 }
 
 template <>
+inline int16x16_m256i SelectUsingMask(int16x16_m256i if_mask,
+                                      int16x16_m256i then_val,
+                                      int16x16_m256i else_val) {
+  // Borrowed from Intel's arm_neon_sse.h header.
+  return to_int16x16_m256i(
+      _mm256_or_si256(_mm256_and_si256(if_mask.v, then_val.v),
+                      _mm256_andnot_si256(if_mask.v, else_val.v)));
+}
+
+template <>
 inline __m256i MaskIfEqual(__m256i a, __m256i b) {
   return _mm256_cmpeq_epi32(a, b);
 }
 
 template <>
+inline int16x16_m256i MaskIfEqual(int16x16_m256i a, int16x16_m256i b) {
+  return to_int16x16_m256i(_mm256_cmpeq_epi16(a.v, b.v));
+}
+
+template <>
 inline __m256i MaskIfNotEqual(__m256i a, __m256i b) {
+  return BitNot(MaskIfEqual(a, b));
+}
+
+template <>
+inline int16x16_m256i MaskIfNotEqual(int16x16_m256i a, int16x16_m256i b) {
   return BitNot(MaskIfEqual(a, b));
 }
 
@@ -103,8 +193,18 @@ inline __m256i MaskIfZero(__m256i a) {
 }
 
 template <>
+inline int16x16_m256i MaskIfZero(int16x16_m256i a) {
+  return MaskIfEqual(a, to_int16x16_m256i(_mm256_set1_epi16(0)));
+}
+
+template <>
 inline __m256i MaskIfNonZero(__m256i a) {
   return MaskIfNotEqual(a, _mm256_set1_epi32(0));
+}
+
+template <>
+inline int16x16_m256i MaskIfNonZero(int16x16_m256i a) {
+  return MaskIfNotEqual(a, to_int16x16_m256i(_mm256_set1_epi16(0)));
 }
 
 template <>
@@ -113,8 +213,18 @@ inline __m256i MaskIfGreaterThan(__m256i a, __m256i b) {
 }
 
 template <>
+inline int16x16_m256i MaskIfGreaterThan(int16x16_m256i a, int16x16_m256i b) {
+  return to_int16x16_m256i(_mm256_cmpgt_epi16(a.v, b.v));
+}
+
+template <>
 inline __m256i MaskIfLessThan(__m256i a, __m256i b) {
   return _mm256_cmpgt_epi32(b, a);
+}
+
+template <>
+inline int16x16_m256i MaskIfLessThan(int16x16_m256i a, int16x16_m256i b) {
+  return to_int16x16_m256i(_mm256_cmpgt_epi16(b.v, a.v));
 }
 
 template <>
@@ -123,7 +233,19 @@ inline __m256i MaskIfGreaterThanOrEqual(__m256i a, __m256i b) {
 }
 
 template <>
+inline int16x16_m256i MaskIfGreaterThanOrEqual(int16x16_m256i a,
+                                               int16x16_m256i b) {
+  return BitNot(MaskIfLessThan(a, b));
+}
+
+template <>
 inline __m256i MaskIfLessThanOrEqual(__m256i a, __m256i b) {
+  return BitNot(MaskIfGreaterThan(a, b));
+}
+
+template <>
+inline int16x16_m256i MaskIfLessThanOrEqual(int16x16_m256i a,
+                                            int16x16_m256i b) {
   return BitNot(MaskIfGreaterThan(a, b));
 }
 
@@ -139,8 +261,18 @@ inline bool All(__m256i a) {
 }
 
 template <>
+inline bool All(int16x16_m256i a) {
+  return _mm256_testc_si256(a.v, a.v);
+}
+
+template <>
 inline bool Any(__m256i a) {
   return BitNot(_mm256_testz_si256(a, a));
+}
+
+template <>
+inline bool Any(int16x16_m256i a) {
+  return BitNot(_mm256_testz_si256(a.v, a.v));
 }
 
 template <>
@@ -168,6 +300,17 @@ inline __m256i RoundingHalfSum(__m256i a, __m256i b) {
              sign_bit_mask);
   result = BitXor(rounded_half_sum, overflow);
   return result;
+}
+
+template <>
+inline int16x16_m256i RoundingHalfSum(int16x16_m256i a, int16x16_m256i b) {
+  // Borrowed from Intel's arm_neon_sse.h header.
+  __m256i constant_neg_32768 = _mm256_set1_epi16(-32768);
+  __m256i a_unsigned = _mm256_sub_epi16(a.v, constant_neg_32768);
+  __m256i b_unsigned = _mm256_sub_epi16(b.v, constant_neg_32768);
+  __m256i avg_unsigned = _mm256_avg_epu16(a_unsigned, b_unsigned);
+  __m256i avg = _mm256_add_epi16(avg_unsigned, constant_neg_32768);
+  return to_int16x16_m256i(avg);
 }
 
 template <>
@@ -209,8 +352,31 @@ inline __m256i SaturatingRoundingDoublingHighMul(__m256i a, __m256i b) {
 }
 
 template <>
+inline int16x16_m256i SaturatingRoundingDoublingHighMul(int16x16_m256i a,
+                                                        int16x16_m256i b) {
+  // Use _mm256_mulhrs_epi16 then saturate with a bit-operation,
+  // borrowed from Intel's arm_neon_sse.h header.
+  __m256i result_unsaturated = _mm256_mulhrs_epi16(a.v, b.v);
+  __m256i saturation_mask =
+      _mm256_cmpeq_epi16(result_unsaturated, _mm256_set1_epi16(0x8000));
+  __m256i result = _mm256_xor_si256(result_unsaturated, saturation_mask);
+  return to_int16x16_m256i(result);
+}
+
+template <>
 inline __m256i Dup<__m256i>(std::int32_t x) {
   return _mm256_set1_epi32(x);
+}
+
+template <>
+inline int16x16_m256i Dup<int16x16_m256i>(std::int16_t x) {
+  return to_int16x16_m256i(_mm256_set1_epi16(x));
+}
+
+// So far this is only needed for int16.
+template <>
+inline int16x16_m256i SaturatingAdd(int16x16_m256i a, int16x16_m256i b) {
+  return to_int16x16_m256i(_mm256_adds_epi16(a.v, b.v));
 }
 
 }  // end namespace gemmlowp
