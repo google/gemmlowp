@@ -49,7 +49,7 @@ class Matrix : public MatrixMap<tScalar, tOrder> {
   typedef MatrixMap<tScalar, tOrder> Map;
   typedef MatrixMap<const tScalar, tOrder> ConstMap;
   typedef typename Map::Scalar Scalar;
-  static const MapOrder Order = tOrder;
+  static constexpr MapOrder Order = tOrder;
   using Map::kOrder;
   using Map::rows_;
   using Map::cols_;

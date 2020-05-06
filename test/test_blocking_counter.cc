@@ -78,7 +78,7 @@ class Thread {
     return nullptr;
   }
 
-  static const size_t max_stack_size_ = 256 * 1024;
+  static constexpr size_t max_stack_size_ = 256 * 1024;
   BlockingCounter* const blocking_counter_;
   const int number_of_times_to_decrement_;
   pthread_t thread_;

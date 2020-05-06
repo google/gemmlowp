@@ -74,7 +74,8 @@ struct TransposeImpl<MatrixMap<Scalar, Order>> {
 template <VectorShape Shape>
 struct TransposeImpl<OutputStageQuantizeDownInt32ToUint8ScalePC<Shape>> {
   typedef OutputStageQuantizeDownInt32ToUint8ScalePC<Shape> SrcType;
-  static const VectorShape TransposedShape = TransposeVectorShape<Shape>::Value;
+  static constexpr VectorShape TransposedShape =
+      TransposeVectorShape<Shape>::Value;
   typedef OutputStageQuantizeDownInt32ToUint8ScalePC<TransposedShape> DstType;
   static DstType Run(const SrcType& src) {
     DstType dst;
@@ -88,7 +89,8 @@ struct TransposeImpl<OutputStageQuantizeDownInt32ToUint8ScalePC<Shape>> {
 template <VectorShape Shape>
 struct TransposeImpl<OutputStageScaleInt32ByFixedPointAndExponentPC<Shape>> {
   typedef OutputStageScaleInt32ByFixedPointAndExponentPC<Shape> SrcType;
-  static const VectorShape TransposedShape = TransposeVectorShape<Shape>::Value;
+  static constexpr VectorShape TransposedShape =
+      TransposeVectorShape<Shape>::Value;
   typedef OutputStageScaleInt32ByFixedPointAndExponentPC<TransposedShape>
       DstType;
   static DstType Run(const SrcType& src) {

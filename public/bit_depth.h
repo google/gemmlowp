@@ -22,8 +22,8 @@ namespace gemmlowp {
 // The range of allowed values for an operand.
 template <int tMinValue, int tMaxValue>
 struct OperandRange {
-  static const int kMinValue = tMinValue;
-  static const int kMaxValue = tMaxValue;
+  static constexpr int kMinValue = tMinValue;
+  static constexpr int kMaxValue = tMaxValue;
   static_assert(kMinValue < kMaxValue, "");
 };
 

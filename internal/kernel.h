@@ -126,11 +126,11 @@ enum class CellOrder { DepthMajor, WidthMajor, Diagonal };
 // out in a cell. That is, a CellOrder together with actual dimensions.
 template <int tWidth, int tDepth, CellOrder tOrder = CellOrder::DepthMajor>
 struct CellFormat {
-  static const int kWidth = tWidth;
-  static const int kDepth = tDepth;
-  static const CellOrder kOrder = tOrder;
+  static constexpr int kWidth = tWidth;
+  static constexpr int kDepth = tDepth;
+  static constexpr CellOrder kOrder = tOrder;
 
-  static const int kSize = kWidth * kDepth;
+  static constexpr int kSize = kWidth * kDepth;
 };
 
 // KernelSideFormat describes how data is laid out in a kernel side
@@ -142,9 +142,9 @@ struct CellFormat {
 template <typename tCellFormat, int tCells>
 struct KernelSideFormat {
   typedef tCellFormat Cell;
-  static const int kCells = tCells;
-  static const int kWidth = kCells * Cell::kWidth;
-  static const int kDepth = Cell::kDepth;
+  static constexpr int kCells = tCells;
+  static constexpr int kWidth = kCells * Cell::kWidth;
+  static constexpr int kDepth = Cell::kDepth;
   typedef std::uint8_t Scalar;       // The scalar type of the Format.
   typedef std::uint8_t InputScalar;  // The scalar type of the original input.
 };
@@ -173,9 +173,9 @@ struct KernelFormat {
   typedef tRhs Rhs;
 
   static_assert(Lhs::Cell::kDepth == Rhs::Cell::kDepth, "");
-  static const int kDepth = Lhs::Cell::kDepth;
-  static const int kRows = Lhs::Cell::kWidth * Lhs::kCells;
-  static const int kCols = Rhs::Cell::kWidth * Rhs::kCells;
+  static constexpr int kDepth = Lhs::Cell::kDepth;
+  static constexpr int kRows = Lhs::Cell::kWidth * Lhs::kCells;
+  static constexpr int kCols = Rhs::Cell::kWidth * Rhs::kCells;
 };
 
 inline const char* CellOrderName(CellOrder o) {

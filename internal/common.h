@@ -165,7 +165,7 @@ Integer RoundUpToPowerOfTwo(Integer n) {
 
 template <int N>
 struct IsPowerOfTwo {
-  static const bool value = !(N & (N - 1));
+  static constexpr bool value = !(N & (N - 1));
 };
 
 template <typename T>

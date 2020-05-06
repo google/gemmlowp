@@ -41,11 +41,11 @@ class PackingRegisterBlock<
  public:
   typedef WidthMajorSideFormatNCells4x2<Cells> KernelSideFormat;
   typedef typename KernelSideFormat::Cell CellFormat;
-  static const int kCells = KernelSideFormat::kCells;
-  static const int kCellWidth = CellFormat::kWidth;
-  static const int kKernelWidth = CellFormat::kWidth * kCells;
-  static const int kCellDepth = CellFormat::kDepth;
-  static const int kCellSize = CellFormat::kSize;
+  static constexpr int kCells = KernelSideFormat::kCells;
+  static constexpr int kCellWidth = CellFormat::kWidth;
+  static constexpr int kKernelWidth = CellFormat::kWidth * kCells;
+  static constexpr int kCellDepth = CellFormat::kDepth;
+  static constexpr int kCellSize = CellFormat::kSize;
 
   void Pack(PackedSideBlock<KernelSideFormat>* dst, int start_width) {
     std::uint8_t* dst_ptr = dst->current_data();

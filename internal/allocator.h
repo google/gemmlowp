@@ -86,11 +86,11 @@ class Allocator {
   }
 
   // Alignment of allocated blocks.
-  static const std::size_t kAlignment = kDefaultCacheLineSize;
+  static constexpr std::size_t kAlignment = kDefaultCacheLineSize;
 
   // This is all we need so far, and since the usage pattern is fixed,
   // there is no point in allowing more until we need to.
-  static const std::size_t kMaxBlocks = 5;
+  static constexpr std::size_t kMaxBlocks = 5;
 
   void Commit() {
     assert(!committed_);

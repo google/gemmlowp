@@ -143,7 +143,7 @@ template <typename tScalar, SideMapOrder tOrder>
 class SideMap {
  public:
   typedef tScalar Scalar;
-  static const SideMapOrder kOrder = tOrder;
+  static constexpr SideMapOrder kOrder = tOrder;
 
   SideMap(Scalar* data, int width, int depth, int stride)
       : data_(data), width_(width), depth_(depth), stride_(stride) {}
@@ -214,13 +214,13 @@ class PackingRegisterBlockBase {
   typedef typename KernelSideFormat::Cell CellFormat;
   typedef typename KernelSideFormat::InputScalar KernelInputScalar;
   typedef typename KernelSideFormat::Scalar KernelScalar;
-  static const int kCells = KernelSideFormat::kCells;
-  static const int kCellWidth = CellFormat::kWidth;
-  static const int kKernelWidth = CellFormat::kWidth * kCells;
-  static const int kCellDepth = CellFormat::kDepth;
-  static const int kCellSize = CellFormat::kSize;
-  static const SideMapOrder kSrcOrder = SrcMapType::kOrder;
-  static const int kZeroPointInputValue =
+  static constexpr int kCells = KernelSideFormat::kCells;
+  static constexpr int kCellWidth = CellFormat::kWidth;
+  static constexpr int kKernelWidth = CellFormat::kWidth * kCells;
+  static constexpr int kCellDepth = CellFormat::kDepth;
+  static constexpr int kCellSize = CellFormat::kSize;
+  static constexpr SideMapOrder kSrcOrder = SrcMapType::kOrder;
+  static constexpr int kZeroPointInputValue =
       ZeroPointInputValue<KernelInputScalar, KernelScalar>::kValue;
 
   PackingRegisterBlockBase() : complete_src_(nullptr, 0, 0, 0) {}
@@ -302,10 +302,10 @@ class PackSideBlockImpl {
  public:
   typedef typename PackedSideBlock::KernelSideFormat KernelSideFormat;
   typedef typename KernelSideFormat::Cell CellFormat;
-  static const int kCells = KernelSideFormat::kCells;
-  static const int kCellWidth = CellFormat::kWidth;
-  static const int kKernelWidth = CellFormat::kWidth * kCells;
-  static const int kCellDepth = CellFormat::kDepth;
+  static constexpr int kCells = KernelSideFormat::kCells;
+  static constexpr int kCellWidth = CellFormat::kWidth;
+  static constexpr int kKernelWidth = CellFormat::kWidth * kCells;
+  static constexpr int kCellDepth = CellFormat::kDepth;
 
   typedef PackingRegisterBlock<SrcMapType, PackedSideBlock>
       PackingRegisterBlockType;
