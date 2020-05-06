@@ -17,14 +17,14 @@
 #define GEMMLOWP_ENABLE_FIXEDPOINT_CONSTANTS_CHECKS
 
 #include <algorithm>
+#include <cinttypes>
 #include <cmath>
 #include <cstdio>
-#include <cinttypes>
 #include <random>
 #include <vector>
-#include "test.h"
 
 #include "../fixedpoint/fixedpoint.h"
+#include "test.h"
 
 namespace gemmlowp {
 
@@ -67,7 +67,8 @@ void Store<__m128i>(std::int32_t* dst, __m128i v) {
 }
 template <>
 int16x8_m128i Load<int16x8_m128i>(const std::int16_t* src) {
-  return int16x8_m128i(_mm_loadu_si128(reinterpret_cast<const __m128i*>(src)));
+  return to_int16x8_m128i(
+      _mm_loadu_si128(reinterpret_cast<const __m128i*>(src)));
 }
 template <>
 void Store<int16x8_m128i>(std::int16_t* dst, int16x8_m128i v) {
@@ -90,6 +91,29 @@ void Store<v4i32>(std::int32_t* dst, v4i32 v) {
 template <>
 void Store<v8i16>(std::int16_t* dst, v8i16 v) {
   __builtin_msa_st_h(v, dst, 0);
+}
+#endif
+
+#ifdef GEMMLOWP_AVX2
+template <>
+__m256i Load<__m256i>(const std::int32_t* src) {
+  return _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src));
+}
+
+template <>
+int16x16_m256i Load<int16x16_m256i>(const std::int16_t* src) {
+  return to_int16x16_m256i(
+      _mm256_loadu_si256(reinterpret_cast<const __m256i*>(src)));
+}
+
+template <>
+void Store<__m256i>(std::int32_t* dst, __m256i v) {
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst), v);
+}
+
+template <>
+void Store<int16x16_m256i>(std::int16_t* dst, int16x16_m256i v) {
+  _mm256_storeu_si256(reinterpret_cast<__m256i*>(dst), v.v);
 }
 #endif
 
@@ -570,5 +594,10 @@ int main() {
 #ifdef GEMMLOWP_MSA
   gemmlowp::TestFixedPoint<v4i32>().RunTests("MSA v4i32");
   gemmlowp::TestFixedPoint<v8i16>().RunTests("MSA v8i16");
+#endif
+#ifdef GEMMLOWP_AVX2
+  gemmlowp::TestFixedPoint<__m256i>().RunTests("AVX __m256i");
+  gemmlowp::TestFixedPoint<gemmlowp::int16x16_m256i>().RunTests(
+      "AVX2 __m256i = int16x16");
 #endif
 }
