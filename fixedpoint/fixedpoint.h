@@ -907,6 +907,8 @@ FixedPoint<tRawType, 0> logistic(FixedPoint<tRawType, tIntegerBits> a) {
 #include "./fixedpoint_sse.h"
 #elif defined(GEMMLOWP_MSA)
 #include "./fixedpoint_msa.h"
+#elif defined(GEMMLOWP_WASMSIMD)
+#include "./fixedpoint_wasmsimd.h"
 #endif
 
 #endif  // GEMMLOWP_INTERNAL_FIXEDPOINT_H_
