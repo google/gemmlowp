@@ -71,6 +71,11 @@
 #define GEMMLOWP_X86
 #endif
 
+// Detect WebAssembly SIMD.
+#if defined(__wasm_simd128__)
+#define GEMMLOWP_WASMSIMD
+#endif
+
 // Some of our optimized paths use inline assembly and for
 // now we don't bother enabling some other optimized paths using intrinddics
 // where we can't use inline assembly paths.
