@@ -93,7 +93,8 @@ class VectorMap {
  public:
   VectorMap() : data_(nullptr), size_(0) {}
   VectorMap(Scalar* data, int size) : data_(data), size_(size) {}
-  VectorMap(const VectorMap& other) : data_(other.data_), size_(other.size_) {}
+  VectorMap(const VectorMap& other) = default;
+  VectorMap& operator=(const VectorMap& other) = default;
 
   int size() const { return size_; }
   Scalar* data() const { return data_; }

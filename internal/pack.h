@@ -153,11 +153,8 @@ class SideMap {
     stride_ = kOrder == SideMapOrder::WidthMajor ? depth_ : width_;
   }
 
-  SideMap(const SideMap& other)
-      : data_(other.data_),
-        width_(other.width_),
-        depth_(other.depth_),
-        stride_(other.stride_) {}
+  SideMap(const SideMap& other) = default;
+  SideMap& operator=(const SideMap& other) = default;
 
   int width() const { return width_; }
   int depth() const { return depth_; }
