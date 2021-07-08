@@ -402,7 +402,7 @@ class WorkersPool {
     CreateWorkers(workers_count);
     assert(workers_count <= workers_.size());
     counter_to_decrement_when_ready_.Reset(workers_count);
-    for (int i = 0; i < tasks_count - 1; i++) {
+    for (size_t i = 0; i < tasks_count - 1; i++) {
       workers_[i]->StartWork(tasks[i]);
     }
     // Execute the remaining workload immediately on the current thread.
