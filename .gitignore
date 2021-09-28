@@ -9,3 +9,4 @@
 CMakeLists.txt
 /bazel-*
 cmake_build/
+cmake_install/

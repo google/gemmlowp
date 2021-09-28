@@ -1,26 +1,35 @@
-language: android
-
-os:
-  - linux
 
 sudo: false
 
-compiler:
-  - clang
+jobs:
+  include:
+    - stage: build
+      name: Android NDK
+      language: android
+      compiler: clang
+      os:
+        - linux
+      env:
+        - NDK_VERSION=r14b TEST=arm
+        - TEST=x86
+      android:
+        components:
+          - build-tools-22.0.1
+          - android-22
+          - ndk-bundle
+          - sys-img-armeabi-v7a-android-22
+      before_script:
+        - ./scripts/ci-before.sh
+      script:
+        - ./scripts/ci-test.sh
 
-env:
-  - NDK_VERSION=r14b TEST=arm
-  - TEST=x86
-
-script:
-  - ./scripts/ci-test.sh
-
-android:
-  components:
-    - build-tools-22.0.1
-    - android-22
-    - ndk-bundle
-    - sys-img-armeabi-v7a-android-22
-
-before_script:
-  - ./scripts/ci-before.sh
+    - name: Linux CMake(clang)
+      os: linux
+      dist: bionic
+      language: cpp
+      compiler: clang
+      script:
+        - cmake -S contrib -B cmake_build -DCMAKE_INSTALL_PREFIX=cmake_install
+        - cmake --build cmake_build
+        - cmake --build cmake_build --target install
+        - ctest --test-dir cmake_build --output-on-failure --output-junit TEST-${TRAVIS_COMMIT}.xml
