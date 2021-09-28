@@ -7,6 +7,9 @@ cmake_minimum_required(VERSION 3.7)
 # Project
 project(gemmlowp C CXX)
 
+include(CTest) # option(BUILD_TESTING). ON by default.
+include(GNUInstallDirs)
+
 # Set C++11 as default standard
 set(CMAKE_CXX_STANDARD 11)
 
@@ -52,40 +55,71 @@ else()
 endif()
 target_link_libraries(eight_bit_int_gemm ${EXTERNAL_LIBRARIES})
 
-# Benchmarks
-add_executable(benchmark
-    "${gemmlowp_src}/test/benchmark.cc" ${gemmlowp_test_headers})
-target_link_libraries(benchmark ${EXTERNAL_LIBRARIES})
+# INTERFACE target to help header include
+add_library(gemmlowp INTERFACE)
+target_include_directories(gemmlowp INTERFACE
+    $<BUILD_INTERFACE:${gemmlowp_src}>
+    $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}/gemmlowp>)
+target_link_libraries(gemmlowp INTERFACE eight_bit_int_gemm)
 
-add_executable(benchmark_all_sizes
-    "${gemmlowp_src}/test/benchmark_all_sizes.cc" ${gemmlowp_test_headers})
-target_compile_options(benchmark_all_sizes PRIVATE -DBENCHMARK_8bit -DBENCHMARK_QUICK)
-target_link_libraries(benchmark_all_sizes ${EXTERNAL_LIBRARIES})
+install(FILES ${eight_bit_int_gemm_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gemmlowp/eight_bit_int_gemm)
+file(GLOB meta_headers "${gemmlowp_src}/meta/*.h")
+install(FILES ${meta_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gemmlowp/meta)
+file(GLOB public_headers "${gemmlowp_src}/public/*.h")
+install(FILES ${public_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gemmlowp/public)
+file(GLOB profile_headers "${gemmlowp_src}/profiling/*.h")
+install(FILES ${profile_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gemmlowp/profiling)
+file(GLOB internal_headers "${gemmlowp_src}/internal/*.h")
+install(FILES ${internal_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gemmlowp/internal)
+file(GLOB fixedpoint_headers "${gemmlowp_src}/fixedpoint/*.h")
+install(FILES ${fixedpoint_headers} DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/gemmlowp/fixedpoint)
 
-# Gemmlowp test
-add_executable(test_gemmlowp
-    "${gemmlowp_src}/test/test.cc" "${gemmlowp_src}/test/test_data.cc" ${gemmlowp_test_headers})
-target_link_libraries(test_gemmlowp eight_bit_int_gemm)
+install(TARGETS gemmlowp eight_bit_int_gemm
+        EXPORT  gemmlowp-config # support find_package(gemmlowp CONFIG)
+        RUNTIME DESTINATION ${CMAKE_INSTALL_BINDIR}
+        LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+        ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR})
 
-# Math helpers test
-add_executable(test_math_helpers
-    "${gemmlowp_src}/test/test_math_helpers.cc" ${gemmlowp_test_headers})
+install(EXPORT  gemmlowp-config  # export gemmlowp::gemmlowp
+        NAMESPACE gemmlowp::     #        gemmlowp::eight_bit_int_gemm
+        DESTINATION ${CMAKE_INSTALL_LIBDIR}/cmake/gemmlowp)
 
-# BlockingCounter test
-add_executable(test_blocking_counter
-    "${gemmlowp_src}/test/test_blocking_counter.cc" ${gemmlowp_test_headers})
-target_link_libraries(test_blocking_counter ${EXTERNAL_LIBRARIES})
-
-# Allocator test
-add_executable(test_allocator
-    "${gemmlowp_src}/test/test_allocator.cc" ${gemmlowp_test_headers})
-
-# FixedPoint test
-add_executable(test_fixedpoint
-    "${gemmlowp_src}/test/test_fixedpoint.cc" ${gemmlowp_test_headers})
-
-# Add tests
-enable_testing()
-foreach(testname "test_math_helpers" "test_blocking_counter" "test_allocator" "test_fixedpoint" "test_gemmlowp")
-  add_test(NAME ${testname} COMMAND "${testname}")
-endforeach(testname)
+if(BUILD_TESTING)
+    # Benchmarks
+    add_executable(benchmark
+        "${gemmlowp_src}/test/benchmark.cc" ${gemmlowp_test_headers})
+    target_link_libraries(benchmark ${EXTERNAL_LIBRARIES})
+    
+    add_executable(benchmark_all_sizes
+        "${gemmlowp_src}/test/benchmark_all_sizes.cc" ${gemmlowp_test_headers})
+    target_compile_options(benchmark_all_sizes PRIVATE -DBENCHMARK_8bit -DBENCHMARK_QUICK)
+    target_link_libraries(benchmark_all_sizes ${EXTERNAL_LIBRARIES})
+    
+    # Gemmlowp test
+    add_executable(test_gemmlowp
+        "${gemmlowp_src}/test/test.cc" "${gemmlowp_src}/test/test_data.cc" ${gemmlowp_test_headers})
+    target_link_libraries(test_gemmlowp eight_bit_int_gemm)
+    
+    # Math helpers test
+    add_executable(test_math_helpers
+        "${gemmlowp_src}/test/test_math_helpers.cc" ${gemmlowp_test_headers})
+    
+    # BlockingCounter test
+    add_executable(test_blocking_counter
+        "${gemmlowp_src}/test/test_blocking_counter.cc" ${gemmlowp_test_headers})
+    target_link_libraries(test_blocking_counter ${EXTERNAL_LIBRARIES})
+    
+    # Allocator test
+    add_executable(test_allocator
+        "${gemmlowp_src}/test/test_allocator.cc" ${gemmlowp_test_headers})
+    
+    # FixedPoint test
+    add_executable(test_fixedpoint
+        "${gemmlowp_src}/test/test_fixedpoint.cc" ${gemmlowp_test_headers})
+    
+    # Add tests
+    enable_testing()
+    foreach(testname "test_math_helpers" "test_blocking_counter" "test_allocator" "test_fixedpoint" "test_gemmlowp")
+        add_test(NAME ${testname} COMMAND "${testname}")
+    endforeach(testname)
+endif()
