@@ -48,6 +48,7 @@ file(GLOB fixedpoint_private_headers "${gemmlowp_src}/fixedpoint/*.h")
 list(APPEND fixedpoint_private_headers "${gemmlowp_src}/internal/common.h")
 
 add_library(eight_bit_int_gemm ${eight_bit_int_gemm_sources_with_no_headers})
+set_target_properties(eight_bit_int_gemm PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
 target_link_libraries(eight_bit_int_gemm ${EXTERNAL_LIBRARIES})
 
 # INTERFACE target to help header include
