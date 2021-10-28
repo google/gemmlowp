@@ -47,12 +47,8 @@ list(APPEND gemmlowp_test_headers ${gemmlowp_headers})
 file(GLOB fixedpoint_private_headers "${gemmlowp_src}/fixedpoint/*.h")
 list(APPEND fixedpoint_private_headers "${gemmlowp_src}/internal/common.h")
 
-# Eight bit int gemm library
-if(WIN32)
-    add_library(eight_bit_int_gemm STATIC ${eight_bit_int_gemm_sources_with_no_headers})
-else()
-    add_library(eight_bit_int_gemm SHARED ${eight_bit_int_gemm_sources_with_no_headers})
-endif()
+add_library(eight_bit_int_gemm ${eight_bit_int_gemm_sources_with_no_headers})
+set_target_properties(eight_bit_int_gemm PROPERTIES WINDOWS_EXPORT_ALL_SYMBOLS ON)
 target_link_libraries(eight_bit_int_gemm ${EXTERNAL_LIBRARIES})
 
 # INTERFACE target to help header include
