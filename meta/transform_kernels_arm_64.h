@@ -43,6 +43,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 0>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       "1:"
@@ -71,10 +72,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 0>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -92,8 +97,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 0>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
@@ -116,6 +122,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 1>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -148,10 +155,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 1>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -175,7 +186,8 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 1>::Transform(
       "fmul v0.4s, v0.4s, v7.4s\n"
       "fadd v0.4s, v0.4s, v4.4s\n"
       "fmul v0.4s, v0.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtun v0.8b, v0.8h\n"
 
@@ -187,8 +199,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 1>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
@@ -211,6 +224,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 2>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -243,10 +257,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 2>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -270,7 +288,8 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 2>::Transform(
       "fmul v0.4s, v0.4s, v7.4s\n"
       "fadd v0.4s, v0.4s, v4.4s\n"
       "fmul v0.4s, v0.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtun v0.8b, v0.8h\n"
 
@@ -282,8 +301,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 2>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
@@ -306,6 +326,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 3>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -338,10 +359,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 3>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -366,7 +391,8 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 3>::Transform(
       "fmul v0.4s, v0.4s, v7.4s\n"
       "fadd v0.4s, v0.4s, v4.4s\n"
       "fmul v0.4s, v0.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtun v0.8b, v0.8h\n"
 
@@ -379,8 +405,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 3>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
@@ -403,6 +430,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 4>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -435,10 +463,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 4>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -462,7 +494,8 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 4>::Transform(
       "fmul v0.4s, v0.4s, v7.4s\n"
       "fadd v0.4s, v0.4s, v4.4s\n"
       "fmul v0.4s, v0.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtun v0.8b, v0.8h\n"
 
@@ -474,8 +507,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 4>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
@@ -498,6 +532,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 5>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -530,10 +565,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 5>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -563,8 +602,10 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 5>::Transform(
       "fadd v1.4s, v1.4s, v4.4s\n"
       "fmul v0.4s, v0.4s, v8.4s\n"
       "fmul v1.4s, v1.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtun v0.8b, v0.8h\n"
@@ -578,8 +619,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 5>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
@@ -602,6 +644,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 6>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -634,10 +677,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 6>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -667,8 +714,10 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 6>::Transform(
       "fadd v1.4s, v1.4s, v4.4s\n"
       "fmul v0.4s, v0.4s, v8.4s\n"
       "fmul v1.4s, v1.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtun v0.8b, v0.8h\n"
@@ -682,8 +731,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 6>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
@@ -706,6 +756,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 7>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -738,10 +789,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 7>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -772,8 +827,10 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 7>::Transform(
       "fadd v1.4s, v1.4s, v4.4s\n"
       "fmul v0.4s, v0.4s, v8.4s\n"
       "fmul v1.4s, v1.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtun v0.8b, v0.8h\n"
@@ -788,6 +845,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 7>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
       : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
 }
@@ -812,6 +870,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 8>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -844,10 +903,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 8>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -876,8 +939,10 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 8>::Transform(
       "fadd v1.4s, v1.4s, v4.4s\n"
       "fmul v0.4s, v0.4s, v8.4s\n"
       "fmul v1.4s, v1.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtun v0.8b, v0.8h\n"
@@ -890,8 +955,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 8>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
@@ -914,6 +980,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 9>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -946,10 +1013,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 9>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -984,9 +1055,12 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 9>::Transform(
       "fmul v0.4s, v0.4s, v8.4s\n"
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -1002,8 +1076,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 9>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
@@ -1026,6 +1101,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 10>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -1058,10 +1134,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 10>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -1096,9 +1176,12 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 10>::Transform(
       "fmul v0.4s, v0.4s, v8.4s\n"
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -1114,8 +1197,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 10>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
@@ -1138,6 +1222,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 11>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -1170,10 +1255,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 11>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -1209,9 +1298,12 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 11>::Transform(
       "fmul v0.4s, v0.4s, v8.4s\n"
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -1228,8 +1320,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 11>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
@@ -1252,6 +1345,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 12>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -1284,10 +1378,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 12>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -1321,9 +1419,12 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 12>::Transform(
       "fmul v0.4s, v0.4s, v8.4s\n"
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -1339,8 +1440,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 12>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
@@ -1363,6 +1465,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 13>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -1395,10 +1498,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 13>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -1438,10 +1545,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 13>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -1459,8 +1570,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 13>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
@@ -1483,6 +1595,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 14>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -1515,10 +1628,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 14>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -1558,10 +1675,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 14>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -1579,8 +1700,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 14>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
@@ -1603,6 +1725,7 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 15>::Transform(
       "dup v6.4s, %w[input_range_offset]\n"
       "dup v7.4s, %w[input_range_scale]\n"
       "dup v8.4s, %w[one_over_output_range_scale]\n"
+      "dup v9.4s, %w[output_range_offset]\n"
       "fsub v4.4s, v4.4s, v5.4s\n"
 
       // Reduce count by leftovers.
@@ -1635,10 +1758,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 15>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -1679,10 +1806,14 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 15>::Transform(
       "fmul v1.4s, v1.4s, v8.4s\n"
       "fmul v2.4s, v2.4s, v8.4s\n"
       "fmul v3.4s, v3.4s, v8.4s\n"
-      "fcvtzs v0.4s, v0.4s\n"
-      "fcvtzs v1.4s, v1.4s\n"
-      "fcvtzs v2.4s, v2.4s\n"
-      "fcvtzs v3.4s, v3.4s\n"
+      "fadd v0.4s, v0.4s, v9.4s\n"
+      "fadd v1.4s, v1.4s, v9.4s\n"
+      "fadd v2.4s, v2.4s, v9.4s\n"
+      "fadd v3.4s, v3.4s, v9.4s\n"
+      "fcvtns v0.4s, v0.4s\n"
+      "fcvtns v1.4s, v1.4s\n"
+      "fcvtns v2.4s, v2.4s\n"
+      "fcvtns v3.4s, v3.4s\n"
       "sqxtn v0.4h, v0.4s\n"
       "sqxtn2 v0.8h, v1.4s\n"
       "sqxtn v2.4h, v2.4s\n"
@@ -1701,8 +1832,9 @@ inline void Transform1DKernel<int32_t, uint8_t, Requantize, 16, 15>::Transform(
         [output_range_min] "r"(params.output_range_min),
         [input_range_offset] "r"(params.input_range_offset),
         [one_over_output_range_scale] "r"(params.one_over_output_range_scale),
+        [output_range_offset] "r"(params.output_range_offset),
         [input_range_scale] "r"(params.input_range_scale)
-      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "cc", "memory");
+      : "v0", "v1", "v2", "v3", "v4", "v5", "v6", "v7", "v8", "v9", "cc", "memory");
 }
 
 template <>
