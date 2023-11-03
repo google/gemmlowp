@@ -13,6 +13,9 @@ include(GNUInstallDirs)
 # Set C++11 as default standard
 set(CMAKE_CXX_STANDARD 11)
 
+set(THREADS_PREFER_PTHREAD_FLAG ON)
+find_package(Threads REQUIRED)
+
 get_filename_component(gemmlowp_src ${gemmlowp_SOURCE_DIR} PATH)
 
 if(WIN32)
@@ -24,7 +27,7 @@ if(WIN32)
     add_definitions(-DGEMMLOWP_ALLOW_INLINE_ASM)
   endif()
 else()
-  set(EXTERNAL_LIBRARIES "pthread")
+  set(EXTERNAL_LIBRARIES Threads::Threads)
 endif()
 
 # Glob header files
