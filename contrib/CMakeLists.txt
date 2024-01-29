@@ -21,7 +21,9 @@ get_filename_component(gemmlowp_src ${gemmlowp_SOURCE_DIR} PATH)
 if(WIN32)
   # one can enable simd from the cmake command line, ie -DCMAKE_CXX_FLAGS="/arch:AVX2
   add_definitions(-DNOMINMAX -DWIN64 -DWIN32_LEAN_AND_MEAN -DNOGDI)
-  add_definitions(/bigobj /nologo /EHsc /GF /MP /Gm- /wd4800 /wd4805 /wd4244)
+  if(MSVC)
+    add_definitions(/bigobj /nologo /EHsc /GF /MP /Gm- /wd4800 /wd4805 /wd4244)
+  endif()
   if (CMAKE_CXX_COMPILER_ID MATCHES "Clang")
     # if we compile for windows with clang, allow inline asm
     add_definitions(-DGEMMLOWP_ALLOW_INLINE_ASM)
