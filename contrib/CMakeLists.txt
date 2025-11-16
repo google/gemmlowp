@@ -2,7 +2,7 @@
 # Copyright © 2016 Zhou Mo <cdluminate@gmail.com>
 # Licence Apache-2.0
 
-cmake_minimum_required(VERSION 3.7)
+cmake_minimum_required(VERSION 3.10)
 
 # Project
 project(gemmlowp C CXX)
