@@ -527,7 +527,7 @@ class FixedPoint {
     const double min_bound = static_cast<double>(ScalarRawMin());
     const double max_bound = static_cast<double>(ScalarRawMax());
     return FromScalarRaw(static_cast<ScalarRawType>(std::min(
-        std::max(round(x * static_cast<double>(1ll << kFractionalBits)),
+        std::max(std::round(x * static_cast<double>(1ll << kFractionalBits)),
                  min_bound),
         max_bound)));
   }
