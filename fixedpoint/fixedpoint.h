@@ -23,6 +23,7 @@
 #include <cmath>
 #include <cstdint>
 #include <limits>
+#include <type_traits>
 
 #include "../internal/detect_platform.h"
 
@@ -107,10 +108,17 @@ tIntegerType Sub(tIntegerType a, tIntegerType b) {
   return a - b;
 }
 
-// Integer unary negative. Not saturating. Overflow is undefined behavior.
+// Integer unary negative. Not saturating. In case of overflow (negating the
+// most negative representable value), no Undefined Behavior: the result wraps
+// around (implementation-defined, in practice back to that same most negative
+// value). This mirrors the SIMD implementations of Neg (which negate in
+// hardware without UB) and the UB-avoidance policy documented on ShiftLeft
+// below. The negation is done through the unsigned counterpart type, where it
+// cannot overflow, then converted back.
 template <typename tIntegerType>
 tIntegerType Neg(tIntegerType a) {
-  return -a;
+  typedef typename std::make_unsigned<tIntegerType>::type UnsignedType;
+  return static_cast<tIntegerType>(-static_cast<UnsignedType>(a));
 }
 
 // Integer arithmetic left-shift, equivalent to multiplying with a power of two.
