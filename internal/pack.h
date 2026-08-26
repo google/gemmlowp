@@ -53,7 +53,8 @@ class PackedSideBlock {
       : allocator_(allocator), pos_(0) {
     GetSideBlockParams(side, &params_, block_params);
     data_handle_ =
-        allocator_->Reserve<std::uint8_t>(params_.l2_width * params_.l2_depth);
+        allocator_->Reserve<std::uint8_t>(
+            static_cast<std::size_t>(params_.l2_width) * params_.l2_depth);
     sums_of_each_slice_handle_ =
         allocator_->Reserve<std::int32_t>(params_.l2_width);
   }
