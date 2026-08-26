@@ -144,7 +144,7 @@ class Scratch {
  public:
   Scratch() : buffer_(), buffer_32_(nullptr), size_(0) {}
 
-  void AssureSize(std::int32_t required_size) {
+  void AssureSize(std::size_t required_size) {
     if (size_ >= required_size) {
       return;
     }
@@ -167,7 +167,7 @@ class Scratch {
  private:
   std::unique_ptr<std::uint8_t[]> buffer_;
   std::uint8_t* buffer_32_;
-  std::int32_t size_;
+  std::size_t size_;
 };
 
 Scratch* global_scratch = nullptr;
@@ -356,9 +356,11 @@ void EightBitIntGemm(bool transpose_a, bool transpose_b, bool transpose_c,
   // TODO(maciekc): implement a float output stage, get rid of scratch memory.
   Scratch* scratch = GetOrCreateGlobalScratch();
   if (transpose_c) {
-    scratch->AssureSize(m * ldc * sizeof(std::int32_t));
+    scratch->AssureSize(static_cast<std::size_t>(m) * ldc *
+                        sizeof(std::int32_t));
   } else {
-    scratch->AssureSize(n * ldc * sizeof(std::int32_t));
+    scratch->AssureSize(static_cast<std::size_t>(n) * ldc *
+                        sizeof(std::int32_t));
   }
   std::int32_t* temp_c = reinterpret_cast<std::int32_t*>(scratch->buffer());
 

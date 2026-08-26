@@ -31,8 +31,9 @@ class PackedResult {
  public:
   PackedResult(Allocator* _allocator, const BlockParams& _block_params)
       : allocator_(_allocator), block_params_(_block_params) {
-    matrix_handle_ = allocator_->Reserve<std::int32_t>(block_params_.l2_rows *
-                                                       block_params_.l2_cols);
+    matrix_handle_ = allocator_->Reserve<std::int32_t>(
+        static_cast<std::size_t>(block_params_.l2_rows) *
+        block_params_.l2_cols);
   }
 
   ~PackedResult() {}
